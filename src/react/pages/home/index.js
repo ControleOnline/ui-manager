@@ -33,20 +33,6 @@ export default function HomePage({navigation}) {
 
   const buttons = [
     {
-      id: '1',
-      title: 'Pedidos de Venda',
-      icon: 'managerping-cart',
-      backgroundColor: colors['primary'],
-      onPress: () => handleTo('SalesOrderIndex'),
-    },
-    {
-      id: '2',
-      title: 'Caixa',
-      icon: 'money',
-      backgroundColor: '#4682b4',
-      onPress: () => handleTo('CashRegisterIndex'),
-    },
-    {
       id: '3',
       title: 'Estoque',
       icon: 'archive',
