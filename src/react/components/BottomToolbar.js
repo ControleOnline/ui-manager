@@ -21,42 +21,9 @@ const BottomToolbar = ({navigation}) => {
   const [posType, setPosType] = useState(null);
   const localDevice = JSON.parse(localStorage.getItem('device') || '{}');
 
-  useFocusEffect(
-    useCallback(() => {
-      if (localDevice && isLogged && currentPageName != 'SettingsPage')
-        if (
-          device &&
-          device?.configs &&
-          Object.entries(device.configs).length > 0 &&
-          device.configs['config-version'] == localDevice.buildNumber
-        )
-          setPosType(device.configs['pos-type'] || 'full');
-        else
-          navigation.reset({
-            index: 0,
-            routes: [{name: 'SettingsPage'}],
-          });
-    }, [device, localDevice, isLogged]),
-  );
+ 
 
-  useFocusEffect(
-    useCallback(() => {
-      if (
-        device &&
-        device?.configs &&
-        Object.entries(device.configs).length > 0 &&
-        (device.configs['cash-wallet-closed-id'] == undefined ||
-          device.configs['cash-wallet-closed-id'] > 0) &&
-        isLogged &&
-        currentPageName != 'CloseCachRegister' &&
-        currentPageName != 'SettingsPage'
-      )
-        navigation.reset({
-          index: 0,
-          routes: [{name: 'CloseCachRegister'}],
-        });
-    }, [device, localDevice, isLogged]),
-  );
+ 
 
   const styles = StyleSheet.create({
     toolbar: {

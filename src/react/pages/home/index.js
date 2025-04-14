@@ -19,19 +19,25 @@ export default function HomePage({navigation}) {
   const {item: device} = deviceConfigGetters;
   const {colors} = getters;
   const {currentCompany} = peopleGetters;
-  const [posType, setPosType] = useState(null);
   const handleTo = to => {
     navigation.navigate(to);
   };
 
-  useFocusEffect(
-    useCallback(() => {
-      if (device?.configs && Object.keys(device.configs).length > 0)
-        setPosType(device.configs['pos-type'] || 'full');
-    }, [device]),
-  );
-
   const buttons = [
+    {
+      id: '1',
+      title: 'Faturamento',
+      icon: 'managerping-cart',
+      backgroundColor: colors['primary'],
+      onPress: () => handleTo('SalesOrderIndex'),
+    },
+    {
+      id: '2',
+      title: 'Caixa',
+      icon: 'money',
+      backgroundColor: '#4682b4',
+      onPress: () => handleTo('CashRegisterIndex'),
+    },
     {
       id: '3',
       title: 'Estoque',
@@ -57,7 +63,6 @@ export default function HomePage({navigation}) {
     </TouchableOpacity>
   );
   if (
-    !device.configs ||
     !currentCompany ||
     Object.entries(currentCompany).length === 0 ||
     !colors ||
