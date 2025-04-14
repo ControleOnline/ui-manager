@@ -3,6 +3,8 @@ import ManagerLayout from '@controleonline/ui-layout/src/react/layouts/ManagerLa
 import Profile from '@controleonline/ui-people/src/react/pages/Profile';
 import PurchasingSuggestion from '@controleonline/ui-orders/src/react/pages/orders/purchasing/Suggestion';
 import Inventory from '@controleonline/ui-orders/src/react/pages/inventory';
+import IncomeStatment from '@controleonline/ui-manager/src/react/pages/IncomeStatment';
+
 
 const WrappedHomePage = ({navigation}) => (
   <ManagerLayout navigation={navigation}>
@@ -21,6 +23,13 @@ const WrappedPurchasingSuggestion = ({navigation, route}) => (
     <PurchasingSuggestion navigation={navigation} route={route} />
   </ManagerLayout>
 );
+
+const WrappedIncomeStatment = ({navigation, route}) => (
+  <ManagerLayout navigation={navigation} route={route}>
+    <IncomeStatment navigation={navigation} route={route} />
+  </ManagerLayout>
+);
+
 
 const WrappedInventory = ({navigation, route}) => (
   <ManagerLayout navigation={navigation} route={route}>
@@ -47,7 +56,16 @@ const managerRoutes = [
     },
     initialParams: {store: 'auth'},
   },
-
+  {
+    name: 'IncomeStatment',
+    component: WrappedIncomeStatment,
+    options: {
+      headerShown: true,
+      title: 'Faturamento',
+      headerBackButtonMenuEnabled: false,
+    },
+    initialParams: {store: 'invoice'},
+  },
   {
     name: 'PurchasingSuggestion',
     component: WrappedPurchasingSuggestion,
