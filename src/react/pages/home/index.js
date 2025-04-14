@@ -27,16 +27,16 @@ export default function HomePage({navigation}) {
     {
       id: '1',
       title: 'Faturamento',
-      icon: 'managerping-cart',
+      icon: 'money',
       backgroundColor: colors['primary'],
-      onPress: () => handleTo('SalesOrderIndex'),
+      onPress: () => handleTo('IncomeStatment'),
     },
     {
       id: '2',
-      title: 'Caixa',
-      icon: 'money',
-      backgroundColor: '#4682b4',
-      onPress: () => handleTo('CashRegisterIndex'),
+      title: 'Compras',
+      icon: 'shopping-bag',
+      backgroundColor: '#4ca96b',
+      onPress: () => handleTo('PurchasingSuggestion'),
     },
     {
       id: '3',
@@ -47,10 +47,10 @@ export default function HomePage({navigation}) {
     },
     {
       id: '4',
-      title: 'Compras',
-      icon: 'managerping-bag',
-      backgroundColor: '#4ca96b',
-      onPress: () => handleTo('PurchasingSuggestion'),
+      title: 'Caixas',
+      icon: 'shopping-cart',
+      backgroundColor: '#4682b4',
+      onPress: () => handleTo('CashRegisterIndex'),
     },
   ];
 

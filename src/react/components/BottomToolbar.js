@@ -21,10 +21,6 @@ const BottomToolbar = ({navigation}) => {
   const [posType, setPosType] = useState(null);
   const localDevice = JSON.parse(localStorage.getItem('device') || '{}');
 
- 
-
- 
-
   const styles = StyleSheet.create({
     toolbar: {
       flexDirection: 'row',
@@ -53,34 +49,54 @@ const BottomToolbar = ({navigation}) => {
 
   return (
     <View style={styles.toolbar}>
-      {device?.configs && Object.entries(device.configs).length > 0 && (
-        <TouchableOpacity
-          style={styles.button}
-          disabled={
-            !currentCompany || Object.entries(currentCompany).length === 0
-          }
-          onPress={() => {
-            navigation.navigate('HomePage');
-          }}>
-          <Icon
-            name="home"
-            size={15}
-            color={activeTab === 'HomePage' ? '#007AFF' : '#666'}
-          />
-          <Text
-            style={[
-              styles.buttonText,
-              activeTab === 'HomePage' && styles.activeText,
-            ]}>
-            Home
-          </Text>
-        </TouchableOpacity>
-      )}
+      <TouchableOpacity
+        style={styles.button}
+        disabled={
+          !currentCompany || Object.entries(currentCompany).length === 0
+        }
+        onPress={() => {
+          navigation.navigate('HomePage');
+        }}>
+        <Icon
+          name="home"
+          size={15}
+          color={activeTab === 'HomePage' ? '#007AFF' : '#666'}
+        />
+        <Text
+          style={[
+            styles.buttonText,
+            activeTab === 'HomePage' && styles.activeText,
+          ]}>
+          Home
+        </Text>
+      </TouchableOpacity>
 
       <TouchableOpacity
         style={styles.button}
         onPress={() => {
-          navigation.navigate('SalesOrderIndex');
+          navigation.navigate('IncomeStatment');
+        }}
+        disabled={
+          !currentCompany || Object.entries(currentCompany).length === 0
+        }>
+        <Icon
+          name="dollar-sign"
+          size={15}
+          color={activeTab === 'IncomeStatment' ? '#007AFF' : '#666'}
+        />
+        <Text
+          style={[
+            styles.buttonText,
+            activeTab === 'IncomeStatment' && styles.activeText,
+          ]}>
+          Faturamento
+        </Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        style={styles.button}
+        onPress={() => {
+          navigation.navigate('PurchasingSuggestion');
         }}
         disabled={
           !currentCompany || Object.entries(currentCompany).length === 0
@@ -88,16 +104,17 @@ const BottomToolbar = ({navigation}) => {
         <Icon
           name="shopping-bag"
           size={15}
-          color={activeTab === 'SalesOrderIndex' ? '#007AFF' : '#666'}
+          color={activeTab === 'PurchasingSuggestion' ? '#007AFF' : '#666'}
         />
         <Text
           style={[
             styles.buttonText,
-            activeTab === 'SalesOrderIndex' && styles.activeText,
+            activeTab === 'PurchasingSuggestion' && styles.activeText,
           ]}>
-          Pedidos
+          Compras
         </Text>
       </TouchableOpacity>
+
       <TouchableOpacity
         style={styles.button}
         onPress={() => {
@@ -117,27 +134,6 @@ const BottomToolbar = ({navigation}) => {
             activeTab === 'ProfilePage' && styles.activeText,
           ]}>
           Perfil
-        </Text>
-      </TouchableOpacity>
-      <TouchableOpacity
-        style={styles.button}
-        onPress={() => {
-          navigation.navigate('SettingsPage');
-        }}
-        disabled={
-          !currentCompany || Object.entries(currentCompany).length === 0
-        }>
-        <Icon
-          name="settings"
-          size={15}
-          color={activeTab === 'SettingsPage' ? '#007AFF' : '#666'}
-        />
-        <Text
-          style={[
-            styles.buttonText,
-            activeTab === 'SettingsPage' && styles.activeText,
-          ]}>
-          Configurações
         </Text>
       </TouchableOpacity>
     </View>

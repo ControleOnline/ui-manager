@@ -1,11 +1,11 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet } from 'react-native';
-import { Picker } from '@react-native-picker/picker';
-import { getStore } from '@store';
+import React, {useEffect, useState} from 'react';
+import {View, Text, StyleSheet} from 'react-native';
+import {Picker} from '@react-native-picker/picker';
+import {getStore} from '@store';
 
 const CompanyFilter = () => {
-  const { getters: peopleGetters, actions: peopleActions } = getStore('people');
-  const { currentCompany, companies } = peopleGetters;
+  const {getters: peopleGetters, actions: peopleActions} = getStore('people');
+  const {currentCompany, companies} = peopleGetters;
   const [selectedCompany, setSelectedCompany] = useState(currentCompany);
 
   useEffect(() => {
@@ -14,7 +14,6 @@ const CompanyFilter = () => {
 
   const handleSelectCompany = company => {
     peopleActions.setCurrentCompany(company);
-    setSelectedCompany(company);
   };
 
   return (
@@ -26,12 +25,11 @@ const CompanyFilter = () => {
             handleSelectCompany(companies.find(c => c.id === value))
           }
           style={styles.picker}
-          itemStyle={styles.pickerItem}
-        >
+          itemStyle={styles.pickerItem}>
           {companies.map(company => (
             <Picker.Item
               key={company.id}
-              label={company.alias || 'Selecione uma empresa'}
+              label={company.alias}
               value={company.id}
             />
           ))}
