@@ -50,7 +50,7 @@ export default function HomePage({navigation}) {
       title: 'Caixas',
       icon: 'shopping-cart',
       backgroundColor: '#4682b4',
-      onPress: () => handleTo('CashRegisterIndex'),
+      onPress: () => handleTo('CashRegistersIndex'),
     },
   ];
 

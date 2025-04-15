@@ -4,14 +4,18 @@ import Profile from '@controleonline/ui-people/src/react/pages/Profile';
 import PurchasingSuggestion from '@controleonline/ui-orders/src/react/pages/orders/purchasing/Suggestion';
 import Inventory from '@controleonline/ui-orders/src/react/pages/inventory';
 import IncomeStatment from '@controleonline/ui-manager/src/react/pages/IncomeStatment';
-
+import CashRegisters from '@controleonline/ui-manager/src/react/pages/CashRegisters';
 
 const WrappedHomePage = ({navigation}) => (
   <ManagerLayout navigation={navigation}>
     <HomePage navigation={navigation} />
   </ManagerLayout>
 );
-
+const WrappedCashRegistersPage = ({navigation}) => (
+  <ManagerLayout navigation={navigation}>
+    <CashRegisters navigation={navigation} />
+  </ManagerLayout>
+);
 const WrappedProfile = ({navigation, route}) => (
   <ManagerLayout navigation={navigation} route={route}>
     <Profile navigation={navigation} route={route} />
@@ -30,7 +34,6 @@ const WrappedIncomeStatment = ({navigation, route}) => (
   </ManagerLayout>
 );
 
-
 const WrappedInventory = ({navigation, route}) => (
   <ManagerLayout navigation={navigation} route={route}>
     <Inventory navigation={navigation} route={route} />
@@ -45,6 +48,17 @@ const managerRoutes = [
       headerShown: false,
       title: 'Menu',
     },
+  },
+
+  {
+    name: 'CashRegistersIndex',
+    component: WrappedCashRegistersPage,
+    options: {
+      headerShown: false,
+      title: 'Caixas',
+      headerBackButtonMenuEnabled: false,
+    },
+    initialParams: {store: 'invoice'},
   },
   {
     name: 'ProfilePage',
