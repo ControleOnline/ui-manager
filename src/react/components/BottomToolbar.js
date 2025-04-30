@@ -111,7 +111,7 @@ const BottomToolbar = ({navigation}) => {
             styles.buttonText,
             activeTab === 'PurchasingSuggestion' && styles.activeText,
           ]}>
-          Compras
+          Sugestão de Compras
         </Text>
       </TouchableOpacity>
 

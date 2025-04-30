@@ -17,26 +17,28 @@ const CompanyFilter = () => {
   };
 
   return (
-    <View style={styles.container}>
-      <View style={styles.pickerWrapper}>
-        <Picker
-          selectedValue={selectedCompany?.id}
-          onValueChange={value =>
-            handleSelectCompany(companies.find(c => c.id === value))
-          }
-          style={styles.picker}
-          itemStyle={styles.pickerItem}>
-          {companies.map(company => (
-            <Picker.Item
-              key={company.id}
-              label={company.alias}
-              value={company.id}
-            />
-          ))}
-        </Picker>
-        <Text style={styles.arrow}>▼</Text>
+    companies.length > 1 && (
+      <View style={styles.container}>
+        <View style={styles.pickerWrapper}>
+          <Picker
+            selectedValue={selectedCompany?.id}
+            onValueChange={value =>
+              handleSelectCompany(companies.find(c => c.id === value))
+            }
+            style={styles.picker}
+            itemStyle={styles.pickerItem}>
+            {companies.map(company => (
+              <Picker.Item
+                key={company.id}
+                label={company.alias}
+                value={company.id}
+              />
+            ))}
+          </Picker>
+          <Text style={styles.arrow}>▼</Text>
+        </View>
       </View>
-    </View>
+    )
   );
 };
 
