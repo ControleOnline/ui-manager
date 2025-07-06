@@ -17,7 +17,7 @@ import Icon from 'react-native-vector-icons/MaterialIcons';
 const IncomeStatment = () => {
   const { getters: invoiceGetters, actions: invoiceActions } = getStore('invoice');
   const { getters: peopleGetters } = getStore('people');
-  const { isLoading, items: rawData } = invoiceGetters;
+  const { isLoading } = invoiceGetters;
   const { currentCompany } = peopleGetters;
 
   const [filters, setFilters] = useState({
@@ -27,22 +27,54 @@ const IncomeStatment = () => {
   const [modalVisible, setModalVisible] = useState(false);
   const [parentCategories, setParentCategories] = useState(null);
   const [incomeStatements, setIncomeStatements] = useState({});
+  const [expandedMonths, setExpandedMonths] = useState({});
+  const [monthDetails, setMonthDetails] = useState({});
+  const [incomeData, setIncomeData] = useState(null);
 
   useEffect(() => {
     loadData();
   }, [currentCompany]);
 
   const loadData = () => {
+    setExpandedMonths({}); // Fecha todos os acordeões
     const params = { ...filters, people: currentCompany.id };
-    invoiceActions.getIncomeStatements(params).then((response) => {
-    }).catch((error) => {
-    });
+    invoiceActions.getIncomeStatements(params)
+      .then((response) => {
+        setIncomeData(response); // Armazena os dados de getIncomeStatements separadamente
+      })
+      .catch((error) => {
+        console.error('Erro ao carregar getIncomeStatements:', error);
+      });
   };
 
+  const toggleMonthDetails = (monthIndex, year) => {
+    if (expandedMonths[monthIndex]) {
+      setExpandedMonths((prev) => ({ ...prev, [monthIndex]: false }));
+      return;
+    }
+
+    invoiceActions.getMonthlyStatements({ 
+      people: currentCompany.id, 
+      year, 
+      month: parseInt(monthIndex) 
+    })
+      .then((response) => {
+        setMonthDetails((prev) => ({
+          ...prev,
+          [monthIndex]: response || [],
+        }));
+        setExpandedMonths((prev) => ({ ...prev, [monthIndex]: true }));
+      })
+      .catch((error) => {
+        Alert.alert('Erro', 'Não foi possível carregar os detalhes do mês');
+      });
+  };
+
+  // Processa incomeData para incomeStatements (usado no cardContent)
   useEffect(() => {
-    if (rawData && typeof rawData === 'object' && !Array.isArray(rawData)) {
-      const transformedData = Object.keys(rawData).reduce((acc, month) => {
-        const monthData = rawData[month];
+    if (incomeData && typeof incomeData === 'object' && !Array.isArray(incomeData)) {
+      const transformedData = Object.keys(incomeData).reduce((acc, month) => {
+        const monthData = incomeData[month];
         const receiveData = Array.isArray(monthData.receive)
           ? { parent_categories: monthData.receive, total_month_price: 0 }
           : monthData.receive || { parent_categories: [], total_month_price: 0 };
@@ -70,7 +102,7 @@ const IncomeStatment = () => {
     } else {
       setIncomeStatements({});
     }
-  }, [rawData]);
+  }, [incomeData]);
 
   const showDetails = (categories) => {
     setParentCategories(categories);
@@ -86,18 +118,8 @@ const IncomeStatment = () => {
 
   const getMonthName = (monthIndex) => {
     const monthNames = [
-      'Janeiro',
-      'Fevereiro',
-      'Março',
-      'Abril',
-      'Maio',
-      'Junho',
-      'Julho',
-      'Agosto',
-      'Setembro',
-      'Outubro',
-      'Novembro',
-      'Dezembro',
+      'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+      'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro',
     ];
     return monthNames[monthIndex - 1];
   };
@@ -118,6 +140,7 @@ const IncomeStatment = () => {
       year: new Date().getFullYear().toString(),
       people: null,
     });
+    setExpandedMonths({}); // Fecha todos os acordeões ao limpar filtros
     loadData();
   };
 
@@ -129,19 +152,23 @@ const IncomeStatment = () => {
       receive: { parent_categories: [], total_month_price: 0 },
       pay: { parent_categories: [], total_month_price: 0 },
     };
+    const isExpanded = expandedMonths[monthIndex];
+    const details = monthDetails[monthIndex] || [];
 
     return (
       <View style={styles.monthCard}>
         <View style={styles.listHeader}>
           <Text style={styles.cardTitle}>{getMonthName(monthIndex)}</Text>
-          <TouchableOpacity
-            onPress={() => showDetails(month.receive?.parent_categories || [])}>
-            <Icon name="info" size={20} color="#2196f3" />
-          </TouchableOpacity>
-          <TouchableOpacity
-            onPress={() => showDetails(month.pay?.parent_categories || [])}>
-            <Icon name="info" size={20} color="#2196f3" />
-          </TouchableOpacity>
+          <View style={styles.headerButtons}>
+            <TouchableOpacity
+              onPress={() => showDetails(month.receive?.parent_categories || [])}>
+              <Icon name="info" size={20} color="#2196f3" />
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => showDetails(month.pay?.parent_categories || [])}>
+              <Icon name="info" size={20} color="#2196f3" />
+            </TouchableOpacity>
+          </View>
         </View>
         <View style={styles.cardContent}>
           <View style={styles.listItem}>
@@ -167,6 +194,33 @@ const IncomeStatment = () => {
               )}
             </Text>
           </View>
+        </View>
+        {isExpanded && (
+          <View style={styles.accordionContent}>
+            {details.length > 0 ? (
+              details.map((detail, idx) => (
+                <View key={idx} style={styles.detailItem}>
+                  <Text style={styles.detailText}>
+                    {detail.payment_type}: {Formatter.formatMoney(Number(detail.TOTAL) || 0)}
+                  </Text>
+                </View>
+              ))
+            ) : (
+              <Text style={styles.detailText}>Nenhum detalhe disponível</Text>
+            )}
+          </View>
+        )}
+        <View style={styles.toggleButtonContainer}>
+          <TouchableOpacity
+            style={styles.toggleButton}
+            onPress={() => toggleMonthDetails(monthIndex, filters.year)}
+          >
+            <Icon
+              name={isExpanded ? 'keyboard-arrow-up' : 'keyboard-arrow-down'}
+              size={24}
+              color="#2196f3"
+            />
+          </TouchableOpacity>
         </View>
       </View>
     );
@@ -257,13 +311,6 @@ const styles = StyleSheet.create({
     padding: 16,
     backgroundColor: '#f5f5f5',
   },
-  companyTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#000',
-    textAlign: 'center',
-    marginBottom: 16,
-  },
   filterCard: {
     backgroundColor: '#fff',
     borderRadius: 8,
@@ -322,6 +369,11 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#eee',
   },
+  headerButtons: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
   listItem: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -339,6 +391,27 @@ const styles = StyleSheet.create({
   },
   bold: {
     fontWeight: 'bold',
+  },
+  accordionContent: {
+    paddingHorizontal: 16,
+    paddingBottom: 16,
+    backgroundColor: '#f9f9f9',
+  },
+  detailItem: {
+    paddingVertical: 4,
+  },
+  detailText: {
+    fontSize: 14,
+    color: '#333',
+  },
+  toggleButtonContainer: {
+    alignItems: 'center',
+    paddingVertical: 8,
+    borderTopWidth: 1,
+    borderTopColor: '#eee',
+  },
+  toggleButton: {
+    padding: 8,
   },
   modalContainer: {
     flex: 1,
