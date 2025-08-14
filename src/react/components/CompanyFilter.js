@@ -7,12 +7,9 @@ import {
   Modal,
   ScrollView,
   Animated,
-  Dimensions,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import {getStore} from '@store';
-
-const {width: screenWidth} = Dimensions.get('window');
 
 const CompanyFilter = () => {
   const {getters: peopleGetters, actions: peopleActions} = getStore('people');
@@ -31,7 +28,6 @@ const CompanyFilter = () => {
       peopleActions.setCurrentCompany(company);
       setModalVisible(false);
 
-      // Animação de feedback
       Animated.sequence([
         Animated.timing(fadeAnim, {
           toValue: 0.5,
