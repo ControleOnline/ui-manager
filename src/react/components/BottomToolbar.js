@@ -1,7 +1,7 @@
-import { useNavigationState } from '@react-navigation/native';
-import { getStore } from '@store';
-import React, { useState } from 'react';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import {useNavigationState} from '@react-navigation/native';
+import {getStore} from '@store';
+import React, {useState} from 'react';
+import {StyleSheet, Text, TouchableOpacity, View} from 'react-native';
 import Icon from 'react-native-vector-icons/Feather';
 
 const BottomToolbar = ({navigation}) => {
@@ -41,101 +41,101 @@ const BottomToolbar = ({navigation}) => {
       marginTop: 6,
     },
     activeText: {
-      color: colors['primary'],
+      color: colors.primary,
       fontWeight: 'bold',
     },
   });
 
   return (
     <View style={styles.toolbar}>
-    <TouchableOpacity
-      style={styles.button}
-      disabled={
-        !currentCompany || Object.entries(currentCompany).length === 0
-      }
-      onPress={() => {
-        navigation.navigate('HomePage');
-      }}>
-      <Icon
-        name="home"
-        size={15}
-        color={activeTab === 'HomePage' ? '#007AFF' : '#666'}
-      />
-      <Text
-        style={[
-          styles.buttonText,
-          activeTab === 'HomePage' && styles.activeText,
-        ]}>
-        Home
-      </Text>
-    </TouchableOpacity>
+      <TouchableOpacity
+        style={styles.button}
+        disabled={
+          !currentCompany || Object.entries(currentCompany).length === 0
+        }
+        onPress={() => {
+          navigation.navigate('HomePage');
+        }}>
+        <Icon
+          name="home"
+          size={15}
+          color={activeTab === 'HomePage' ? '#007AFF' : '#666'}
+        />
+        <Text
+          style={[
+            styles.buttonText,
+            activeTab === 'HomePage' && styles.activeText,
+          ]}>
+          Home
+        </Text>
+      </TouchableOpacity>
 
-    <TouchableOpacity
-      style={styles.button}
-      onPress={() => {
-        navigation.navigate('CrmIndex');
-      }}
-      disabled={
-        !currentCompany || Object.entries(currentCompany).length === 0
-      }>
-      <Icon
-        name="dollar-sign"
-        size={15}
-        color={activeTab === 'CrmIndex' ? '#007AFF' : '#666'}
-      />
-      <Text
-        style={[
-          styles.buttonText,
-          activeTab === 'CrmIndex' && styles.activeText,
-        ]}>
-        Oportunidades
-      </Text>
-    </TouchableOpacity>
+      <TouchableOpacity
+        style={styles.button}
+        onPress={() => {
+          navigation.navigate('CrmIndex');
+        }}
+        disabled={
+          !currentCompany || Object.entries(currentCompany).length === 0
+        }>
+        <Icon
+          name="dollar-sign"
+          size={15}
+          color={activeTab === 'CrmIndex' ? '#007AFF' : '#666'}
+        />
+        <Text
+          style={[
+            styles.buttonText,
+            activeTab === 'CrmIndex' && styles.activeText,
+          ]}>
+          Oportunidades
+        </Text>
+      </TouchableOpacity>
 
-    <TouchableOpacity
-      style={styles.button}
-      onPress={() => {
-        navigation.navigate('ClientsIndex');
-      }}
-      disabled={
-        !currentCompany || Object.entries(currentCompany).length === 0
-      }>
-      <Icon
-        name="shopping-bag"
-        size={15}
-        color={activeTab === 'ClientsIndex' ? '#007AFF' : '#666'}
-      />
-      <Text
-        style={[
-          styles.buttonText,
-          activeTab === 'ClientsIndex' && styles.activeText,
-        ]}>
-        Clientes
-      </Text>
-    </TouchableOpacity>
+      <TouchableOpacity
+        style={styles.button}
+        onPress={() => {
+          navigation.navigate('ClientsIndex');
+        }}
+        disabled={
+          !currentCompany || Object.entries(currentCompany).length === 0
+        }>
+        <Icon
+          name="shopping-bag"
+          size={15}
+          color={activeTab === 'ClientsIndex' ? '#007AFF' : '#666'}
+        />
+        <Text
+          style={[
+            styles.buttonText,
+            activeTab === 'ClientsIndex' && styles.activeText,
+          ]}>
+          Clientes
+        </Text>
+      </TouchableOpacity>
 
-    <TouchableOpacity
-      style={styles.button}
-      onPress={() => {
-        navigation.navigate('ProfilePage');
-      }}
-      disabled={
-        !currentCompany || Object.entries(currentCompany).length === 0
-      }>
-      <Icon
-        name="user"
-        size={15}
-        color={activeTab === 'ProfilePage' ? '#007AFF' : '#666'}
-      />
-      <Text
-        style={[
-          styles.buttonText,
-          activeTab === 'ProfilePage' && styles.activeText,
-        ]}>
-        Perfil
-      </Text>
-    </TouchableOpacity>
-  </View>
+      <TouchableOpacity
+        style={styles.button}
+        onPress={() => {
+          navigation.navigate('ProfilePage');
+        }}
+        disabled={
+          !currentCompany || Object.entries(currentCompany).length === 0
+        }>
+        <Icon
+          name="user"
+          size={15}
+          color={activeTab === 'ProfilePage' ? '#007AFF' : '#666'}
+        />
+        <Text
+          style={[
+            styles.buttonText,
+            activeTab === 'ProfilePage' && styles.activeText,
+          ]}>
+          Perfil
+        </Text>
+      </TouchableOpacity>
+    </View>
   );
 };
 export default BottomToolbar;
