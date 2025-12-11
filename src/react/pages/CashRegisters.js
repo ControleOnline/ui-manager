@@ -3,14 +3,19 @@ import {Text, View, ScrollView, SafeAreaView} from 'react-native';
 import css from '@controleonline/ui-orders/src/react/css/orders';
 import Formatter from '@controleonline/ui-common/src/utils/formatter';
 import StateStore from '@controleonline/ui-layout/src/react/components/StateStore';
-import {getStore} from '@store';
+import {useStores} from '@store';
 import {useFocusEffect} from '@react-navigation/native';
 
 const CashRegisters = () => {
   const {styles, globalStyles} = css();
-  const {getters: peopleGetters} = getStore('people');
-  const {getters: invoiceGetters, actions: invoiceActions} = getStore('invoice');
-  const {getters: deviceConfigGetters, actions: deviceConfigActions} = getStore('device_config');
+  const peopleStore = useStores(state => state.people);
+  const peopleGetters = peopleStore.getters;
+  const invoiceStore = useStores(state => state.invoice);
+  const invoiceGetters = invoiceStore.getters;
+  const invoiceActions = invoiceStore.actions;
+  const device_configStore = useStores(state => state.device_config);
+  const deviceConfigGetters = device_configStore.getters;
+  const deviceConfigActions = device_configStore.actions;
   const {currentCompany} = peopleGetters;
   const {isLoading: isLoadingDeviceConfigs, items: deviceConfigs} =
     deviceConfigGetters;

@@ -9,13 +9,16 @@ import {
 import {Text} from 'react-native-animatable';
 import {useNavigation, useFocusEffect} from '@react-navigation/native';
 
-import {getStore} from '@store';
+import {useStores} from '@store';
 import Icon from 'react-native-vector-icons/FontAwesome';
 
 export default function HomePage({navigation}) {
-  const {getters} = getStore('theme');
-  const {getters: peopleGetters} = getStore('people');
-  const {getters: deviceConfigGetters} = getStore('device_config');
+  const themeStore = useStores(state => state.theme);
+  const getters = themeStore.getters;
+  const peopleStore = useStores(state => state.people);
+  const peopleGetters = peopleStore.getters;
+  const device_configStore = useStores(state => state.device_config);
+  const deviceConfigGetters = device_configStore.getters;
   const {item: device} = deviceConfigGetters;
   const {colors} = getters;
   const {currentCompany} = peopleGetters;

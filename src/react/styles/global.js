@@ -1,8 +1,9 @@
 const {StyleSheet} = require('react-native');
-import {getStore} from '@store';
+import {useStores} from '@store';
 
 export default css = () => {
-  const {getters} = getStore('theme');
+  const themeStore = useStores(state => state.theme);
+  const getters = themeStore.getters;
   const {colors} = getters;
   const globalStyles = StyleSheet.create({
     container: {

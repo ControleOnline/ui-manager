@@ -9,10 +9,12 @@ import {
   Animated,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
-import {getStore} from '@store';
+import {useStores} from '@store';
 
 const CompanyFilter = () => {
-  const {getters: peopleGetters, actions: peopleActions} = getStore('people');
+  const peopleStore = useStores(state => state.people);
+  const peopleGetters = peopleStore.getters;
+  const peopleActions = peopleStore.actions;
   const {currentCompany, companies} = peopleGetters;
   const [selectedCompany, setSelectedCompany] = useState(currentCompany);
   const [modalVisible, setModalVisible] = useState(false);
