@@ -9,10 +9,8 @@ import {useFocusEffect} from '@react-navigation/native';
 const CashRegisters = () => {
   const {styles, globalStyles} = css();
   const {getters: peopleGetters} = getStore('people');
-  const {getters: invoiceGetters, actions: invoiceActions} =
-    getStore('invoice');
-  const {getters: deviceConfigGetters, actions: deviceConfigActions} =
-    getStore('device_config');
+  const {getters: invoiceGetters, actions: invoiceActions} = getStore('invoice');
+  const {getters: deviceConfigGetters, actions: deviceConfigActions} = getStore('device_config');
   const {currentCompany} = peopleGetters;
   const {isLoading: isLoadingDeviceConfigs, items: deviceConfigs} =
     deviceConfigGetters;
