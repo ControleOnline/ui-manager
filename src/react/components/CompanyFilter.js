@@ -9,10 +9,10 @@ import {
   Animated,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
-import {useStores} from '@store';
+import {useStore} from '@store';
 
 const CompanyFilter = () => {
-  const peopleStore = useStores(state => state.people);
+  const peopleStore = useStore('people');
   const peopleGetters = peopleStore.getters;
   const peopleActions = peopleStore.actions;
   const {currentCompany, companies} = peopleGetters;

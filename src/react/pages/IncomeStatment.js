@@ -9,16 +9,16 @@ import {
   TouchableOpacity,
   TextInput as RNTextInput,
 } from 'react-native';
-import {useStores} from '@store';
+import {useStore} from '@store';
 import StateStore from '@controleonline/ui-layout/src/react/components/StateStore';
 import Formatter from '@controleonline/ui-common/src/utils/formatter.js';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 
 const IncomeStatment = () => {
-  const invoiceStore = useStores(state => state.invoice);
+  const invoiceStore = useStore('invoice');
   const invoiceGetters = invoiceStore.getters;
   const invoiceActions = invoiceStore.actions;
-  const peopleStore = useStores(state => state.people);
+  const peopleStore = useStore('people');
   const peopleGetters = peopleStore.getters;
   const { isLoading } = invoiceGetters;
   const { currentCompany } = peopleGetters;

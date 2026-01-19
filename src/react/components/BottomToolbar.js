@@ -1,5 +1,5 @@
 import { useNavigationState } from '@react-navigation/native';
-import {useStores} from '@store';
+import {useStore} from '@store';
 import React, { useState } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import Icon from 'react-native-vector-icons/Feather';
@@ -9,15 +9,15 @@ const BottomToolbar = ({navigation}) => {
   const activeTab = state.routes[state.index]?.name || 'HomePage';
   const currentPageName =
     navigation.getState().routes[navigation.getState().index].name;
-  const device_configStore = useStores(state => state.device_config);
+  const device_configStore = useStore('device_config');
   const deviceConfigGetters = device_configStore.getters;
   const {item: device} = deviceConfigGetters;
-  const authStore = useStores(state => state.auth);
+  const authStore = useStore('auth');
   const authGetters = authStore.getters;
   const authActions = authStore.actions;
-  const peopleStore = useStores(state => state.people);
+  const peopleStore = useStore('people');
   const peopleGetters = peopleStore.getters;
-  const themeStore = useStores(state => state.theme);
+  const themeStore = useStore('theme');
   const getters = themeStore.getters;
   const {isLogged} = authGetters;
   const {colors} = getters;
