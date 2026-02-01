@@ -1,4 +1,4 @@
-const {StyleSheet} = require('react-native');
+import { StyleSheet } from 'react-native';
 import {useStore} from '@store';
 
 export default css = () => {
