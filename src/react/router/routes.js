@@ -5,16 +5,8 @@ import PurchasingSuggestion from '@controleonline/ui-orders/src/react/pages/orde
 import Inventory from '@controleonline/ui-orders/src/react/pages/inventory';
 import IncomeStatment from '@controleonline/ui-manager/src/react/pages/IncomeStatment';
 import CashRegisters from '@controleonline/ui-manager/src/react/pages/CashRegisters';
-
-
 import DisplayList from '@controleonline/ui-ppc/src/react/pages/displays/displayPage';
 import DisplayDetails from '@controleonline/ui-ppc/src/react/pages/displays/DisplayDetails';
-
-const withLayout = Component => props => (
-  <PPCLayout navigation={props.navigation}>
-    <Component {...props} />
-  </PPCLayout>
-);
 
 
 const WrappedDisplayList = ({ navigation }) => (

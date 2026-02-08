@@ -1,4 +1,4 @@
-import React, {useState, useCallback} from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   StyleSheet,
   TouchableOpacity,
@@ -6,22 +6,22 @@ import {
   FlatList,
   ActivityIndicator,
 } from 'react-native';
-import {Text} from 'react-native-animatable';
-import {useNavigation, useFocusEffect} from '@react-navigation/native';
+import { Text } from 'react-native-animatable';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 
-import {useStore} from '@store';
+import { useStore } from '@store';
 import Icon from 'react-native-vector-icons/FontAwesome';
 
-export default function HomePage({navigation}) {
+export default function HomePage({ navigation }) {
   const themeStore = useStore('theme');
   const getters = themeStore.getters;
   const peopleStore = useStore('people');
   const peopleGetters = peopleStore.getters;
   const device_configStore = useStore('device_config');
   const deviceConfigGetters = device_configStore.getters;
-  const {item: device} = deviceConfigGetters;
-  const {colors} = getters;
-  const {currentCompany} = peopleGetters;
+  const { item: device } = deviceConfigGetters;
+  const { colors } = getters;
+  const { currentCompany } = peopleGetters;
   const handleTo = to => {
     navigation.navigate(to);
   };
@@ -55,11 +55,18 @@ export default function HomePage({navigation}) {
       backgroundColor: '#4682b4',
       onPress: () => handleTo('CashRegistersIndex'),
     },
+    {
+      id: '5',
+      title: 'PCP',
+      icon: 'shopping-cart',
+      backgroundColor: '#4682b4',
+      onPress: () => handleTo('DisplayList'),
+    },
   ];
 
-  const renderButton = ({item}) => (
+  const renderButton = ({ item }) => (
     <TouchableOpacity
-      style={[styles.button, {backgroundColor: item.backgroundColor}]}
+      style={[styles.button, { backgroundColor: item.backgroundColor }]}
       onPress={item.onPress}>
       <Icon name={item.icon} size={30} color="#fff" style={styles.icon} />
       <Text style={styles.buttonText}>{item.title}</Text>
