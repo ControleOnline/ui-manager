@@ -7,126 +7,63 @@ import IncomeStatment from '@controleonline/ui-manager/src/react/pages/IncomeSta
 import CashRegisters from '@controleonline/ui-manager/src/react/pages/CashRegisters';
 import DisplayList from '@controleonline/ui-ppc/src/react/pages/displays/displayPage';
 import DisplayDetails from '@controleonline/ui-ppc/src/react/pages/displays/DisplayDetails';
+import DisplayForm from '@controleonline/ui-ppc/src/react/pages/displays/DisplayForm';
 
-
-const WrappedDisplayList = ({ navigation }) => (
-  <ManagerLayout navigation={navigation}>
-    <DisplayList navigation={navigation} />
-  </ManagerLayout>
-);
-const WrappedDisplayDetailsPage = ({ navigation }) => (
-  <ManagerLayout navigation={navigation}>
-    <DisplayDetails navigation={navigation} />
-  </ManagerLayout>
-);
-
-const WrappedHomePage = ({ navigation }) => (
-  <ManagerLayout navigation={navigation}>
-    <HomePage navigation={navigation} />
-  </ManagerLayout>
-);
-const WrappedCashRegistersPage = ({ navigation }) => (
-  <ManagerLayout navigation={navigation}>
-    <CashRegisters navigation={navigation} />
-  </ManagerLayout>
-);
-const WrappedProfile = ({ navigation, route }) => (
+const WrappedComponent = (Component) => ({ navigation, route }) => (
   <ManagerLayout navigation={navigation} route={route}>
-    <Profile navigation={navigation} route={route} />
-  </ManagerLayout>
-);
-
-const WrappedPurchasingSuggestion = ({ navigation, route }) => (
-  <ManagerLayout navigation={navigation} route={route}>
-    <PurchasingSuggestion navigation={navigation} route={route} />
-  </ManagerLayout>
-);
-
-const WrappedIncomeStatment = ({ navigation, route }) => (
-  <ManagerLayout navigation={navigation} route={route}>
-    <IncomeStatment navigation={navigation} route={route} />
-  </ManagerLayout>
-);
-
-const WrappedInventory = ({ navigation, route }) => (
-  <ManagerLayout navigation={navigation} route={route}>
-    <Inventory navigation={navigation} route={route} />
+    <Component navigation={navigation} route={route} />
   </ManagerLayout>
 );
 
 const managerRoutes = [
   {
     name: 'HomePage',
-    component: WrappedHomePage,
-    options: {
-      headerShown: false,
-      title: 'Menu',
-    },
+    component: WrappedComponent(HomePage),
+    options: { headerShown: false, title: 'Menu' },
   },
   {
     name: 'DisplayList',
-    component: WrappedDisplayList,
-    options: {
-      headerShown: false,
-      title: 'Displays',
-    },
+    component: WrappedComponent(DisplayList),
+    options: { headerShown: false, title: 'Displays' },
   },
   {
     name: 'DisplayDetails',
-    component: WrappedDisplayDetailsPage,
-    options: {
-      headerShown: false,
-      title: 'Detalhes do Display',
-    },
+    component: WrappedComponent(DisplayDetails),
+    options: { headerShown: false, title: 'Detalhes do Display' },
+  },
+  {
+    name: 'DisplayForm',
+    component: WrappedComponent(DisplayForm),
+    options: { headerShown: false, title: 'Formulário de Display' },
   },
   {
     name: 'CashRegistersIndex',
-    component: WrappedCashRegistersPage,
-    options: {
-      headerShown: false,
-      title: 'Caixas',
-      headerBackButtonMenuEnabled: false,
-    },
+    component: WrappedComponent(CashRegisters),
+    options: { headerShown: false, title: 'Caixas', headerBackButtonMenuEnabled: false },
     initialParams: { store: 'invoice' },
   },
   {
     name: 'ProfilePage',
-    component: WrappedProfile,
-    options: {
-      headerShown: false,
-      title: 'Perfil',
-      headerBackButtonMenuEnabled: false,
-    },
+    component: WrappedComponent(Profile),
+    options: { headerShown: false, title: 'Perfil', headerBackButtonMenuEnabled: false },
     initialParams: { store: 'auth' },
   },
   {
     name: 'IncomeStatment',
-    component: WrappedIncomeStatment,
-    options: {
-      headerShown: true,
-      title: 'Faturamento',
-      headerBackButtonMenuEnabled: false,
-    },
+    component: WrappedComponent(IncomeStatment),
+    options: { headerShown: true, title: 'Faturamento', headerBackButtonMenuEnabled: false },
     initialParams: { store: 'invoice' },
   },
   {
     name: 'PurchasingSuggestion',
-    component: WrappedPurchasingSuggestion,
-    options: {
-      headerShown: true,
-      title: 'Sugestão de Compras',
-      headerBackButtonMenuEnabled: false,
-    },
+    component: WrappedComponent(PurchasingSuggestion),
+    options: { headerShown: true, title: 'Sugestão de Compras', headerBackButtonMenuEnabled: false },
     initialParams: { store: 'products' },
   },
   {
     name: 'Inventory',
-    component: WrappedInventory,
-    options: {
-      headerShown: true,
-      title: 'Estoque',
-      headerBackButtonMenuEnabled: false,
-    },
+    component: WrappedComponent(Inventory),
+    options: { headerShown: true, title: 'Estoque', headerBackButtonMenuEnabled: false },
     initialParams: { store: 'products' },
   },
 ];
