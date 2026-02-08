@@ -6,35 +6,57 @@ import Inventory from '@controleonline/ui-orders/src/react/pages/inventory';
 import IncomeStatment from '@controleonline/ui-manager/src/react/pages/IncomeStatment';
 import CashRegisters from '@controleonline/ui-manager/src/react/pages/CashRegisters';
 
-const WrappedHomePage = ({navigation}) => (
+
+import DisplayList from '@controleonline/ui-ppc/src/react/pages/displays/displayPage';
+import DisplayDetails from '@controleonline/ui-ppc/src/react/pages/displays/DisplayDetails';
+
+const withLayout = Component => props => (
+  <PPCLayout navigation={props.navigation}>
+    <Component {...props} />
+  </PPCLayout>
+);
+
+
+const WrappedDisplayList = ({ navigation }) => (
+  <ManagerLayout navigation={navigation}>
+    <DisplayList navigation={navigation} />
+  </ManagerLayout>
+);
+const WrappedDisplayDetailsPage = ({ navigation }) => (
+  <ManagerLayout navigation={navigation}>
+    <DisplayDetails navigation={navigation} />
+  </ManagerLayout>
+);
+
+const WrappedHomePage = ({ navigation }) => (
   <ManagerLayout navigation={navigation}>
     <HomePage navigation={navigation} />
   </ManagerLayout>
 );
-const WrappedCashRegistersPage = ({navigation}) => (
+const WrappedCashRegistersPage = ({ navigation }) => (
   <ManagerLayout navigation={navigation}>
     <CashRegisters navigation={navigation} />
   </ManagerLayout>
 );
-const WrappedProfile = ({navigation, route}) => (
+const WrappedProfile = ({ navigation, route }) => (
   <ManagerLayout navigation={navigation} route={route}>
     <Profile navigation={navigation} route={route} />
   </ManagerLayout>
 );
 
-const WrappedPurchasingSuggestion = ({navigation, route}) => (
+const WrappedPurchasingSuggestion = ({ navigation, route }) => (
   <ManagerLayout navigation={navigation} route={route}>
     <PurchasingSuggestion navigation={navigation} route={route} />
   </ManagerLayout>
 );
 
-const WrappedIncomeStatment = ({navigation, route}) => (
+const WrappedIncomeStatment = ({ navigation, route }) => (
   <ManagerLayout navigation={navigation} route={route}>
     <IncomeStatment navigation={navigation} route={route} />
   </ManagerLayout>
 );
 
-const WrappedInventory = ({navigation, route}) => (
+const WrappedInventory = ({ navigation, route }) => (
   <ManagerLayout navigation={navigation} route={route}>
     <Inventory navigation={navigation} route={route} />
   </ManagerLayout>
@@ -49,7 +71,22 @@ const managerRoutes = [
       title: 'Menu',
     },
   },
-
+  {
+    name: 'DisplayList',
+    component: WrappedDisplayList,
+    options: {
+      headerShown: false,
+      title: 'Displays',
+    },
+  },
+  {
+    name: 'DisplayDetails',
+    component: WrappedDisplayDetailsPage,
+    options: {
+      headerShown: false,
+      title: 'Detalhes do Display',
+    },
+  },
   {
     name: 'CashRegistersIndex',
     component: WrappedCashRegistersPage,
@@ -58,7 +95,7 @@ const managerRoutes = [
       title: 'Caixas',
       headerBackButtonMenuEnabled: false,
     },
-    initialParams: {store: 'invoice'},
+    initialParams: { store: 'invoice' },
   },
   {
     name: 'ProfilePage',
@@ -68,7 +105,7 @@ const managerRoutes = [
       title: 'Perfil',
       headerBackButtonMenuEnabled: false,
     },
-    initialParams: {store: 'auth'},
+    initialParams: { store: 'auth' },
   },
   {
     name: 'IncomeStatment',
@@ -78,7 +115,7 @@ const managerRoutes = [
       title: 'Faturamento',
       headerBackButtonMenuEnabled: false,
     },
-    initialParams: {store: 'invoice'},
+    initialParams: { store: 'invoice' },
   },
   {
     name: 'PurchasingSuggestion',
@@ -88,7 +125,7 @@ const managerRoutes = [
       title: 'Sugestão de Compras',
       headerBackButtonMenuEnabled: false,
     },
-    initialParams: {store: 'products'},
+    initialParams: { store: 'products' },
   },
   {
     name: 'Inventory',
@@ -98,7 +135,7 @@ const managerRoutes = [
       title: 'Estoque',
       headerBackButtonMenuEnabled: false,
     },
-    initialParams: {store: 'products'},
+    initialParams: { store: 'products' },
   },
 ];
 
