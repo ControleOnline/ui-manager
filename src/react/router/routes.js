@@ -8,6 +8,7 @@ import CashRegisters from '@controleonline/ui-manager/src/react/pages/CashRegist
 import DisplayList from '@controleonline/ui-ppc/src/react/pages/displays/displayPage';
 import DisplayDetails from '@controleonline/ui-ppc/src/react/pages/displays/DisplayDetails';
 import DisplayForm from '@controleonline/ui-ppc/src/react/pages/displays/DisplayForm';
+import QueueAddProducts from '@controleonline/ui-ppc/src/react/pages/queues/QueueAddProducts';
 
 const WrappedComponent = (Component) => ({ navigation, route }) => (
   <ManagerLayout navigation={navigation} route={route}>
@@ -35,6 +36,11 @@ const managerRoutes = [
     name: 'DisplayForm',
     component: WrappedComponent(DisplayForm),
     options: { headerShown: false, title: 'Formulário de Display' },
+  },
+  {
+    name: 'QueueAddProducts',
+    component: WrappedComponent(QueueAddProducts),
+    options: { headerShown: true, title: 'Produtos da Fila' },
   },
   {
     name: 'CashRegistersIndex',
