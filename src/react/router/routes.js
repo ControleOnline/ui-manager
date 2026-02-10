@@ -1,4 +1,3 @@
-import Profile from '@controleonline/ui-people/src/react/pages/Profile';
 import PurchasingSuggestion from '@controleonline/ui-orders/src/react/pages/orders/purchasing/Suggestion';
 import Inventory from '@controleonline/ui-orders/src/react/pages/inventory';
 import IncomeStatment from '@controleonline/ui-manager/src/react/pages/IncomeStatment';
@@ -34,12 +33,6 @@ const managerRoutes = [
     component: CashRegisters,
     options: { headerShown: false, title: 'Caixas', headerBackButtonMenuEnabled: false },
     initialParams: { store: 'invoice' },
-  },
-  {
-    name: 'ProfilePage',
-    component: Profile,
-    options: { headerShown: false, title: 'Perfil', headerBackButtonMenuEnabled: false },
-    initialParams: { store: 'auth' },
   },
   {
     name: 'IncomeStatment',
