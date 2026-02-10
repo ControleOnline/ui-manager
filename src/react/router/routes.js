@@ -1,5 +1,5 @@
 import HomePage from '@controleonline/ui-manager/src/react/pages/home/index';
-import ManagerLayout from '@controleonline/ui-layout/src/react/layouts/ManagerLayout';
+import DefaultLayout from '@controleonline/ui-layout/src/react/layouts/DefaultLayout';
 import Profile from '@controleonline/ui-people/src/react/pages/Profile';
 import PurchasingSuggestion from '@controleonline/ui-orders/src/react/pages/orders/purchasing/Suggestion';
 import Inventory from '@controleonline/ui-orders/src/react/pages/inventory';
@@ -11,9 +11,9 @@ import DisplayForm from '@controleonline/ui-ppc/src/react/pages/displays/Display
 import QueueAddProducts from '@controleonline/ui-ppc/src/react/pages/queues/QueueAddProducts';
 
 const WrappedComponent = (Component) => ({ navigation, route }) => (
-  <ManagerLayout navigation={navigation} route={route}>
+  <DefaultLayout navigation={navigation} route={route}>
     <Component navigation={navigation} route={route} />
-  </ManagerLayout>
+  </DefaultLayout>
 );
 
 const managerRoutes = [
