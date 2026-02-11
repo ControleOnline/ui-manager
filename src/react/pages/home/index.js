@@ -1,37 +1,30 @@
-import React, { useState, useCallback } from 'react';
+import React from 'react'
 import {
   StyleSheet,
   TouchableOpacity,
   View,
   FlatList,
   ActivityIndicator,
-} from 'react-native';
-import { Text } from 'react-native-animatable';
-import { useNavigation, useFocusEffect } from '@react-navigation/native';
-
-import { useStore } from '@store';
-import Icon from 'react-native-vector-icons/FontAwesome';
+  Text,
+} from 'react-native'
+import { FontAwesome } from '@expo/vector-icons'
+import { useStore } from '@store'
 
 export default function HomePage({ navigation }) {
-  const themeStore = useStore('theme');
-  const getters = themeStore.getters;
-  const peopleStore = useStore('people');
-  const peopleGetters = peopleStore.getters;
-  const device_configStore = useStore('device_config');
-  const deviceConfigGetters = device_configStore.getters;
-  const { item: device } = deviceConfigGetters;
-  const { colors } = getters;
-  const { currentCompany } = peopleGetters;
-  const handleTo = to => {
-    navigation.navigate(to);
-  };
+  const themeStore = useStore('theme')
+  const peopleStore = useStore('people')
+
+  const { colors } = themeStore.getters
+  const { currentCompany } = peopleStore.getters
+
+  const handleTo = to => navigation.navigate(to)
 
   const buttons = [
     {
       id: '1',
       title: 'Faturamento',
       icon: 'money',
-      backgroundColor: colors['primary'],
+      backgroundColor: colors?.primary || '#1B5587',
       onPress: () => handleTo('IncomeStatment'),
     },
     {
@@ -58,35 +51,28 @@ export default function HomePage({ navigation }) {
     {
       id: '5',
       title: 'PCP',
-      icon: 'shopping-cart',
+      icon: 'desktop',
       backgroundColor: '#4682b4',
       onPress: () => handleTo('DisplayList'),
     },
-  ];
+  ]
 
   const renderButton = ({ item }) => (
     <TouchableOpacity
       style={[styles.button, { backgroundColor: item.backgroundColor }]}
       onPress={item.onPress}>
-      <Icon name={item.icon} size={30} color="#fff" style={styles.icon} />
+      <FontAwesome name={item.icon} size={30} color="#fff" />
       <Text style={styles.buttonText}>{item.title}</Text>
     </TouchableOpacity>
-  );
-  if (
-    !currentCompany ||
-    Object.entries(currentCompany).length === 0 ||
-    !colors ||
-    Object.entries(colors).length === 0
-  ) {
+  )
+
+  if (!currentCompany || !colors) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator
-          size="large"
-          color={colors['primary'] || '#0000ff'}
-        />
-        <Text style={styles.loadingText}>Carregando...</Text>
+        <ActivityIndicator size="large" />
+        <Text>Carregando...</Text>
       </View>
-    );
+    )
   }
 
   return (
@@ -96,11 +82,10 @@ export default function HomePage({ navigation }) {
         renderItem={renderButton}
         keyExtractor={item => item.id}
         numColumns={2}
-        columnWrapperStyle={styles.row}
         contentContainerStyle={styles.content}
       />
     </View>
-  );
+  )
 }
 
 const styles = StyleSheet.create({
@@ -113,9 +98,6 @@ const styles = StyleSheet.create({
   content: {
     paddingBottom: 20,
   },
-  row: {
-    justifyContent: 'space-between',
-  },
   button: {
     width: '48%',
     aspectRatio: 1,
@@ -124,10 +106,8 @@ const styles = StyleSheet.create({
     marginBottom: 10,
     borderRadius: 10,
   },
-  icon: {
-    marginBottom: 5,
-  },
   buttonText: {
+    marginTop: 8,
     color: '#fff',
     fontSize: 16,
     fontWeight: 'bold',
@@ -138,9 +118,4 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  loadingText: {
-    marginTop: 10,
-    fontSize: 16,
-    color: '#333',
-  },
-});
+})
