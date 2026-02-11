@@ -13,9 +13,11 @@ import {useStore} from '@store';
 
 const CompanyFilter = () => {
   const peopleStore = useStore('people');
-  const peopleGetters = peopleStore.getters;
-  const peopleActions = peopleStore.actions;
-  const {currentCompany, companies} = peopleGetters;
+  const peopleGetters = peopleStore?.getters || {};
+  const peopleActions = peopleStore?.actions;
+
+  const {currentCompany, companies = []} = peopleGetters;
+
   const [selectedCompany, setSelectedCompany] = useState(currentCompany);
   const [modalVisible, setModalVisible] = useState(false);
   const [fadeAnim] = useState(new Animated.Value(0));
@@ -27,19 +29,19 @@ const CompanyFilter = () => {
 
   const handleSelectCompany = useCallback(
     company => {
-      peopleActions.setCurrentCompany(company);
+      peopleActions?.setCurrentCompany(company);
       setModalVisible(false);
 
       Animated.sequence([
         Animated.timing(fadeAnim, {
           toValue: 0.5,
           duration: 150,
-          useNativeDriver: true,
+          useNativeDriver: false,
         }),
         Animated.timing(fadeAnim, {
           toValue: 0,
           duration: 150,
-          useNativeDriver: true,
+          useNativeDriver: false,
         }),
       ]).start();
     },
@@ -52,12 +54,12 @@ const CompanyFilter = () => {
       Animated.timing(fadeAnim, {
         toValue: 1,
         duration: 300,
-        useNativeDriver: true,
+        useNativeDriver: false,
       }),
       Animated.timing(slideAnim, {
         toValue: 0,
         duration: 300,
-        useNativeDriver: true,
+        useNativeDriver: false,
       }),
     ]).start();
   }, [fadeAnim, slideAnim]);
@@ -67,12 +69,12 @@ const CompanyFilter = () => {
       Animated.timing(fadeAnim, {
         toValue: 0,
         duration: 200,
-        useNativeDriver: true,
+        useNativeDriver: false,
       }),
       Animated.timing(slideAnim, {
         toValue: -50,
         duration: 200,
-        useNativeDriver: true,
+        useNativeDriver: false,
       }),
     ]).start(() => {
       setModalVisible(false);
@@ -81,11 +83,11 @@ const CompanyFilter = () => {
 
   const renderCompanyItem = useCallback(
     (company, index) => {
-      const isSelected = selectedCompany?.id === company.id;
+      const isSelected = selectedCompany?.id === company?.id;
 
       return (
         <TouchableOpacity
-          key={company.id}
+          key={company?.id || index}
           style={[
             styles.companyItem,
             isSelected && styles.companyItemSelected,
@@ -112,27 +114,29 @@ const CompanyFilter = () => {
                   styles.companyName,
                   isSelected && styles.companyNameSelected,
                 ]}>
-                {company.alias || company.name}
+                {company?.alias || company?.name}
               </Text>
-              {company.name !== company.alias && (
+              {company?.name !== company?.alias && (
                 <Text
                   style={[
                     styles.companyFullName,
                     isSelected && styles.companyFullNameSelected,
                   ]}>
-                  {company.name}
+                  {company?.name}
                 </Text>
               )}
             </View>
           </View>
-          {isSelected && <Icon name="check-circle" size={24} color="#2529a1" />}
+          {isSelected && (
+            <Icon name="check-circle" size={24} color="#2529a1" />
+          )}
         </TouchableOpacity>
       );
     },
     [selectedCompany, companies.length, handleSelectCompany],
   );
 
-  if (companies.length <= 1) {
+  if (!companies || companies.length <= 1) {
     return null;
   }
 
@@ -194,16 +198,14 @@ const CompanyFilter = () => {
             </View>
             <TouchableOpacity
               style={styles.closeButton}
-              onPress={closeModal}
-              hitSlop={{top: 10, bottom: 10, left: 10, right: 10}}>
+              onPress={closeModal}>
               <Icon name="close" size={24} color="#666" />
             </TouchableOpacity>
           </View>
 
           <ScrollView
             style={styles.modalBody}
-            showsVerticalScrollIndicator={false}
-            bounces={false}>
+            showsVerticalScrollIndicator={false}>
             {companies.map(renderCompanyItem)}
           </ScrollView>
         </Animated.View>
@@ -227,11 +229,6 @@ const styles = StyleSheet.create({
     borderColor: '#e9ecef',
     paddingHorizontal: 16,
     paddingVertical: 12,
-    elevation: 1,
-    shadowColor: '#000',
-    shadowOffset: {width: 0, height: 1},
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
   },
   filterContent: {
     flexDirection: 'row',
@@ -261,24 +258,22 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   modalOverlay: {
-    flex: 1,
-    justifyContent: 'flex-end',
+    ...StyleSheet.absoluteFillObject,
   },
   modalBackground: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: 'rgba(0,0,0,0.5)',
   },
   modalContent: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
     backgroundColor: '#fff',
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     maxHeight: '80%',
     minHeight: 300,
-    elevation: 10,
-    shadowColor: '#000',
-    shadowOffset: {width: 0, height: -2},
-    shadowOpacity: 0.25,
-    shadowRadius: 10,
   },
   modalHeader: {
     flexDirection: 'row',
@@ -317,7 +312,6 @@ const styles = StyleSheet.create({
   },
   companyItemSelected: {
     backgroundColor: '#f8f9ff',
-    borderBottomColor: '#e3f2fd',
   },
   firstItem: {
     borderTopWidth: 0,
