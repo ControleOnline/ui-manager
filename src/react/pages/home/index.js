@@ -55,6 +55,13 @@ export default function HomePage({ navigation }) {
       backgroundColor: '#4682b4',
       onPress: () => handleTo('DisplayList'),
     },
+    {
+      id: '5',
+      title: 'Produtos',
+      icon: 'desktop',
+      backgroundColor: '#4682b4',
+      onPress: () => handleTo('CategoriesPage'),
+    },
   ]
 
   const renderButton = ({ item }) => (
