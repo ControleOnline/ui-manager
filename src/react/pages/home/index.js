@@ -21,8 +21,50 @@ export default function HomePage({ navigation }) {
 
   const buttons = [
     {
+      id: '6',
+      title: 'Clientes',
+      icon: 'desktop',
+      backgroundColor: '#4682b4',
+      onPress: () => handleTo('ClientsIndex'),
+    },
+    {
+      id: '5',
+      title: 'Produtos',
+      icon: 'desktop',
+      backgroundColor: '#4682b4',
+      onPress: () => handleTo('CategoriesPage'),
+    },
+    {
+      id: '7',
+      title: 'Pedidos de venda',
+      icon: 'desktop',
+      backgroundColor: '#4682b4',
+      onPress: () => handleTo('SalesOrderIndex'),
+    },
+    {
+      id: '8',
+      title: 'Fornecedores',
+      icon: 'desktop',
+      backgroundColor: '#4682b4',
+      onPress: () => handleTo('ProvidersIndex'),
+    },
+    {
+      id: '9',
+      title: 'Contas a receber',
+      icon: 'desktop',
+      backgroundColor: '#4682b4',
+      onPress: () => handleTo('FinanceReceiveIndex'),
+    },
+    {
+      id: '10',
+      title: 'Contas a pagar',
+      icon: 'desktop',
+      backgroundColor: '#4682b4',
+      onPress: () => handleTo('FinanceExpenseIndex'),
+    },
+    {
       id: '1',
-      title: 'Faturamento',
+      title: 'Resultados',
       icon: 'money',
       backgroundColor: colors?.primary || '#1B5587',
       onPress: () => handleTo('IncomeStatment'),
@@ -54,13 +96,6 @@ export default function HomePage({ navigation }) {
       icon: 'desktop',
       backgroundColor: '#4682b4',
       onPress: () => handleTo('DisplayList'),
-    },
-    {
-      id: '5',
-      title: 'Produtos',
-      icon: 'desktop',
-      backgroundColor: '#4682b4',
-      onPress: () => handleTo('CategoriesPage'),
     },
   ]
 
