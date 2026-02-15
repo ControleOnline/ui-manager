@@ -53,14 +53,14 @@ export default function HomePage({ navigation }) {
       title: 'Contas a receber',
       icon: 'desktop',
       backgroundColor: '#4682b4',
-      onPress: () => handleTo('FinanceReceiveIndex'),
+      onPress: () => handleTo('Receivables'),
     },
     {
       id: '10',
       title: 'Contas a pagar',
       icon: 'desktop',
       backgroundColor: '#4682b4',
-      onPress: () => handleTo('FinanceExpenseIndex'),
+      onPress: () => handleTo('Payables'),
     },
     {
       id: '1',

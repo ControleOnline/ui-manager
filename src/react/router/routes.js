@@ -1,8 +1,6 @@
 import PurchasingSuggestion from '@controleonline/ui-orders/src/react/pages/orders/purchasing/Suggestion';
 import Inventory from '@controleonline/ui-orders/src/react/pages/inventory';
 
-//import IncomeStatement from '@controleonline/ui-manager/src/react/pages/IncomeStatement';
-
 import IncomeStatement from '@controleonline/ui-financial/src/react/pages/reports/IncomeStatement';
 import Payables from '@controleonline/ui-financial/src/react/pages/Payables';
 import Receivables from '@controleonline/ui-financial/src/react/pages/Receivables';
