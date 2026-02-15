@@ -67,7 +67,7 @@ export default function HomePage({ navigation }) {
       title: 'Resultados',
       icon: 'money',
       backgroundColor: colors?.primary || '#1B5587',
-      onPress: () => handleTo('IncomeStatment'),
+      onPress: () => handleTo('IncomeStatement'),
     },
     {
       id: '2',

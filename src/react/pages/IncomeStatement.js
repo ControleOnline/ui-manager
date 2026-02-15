@@ -14,7 +14,7 @@ import StateStore from '@controleonline/ui-layout/src/react/components/StateStor
 import Formatter from '@controleonline/ui-common/src/utils/formatter.js';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 
-const IncomeStatment = () => {
+const IncomeStatement = () => {
   const invoiceStore = useStore('invoice');
   const invoiceGetters = invoiceStore.getters;
   const invoiceActions = invoiceStore.actions;
@@ -464,4 +464,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default IncomeStatment;
+export default IncomeStatement;

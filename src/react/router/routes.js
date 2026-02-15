@@ -1,6 +1,12 @@
 import PurchasingSuggestion from '@controleonline/ui-orders/src/react/pages/orders/purchasing/Suggestion';
 import Inventory from '@controleonline/ui-orders/src/react/pages/inventory';
-import IncomeStatment from '@controleonline/ui-manager/src/react/pages/IncomeStatment';
+
+//import IncomeStatement from '@controleonline/ui-manager/src/react/pages/IncomeStatement';
+
+import IncomeStatement from '@controleonline/ui-financial/src/react/pages/reports/IncomeStatement';
+import Payables from '@controleonline/ui-financial/src/react/pages/Payables';
+import Receivables from '@controleonline/ui-financial/src/react/pages/Receivables';
+
 import CashRegisters from '@controleonline/ui-manager/src/react/pages/CashRegisters';
 import DisplayList from '@controleonline/ui-ppc/src/react/pages/displays/displayPage';
 import DisplayDetails from '@controleonline/ui-ppc/src/react/pages/displays/DisplayDetails';
@@ -35,9 +41,21 @@ const managerRoutes = [
     initialParams: { store: 'invoice' },
   },
   {
-    name: 'IncomeStatment',
-    component: IncomeStatment,
+    name: 'IncomeStatement',
+    component: IncomeStatement,
     options: { headerShown: true, title: 'Faturamento', headerBackButtonMenuEnabled: false },
+    initialParams: { store: 'invoice' },
+  },
+  {
+    name: 'Payables',
+    component: Payables,
+    options: { headerShown: true, title: 'Contas a Pagar', headerBackButtonMenuEnabled: false },
+    initialParams: { store: 'invoice' },
+  },
+  {
+    name: 'Receivables',
+    component: Receivables,
+    options: { headerShown: true, title: 'Contas a Receber', headerBackButtonMenuEnabled: false },
     initialParams: { store: 'invoice' },
   },
   {
