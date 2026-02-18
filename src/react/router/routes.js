@@ -15,7 +15,7 @@ const managerRoutes = [
   {
     name: 'DisplayList',
     component: DisplayList,
-    options: { headerShown: false, title: 'Displays' },
+    options: { headerShown: false, title: 'Displays', showToolBar: true, showCompanyFilter: true },
   },
   {
     name: 'DisplayDetails',
