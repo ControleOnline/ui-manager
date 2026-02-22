@@ -15,57 +15,99 @@ const managerRoutes = [
   {
     name: 'DisplayList',
     component: DisplayList,
-    options: { headerShown: false, title: 'Displays', showToolBar: true, showCompanyFilter: true },
+    options: {
+      headerShown: false,
+      headerBackVisible: false,
+      title: 'Displays',
+      showToolBar: true,
+      showCompanyFilter: true,
+    },
   },
   {
     name: 'DisplayDetails',
     component: DisplayDetails,
-    options: { headerShown: false, title: 'Detalhes do Display' },
+    options: {
+      headerShown: false,
+      headerBackVisible: false,
+      title: 'Detalhes do Display',
+    },
   },
   {
     name: 'DisplayForm',
     component: DisplayForm,
-    options: { headerShown: false, title: 'Formulário de Display' },
+    options: {
+      headerShown: false,
+      headerBackVisible: false,
+      title: 'Formulário de Display',
+    },
   },
   {
     name: 'QueueAddProducts',
     component: QueueAddProducts,
-    options: { headerShown: true, title: 'Produtos da Fila' },
+    options: {
+      headerShown: true,
+      headerBackVisible: false,
+      title: 'Produtos da Fila',
+    },
   },
   {
     name: 'CashRegistersIndex',
     component: CashRegisters,
-    options: { headerShown: false, title: 'Caixas', headerBackButtonMenuEnabled: false },
+    options: {
+      headerShown: false,
+      headerBackVisible: false,
+      title: 'Caixas',
+    },
     initialParams: { store: 'invoice' },
   },
   {
     name: 'IncomeStatement',
     component: IncomeStatement,
-    options: { headerShown: true, title: 'Faturamento', headerBackButtonMenuEnabled: false },
+    options: {
+      headerShown: true,
+      headerBackVisible: false,
+      title: 'Faturamento',
+    },
     initialParams: { store: 'invoice' },
   },
   {
     name: 'Payables',
     component: Payables,
-    options: { headerShown: true, title: 'Contas a Pagar', headerBackButtonMenuEnabled: false },
+    options: {
+      headerShown: true,
+      headerBackVisible: false,
+      title: 'Contas a Pagar',
+    },
     initialParams: { store: 'invoice' },
   },
   {
     name: 'Receivables',
     component: Receivables,
-    options: { headerShown: true, title: 'Contas a Receber', headerBackButtonMenuEnabled: false },
+    options: {
+      headerShown: true,
+      headerBackVisible: false,
+      title: 'Contas a Receber',
+    },
     initialParams: { store: 'invoice' },
   },
   {
     name: 'PurchasingSuggestion',
     component: PurchasingSuggestion,
-    options: { headerShown: true, title: 'Sugestão de Compras', headerBackButtonMenuEnabled: false },
+    options: {
+      headerShown: true,
+      headerBackVisible: false,
+      title: 'Sugestão de Compras',
+    },
     initialParams: { store: 'products' },
   },
   {
     name: 'Inventory',
     component: Inventory,
-    options: { headerShown: true, title: 'Estoque', headerBackButtonMenuEnabled: false },
+    options: {
+      headerShown: true,
+      headerBackVisible: false,
+      title: 'Estoque',
+    },
     initialParams: { store: 'products' },
   },
 ];
