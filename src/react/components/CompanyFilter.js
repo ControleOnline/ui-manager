@@ -159,7 +159,7 @@ const CompanyFilter = () => {
                   'Selecionar'}
               </Text>
             </View>
-            <Icon name="keyboard-arrow-down" size={24} color="#666" />
+            <Icon name="chevron-down" size={24} color="#666" />
           </View>
         </TouchableOpacity>
       </View>
