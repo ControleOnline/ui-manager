@@ -54,8 +54,8 @@ const managerRoutes = [
     name: 'CashRegistersIndex',
     component: CashRegisters,
     options: {
-      headerShown: false,
-      headerBackVisible: false,
+      headerShown: true,
+      headerBackVisible: true,
       title: 'Caixas',
     },
     initialParams: { store: 'invoice' },
@@ -65,7 +65,7 @@ const managerRoutes = [
     component: IncomeStatement,
     options: {
       headerShown: true,
-      headerBackVisible: false,
+      headerBackVisible: true,
       title: 'Faturamento',
     },
     initialParams: { store: 'invoice' },
@@ -75,7 +75,7 @@ const managerRoutes = [
     component: Payables,
     options: {
       headerShown: true,
-      headerBackVisible: false,
+      headerBackVisible: true,
       title: 'Contas a Pagar',
     },
     initialParams: { store: 'invoice' },
@@ -85,7 +85,7 @@ const managerRoutes = [
     component: Receivables,
     options: {
       headerShown: true,
-      headerBackVisible: false,
+      headerBackVisible: true,
       title: 'Contas a Receber',
     },
     initialParams: { store: 'invoice' },
@@ -95,7 +95,7 @@ const managerRoutes = [
     component: PurchasingSuggestion,
     options: {
       headerShown: true,
-      headerBackVisible: false,
+      headerBackVisible: true,
       title: 'Sugestão de Compras',
     },
     initialParams: { store: 'products' },
@@ -105,7 +105,7 @@ const managerRoutes = [
     component: Inventory,
     options: {
       headerShown: true,
-      headerBackVisible: false,
+      headerBackVisible: true,
       title: 'Estoque',
     },
     initialParams: { store: 'products' },
