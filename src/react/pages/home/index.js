@@ -63,6 +63,13 @@ export default function HomePage({ navigation }) {
       onPress: () => handleTo('Payables'),
     },
     {
+      id: '11',
+      title: 'Transferências',
+      icon: 'exchange',
+      backgroundColor: '#4682b4',
+      onPress: () => handleTo('OwnTransfers'),
+    },
+    {
       id: '1',
       title: 'Resultados',
       icon: 'money',
@@ -91,7 +98,7 @@ export default function HomePage({ navigation }) {
       onPress: () => handleTo('CashRegistersIndex'),
     },
     {
-      id: '5',
+      id: '12',
       title: 'PCP',
       icon: 'desktop',
       backgroundColor: '#4682b4',
