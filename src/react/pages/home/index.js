@@ -6,11 +6,14 @@ import {
   FlatList,
   ActivityIndicator,
   Text,
+  useWindowDimensions,
 } from 'react-native'
 import { FontAwesome } from '@expo/vector-icons'
 import { useStore } from '@store'
 
 export default function HomePage({ navigation }) {
+  const { width } = useWindowDimensions()
+
   const themeStore = useStore('theme')
   const peopleStore = useStore('people')
 
@@ -19,99 +22,51 @@ export default function HomePage({ navigation }) {
 
   const handleTo = to => navigation.navigate(to)
 
+  const numColumns =
+    width >= 1600 ? 6 :
+    width >= 1200 ? 5 :
+    width >= 900  ? 4 :
+    width >= 600  ? 3 : 2
+
+  const spacing = 16
+  const totalSpacing = spacing * (numColumns + 1)
+  const buttonSize = (width - totalSpacing - 40) / numColumns
+
+  const iconSize = Math.max(20, Math.min(40, buttonSize * 0.22))
+  const fontSize = Math.max(12, Math.min(16, buttonSize * 0.14))
+
   const buttons = [
-    {
-      id: '6',
-      title: 'Clientes',
-      icon: 'desktop',
-      backgroundColor: '#4682b4',
-      onPress: () => handleTo('ClientsIndex'),
-    },
-    {
-      id: '5',
-      title: 'Produtos',
-      icon: 'desktop',
-      backgroundColor: '#4682b4',
-      onPress: () => handleTo('CategoriesPage'),
-    },
-    {
-      id: '7',
-      title: 'Pedidos de venda',
-      icon: 'desktop',
-      backgroundColor: '#4682b4',
-      onPress: () => handleTo('SalesOrderIndex'),
-    },
-    {
-      id: '8',
-      title: 'Fornecedores',
-      icon: 'desktop',
-      backgroundColor: '#4682b4',
-      onPress: () => handleTo('ProvidersIndex'),
-    },
-    {
-      id: '9',
-      title: 'Contas a receber',
-      icon: 'desktop',
-      backgroundColor: '#4682b4',
-      onPress: () => handleTo('Receivables'),
-    },
-    {
-      id: '10',
-      title: 'Contas a pagar',
-      icon: 'desktop',
-      backgroundColor: '#4682b4',
-      onPress: () => handleTo('Payables'),
-    },
-    {
-      id: '11',
-      title: 'Transferências',
-      icon: 'exchange',
-      backgroundColor: '#4682b4',
-      onPress: () => handleTo('OwnTransfers'),
-    },
-    {
-      id: '1',
-      title: 'Resultados',
-      icon: 'money',
-      backgroundColor: colors?.primary || '#1B5587',
-      onPress: () => handleTo('IncomeStatement'),
-    },
-    {
-      id: '2',
-      title: 'Sugestão de Compras',
-      icon: 'shopping-bag',
-      backgroundColor: '#4ca96b',
-      onPress: () => handleTo('PurchasingSuggestion'),
-    },
-    {
-      id: '3',
-      title: 'Estoque',
-      icon: 'archive',
-      backgroundColor: '#b48c46',
-      onPress: () => handleTo('Inventory'),
-    },
-    {
-      id: '4',
-      title: 'Caixas',
-      icon: 'shopping-cart',
-      backgroundColor: '#4682b4',
-      onPress: () => handleTo('CashRegistersIndex'),
-    },
-    {
-      id: '12',
-      title: 'PCP',
-      icon: 'desktop',
-      backgroundColor: '#4682b4',
-      onPress: () => handleTo('DisplayList'),
-    },
+    { id: '6', title: 'Clientes', icon: 'desktop', backgroundColor: '#4682b4', onPress: () => handleTo('ClientsIndex') },
+    { id: '5', title: 'Produtos', icon: 'desktop', backgroundColor: '#4682b4', onPress: () => handleTo('CategoriesPage') },
+    { id: '7', title: 'Pedidos de venda', icon: 'desktop', backgroundColor: '#4682b4', onPress: () => handleTo('SalesOrderIndex') },
+    { id: '8', title: 'Fornecedores', icon: 'desktop', backgroundColor: '#4682b4', onPress: () => handleTo('ProvidersIndex') },
+    { id: '9', title: 'Contas a receber', icon: 'desktop', backgroundColor: '#4682b4', onPress: () => handleTo('Receivables') },
+    { id: '10', title: 'Contas a pagar', icon: 'desktop', backgroundColor: '#4682b4', onPress: () => handleTo('Payables') },
+    { id: '11', title: 'Transferências', icon: 'exchange', backgroundColor: '#4682b4', onPress: () => handleTo('OwnTransfers') },
+    { id: '1', title: 'Resultados', icon: 'money', backgroundColor: colors?.primary || '#1B5587', onPress: () => handleTo('IncomeStatement') },
+    { id: '2', title: 'Sugestão de Compras', icon: 'shopping-bag', backgroundColor: '#4ca96b', onPress: () => handleTo('PurchasingSuggestion') },
+    { id: '3', title: 'Estoque', icon: 'archive', backgroundColor: '#b48c46', onPress: () => handleTo('Inventory') },
+    { id: '4', title: 'Caixas', icon: 'shopping-cart', backgroundColor: '#4682b4', onPress: () => handleTo('CashRegistersIndex') },
+    { id: '12', title: 'PCP', icon: 'desktop', backgroundColor: '#4682b4', onPress: () => handleTo('DisplayList') },
   ]
 
   const renderButton = ({ item }) => (
     <TouchableOpacity
-      style={[styles.button, { backgroundColor: item.backgroundColor }]}
-      onPress={item.onPress}>
-      <FontAwesome name={item.icon} size={30} color="#fff" />
-      <Text style={styles.buttonText}>{item.title}</Text>
+      style={[
+        styles.button,
+        {
+          backgroundColor: item.backgroundColor,
+          width: buttonSize,
+          height: buttonSize,
+          margin: spacing / 2,
+        },
+      ]}
+      onPress={item.onPress}
+    >
+      <FontAwesome name={item.icon} size={iconSize} color="#fff" />
+      <Text style={[styles.buttonText, { fontSize }]}>
+        {item.title}
+      </Text>
     </TouchableOpacity>
   )
 
@@ -127,11 +82,15 @@ export default function HomePage({ navigation }) {
   return (
     <View style={styles.container}>
       <FlatList
+        key={numColumns}
         data={buttons}
         renderItem={renderButton}
         keyExtractor={item => item.id}
-        numColumns={2}
-        contentContainerStyle={styles.content}
+        numColumns={numColumns}
+        contentContainerStyle={{
+          paddingHorizontal: spacing / 2,
+          paddingBottom: 40,
+        }}
       />
     </View>
   )
@@ -144,21 +103,14 @@ const styles = StyleSheet.create({
     marginTop: 30,
     paddingBottom: 60,
   },
-  content: {
-    paddingBottom: 20,
-  },
   button: {
-    width: '48%',
-    aspectRatio: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 10,
-    borderRadius: 10,
+    borderRadius: 16,
   },
   buttonText: {
-    marginTop: 8,
+    marginTop: 10,
     color: '#fff',
-    fontSize: 16,
     fontWeight: 'bold',
     textAlign: 'center',
   },
