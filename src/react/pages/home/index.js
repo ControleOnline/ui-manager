@@ -1,38 +1,96 @@
-import React, { useState, useCallback } from 'react';
+import React from 'react'
 import {
   StyleSheet,
   TouchableOpacity,
   View,
   FlatList,
   ActivityIndicator,
-} from 'react-native';
-import { Text } from 'react-native-animatable';
-import { useNavigation, useFocusEffect } from '@react-navigation/native';
-
-import { useStore } from '@store';
-import Icon from 'react-native-vector-icons/FontAwesome';
+  Text,
+  useWindowDimensions,
+} from 'react-native'
+import { FontAwesome } from '@expo/vector-icons'
+import { useStore } from '@store'
 
 export default function HomePage({ navigation }) {
-  const themeStore = useStore('theme');
-  const getters = themeStore.getters;
-  const peopleStore = useStore('people');
-  const peopleGetters = peopleStore.getters;
-  const device_configStore = useStore('device_config');
-  const deviceConfigGetters = device_configStore.getters;
-  const { item: device } = deviceConfigGetters;
-  const { colors } = getters;
-  const { currentCompany } = peopleGetters;
-  const handleTo = to => {
-    navigation.navigate(to);
-  };
+  const { width } = useWindowDimensions()
+
+  const themeStore = useStore('theme')
+  const peopleStore = useStore('people')
+
+  const { colors } = themeStore.getters
+  const { currentCompany } = peopleStore.getters
+
+  const handleTo = to => navigation.navigate(to)
+
+  const numColumns =
+    width >= 1600 ? 6 :
+    width >= 1200 ? 5 :
+    width >= 900 ? 4 :
+    width >= 600 ? 3 : 2
+
+  const spacing = 16
+  const totalSpacing = spacing * (numColumns + 1)
+  const buttonSize = (width - totalSpacing - 40) / numColumns
+
+  const iconSize = Math.max(20, Math.min(40, buttonSize * 0.22))
+  const fontSize = Math.max(12, Math.min(16, buttonSize * 0.14))
 
   const buttons = [
     {
+      id: '6',
+      title: 'Clientes',
+      icon: 'desktop',
+      backgroundColor: '#4682b4',
+      onPress: () => handleTo('ClientsIndex'),
+    },
+    {
+      id: '5',
+      title: 'Produtos',
+      icon: 'desktop',
+      backgroundColor: '#4682b4',
+      onPress: () => handleTo('CategoriesPage'),
+    },
+    {
+      id: '7',
+      title: 'Pedidos de venda',
+      icon: 'desktop',
+      backgroundColor: '#4682b4',
+      onPress: () => handleTo('SalesOrderIndex'),
+    },
+    {
+      id: '8',
+      title: 'Fornecedores',
+      icon: 'desktop',
+      backgroundColor: '#4682b4',
+      onPress: () => handleTo('ProvidersIndex'),
+    },
+    {
+      id: '9',
+      title: 'Contas a receber',
+      icon: 'desktop',
+      backgroundColor: '#4682b4',
+      onPress: () => handleTo('Receivables'),
+    },
+    {
+      id: '10',
+      title: 'Contas a pagar',
+      icon: 'desktop',
+      backgroundColor: '#4682b4',
+      onPress: () => handleTo('Payables'),
+    },
+    {
+      id: '11',
+      title: 'Transferências',
+      icon: 'exchange',
+      backgroundColor: '#4682b4',
+      onPress: () => handleTo('OwnTransfers'),
+    },
+    {
       id: '1',
-      title: 'Faturamento',
+      title: 'Resultados',
       icon: 'money',
-      backgroundColor: colors['primary'],
-      onPress: () => handleTo('IncomeStatment'),
+      backgroundColor: colors?.primary || '#1B5587',
+      onPress: () => handleTo('IncomeStatement'),
     },
     {
       id: '2',
@@ -56,51 +114,59 @@ export default function HomePage({ navigation }) {
       onPress: () => handleTo('CashRegistersIndex'),
     },
     {
-      id: '5',
+      id: '12',
       title: 'PCP',
-      icon: 'shopping-cart',
+      icon: 'desktop',
       backgroundColor: '#4682b4',
       onPress: () => handleTo('DisplayList'),
     },
-  ];
+  ]
 
   const renderButton = ({ item }) => (
     <TouchableOpacity
-      style={[styles.button, { backgroundColor: item.backgroundColor }]}
-      onPress={item.onPress}>
-      <Icon name={item.icon} size={30} color="#fff" style={styles.icon} />
-      <Text style={styles.buttonText}>{item.title}</Text>
+      style={[
+        styles.button,
+        {
+          backgroundColor: item.backgroundColor,
+          width: buttonSize,
+          height: buttonSize,
+          margin: spacing / 2,
+        },
+      ]}
+      onPress={item.onPress}
+      activeOpacity={0.8}
+    >
+      <FontAwesome name={item.icon} size={iconSize} color="#fff" />
+      <Text style={[styles.buttonText, { fontSize }]}>
+        {item.title}
+      </Text>
     </TouchableOpacity>
-  );
-  if (
-    !currentCompany ||
-    Object.entries(currentCompany).length === 0 ||
-    !colors ||
-    Object.entries(colors).length === 0
-  ) {
+  )
+
+  if (!currentCompany || !colors) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator
-          size="large"
-          color={colors['primary'] || '#0000ff'}
-        />
-        <Text style={styles.loadingText}>Carregando...</Text>
+        <ActivityIndicator size="large" />
+        <Text>Carregando...</Text>
       </View>
-    );
+    )
   }
 
   return (
     <View style={styles.container}>
       <FlatList
+        key={numColumns}
         data={buttons}
         renderItem={renderButton}
         keyExtractor={item => item.id}
-        numColumns={2}
-        columnWrapperStyle={styles.row}
-        contentContainerStyle={styles.content}
+        numColumns={numColumns}
+        contentContainerStyle={{
+          paddingHorizontal: spacing / 2,
+          paddingBottom: 40,
+        }}
       />
     </View>
-  );
+  )
 }
 
 const styles = StyleSheet.create({
@@ -110,26 +176,14 @@ const styles = StyleSheet.create({
     marginTop: 30,
     paddingBottom: 60,
   },
-  content: {
-    paddingBottom: 20,
-  },
-  row: {
-    justifyContent: 'space-between',
-  },
   button: {
-    width: '48%',
-    aspectRatio: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 10,
-    borderRadius: 10,
-  },
-  icon: {
-    marginBottom: 5,
+    borderRadius: 16,
   },
   buttonText: {
+    marginTop: 10,
     color: '#fff',
-    fontSize: 16,
     fontWeight: 'bold',
     textAlign: 'center',
   },
@@ -138,9 +192,4 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  loadingText: {
-    marginTop: 10,
-    fontSize: 16,
-    color: '#333',
-  },
-});
+})
