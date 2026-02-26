@@ -1,124 +1,75 @@
+import HomePage from '@controleonline/ui-manager/src/react/pages/home/index';
+import ManagerLayout from '@controleonline/ui-layout/src/react/layouts/ManagerLayout';
+import Profile from '@controleonline/ui-people/src/react/pages/Profile';
 import PurchasingSuggestion from '@controleonline/ui-orders/src/react/pages/orders/purchasing/Suggestion';
 import Inventory from '@controleonline/ui-orders/src/react/pages/inventory';
-
-import IncomeStatement from '@controleonline/ui-financial/src/react/pages/reports/IncomeStatement';
-import Payables from '@controleonline/ui-financial/src/react/pages/Payables';
-import Receivables from '@controleonline/ui-financial/src/react/pages/Receivables';
-import OwnTransfers from '@controleonline/ui-financial/src/react/pages/OwnTransfers';
-
+import IncomeStatment from '@controleonline/ui-manager/src/react/pages/IncomeStatment';
 import CashRegisters from '@controleonline/ui-manager/src/react/pages/CashRegisters';
 import DisplayList from '@controleonline/ui-ppc/src/react/pages/displays/displayPage';
 import DisplayDetails from '@controleonline/ui-ppc/src/react/pages/displays/DisplayDetails';
 import DisplayForm from '@controleonline/ui-ppc/src/react/pages/displays/DisplayForm';
 import QueueAddProducts from '@controleonline/ui-ppc/src/react/pages/queues/QueueAddProducts';
 
+const WrappedComponent = (Component) => ({ navigation, route }) => (
+  <ManagerLayout navigation={navigation} route={route}>
+    <Component navigation={navigation} route={route} />
+  </ManagerLayout>
+);
+
 const managerRoutes = [
   {
+    name: 'HomePage',
+    component: WrappedComponent(HomePage),
+    options: { headerShown: false, title: 'Menu' },
+  },
+  {
     name: 'DisplayList',
-    component: DisplayList,
-    options: {
-      headerShown: false,
-      headerBackVisible: false,
-      title: 'Displays',
-      showToolBar: true,
-      showCompanyFilter: true,
-    },
+    component: WrappedComponent(DisplayList),
+    options: { headerShown: false, title: 'Displays' },
   },
   {
     name: 'DisplayDetails',
-    component: DisplayDetails,
-    options: {
-      headerShown: false,
-      headerBackVisible: false,
-      title: 'Detalhes do Display',
-    },
+    component: WrappedComponent(DisplayDetails),
+    options: { headerShown: false, title: 'Detalhes do Display' },
   },
   {
     name: 'DisplayForm',
-    component: DisplayForm,
-    options: {
-      headerShown: false,
-      headerBackVisible: false,
-      title: 'Formulário de Display',
-    },
+    component: WrappedComponent(DisplayForm),
+    options: { headerShown: false, title: 'Formulário de Display' },
   },
   {
     name: 'QueueAddProducts',
-    component: QueueAddProducts,
-    options: {
-      headerShown: true,
-      headerBackVisible: false,
-      title: 'Produtos da Fila',
-    },
+    component: WrappedComponent(QueueAddProducts),
+    options: { headerShown: true, title: 'Produtos da Fila' },
   },
   {
     name: 'CashRegistersIndex',
-    component: CashRegisters,
-    options: {
-      headerShown: true,
-      headerBackVisible: true,
-      title: 'Caixas',
-    },
+    component: WrappedComponent(CashRegisters),
+    options: { headerShown: false, title: 'Caixas', headerBackButtonMenuEnabled: false },
     initialParams: { store: 'invoice' },
   },
   {
-    name: 'IncomeStatement',
-    component: IncomeStatement,
-    options: {
-      headerShown: true,
-      headerBackVisible: true,
-      title: 'Faturamento',
-    },
-    initialParams: { store: 'invoice' },
+    name: 'ProfilePage',
+    component: WrappedComponent(Profile),
+    options: { headerShown: false, title: 'Perfil', headerBackButtonMenuEnabled: false },
+    initialParams: { store: 'auth' },
   },
   {
-    name: 'Payables',
-    component: Payables,
-    options: {
-      headerShown: true,
-      headerBackVisible: true,
-      title: 'Contas a Pagar',
-    },
-    initialParams: { store: 'invoice' },
-  },
-  {
-    name: 'Receivables',
-    component: Receivables,
-    options: {
-      headerShown: true,
-      headerBackVisible: true,
-      title: 'Contas a Receber',
-    },
-    initialParams: { store: 'invoice' },
-  },
-  {
-    name: 'OwnTransfers',
-    component: OwnTransfers,
-    options: {
-      headerShown: true,
-      headerBackVisible: true,
-      title: 'Transferências Internas',
-    },
+    name: 'IncomeStatment',
+    component: WrappedComponent(IncomeStatment),
+    options: { headerShown: true, title: 'Faturamento', headerBackButtonMenuEnabled: false },
     initialParams: { store: 'invoice' },
   },
   {
     name: 'PurchasingSuggestion',
-    component: PurchasingSuggestion,
-    options: {
-      headerShown: true,
-      headerBackVisible: true,
-      title: 'Sugestão de Compras',
-    },
+    component: WrappedComponent(PurchasingSuggestion),
+    options: { headerShown: true, title: 'Sugestão de Compras', headerBackButtonMenuEnabled: false },
     initialParams: { store: 'products' },
   },
   {
     name: 'Inventory',
-    component: Inventory,
-    options: {
-      headerShown: true,
-      headerBackVisible: true,
-      title: 'Estoque',
-    },
+    component: WrappedComponent(Inventory),
+    options: { headerShown: true, title: 'Estoque', headerBackButtonMenuEnabled: false },
     initialParams: { store: 'products' },
   },
 ];
