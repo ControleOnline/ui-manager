@@ -20,7 +20,7 @@ const managerRoutes = [
       headerShown: false,
       headerBackVisible: false,
       title: 'Displays',
-      showToolBar: true,
+      showBottomToolBar: true,
       showCompanyFilter: true,
     },
   },
