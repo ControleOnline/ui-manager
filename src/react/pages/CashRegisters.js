@@ -1,5 +1,6 @@
 import React, {useEffect, useCallback, useState, useRef} from 'react';
-import {Text, View, ScrollView, SafeAreaView} from 'react-native';
+import {Text, View, ScrollView} from 'react-native';
+import {SafeAreaView} from 'react-native-safe-area-context';
 import css from '@controleonline/ui-orders/src/react/css/orders';
 import Formatter from '@controleonline/ui-common/src/utils/formatter';
 import StateStore from '@controleonline/ui-layout/src/react/components/StateStore';
