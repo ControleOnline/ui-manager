@@ -24,9 +24,9 @@ export default function HomePage({ navigation }) {
 
   const numColumns =
     width >= 1600 ? 6 :
-    width >= 1200 ? 5 :
-    width >= 900 ? 4 :
-    width >= 600 ? 3 : 2
+      width >= 1200 ? 5 :
+        width >= 900 ? 4 :
+          width >= 600 ? 3 : 2
 
   const spacing = 16
   const totalSpacing = spacing * (numColumns + 1)
@@ -42,6 +42,13 @@ export default function HomePage({ navigation }) {
       icon: 'desktop',
       backgroundColor: '#4682b4',
       onPress: () => handleTo('ClientsIndex'),
+    },
+    {
+      id: '6',
+      title: 'CRMSettings',
+      icon: 'desktop',
+      backgroundColor: '#4682b4',
+      onPress: () => handleTo('CRMSettings'),
     },
     {
       id: '5',
