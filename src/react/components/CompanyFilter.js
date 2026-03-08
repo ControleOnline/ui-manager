@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -7,145 +7,259 @@ import {
   Modal,
   ScrollView,
   Animated,
-  Platform,
+  Image,
 } from 'react-native';
+
 import Icon from 'react-native-vector-icons/Feather';
 import { useStore } from '@store';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import md5 from 'md5';
+import { appDomain } from '@env';
+import { colors } from '@controleonline/../../src/styles/colors';
+import {
+  buildAssetUrl,
+  resolveThemePalette,
+} from '@controleonline/../../src/styles/branding';
 
-const CompanyFilter = () => {
+const CompanyFilter = ({ navigation, mode }) => {
   const peopleStore = useStore('people');
-  const { currentCompany, companies } = peopleStore.getters;
+  const authStore = useStore('auth');
+  const themeStore = useStore('theme');
+
+  const peopleGetters = peopleStore.getters;
   const peopleActions = peopleStore.actions;
+  const authGetters = authStore.getters;
+  const themeGetters = themeStore.getters;
+
+  const { currentCompany, companies } = peopleGetters;
+  const { user: authUser } = authGetters;
+  const { colors: themeColors } = themeGetters;
+
   const [selectedCompany, setSelectedCompany] = useState(currentCompany);
   const [modalVisible, setModalVisible] = useState(false);
+
   const [fadeAnim] = useState(new Animated.Value(0));
-  const [slideAnim] = useState(new Animated.Value(50));
-  const insets = useSafeAreaInsets();
+  const [slideAnim] = useState(new Animated.Value(-50));
 
   useEffect(() => {
     setSelectedCompany(currentCompany);
   }, [currentCompany]);
 
-  const handleSelectCompany = useCallback(
-    company => {
-      peopleActions.setCurrentCompany(company);
-      closeModal();
-    },
-    [peopleActions],
+  const currentUser = {
+    ...authUser,
+    name: String(
+      authUser?.realname || authUser?.name || authUser?.username || '',
+    ).trim(),
+  };
+  const host =
+    appDomain ||
+    (typeof location !== 'undefined' && location?.host ? location.host : '');
+  const firstName = currentUser?.name?.split(' ')[0] || 'Usuário';
+
+  const brandColors = useMemo(
+    () =>
+      resolveThemePalette(
+        {
+          ...themeColors,
+          ...(currentCompany?.theme?.colors || {}),
+        },
+        colors,
+      ),
+    [themeColors, currentCompany?.id],
   );
+
+
+
+  const companyLogoUrl = useMemo(() => {
+    if (!selectedCompany?.logo) return null;
+
+    if (selectedCompany.logo.domain && selectedCompany.logo.url) {
+      return `https://${selectedCompany.logo.domain}${selectedCompany.logo.url}?app-domain=${host}`;
+    }
+
+    return null;
+  }, [selectedCompany]);
+
+
+
+  const getAvatarUrl = () => {
+
+    if (!currentUser?.email) {
+      return 'https://www.gravatar.com/avatar/?d=identicon';
+    }
+
+    const emailHash = md5(currentUser.email.trim().toLowerCase());
+    return `https://www.gravatar.com/avatar/${emailHash}?s=200&d=identicon`;
+  };
 
   const openModal = useCallback(() => {
     setModalVisible(true);
-    fadeAnim.setValue(1);
-    slideAnim.setValue(300);
-    Animated.spring(slideAnim, {
-      toValue: 0,
-      damping: 24,
-      stiffness: 300,
-      useNativeDriver: true,
-    }).start();
+
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 250,
+        useNativeDriver: true,
+      }),
+      Animated.timing(slideAnim, {
+        toValue: 0,
+        duration: 250,
+        useNativeDriver: true,
+      }),
+    ]).start();
   }, [fadeAnim, slideAnim]);
 
   const closeModal = useCallback(() => {
     Animated.parallel([
       Animated.timing(fadeAnim, {
         toValue: 0,
-        duration: 180,
+        duration: 200,
         useNativeDriver: true,
       }),
       Animated.timing(slideAnim, {
-        toValue: 50,
-        duration: 180,
+        toValue: -50,
+        duration: 200,
         useNativeDriver: true,
       }),
     ]).start(() => setModalVisible(false));
   }, [fadeAnim, slideAnim]);
 
+  const handleSelectCompany = useCallback(
+    company => {
+      peopleActions.setCurrentCompany(company);
+      setSelectedCompany(company);
+      closeModal();
+    },
+    [peopleActions, closeModal],
+  );
+
   const renderCompanyItem = useCallback(
-    (company, index) => {
+    company => {
       const isSelected = selectedCompany?.id === company.id;
+
       return (
         <TouchableOpacity
           key={company.id}
-          style={[styles.companyItem, isSelected && styles.companyItemSelected]}
+          style={[
+            styles.companyItem,
+            isSelected && styles.companyItemSelected,
+          ]}
           onPress={() => handleSelectCompany(company)}
-          activeOpacity={0.7}>
-          <View style={styles.companyInfo}>
-            <View style={[styles.companyIcon, isSelected && styles.companyIconSelected]}>
-              <Icon name="briefcase" size={18} color="#6366F1" />
-            </View>
-            <View style={styles.companyDetails}>
-              <Text style={[styles.companyName, isSelected && styles.companyNameSelected]}>
-                {company.alias || company.name}
-              </Text>
-              {company.name !== company.alias && (
-                <Text style={styles.companyFullName} numberOfLines={1}>
-                  {company.name}
-                </Text>
-              )}
-            </View>
+          activeOpacity={0.8}>
+          <View style={styles.companyItemLeft}>
+            {company?.logo?.domain && company?.logo?.url ? (
+              <Image
+                source={{ uri: `https://${company.logo.domain}${company.logo.url}?app-domain=${host}` }}
+                style={styles.companyLogo}
+              />
+            ) : (
+              <Icon name="briefcase" size={18} color="#64748B" />
+            )}
+            <Text
+              style={[
+                styles.companyItemName,
+                isSelected && { color: brandColors.primary },
+              ]}>
+              {company.alias || company.name}
+            </Text>
           </View>
-          {isSelected && <Icon name="check-circle" size={20} color="#6366F1" />}
+
+          {isSelected && (
+            <Icon name="check-circle" size={20} color={brandColors.primary} />
+          )}
         </TouchableOpacity>
       );
     },
-    [selectedCompany, handleSelectCompany],
+    [selectedCompany, handleSelectCompany, brandColors.primary],
   );
 
-  if (companies.length <= 1) return null;
+  if (!companies || companies.length <= 1) {
+    return null;
+  }
 
   return (
     <>
-      <View style={[styles.container, { paddingTop: Math.max(insets.top, 10) }]}>
-        <TouchableOpacity
-          style={styles.filterButton}
-          onPress={openModal}
-          activeOpacity={0.8}>
-          <View style={styles.filterContent}>
-            <View style={styles.indicator}>
-              <Icon name="briefcase" size={16} color="#6366F1" />
+      <View style={[styles.container, { backgroundColor: brandColors.background }]}>
+        {mode === 'icon' ? (
+          <TouchableOpacity
+            onPress={openModal}
+            style={styles.iconButton}
+            activeOpacity={0.8}>
+            <Icon name="briefcase" size={22} color={brandColors.primary} />
+          </TouchableOpacity>
+        ) : (
+          <View style={styles.header}>
+            <View>
+              <Text style={styles.greeting}>Olá, {firstName}</Text>
+
+              <TouchableOpacity
+                style={styles.companyRow}
+                onPress={openModal}
+                activeOpacity={0.8}>
+                {companyLogoUrl ? (
+                  <Image
+                    source={{ uri: companyLogoUrl }}
+                    style={styles.companyLogo}
+                  />
+                ) : null}
+
+                <Text
+                  style={[
+                    styles.companyName,
+                    { color: brandColors.textSecondary },
+                  ]}>
+                  {selectedCompany?.alias ||
+                    selectedCompany?.name ||
+                    'Selecionar empresa'}
+                </Text>
+
+                <Icon
+                  name="chevron-down"
+                  size={14}
+                  color={brandColors.textSecondary}
+                  style={{ marginLeft: 4, marginTop: 4 }}
+                />
+              </TouchableOpacity>
             </View>
-            <View style={styles.filterText}>
-              <Text style={styles.filterLabel}>Empresa</Text>
-              <Text style={styles.filterValue} numberOfLines={1}>
-                {selectedCompany?.alias || selectedCompany?.name || 'Selecionar'}
-              </Text>
-            </View>
-            <Icon name="chevron-down" size={18} color="#94A3B8" />
+
+            <TouchableOpacity
+              style={styles.avatarWrap}
+              onPress={() => navigation?.navigate?.('ProfilePage')}>
+              <Image source={{ uri: getAvatarUrl() }} style={styles.avatar} />
+            </TouchableOpacity>
           </View>
-        </TouchableOpacity>
+        )}
       </View>
 
-      <Modal
-        visible={modalVisible}
-        transparent
-        animationType="none"
-        onRequestClose={closeModal}>
+      <Modal visible={modalVisible} transparent animationType="none">
         <TouchableOpacity
           style={styles.modalOverlay}
           activeOpacity={1}
           onPress={closeModal}>
-          <Animated.View style={[styles.modalBg, { opacity: fadeAnim }]} />
+          <Animated.View
+            style={[
+              styles.modalBackground,
+              { opacity: fadeAnim },
+            ]}
+          />
         </TouchableOpacity>
 
         <Animated.View
           style={[
             styles.modalContent,
-            { opacity: fadeAnim, transform: [{ translateY: slideAnim }] },
+            {
+              opacity: fadeAnim,
+              transform: [{ translateY: slideAnim }],
+            },
           ]}>
-          <View style={styles.modalHandle} />
           <View style={styles.modalHeader}>
             <Text style={styles.modalTitle}>Selecionar Empresa</Text>
-            <TouchableOpacity onPress={closeModal} style={styles.closeBtn}>
-              <Icon name="x" size={20} color="#64748B" />
+
+            <TouchableOpacity onPress={closeModal}>
+              <Icon name="x" size={22} color="#64748B" />
             </TouchableOpacity>
           </View>
 
-          <ScrollView
-            style={styles.modalBody}
-            showsVerticalScrollIndicator={false}
-            bounces={false}>
+          <ScrollView showsVerticalScrollIndicator={false}>
             {companies.map(renderCompanyItem)}
           </ScrollView>
         </Animated.View>
@@ -156,145 +270,110 @@ const CompanyFilter = () => {
 
 const styles = StyleSheet.create({
   container: {
-    paddingHorizontal: 16,
-    paddingBottom: 10,
-    backgroundColor: '#F8FAFC',
+    paddingHorizontal: 20,
+    paddingTop: 16,
+    paddingBottom: 16,
   },
-  filterButton: {
-    backgroundColor: '#fff',
-    borderRadius: 14,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    ...Platform.select({
-      ios: {
-        shadowColor: '#0F172A',
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.05,
-        shadowRadius: 4,
-      },
-      android: { elevation: 2 },
-      web: { boxShadow: '0 1px 6px rgba(15,23,42,0.05)' },
-    }),
+
+  iconButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  filterContent: {
+
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+
+  greeting: {
+    fontSize: 26,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+
+  companyRow: {
     flexDirection: 'row',
     alignItems: 'center',
   },
-  indicator: {
-    width: 32,
-    height: 32,
-    borderRadius: 10,
-    backgroundColor: '#EEF2FF',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 10,
+
+  companyLogo: {
+    width: 18,
+    height: 18,
+    borderRadius: 4,
+    marginRight: 6,
+    marginTop: 2,
   },
-  filterText: {
-    flex: 1,
-  },
-  filterLabel: {
-    fontSize: 11,
-    color: '#94A3B8',
-    fontWeight: '500',
-    marginBottom: 1,
-    letterSpacing: 0.3,
-    textTransform: 'uppercase',
-  },
-  filterValue: {
+
+  companyName: {
     fontSize: 14,
-    color: '#0F172A',
-    fontWeight: '600',
+    fontWeight: '500',
   },
+
+  avatarWrap: {
+    width: 40,
+    height: 40,
+  },
+
+  avatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+  },
+
   modalOverlay: {
     flex: 1,
     justifyContent: 'flex-end',
   },
-  modalBg: {
+
+  modalBackground: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(15, 23, 42, 0.4)',
+    backgroundColor: 'rgba(0,0,0,0.5)',
   },
+
   modalContent: {
     backgroundColor: '#fff',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
     maxHeight: '70%',
-    minHeight: 250,
   },
-  modalHandle: {
-    width: 36,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: '#E2E8F0',
-    alignSelf: 'center',
-    marginTop: 10,
-    marginBottom: 6,
-  },
+
   modalHeader: {
     flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingVertical: 12,
+    padding: 20,
     borderBottomWidth: 1,
-    borderBottomColor: '#F1F5F9',
+    borderBottomColor: '#eee',
   },
+
   modalTitle: {
-    fontSize: 17,
-    fontWeight: '700',
-    color: '#0F172A',
-  },
-  closeBtn: {
-    padding: 6,
-  },
-  modalBody: {
-    flex: 1,
-    paddingTop: 4,
-  },
-  companyItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingVertical: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F8FAFC',
-  },
-  companyItemSelected: {
-    backgroundColor: '#EEF2FF',
-    borderBottomColor: '#E0E7FF',
-  },
-  companyInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-  },
-  companyIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    backgroundColor: '#EEF2FF',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
-  },
-  companyIconSelected: {
-    backgroundColor: '#C7D2FE',
-  },
-  companyDetails: {
-    flex: 1,
-  },
-  companyName: {
-    fontSize: 15,
+    fontSize: 18,
     fontWeight: '600',
-    color: '#0F172A',
-    marginBottom: 1,
   },
-  companyNameSelected: {
-    color: '#4338CA',
+
+  companyItem: {
+    padding: 18,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f1f5f9',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
   },
-  companyFullName: {
-    fontSize: 12,
-    color: '#94A3B8',
+
+  companyItemSelected: {
+    backgroundColor: '#f8fafc',
+  },
+
+  companyItemLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+
+  companyItemName: {
+    marginLeft: 10,
+    fontSize: 15,
   },
 });
 
