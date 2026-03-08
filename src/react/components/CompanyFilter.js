@@ -13,7 +13,7 @@ import {
 import Icon from 'react-native-vector-icons/Feather';
 import { useStore } from '@store';
 import md5 from 'md5';
-import { appDomain } from '@env';
+import { env } from '@env';
 import { colors } from '@controleonline/../../src/styles/colors';
 import {
   buildAssetUrl,
@@ -51,7 +51,7 @@ const CompanyFilter = ({ navigation, mode }) => {
     ).trim(),
   };
   const host =
-    appDomain ||
+    env.DOMAIN ||
     (typeof location !== 'undefined' && location?.host ? location.host : '');
   const firstName = currentUser?.name?.split(' ')[0] || 'Usuário';
 
