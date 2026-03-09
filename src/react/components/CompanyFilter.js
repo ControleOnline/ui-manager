@@ -82,6 +82,14 @@ const CompanyFilter = ({ navigation, mode }) => {
 
 
   const getAvatarUrl = () => {
+    if (typeof currentUser?.avatarUrl === 'string' && currentUser.avatarUrl) {
+      return currentUser.avatarUrl;
+    }
+
+    if (currentUser?.avatar?.url) {
+      const domain = currentUser?.avatar?.domain || '';
+      return `${domain}${currentUser.avatar.url}`;
+    }
 
     if (!currentUser?.email) {
       return 'https://www.gravatar.com/avatar/?d=identicon';
@@ -174,6 +182,54 @@ const CompanyFilter = ({ navigation, mode }) => {
 
   if (!companies || companies.length <= 1) {
     return null;
+  }
+
+  if (mode === 'icon') {
+    return (
+      <>
+        <TouchableOpacity
+          onPress={openModal}
+          style={styles.iconButton}
+          activeOpacity={0.8}>
+          <Icon name="briefcase" size={18} color={brandColors.primary} />
+        </TouchableOpacity>
+
+        <Modal visible={modalVisible} transparent animationType="none">
+          <TouchableOpacity
+            style={styles.modalOverlay}
+            activeOpacity={1}
+            onPress={closeModal}>
+            <Animated.View
+              style={[
+                styles.modalBackground,
+                { opacity: fadeAnim },
+              ]}
+            />
+          </TouchableOpacity>
+
+          <Animated.View
+            style={[
+              styles.modalContent,
+              {
+                opacity: fadeAnim,
+                transform: [{ translateY: slideAnim }],
+              },
+            ]}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Selecionar Empresa</Text>
+
+              <TouchableOpacity onPress={closeModal}>
+                <Icon name="x" size={22} color="#64748B" />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView showsVerticalScrollIndicator={false}>
+              {companies.map(renderCompanyItem)}
+            </ScrollView>
+          </Animated.View>
+        </Modal>
+      </>
+    );
   }
 
   return (
