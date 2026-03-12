@@ -21,7 +21,7 @@ const managerRoutes = [
     options: {
       headerShown: false,
       headerBackVisible: false,
-      title: 'Displays',
+      title: global.t?.t("configs", "title", "displays"),
       showBottomToolBar: true,
       showCompanyFilter: true,
     },
@@ -32,7 +32,7 @@ const managerRoutes = [
     options: {
       headerShown: false,
       headerBackVisible: false,
-      title: 'Detalhes do Display',
+      title: global.t?.t("configs", "title", "displayDetails"),
     },
   },
   {
@@ -41,7 +41,7 @@ const managerRoutes = [
     options: {
       headerShown: false,
       headerBackVisible: false,
-      title: 'Formulário de Display',
+      title: global.t?.t("configs", "title", "displayForm"),
     },
   },
   {
@@ -50,7 +50,7 @@ const managerRoutes = [
     options: {
       headerShown: true,
       headerBackVisible: false,
-      title: 'Produtos da Fila',
+      title: global.t?.t("configs", "title", "queueAddProducts"),
     },
   },
   {
@@ -59,7 +59,7 @@ const managerRoutes = [
     options: {
       headerShown: true,
       headerBackVisible: true,
-      title: 'Integracoes',
+      title: global.t?.t("configs", "title", "integrations"),
       showCompanyFilter: true,
       companyFilterMode: 'icon',
     },
@@ -81,7 +81,7 @@ const managerRoutes = [
     options: {
       headerShown: true,
       headerBackVisible: true,
-      title: 'Caixas',
+      title: global.t?.t("configs", "title", "cashRegisters"),
     },
     initialParams: { store: 'invoice' },
   },
@@ -91,7 +91,7 @@ const managerRoutes = [
     options: {
       headerShown: true,
       headerBackVisible: true,
-      title: 'Faturamento',
+      title: global.t?.t("configs", "title", "incomeStatement"),
     },
     initialParams: { store: 'invoice' },
   },
@@ -101,7 +101,7 @@ const managerRoutes = [
     options: {
       headerShown: true,
       headerBackVisible: true,
-      title: 'Contas a Pagar',
+      title: global.t?.t("configs", "title", "payables"),
     },
     initialParams: { store: 'invoice' },
   },
@@ -111,7 +111,7 @@ const managerRoutes = [
     options: {
       headerShown: true,
       headerBackVisible: true,
-      title: 'Contas a Receber',
+      title: global.t?.t("configs", "title", "receivables"),
     },
     initialParams: { store: 'invoice' },
   },
@@ -121,7 +121,7 @@ const managerRoutes = [
     options: {
       headerShown: true,
       headerBackVisible: true,
-      title: 'Transferências Internas',
+      title: global.t?.t("configs", "title", "ownTransfers"),
     },
     initialParams: { store: 'invoice' },
   },
@@ -131,7 +131,7 @@ const managerRoutes = [
     options: {
       headerShown: true,
       headerBackVisible: true,
-      title: 'Sugestão de Compras',
+      title: global.t?.t("configs", "title", "purchasingSuggestion"),
     },
     initialParams: { store: 'products' },
   },
@@ -141,7 +141,7 @@ const managerRoutes = [
     options: {
       headerShown: true,
       headerBackVisible: true,
-      title: 'Estoque',
+      title: global.t?.t("configs", "title", "inventory"),
     },
     initialParams: { store: 'products' },
   },
