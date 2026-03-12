@@ -127,6 +127,13 @@ export default function HomePage({ navigation }) {
       backgroundColor: '#4682b4',
       onPress: () => handleTo('DisplayList'),
     },
+    {
+      id: '13',
+      title: 'Integracoes',
+      icon: 'plug',
+      backgroundColor: colors?.primary || '#1B5587',
+      onPress: () => handleTo('IntegrationsPage'),
+    },
   ]
 
   const renderButton = ({ item }) => (

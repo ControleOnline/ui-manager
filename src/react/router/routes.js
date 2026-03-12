@@ -7,6 +7,8 @@ import Receivables from '@controleonline/ui-financial/src/react/pages/Receivable
 import OwnTransfers from '@controleonline/ui-financial/src/react/pages/OwnTransfers';
 
 import CashRegisters from '@controleonline/ui-manager/src/react/pages/CashRegisters';
+import Food99IntegrationPage from '@controleonline/ui-manager/src/react/pages/Food99IntegrationPage';
+import IntegrationsPage from '@controleonline/ui-manager/src/react/pages/Integrations';
 import DisplayList from '@controleonline/ui-ppc/src/react/pages/displays/displayPage';
 import DisplayDetails from '@controleonline/ui-ppc/src/react/pages/displays/DisplayDetails';
 import DisplayForm from '@controleonline/ui-ppc/src/react/pages/displays/DisplayForm';
@@ -49,6 +51,28 @@ const managerRoutes = [
       headerShown: true,
       headerBackVisible: false,
       title: 'Produtos da Fila',
+    },
+  },
+  {
+    name: 'IntegrationsPage',
+    component: IntegrationsPage,
+    options: {
+      headerShown: true,
+      headerBackVisible: true,
+      title: 'Integracoes',
+      showCompanyFilter: true,
+      companyFilterMode: 'icon',
+    },
+  },
+  {
+    name: 'Food99IntegrationPage',
+    component: Food99IntegrationPage,
+    options: {
+      headerShown: true,
+      headerBackVisible: true,
+      title: '99Food',
+      showCompanyFilter: true,
+      companyFilterMode: 'icon',
     },
   },
   {
