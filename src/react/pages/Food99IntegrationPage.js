@@ -92,6 +92,10 @@ const formatApiError = error => {
 
 const countCollection = collection => (Array.isArray(collection) ? collection.length : 0);
 const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
+const normalizeTaskId = value => {
+  if (value === null || value === undefined || value === '') return null;
+  return String(value);
+};
 
 const getPublishStateLabel = state =>
   publishStateLabelMap[state] || 'Sem envio recente';
@@ -176,9 +180,10 @@ export default function Food99IntegrationPage() {
   const lastSyncAt = integrationItem?.last_sync_at || null;
   const lastErrorMessage = integrationItem?.last_error_message || null;
   const lastMenuTaskId =
-    integrationItem?.last_menu_task_id ||
-    lastUploadResult?.result?.data?.taskID ||
-    lastUploadResult?.result?.data?.taskId ||
+    normalizeTaskId(integrationItem?.last_menu_task_id) ||
+    normalizeTaskId(lastUploadResult?.integration?.last_menu_task_id) ||
+    normalizeTaskId(lastUploadResult?.result?.data?.taskID) ||
+    normalizeTaskId(lastUploadResult?.result?.data?.taskId) ||
     null;
   const lastMenuTaskStatus = integrationItem?.last_menu_task_status || null;
   const lastMenuTaskMessage = integrationItem?.last_menu_task_message || null;
@@ -277,13 +282,26 @@ export default function Food99IntegrationPage() {
     hasHydratedSelection.current = true;
   }, []);
 
+  const syncSelectionWithPublishedProducts = useCallback(productList => {
+    const publishedIds = (Array.isArray(productList) ? productList : [])
+      .filter(product => product?.eligible && product?.published_remotely)
+      .map(product => String(product.id));
+
+    setSelectedProductIds(publishedIds);
+    hasHydratedSelection.current = true;
+  }, []);
+
   const applyDetailResponse = useCallback(
-    detailResponse => {
+    (detailResponse, { syncPublishedSelection = false } = {}) => {
       setIntegrationItem(detailResponse?.integration || null);
       setProductsResponse(detailResponse?.products || null);
-      hydrateSelection(detailResponse?.products?.products || []);
+      if (syncPublishedSelection) {
+        syncSelectionWithPublishedProducts(detailResponse?.products?.products || []);
+      } else {
+        hydrateSelection(detailResponse?.products?.products || []);
+      }
     },
-    [hydrateSelection],
+    [hydrateSelection, syncSelectionWithPublishedProducts],
   );
 
   const loadData = useCallback(
@@ -328,10 +346,15 @@ export default function Food99IntegrationPage() {
         lastResponse = response;
 
         if (response?.integration || response?.products) {
-          applyDetailResponse({
-            integration: response?.integration,
-            products: response?.products,
-          });
+          applyDetailResponse(
+            {
+              integration: response?.integration,
+              products: response?.products,
+            },
+            {
+              syncPublishedSelection: response?.publish_state === 'published',
+            },
+          );
         } else {
           await loadData({ silent: true });
         }
@@ -534,9 +557,9 @@ export default function Food99IntegrationPage() {
       setPreviewVisible(false);
 
       const taskId =
-        response?.result?.data?.taskID ||
-        response?.result?.data?.taskId ||
-        response?.integration?.last_menu_task_id;
+        normalizeTaskId(response?.integration?.last_menu_task_id) ||
+        normalizeTaskId(response?.result?.data?.taskID) ||
+        normalizeTaskId(response?.result?.data?.taskId);
 
       if (taskId) {
         const taskResponse = await fetchMenuTaskStatus(taskId, { poll: true });
