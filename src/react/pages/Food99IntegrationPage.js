@@ -46,6 +46,22 @@ const filterTabs = [
   { key: 'blocked', label: 'Com bloqueio' },
 ];
 
+const publishStateLabelMap = {
+  submitted: 'Enviado',
+  processing: 'Processando',
+  published: 'Publicado',
+  failed: 'Falhou',
+  sync_error: 'Sync pendente',
+};
+
+const publishStateToneMap = {
+  submitted: '#2563EB',
+  processing: '#F59E0B',
+  published: '#16A34A',
+  failed: '#DC2626',
+  sync_error: '#7C3AED',
+};
+
 const shadowStyle = Platform.select({
   ios: {
     shadowColor: '#0F172A',
@@ -75,6 +91,10 @@ const formatApiError = error => {
 };
 
 const countCollection = collection => (Array.isArray(collection) ? collection.length : 0);
+const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
+
+const getPublishStateLabel = state =>
+  publishStateLabelMap[state] || 'Sem envio recente';
 
 export default function Food99IntegrationPage() {
   const peopleStore = useStore('people');
@@ -100,7 +120,6 @@ export default function Food99IntegrationPage() {
   const [search, setSearch] = useState('');
   const [filterKey, setFilterKey] = useState('all');
   const [integrationItem, setIntegrationItem] = useState(null);
-  const [storeResponse, setStoreResponse] = useState(null);
   const [productsResponse, setProductsResponse] = useState(null);
   const [selectedProductIds, setSelectedProductIds] = useState([]);
   const [previewData, setPreviewData] = useState(null);
@@ -144,20 +163,28 @@ export default function Food99IntegrationPage() {
     [selectedProducts],
   );
 
-  const menuDetails = storeResponse?.menu?.data || {};
-  const remoteStore = storeResponse?.store?.data || null;
-  const deliveryAreas = Array.isArray(storeResponse?.delivery_areas?.data?.area_group)
-    ? storeResponse.delivery_areas.data.area_group
-    : [];
-  const remoteMenuItems = Array.isArray(menuDetails?.items) ? menuDetails.items : [];
-  const remoteMenus = Array.isArray(menuDetails?.menus) ? menuDetails.menus : [];
   const connected = Boolean(integrationItem?.connected);
-  const remoteConnected = Boolean(
-    integrationItem?.remote_connected || (storeResponse?.store?.errno ?? 1) === 0,
-  );
-  const storeBizStatus = Number(remoteStore?.biz_status ?? remoteStore?.store_status ?? 0);
-  const storeSubStatus = Number(remoteStore?.sub_biz_status ?? 0);
-  const isOnline = remoteConnected && storeBizStatus === 1;
+  const remoteConnected = Boolean(integrationItem?.remote_connected);
+  const storeBizStatus = Number(integrationItem?.biz_status ?? 0);
+  const storeSubStatus = Number(integrationItem?.sub_biz_status ?? 0);
+  const isOnline = Boolean(integrationItem?.online);
+  const menuCount = Number(integrationItem?.menu_count || 0);
+  const menuItemCount = Number(integrationItem?.menu_item_count || 0);
+  const deliveryAreaCount = Number(integrationItem?.delivery_area_count || 0);
+  const publishedProductCount = Number(integrationItem?.published_product_count || 0);
+  const remoteOnlyItemCount = Number(integrationItem?.remote_only_item_count || 0);
+  const lastSyncAt = integrationItem?.last_sync_at || null;
+  const lastErrorMessage = integrationItem?.last_error_message || null;
+  const lastMenuTaskId =
+    integrationItem?.last_menu_task_id ||
+    lastUploadResult?.result?.data?.taskID ||
+    lastUploadResult?.result?.data?.taskId ||
+    null;
+  const lastMenuTaskStatus = integrationItem?.last_menu_task_status || null;
+  const lastMenuTaskMessage = integrationItem?.last_menu_task_message || null;
+  const lastMenuTaskCheckedAt = integrationItem?.last_menu_task_checked_at || null;
+  const lastMenuPublishState = integrationItem?.last_menu_publish_state || null;
+  const publicationTone = publishStateToneMap[lastMenuPublishState] || '#64748B';
 
   const filteredProducts = useMemo(() => {
     const normalizedSearch = String(search || '').trim().toLowerCase();
@@ -239,7 +266,7 @@ export default function Food99IntegrationPage() {
     const preselected = productList
       .filter(product => {
         if (!product?.eligible) return false;
-        return Boolean(product.published_remotely || product.food99_code);
+        return Boolean(product.published_remotely);
       })
       .map(product => String(product.id));
 
@@ -249,6 +276,16 @@ export default function Food99IntegrationPage() {
 
     hasHydratedSelection.current = true;
   }, []);
+
+  const applyDetailResponse = useCallback(
+    detailResponse => {
+      setIntegrationItem(detailResponse?.integration || null);
+      setProductsResponse(detailResponse?.products || null);
+      hydrateSelection(detailResponse?.products?.products || []);
+    },
+    [hydrateSelection],
+  );
+
   const loadData = useCallback(
     async ({ silent = false } = {}) => {
       if (!providerId) {
@@ -264,18 +301,55 @@ export default function Food99IntegrationPage() {
         const detailResponse = await api.fetch('/marketplace/integrations/99food/detail', {
           params: { provider_id: providerId },
         });
-
-        setIntegrationItem(detailResponse?.integration || null);
-        setProductsResponse(detailResponse?.products || null);
-        setStoreResponse(detailResponse || null);
-        hydrateSelection(detailResponse?.products?.products || []);
+        applyDetailResponse(detailResponse);
       } catch (error) {
         showError(formatApiError(error));
       } finally {
         setLoading(false);
       }
     },
-    [hydrateSelection, providerId, showError],
+    [applyDetailResponse, providerId, showError],
+  );
+
+  const fetchMenuTaskStatus = useCallback(
+    async (taskId, { poll = false } = {}) => {
+      if (!providerId || !taskId) {
+        return null;
+      }
+
+      let lastResponse = null;
+      const maxAttempts = poll ? 6 : 1;
+
+      for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+        const response = await api.fetch(`/marketplace/integrations/99food/menu/task/${taskId}`, {
+          params: { provider_id: providerId },
+        });
+
+        lastResponse = response;
+
+        if (response?.integration || response?.products) {
+          applyDetailResponse({
+            integration: response?.integration,
+            products: response?.products,
+          });
+        } else {
+          await loadData({ silent: true });
+        }
+
+        if (['published', 'failed', 'sync_error'].includes(response?.publish_state)) {
+          break;
+        }
+
+        if (!poll || attempt === maxAttempts - 1) {
+          break;
+        }
+
+        await wait(3000);
+      }
+
+      return lastResponse;
+    },
+    [applyDetailResponse, loadData, providerId],
   );
 
   useFocusEffect(
@@ -287,11 +361,17 @@ export default function Food99IntegrationPage() {
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     try {
-      await loadData({ silent: true });
+      if (lastMenuTaskId) {
+        await fetchMenuTaskStatus(lastMenuTaskId, { poll: false });
+      } else {
+        await loadData({ silent: true });
+      }
+    } catch (error) {
+      showError(formatApiError(error));
     } finally {
       setRefreshing(false);
     }
-  }, [loadData]);
+  }, [fetchMenuTaskStatus, lastMenuTaskId, loadData, showError]);
 
   const withAction = useCallback(
     async (key, action) => {
@@ -441,15 +521,42 @@ export default function Food99IntegrationPage() {
       }
 
       setLastUploadResult(response);
-      showSuccess('Menu publicado no 99Food com sucesso.');
+      if (response?.integration || response?.products) {
+        applyDetailResponse({
+          integration: response?.integration,
+          products: response?.products,
+        });
+      } else {
+        await loadData({ silent: true });
+      }
+
+      showInfo('Cardapio enviado para processamento na 99Food.');
       setPreviewVisible(false);
-      await loadData({ silent: true });
+
+      const taskId =
+        response?.result?.data?.taskID ||
+        response?.result?.data?.taskId ||
+        response?.integration?.last_menu_task_id;
+
+      if (taskId) {
+        const taskResponse = await fetchMenuTaskStatus(taskId, { poll: true });
+
+        if (taskResponse?.publish_state === 'published') {
+          showSuccess('Cardapio publicado com sucesso na 99Food.');
+        } else if (taskResponse?.publish_state === 'failed') {
+          showError(taskResponse?.task_message || 'A publicacao do cardapio falhou na 99Food.');
+        } else if (taskResponse?.publish_state === 'sync_error') {
+          showError(taskResponse?.task_message || 'A task foi concluida, mas o catalogo remoto ainda nao foi confirmado.');
+        } else {
+          showInfo('A publicacao do cardapio segue em processamento na 99Food.');
+        }
+      }
     } catch (error) {
       showError(formatApiError(error));
     } finally {
       setUploading(false);
     }
-  }, [loadData, providerId, selectedEligibleProducts, showError, showSuccess]);
+  }, [applyDetailResponse, fetchMenuTaskStatus, loadData, providerId, selectedEligibleProducts, showError, showInfo, showSuccess]);
 
   const selectionSummaryTone =
     selectedEligibleProducts.length >= MINIMUM_REQUIRED_ITEMS ? '#10B981' : '#F59E0B';
@@ -544,12 +651,42 @@ export default function Food99IntegrationPage() {
             <Text style={styles.panelTitle}>Status da loja</Text>
             <TouchableOpacity
               style={styles.inlineAction}
-              onPress={() => loadData({ silent: true })}
+              onPress={() =>
+                withAction('refresh', async () => {
+                  if (lastMenuTaskId) {
+                    await fetchMenuTaskStatus(lastMenuTaskId, { poll: false });
+                    return;
+                  }
+
+                  await loadData({ silent: true });
+                })
+              }
               disabled={actionLoading === 'refresh'}>
               <Icon name="refresh-cw" size={14} color={brandColors.primary} />
               <Text style={[styles.inlineActionText, { color: brandColors.primary }]}>Atualizar</Text>
             </TouchableOpacity>
           </View>
+
+          {!!lastMenuPublishState && (
+            <View style={[styles.infoBanner, { backgroundColor: withOpacity(publicationTone, 0.12) }]}>
+              <Icon
+                name={lastMenuPublishState === 'failed' ? 'alert-triangle' : lastMenuPublishState === 'published' ? 'check-circle' : 'clock'}
+                size={14}
+                color={publicationTone}
+              />
+              <Text style={[styles.infoBannerText, { color: publicationTone }]}>
+                {getPublishStateLabel(lastMenuPublishState)}
+                {lastMenuTaskMessage ? ` • ${lastMenuTaskMessage}` : ''}
+              </Text>
+            </View>
+          )}
+
+          {!!lastErrorMessage && lastMenuPublishState !== 'failed' && (
+            <View style={styles.errorBanner}>
+              <Icon name="alert-circle" size={14} color="#B91C1C" />
+              <Text style={styles.errorBannerText}>{lastErrorMessage}</Text>
+            </View>
+          )}
 
           <View style={styles.statusRows}>
             <View style={styles.statusRowItem}>
@@ -572,20 +709,46 @@ export default function Food99IntegrationPage() {
             </View>
             <View style={styles.statusRowItem}>
               <Text style={styles.statusRowLabel}>Menus remotos</Text>
-              <Text style={styles.statusRowValue}>{countCollection(remoteMenus)}</Text>
+              <Text style={styles.statusRowValue}>{menuCount}</Text>
             </View>
             <View style={styles.statusRowItem}>
               <Text style={styles.statusRowLabel}>Itens remotos</Text>
-              <Text style={styles.statusRowValue}>{countCollection(remoteMenuItems)}</Text>
+              <Text style={styles.statusRowValue}>{menuItemCount}</Text>
+            </View>
+            <View style={styles.statusRowItem}>
+              <Text style={styles.statusRowLabel}>Produtos publicados</Text>
+              <Text style={styles.statusRowValue}>{publishedProductCount}</Text>
+            </View>
+            <View style={styles.statusRowItem}>
+              <Text style={styles.statusRowLabel}>Itens remotos sem local</Text>
+              <Text style={styles.statusRowValue}>{remoteOnlyItemCount}</Text>
             </View>
             <View style={styles.statusRowItem}>
               <Text style={styles.statusRowLabel}>Areas de entrega</Text>
-              <Text style={styles.statusRowValue}>{deliveryAreas.length}</Text>
+              <Text style={styles.statusRowValue}>{deliveryAreaCount}</Text>
             </View>
             <View style={styles.statusRowItem}>
               <Text style={styles.statusRowLabel}>Ultimo task ID</Text>
               <Text style={styles.statusRowValue}>
-                {lastUploadResult?.result?.data?.taskID || lastUploadResult?.result?.data?.taskId || '-'}
+                {lastMenuTaskId || '-'}
+              </Text>
+            </View>
+            <View style={styles.statusRowItem}>
+              <Text style={styles.statusRowLabel}>Status da task</Text>
+              <Text style={styles.statusRowValue}>
+                {lastMenuTaskStatus || '-'}
+              </Text>
+            </View>
+            <View style={[styles.statusRowItem, styles.statusRowItemWide]}>
+              <Text style={styles.statusRowLabel}>Ultima verificacao da task</Text>
+              <Text style={styles.statusRowValueSmall}>
+                {lastMenuTaskCheckedAt || 'Ainda nao verificada'}
+              </Text>
+            </View>
+            <View style={[styles.statusRowItem, styles.statusRowItemWide]}>
+              <Text style={styles.statusRowLabel}>Ultima sincronizacao</Text>
+              <Text style={styles.statusRowValueSmall}>
+                {lastSyncAt || 'Ainda nao sincronizado'}
               </Text>
             </View>
           </View>
@@ -1020,6 +1183,38 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
   },
+  infoBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    borderRadius: 14,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginBottom: 14,
+  },
+  infoBannerText: {
+    flex: 1,
+    fontSize: 12,
+    fontWeight: '700',
+    lineHeight: 18,
+  },
+  errorBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    borderRadius: 14,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginBottom: 14,
+    backgroundColor: '#FEE2E2',
+  },
+  errorBannerText: {
+    flex: 1,
+    fontSize: 12,
+    fontWeight: '700',
+    lineHeight: 18,
+    color: '#B91C1C',
+  },
   statusRows: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -1031,6 +1226,9 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     padding: 14,
   },
+  statusRowItemWide: {
+    width: '100%',
+  },
   statusRowLabel: {
     fontSize: 12,
     color: '#64748B',
@@ -1041,6 +1239,11 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: '#0F172A',
     fontWeight: '800',
+  },
+  statusRowValueSmall: {
+    fontSize: 13,
+    color: '#0F172A',
+    fontWeight: '700',
   },
   actionRow: {
     marginTop: 18,
