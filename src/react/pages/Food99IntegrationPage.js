@@ -100,6 +100,17 @@ const normalizeTaskId = value => {
 const getPublishStateLabel = state =>
   publishStateLabelMap[state] || 'Sem envio recente';
 
+const createEmptyStoreSettingsDraft = () => ({
+  deliveryRadiusKm: '',
+  openTime: '',
+  closeTime: '',
+  deliveryMethod: '',
+  confirmMethod: '',
+  deliveryAreaId: '',
+});
+
+const isErrnoSuccess = errno => String(errno ?? '').trim() === '0';
+
 export default function Food99IntegrationPage() {
   const peopleStore = useStore('people');
   const themeStore = useStore('theme');
@@ -132,6 +143,9 @@ export default function Food99IntegrationPage() {
   const [uploading, setUploading] = useState(false);
   const [actionLoading, setActionLoading] = useState('');
   const [lastUploadResult, setLastUploadResult] = useState(null);
+  const [storeSettingsResponse, setStoreSettingsResponse] = useState(null);
+  const [storeSettingsDraft, setStoreSettingsDraft] = useState(createEmptyStoreSettingsDraft);
+  const [manualShopId, setManualShopId] = useState('');
   const hasHydratedSelection = useRef(false);
 
   const providerId = currentCompany?.id;
@@ -190,6 +204,12 @@ export default function Food99IntegrationPage() {
   const lastMenuTaskCheckedAt = integrationItem?.last_menu_task_checked_at || null;
   const lastMenuPublishState = integrationItem?.last_menu_publish_state || null;
   const publicationTone = publishStateToneMap[lastMenuPublishState] || '#64748B';
+  const storeSettings = storeSettingsResponse?.settings || {};
+  const currentDeliveryRadius = storeSettings?.delivery_radius ? String(storeSettings.delivery_radius) : '-';
+  const currentOpenTime = storeSettings?.open_time || '-';
+  const currentCloseTime = storeSettings?.close_time || '-';
+  const currentDeliveryMethod = storeSettings?.delivery_method || '-';
+  const currentConfirmMethod = storeSettings?.confirm_method || '-';
 
   const filteredProducts = useMemo(() => {
     const normalizedSearch = String(search || '').trim().toLowerCase();
@@ -304,6 +324,23 @@ export default function Food99IntegrationPage() {
     [hydrateSelection, syncSelectionWithPublishedProducts],
   );
 
+  const applyStoreSettingsResponse = useCallback(response => {
+    const settings = response?.settings || {};
+
+    setStoreSettingsResponse(response || null);
+    setStoreSettingsDraft({
+      deliveryRadiusKm:
+        settings?.delivery_radius === null || settings?.delivery_radius === undefined
+          ? ''
+          : String(settings.delivery_radius),
+      openTime: settings?.open_time ? String(settings.open_time) : '',
+      closeTime: settings?.close_time ? String(settings.close_time) : '',
+      deliveryMethod: settings?.delivery_method ? String(settings.delivery_method) : '',
+      confirmMethod: settings?.confirm_method ? String(settings.confirm_method) : '',
+      deliveryAreaId: settings?.delivery_area_id ? String(settings.delivery_area_id) : '',
+    });
+  }, []);
+
   const loadData = useCallback(
     async ({ silent = false } = {}) => {
       if (!providerId) {
@@ -316,17 +353,24 @@ export default function Food99IntegrationPage() {
       }
 
       try {
-        const detailResponse = await api.fetch('/marketplace/integrations/99food/detail', {
-          params: { provider_id: providerId },
-        });
+        const [detailResponse, settingsResponse] = await Promise.all([
+          api.fetch('/marketplace/integrations/99food/detail', {
+            params: { provider_id: providerId },
+          }),
+          api.fetch('/marketplace/integrations/99food/store/settings', {
+            params: { provider_id: providerId },
+          }),
+        ]);
+
         applyDetailResponse(detailResponse);
+        applyStoreSettingsResponse(settingsResponse);
       } catch (error) {
         showError(formatApiError(error));
       } finally {
         setLoading(false);
       }
     },
-    [applyDetailResponse, providerId, showError],
+    [applyDetailResponse, applyStoreSettingsResponse, providerId, showError],
   );
 
   const fetchMenuTaskStatus = useCallback(
@@ -451,7 +495,7 @@ export default function Food99IntegrationPage() {
           return;
         }
 
-        if ((response?.errno ?? 1) === 0) {
+        if (isErrnoSuccess(response?.errno)) {
           showSuccess('Solicitacao de integracao enviada.');
           return;
         }
@@ -478,7 +522,7 @@ export default function Food99IntegrationPage() {
             },
           });
 
-          if ((response?.errno ?? 1) !== 0) {
+          if (!isErrnoSuccess(response?.errno)) {
             showError(response?.errmsg || 'Nao foi possivel atualizar o status da loja.');
             return;
           }
@@ -492,6 +536,167 @@ export default function Food99IntegrationPage() {
     },
     [loadData, providerId, showError, showSuccess, withAction],
   );
+
+  const getFirstOperationError = useCallback(response => {
+    if (!response || typeof response !== 'object') {
+      return null;
+    }
+
+    if (response?.result && !isErrnoSuccess(response.result?.errno)) {
+      return response.result?.errmsg || 'A operacao falhou na 99Food.';
+    }
+
+    const operations = response?.operations || {};
+    for (const operationKey of Object.keys(operations)) {
+      const operationResult = operations?.[operationKey];
+      if (!isErrnoSuccess(operationResult?.errno)) {
+        return operationResult?.errmsg || `Falha em ${operationKey}.`;
+      }
+    }
+
+    return null;
+  }, []);
+
+  const handleSaveStoreSettings = useCallback(async () => {
+    if (!providerId) return;
+
+    await withAction('save-settings', async () => {
+      try {
+        const payload = {
+          provider_id: providerId,
+        };
+
+        if (storeSettingsDraft?.deliveryRadiusKm?.trim()) {
+          payload.delivery_radius_km = storeSettingsDraft.deliveryRadiusKm.trim();
+        }
+
+        if (storeSettingsDraft?.openTime?.trim()) {
+          payload.open_time = storeSettingsDraft.openTime.trim();
+        }
+
+        if (storeSettingsDraft?.closeTime?.trim()) {
+          payload.close_time = storeSettingsDraft.closeTime.trim();
+        }
+
+        if (storeSettingsDraft?.deliveryMethod?.trim()) {
+          payload.delivery_method = storeSettingsDraft.deliveryMethod.trim();
+        }
+
+        if (storeSettingsDraft?.confirmMethod?.trim()) {
+          payload.confirm_method = storeSettingsDraft.confirmMethod.trim();
+        }
+
+        if (storeSettingsDraft?.deliveryAreaId?.trim()) {
+          payload.delivery_area_id = storeSettingsDraft.deliveryAreaId.trim();
+        }
+
+        const response = await api.fetch('/marketplace/integrations/99food/store/settings', {
+          method: 'POST',
+          body: payload,
+        });
+
+        const operationError = getFirstOperationError(response);
+        if (response?.error || operationError) {
+          showError(response?.error || operationError || 'Nao foi possivel salvar as configuracoes.');
+          return;
+        }
+
+        applyStoreSettingsResponse(response);
+        await loadData({ silent: true });
+        showSuccess('Configuracoes da loja atualizadas.');
+      } catch (error) {
+        showError(formatApiError(error));
+      }
+    });
+  }, [
+    applyStoreSettingsResponse,
+    getFirstOperationError,
+    loadData,
+    providerId,
+    showError,
+    showSuccess,
+    storeSettingsDraft,
+    withAction,
+  ]);
+
+  const handleManualBindStore = useCallback(async () => {
+    if (!providerId) return;
+
+    const shopId = String(manualShopId || '').trim();
+    if (!shopId) {
+      showError('Informe o shop_id para vincular a loja.');
+      return;
+    }
+
+    await withAction('bind-manual', async () => {
+      try {
+        const response = await api.fetch('/marketplace/integrations/99food/store/connect', {
+          method: 'POST',
+          body: {
+            provider_id: providerId,
+            shop_id: shopId,
+          },
+        });
+
+        const operationError = getFirstOperationError(response);
+        if (response?.error || operationError) {
+          showError(response?.error || operationError || 'Nao foi possivel vincular a loja.');
+          return;
+        }
+
+        applyStoreSettingsResponse(response);
+        await loadData({ silent: true });
+        showSuccess('Loja vinculada manualmente com sucesso.');
+      } catch (error) {
+        showError(formatApiError(error));
+      }
+    });
+  }, [
+    applyStoreSettingsResponse,
+    getFirstOperationError,
+    loadData,
+    manualShopId,
+    providerId,
+    showError,
+    showSuccess,
+    withAction,
+  ]);
+
+  const handleDisconnectStore = useCallback(async () => {
+    if (!providerId) return;
+
+    await withAction('disconnect', async () => {
+      try {
+        const response = await api.fetch('/marketplace/integrations/99food/store/disconnect', {
+          method: 'POST',
+          body: {
+            provider_id: providerId,
+          },
+        });
+
+        const operationError = getFirstOperationError(response);
+        if (response?.error || operationError) {
+          showError(response?.error || operationError || 'Nao foi possivel desconectar a loja.');
+          return;
+        }
+
+        setManualShopId('');
+        applyStoreSettingsResponse(response);
+        await loadData({ silent: true });
+        showSuccess('Loja desconectada da 99Food.');
+      } catch (error) {
+        showError(formatApiError(error));
+      }
+    });
+  }, [
+    applyStoreSettingsResponse,
+    getFirstOperationError,
+    loadData,
+    providerId,
+    showError,
+    showSuccess,
+    withAction,
+  ]);
 
   const handlePreview = useCallback(async () => {
     if (!providerId) return;
@@ -538,7 +743,7 @@ export default function Food99IntegrationPage() {
         },
       });
 
-      if ((response?.result?.errno ?? 1) !== 0) {
+      if (!isErrnoSuccess(response?.result?.errno)) {
         showError(response?.result?.errmsg || 'Nao foi possivel publicar o menu no 99Food.');
         return;
       }
@@ -809,6 +1014,182 @@ export default function Food99IntegrationPage() {
                 )}
               </TouchableOpacity>
             )}
+          </View>
+        </View>
+
+        <View style={[styles.panel, shadowStyle]}>
+          <View style={styles.panelHeader}>
+            <View>
+              <Text style={styles.panelTitle}>Configuracoes operacionais</Text>
+              <Text style={styles.panelSubtitle}>
+                Ajuste raio de atendimento, horario, metodo de entrega e conexao da loja.
+              </Text>
+            </View>
+          </View>
+
+          <View style={styles.statusRows}>
+            <View style={styles.statusRowItem}>
+              <Text style={styles.statusRowLabel}>Raio atual</Text>
+              <Text style={styles.statusRowValue}>{currentDeliveryRadius}</Text>
+            </View>
+            <View style={styles.statusRowItem}>
+              <Text style={styles.statusRowLabel}>Metodo atual</Text>
+              <Text style={styles.statusRowValue}>{currentDeliveryMethod}</Text>
+            </View>
+            <View style={styles.statusRowItem}>
+              <Text style={styles.statusRowLabel}>Abertura atual</Text>
+              <Text style={styles.statusRowValue}>{currentOpenTime}</Text>
+            </View>
+            <View style={styles.statusRowItem}>
+              <Text style={styles.statusRowLabel}>Fechamento atual</Text>
+              <Text style={styles.statusRowValue}>{currentCloseTime}</Text>
+            </View>
+            <View style={[styles.statusRowItem, styles.statusRowItemWide]}>
+              <Text style={styles.statusRowLabel}>Metodo de confirmacao atual</Text>
+              <Text style={styles.statusRowValue}>{currentConfirmMethod}</Text>
+            </View>
+          </View>
+
+          <View style={styles.settingsForm}>
+            <View style={styles.formField}>
+              <Text style={styles.formLabel}>Raio de atendimento (km)</Text>
+              <TextInput
+                value={storeSettingsDraft.deliveryRadiusKm}
+                onChangeText={value =>
+                  setStoreSettingsDraft(current => ({ ...current, deliveryRadiusKm: value }))
+                }
+                placeholder="Ex.: 5"
+                keyboardType="decimal-pad"
+                style={styles.formInput}
+                placeholderTextColor="#94A3B8"
+              />
+            </View>
+
+            <View style={styles.formRow}>
+              <View style={[styles.formField, styles.formFieldHalf]}>
+                <Text style={styles.formLabel}>Abertura (HH:mm)</Text>
+                <TextInput
+                  value={storeSettingsDraft.openTime}
+                  onChangeText={value =>
+                    setStoreSettingsDraft(current => ({ ...current, openTime: value }))
+                  }
+                  placeholder="08:00"
+                  style={styles.formInput}
+                  placeholderTextColor="#94A3B8"
+                />
+              </View>
+              <View style={[styles.formField, styles.formFieldHalf]}>
+                <Text style={styles.formLabel}>Fechamento (HH:mm)</Text>
+                <TextInput
+                  value={storeSettingsDraft.closeTime}
+                  onChangeText={value =>
+                    setStoreSettingsDraft(current => ({ ...current, closeTime: value }))
+                  }
+                  placeholder="22:00"
+                  style={styles.formInput}
+                  placeholderTextColor="#94A3B8"
+                />
+              </View>
+            </View>
+
+            <View style={styles.formRow}>
+              <View style={[styles.formField, styles.formFieldHalf]}>
+                <Text style={styles.formLabel}>Metodo de entrega</Text>
+                <TextInput
+                  value={storeSettingsDraft.deliveryMethod}
+                  onChangeText={value =>
+                    setStoreSettingsDraft(current => ({ ...current, deliveryMethod: value }))
+                  }
+                  placeholder="1 (loja) ou 2 (99)"
+                  style={styles.formInput}
+                  placeholderTextColor="#94A3B8"
+                />
+              </View>
+              <View style={[styles.formField, styles.formFieldHalf]}>
+                <Text style={styles.formLabel}>Metodo de confirmacao</Text>
+                <TextInput
+                  value={storeSettingsDraft.confirmMethod}
+                  onChangeText={value =>
+                    setStoreSettingsDraft(current => ({ ...current, confirmMethod: value }))
+                  }
+                  placeholder="Ex.: 1"
+                  style={styles.formInput}
+                  placeholderTextColor="#94A3B8"
+                />
+              </View>
+            </View>
+
+            <View style={styles.formField}>
+              <Text style={styles.formLabel}>ID da area de entrega (opcional)</Text>
+              <TextInput
+                value={storeSettingsDraft.deliveryAreaId}
+                onChangeText={value =>
+                  setStoreSettingsDraft(current => ({ ...current, deliveryAreaId: value }))
+                }
+                placeholder="Usa automaticamente a primeira area quando vazio"
+                style={styles.formInput}
+                placeholderTextColor="#94A3B8"
+              />
+            </View>
+          </View>
+
+          <View style={styles.actionRow}>
+            <TouchableOpacity
+              style={[styles.primaryButton, { backgroundColor: brandColors.primary }]}
+              onPress={handleSaveStoreSettings}
+              disabled={actionLoading === 'save-settings'}>
+              {actionLoading === 'save-settings' ? (
+                <ActivityIndicator size="small" color="#fff" />
+              ) : (
+                <>
+                  <Icon name="save" size={16} color="#fff" />
+                  <Text style={styles.primaryButtonText}>Salvar configuracoes</Text>
+                </>
+              )}
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.divider} />
+
+          <View style={styles.formField}>
+            <Text style={styles.formLabel}>Conectar manualmente por shop_id</Text>
+            <TextInput
+              value={manualShopId}
+              onChangeText={setManualShopId}
+              placeholder="Informe o shop_id da 99Food"
+              style={styles.formInput}
+              placeholderTextColor="#94A3B8"
+            />
+          </View>
+
+          <View style={styles.formRow}>
+            <TouchableOpacity
+              style={[styles.secondaryActionButton, { borderColor: brandColors.primary }]}
+              onPress={handleManualBindStore}
+              disabled={actionLoading === 'bind-manual'}>
+              {actionLoading === 'bind-manual' ? (
+                <ActivityIndicator size="small" color={brandColors.primary} />
+              ) : (
+                <>
+                  <Icon name="link" size={15} color={brandColors.primary} />
+                  <Text style={[styles.secondaryActionButtonText, { color: brandColors.primary }]}>Vincular shop_id</Text>
+                </>
+              )}
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.secondaryActionButton, styles.dangerActionButton]}
+              onPress={handleDisconnectStore}
+              disabled={actionLoading === 'disconnect'}>
+              {actionLoading === 'disconnect' ? (
+                <ActivityIndicator size="small" color="#B91C1C" />
+              ) : (
+                <>
+                  <Icon name="unlink" size={15} color="#B91C1C" />
+                  <Text style={[styles.secondaryActionButtonText, { color: '#B91C1C' }]}>Desconectar</Text>
+                </>
+              )}
+            </TouchableOpacity>
           </View>
         </View>
 
@@ -1270,6 +1651,63 @@ const styles = StyleSheet.create({
   },
   actionRow: {
     marginTop: 18,
+    gap: 10,
+  },
+  divider: {
+    height: 1,
+    backgroundColor: '#E2E8F0',
+    marginVertical: 14,
+  },
+  settingsForm: {
+    marginTop: 14,
+    gap: 10,
+  },
+  formRow: {
+    flexDirection: 'row',
+    gap: 10,
+    flexWrap: 'wrap',
+  },
+  formField: {
+    width: '100%',
+    gap: 6,
+  },
+  formFieldHalf: {
+    width: '48%',
+  },
+  formLabel: {
+    fontSize: 12,
+    color: '#64748B',
+    fontWeight: '700',
+  },
+  formInput: {
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 12,
+    minHeight: 42,
+    backgroundColor: '#F8FAFC',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 13,
+    color: '#0F172A',
+  },
+  secondaryActionButton: {
+    flex: 1,
+    minHeight: 42,
+    borderWidth: 1,
+    borderRadius: 12,
+    backgroundColor: '#fff',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+    gap: 8,
+    paddingHorizontal: 12,
+  },
+  secondaryActionButtonText: {
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  dangerActionButton: {
+    borderColor: '#FECACA',
   },
   primaryButton: {
     minHeight: 46,
