@@ -62,6 +62,11 @@ const publishStateToneMap = {
   sync_error: '#7C3AED',
 };
 
+const deliveryMethodOptions = [
+  { value: '1', label: 'Loja (1)' },
+  { value: '2', label: 'Entrega 99 (2)' },
+];
+
 const shadowStyle = Platform.select({
   ios: {
     shadowColor: '#0F172A',
@@ -95,6 +100,62 @@ const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
 const normalizeTaskId = value => {
   if (value === null || value === undefined || value === '') return null;
   return String(value);
+};
+
+const sanitizeTimeInput = value => {
+  const digits = String(value || '')
+    .replace(/\D/g, '')
+    .slice(0, 4);
+
+  if (digits.length <= 2) return digits;
+  return `${digits.slice(0, 2)}:${digits.slice(2)}`;
+};
+
+const isValidTimeInput = value => /^([01]\d|2[0-3]):[0-5]\d$/.test(String(value || '').trim());
+
+const sanitizeRadiusInput = value => {
+  const normalized = String(value || '').replace(/[^0-9.,]/g, '').replace(',', '.');
+  const [integerPart, ...decimals] = normalized.split('.');
+  if (decimals.length === 0) return integerPart;
+  return `${integerPart}.${decimals.join('').slice(0, 2)}`;
+};
+
+const sanitizeConfirmMethodInput = value =>
+  String(value || '')
+    .replace(/\D/g, '')
+    .slice(0, 3);
+
+const normalizeDeliveryMethodCode = value => {
+  const normalized = String(value || '').trim();
+  if (normalized === '1' || normalized === '2') {
+    return normalized;
+  }
+
+  const lower = normalized.toLowerCase();
+  if (lower.includes('99') || lower.includes('platform') || lower.includes('didi')) {
+    return '2';
+  }
+
+  if (
+    lower.includes('store') ||
+    lower.includes('shop') ||
+    lower.includes('merchant') ||
+    lower.includes('self') ||
+    lower.includes('loja')
+  ) {
+    return '1';
+  }
+
+  return '';
+};
+
+const formatDeliveryMethodLabel = value => {
+  const code = normalizeDeliveryMethodCode(value);
+  if (code === '1') return 'Loja';
+  if (code === '2') return 'Entrega 99';
+
+  const raw = String(value || '').trim();
+  return raw || '-';
 };
 
 const getPublishStateLabel = state =>
@@ -207,12 +268,20 @@ export default function Food99IntegrationPage() {
   const lastWebhookReceivedAt = integrationItem?.last_webhook_received_at || null;
   const publicationTone = publishStateToneMap[lastMenuPublishState] || '#64748B';
   const storeSettings = storeSettingsResponse?.settings || {};
+  const settingsSource = String(storeSettingsResponse?.settings_source || 'unavailable');
+  const settingsSourceLabelMap = {
+    remote: 'Remoto',
+    mixed: 'Remoto + fallback local',
+    fallback: 'Fallback local',
+    unavailable: 'Indisponivel',
+  };
+  const settingsSourceLabel = settingsSourceLabelMap[settingsSource] || settingsSource;
   const resolveSettingDisplay = value =>
     value === null || value === undefined || String(value).trim() === '' ? '-' : String(value);
   const currentDeliveryRadius = resolveSettingDisplay(storeSettings?.delivery_radius);
   const currentOpenTime = resolveSettingDisplay(storeSettings?.open_time);
   const currentCloseTime = resolveSettingDisplay(storeSettings?.close_time);
-  const currentDeliveryMethod = resolveSettingDisplay(storeSettings?.delivery_method);
+  const currentDeliveryMethod = formatDeliveryMethodLabel(storeSettings?.delivery_method);
   const currentConfirmMethod = resolveSettingDisplay(storeSettings?.confirm_method);
 
   const filteredProducts = useMemo(() => {
@@ -337,10 +406,10 @@ export default function Food99IntegrationPage() {
         settings?.delivery_radius === null || settings?.delivery_radius === undefined
           ? ''
           : String(settings.delivery_radius),
-      openTime: settings?.open_time ? String(settings.open_time) : '',
-      closeTime: settings?.close_time ? String(settings.close_time) : '',
-      deliveryMethod: settings?.delivery_method ? String(settings.delivery_method) : '',
-      confirmMethod: settings?.confirm_method ? String(settings.confirm_method) : '',
+      openTime: settings?.open_time ? sanitizeTimeInput(String(settings.open_time)) : '',
+      closeTime: settings?.close_time ? sanitizeTimeInput(String(settings.close_time)) : '',
+      deliveryMethod: normalizeDeliveryMethodCode(settings?.delivery_method),
+      confirmMethod: settings?.confirm_method ? sanitizeConfirmMethodInput(String(settings.confirm_method)) : '',
       deliveryAreaId: settings?.delivery_area_id ? String(settings.delivery_area_id) : '',
     });
   }, []);
@@ -566,32 +635,59 @@ export default function Food99IntegrationPage() {
 
     await withAction('save-settings', async () => {
       try {
+        const deliveryRadius = String(storeSettingsDraft?.deliveryRadiusKm || '').trim();
+        const openTime = String(storeSettingsDraft?.openTime || '').trim();
+        const closeTime = String(storeSettingsDraft?.closeTime || '').trim();
+        const deliveryMethod = String(storeSettingsDraft?.deliveryMethod || '').trim();
+        const confirmMethod = String(storeSettingsDraft?.confirmMethod || '').trim();
+        const deliveryAreaId = String(storeSettingsDraft?.deliveryAreaId || '').trim();
+
+        if (deliveryRadius && !/^\d+(\.\d{1,2})?$/.test(deliveryRadius)) {
+          showError('Raio de atendimento invalido. Use numero positivo (ex.: 5 ou 5.5).');
+          return;
+        }
+
+        if ((openTime || closeTime) && (!isValidTimeInput(openTime) || !isValidTimeInput(closeTime))) {
+          showError('Horario invalido. Use o formato HH:mm (ex.: 08:00).');
+          return;
+        }
+
+        if (deliveryMethod && !['1', '2'].includes(deliveryMethod)) {
+          showError('Metodo de entrega invalido. Selecione Loja (1) ou Entrega 99 (2).');
+          return;
+        }
+
+        if (confirmMethod && !/^\d{1,3}$/.test(confirmMethod)) {
+          showError('Metodo de confirmacao invalido. Informe apenas numeros.');
+          return;
+        }
+
         const payload = {
           provider_id: providerId,
         };
 
-        if (storeSettingsDraft?.deliveryRadiusKm?.trim()) {
-          payload.delivery_radius_km = storeSettingsDraft.deliveryRadiusKm.trim();
+        if (deliveryRadius) {
+          payload.delivery_radius_km = deliveryRadius;
         }
 
-        if (storeSettingsDraft?.openTime?.trim()) {
-          payload.open_time = storeSettingsDraft.openTime.trim();
+        if (openTime) {
+          payload.open_time = openTime;
         }
 
-        if (storeSettingsDraft?.closeTime?.trim()) {
-          payload.close_time = storeSettingsDraft.closeTime.trim();
+        if (closeTime) {
+          payload.close_time = closeTime;
         }
 
-        if (storeSettingsDraft?.deliveryMethod?.trim()) {
-          payload.delivery_method = storeSettingsDraft.deliveryMethod.trim();
+        if (deliveryMethod) {
+          payload.delivery_method = deliveryMethod;
         }
 
-        if (storeSettingsDraft?.confirmMethod?.trim()) {
-          payload.confirm_method = storeSettingsDraft.confirmMethod.trim();
+        if (confirmMethod) {
+          payload.confirm_method = confirmMethod;
         }
 
-        if (storeSettingsDraft?.deliveryAreaId?.trim()) {
-          payload.delivery_area_id = storeSettingsDraft.deliveryAreaId.trim();
+        if (deliveryAreaId) {
+          payload.delivery_area_id = deliveryAreaId;
         }
 
         const response = await api.fetch('/marketplace/integrations/99food/store/settings', {
@@ -1064,6 +1160,10 @@ export default function Food99IntegrationPage() {
               <Text style={styles.statusRowLabel}>Metodo de confirmacao atual</Text>
               <Text style={styles.statusRowValue}>{currentConfirmMethod}</Text>
             </View>
+            <View style={[styles.statusRowItem, styles.statusRowItemWide]}>
+              <Text style={styles.statusRowLabel}>Fonte dos valores atuais</Text>
+              <Text style={styles.statusRowValueSmall}>{settingsSourceLabel}</Text>
+            </View>
           </View>
 
           <View style={styles.settingsForm}>
@@ -1072,7 +1172,7 @@ export default function Food99IntegrationPage() {
               <TextInput
                 value={storeSettingsDraft.deliveryRadiusKm}
                 onChangeText={value =>
-                  setStoreSettingsDraft(current => ({ ...current, deliveryRadiusKm: value }))
+                  setStoreSettingsDraft(current => ({ ...current, deliveryRadiusKm: sanitizeRadiusInput(value) }))
                 }
                 placeholder="Ex.: 5"
                 keyboardType="decimal-pad"
@@ -1087,9 +1187,11 @@ export default function Food99IntegrationPage() {
                 <TextInput
                   value={storeSettingsDraft.openTime}
                   onChangeText={value =>
-                    setStoreSettingsDraft(current => ({ ...current, openTime: value }))
+                    setStoreSettingsDraft(current => ({ ...current, openTime: sanitizeTimeInput(value) }))
                   }
                   placeholder="08:00"
+                  keyboardType="number-pad"
+                  maxLength={5}
                   style={styles.formInput}
                   placeholderTextColor="#94A3B8"
                 />
@@ -1099,9 +1201,11 @@ export default function Food99IntegrationPage() {
                 <TextInput
                   value={storeSettingsDraft.closeTime}
                   onChangeText={value =>
-                    setStoreSettingsDraft(current => ({ ...current, closeTime: value }))
+                    setStoreSettingsDraft(current => ({ ...current, closeTime: sanitizeTimeInput(value) }))
                   }
                   placeholder="22:00"
+                  keyboardType="number-pad"
+                  maxLength={5}
                   style={styles.formInput}
                   placeholderTextColor="#94A3B8"
                 />
@@ -1111,24 +1215,41 @@ export default function Food99IntegrationPage() {
             <View style={styles.formRow}>
               <View style={[styles.formField, styles.formFieldHalf]}>
                 <Text style={styles.formLabel}>Metodo de entrega</Text>
-                <TextInput
-                  value={storeSettingsDraft.deliveryMethod}
-                  onChangeText={value =>
-                    setStoreSettingsDraft(current => ({ ...current, deliveryMethod: value }))
-                  }
-                  placeholder="1 (loja) ou 2 (99)"
-                  style={styles.formInput}
-                  placeholderTextColor="#94A3B8"
-                />
+                <View style={styles.optionGroup}>
+                  {deliveryMethodOptions.map(option => {
+                    const selected = String(storeSettingsDraft.deliveryMethod) === String(option.value);
+                    return (
+                      <TouchableOpacity
+                        key={option.value}
+                        onPress={() =>
+                          setStoreSettingsDraft(current => ({ ...current, deliveryMethod: option.value }))
+                        }
+                        style={[
+                          styles.optionChip,
+                          selected && { borderColor: brandColors.primary, backgroundColor: withOpacity(brandColors.primary, 0.12) },
+                        ]}>
+                        <Text
+                          style={[
+                            styles.optionChipText,
+                            selected && { color: brandColors.primary },
+                          ]}>
+                          {option.label}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
               </View>
               <View style={[styles.formField, styles.formFieldHalf]}>
                 <Text style={styles.formLabel}>Metodo de confirmacao</Text>
                 <TextInput
                   value={storeSettingsDraft.confirmMethod}
                   onChangeText={value =>
-                    setStoreSettingsDraft(current => ({ ...current, confirmMethod: value }))
+                    setStoreSettingsDraft(current => ({ ...current, confirmMethod: sanitizeConfirmMethodInput(value) }))
                   }
                   placeholder="Ex.: 1"
+                  keyboardType="number-pad"
+                  maxLength={3}
                   style={styles.formInput}
                   placeholderTextColor="#94A3B8"
                 />
@@ -1716,6 +1837,24 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     fontSize: 13,
     color: '#0F172A',
+  },
+  optionGroup: {
+    flexDirection: 'row',
+    gap: 8,
+    flexWrap: 'wrap',
+  },
+  optionChip: {
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+    borderRadius: 999,
+    backgroundColor: '#F8FAFC',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+  },
+  optionChipText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#334155',
   },
   secondaryActionButton: {
     flex: 1,
