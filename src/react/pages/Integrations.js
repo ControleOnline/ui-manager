@@ -250,11 +250,11 @@ export default function IntegrationsPage({ navigation }) {
 
                 <View style={styles.integrationMetaRow}>
                   <View style={styles.integrationMetaItem}>
-                    <Text style={styles.integrationMetaLabel}>{global.t?.t('configs','marketplace','eligibleProducts')}</Text>
+                    <Text style={styles.integrationMetaLabel}>{global.t?.t('configs','label','eligibleProducts')}</Text>
                     <Text style={styles.integrationMetaValue}>{integration.eligibleProductCount}</Text>
                   </View>
                   <View style={styles.integrationMetaItem}>
-                    <Text style={styles.integrationMetaLabel}>{global.t?.t('configs','marketplace','store')}</Text>
+                    <Text style={styles.integrationMetaLabel}>{global.t?.t('configs','label','store')}</Text>
                     <Text style={styles.integrationMetaValue} numberOfLines={1}>
                       {storeLabel}
                     </Text>
@@ -263,13 +263,13 @@ export default function IntegrationsPage({ navigation }) {
 
                 {integration.connected && !integration.remoteConnected ? (
                   <Text style={styles.integrationHint}>
-                    {global.t?.t('configs','marketplace','locallyLinkedHint')}
+                    {global.t?.t('configs','label','locallyLinkedHint')}
                   </Text>
                 ) : null}
 
                 <View style={styles.integrationFooter}>
                   <Text style={styles.integrationFooterText}>
-                    {integration.route ? global.t?.t('configs','marketplace','openIntegration') : global.t?.t('configs','marketplace','comingSoon')}
+                    {integration.route ? global.t?.t('configs','label','openIntegration') : global.t?.t('configs','label','comingSoon')}
                   </Text>
                   <Icon name={integration.route ? 'arrow-right' : 'clock'} size={16} color={integration.route ? brandColors.primary : '#94A3B8'} />
                 </View>
