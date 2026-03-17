@@ -203,13 +203,17 @@ export default function Food99IntegrationPage() {
   const lastMenuTaskMessage = integrationItem?.last_menu_task_message || null;
   const lastMenuTaskCheckedAt = integrationItem?.last_menu_task_checked_at || null;
   const lastMenuPublishState = integrationItem?.last_menu_publish_state || null;
+  const lastReconcileAt = integrationItem?.last_reconcile_at || null;
+  const lastWebhookReceivedAt = integrationItem?.last_webhook_received_at || null;
   const publicationTone = publishStateToneMap[lastMenuPublishState] || '#64748B';
   const storeSettings = storeSettingsResponse?.settings || {};
-  const currentDeliveryRadius = storeSettings?.delivery_radius ? String(storeSettings.delivery_radius) : '-';
-  const currentOpenTime = storeSettings?.open_time || '-';
-  const currentCloseTime = storeSettings?.close_time || '-';
-  const currentDeliveryMethod = storeSettings?.delivery_method || '-';
-  const currentConfirmMethod = storeSettings?.confirm_method || '-';
+  const resolveSettingDisplay = value =>
+    value === null || value === undefined || String(value).trim() === '' ? '-' : String(value);
+  const currentDeliveryRadius = resolveSettingDisplay(storeSettings?.delivery_radius);
+  const currentOpenTime = resolveSettingDisplay(storeSettings?.open_time);
+  const currentCloseTime = resolveSettingDisplay(storeSettings?.close_time);
+  const currentDeliveryMethod = resolveSettingDisplay(storeSettings?.delivery_method);
+  const currentConfirmMethod = resolveSettingDisplay(storeSettings?.confirm_method);
 
   const filteredProducts = useMemo(() => {
     const normalizedSearch = String(search || '').trim().toLowerCase();
@@ -258,7 +262,7 @@ export default function Food99IntegrationPage() {
       },
       {
         key: 'eligible',
-        label: 'Produtos aptos',
+        label: 'Produtos locais aptos',
         value: String(productsResponse?.eligible_product_count || 0),
         icon: 'package',
         color: '#3B82F6',
@@ -355,7 +359,7 @@ export default function Food99IntegrationPage() {
       try {
         const [detailResponse, settingsResponse] = await Promise.all([
           api.fetch('/marketplace/integrations/99food/detail', {
-            params: { provider_id: providerId },
+            params: { provider_id: providerId, refresh_remote: 1 },
           }),
           api.fetch('/marketplace/integrations/99food/store/settings', {
             params: { provider_id: providerId },
@@ -979,6 +983,18 @@ export default function Food99IntegrationPage() {
                 {lastSyncAt || 'Ainda nao sincronizado'}
               </Text>
             </View>
+            <View style={[styles.statusRowItem, styles.statusRowItemWide]}>
+              <Text style={styles.statusRowLabel}>Ultimo webhook recebido</Text>
+              <Text style={styles.statusRowValueSmall}>
+                {lastWebhookReceivedAt || 'Ainda nao recebido'}
+              </Text>
+            </View>
+            <View style={[styles.statusRowItem, styles.statusRowItemWide]}>
+              <Text style={styles.statusRowLabel}>Ultima reconciliacao</Text>
+              <Text style={styles.statusRowValueSmall}>
+                {lastReconcileAt || 'Ainda nao reconciliado'}
+              </Text>
+            </View>
           </View>
 
           <View style={styles.actionRow}>
@@ -1149,48 +1165,56 @@ export default function Food99IntegrationPage() {
             </TouchableOpacity>
           </View>
 
-          <View style={styles.divider} />
+          {!connected && (
+            <>
+              <View style={styles.divider} />
 
-          <View style={styles.formField}>
-            <Text style={styles.formLabel}>Conectar manualmente por shop_id</Text>
-            <TextInput
-              value={manualShopId}
-              onChangeText={setManualShopId}
-              placeholder="Informe o shop_id da 99Food"
-              style={styles.formInput}
-              placeholderTextColor="#94A3B8"
-            />
-          </View>
+              <View style={styles.formField}>
+                <Text style={styles.formLabel}>Conectar manualmente por shop_id</Text>
+                <TextInput
+                  value={manualShopId}
+                  onChangeText={setManualShopId}
+                  placeholder="Informe o shop_id da 99Food"
+                  style={styles.formInput}
+                  placeholderTextColor="#94A3B8"
+                />
+              </View>
 
-          <View style={styles.formRow}>
-            <TouchableOpacity
-              style={[styles.secondaryActionButton, { borderColor: brandColors.primary }]}
-              onPress={handleManualBindStore}
-              disabled={actionLoading === 'bind-manual'}>
-              {actionLoading === 'bind-manual' ? (
-                <ActivityIndicator size="small" color={brandColors.primary} />
-              ) : (
-                <>
-                  <Icon name="link" size={15} color={brandColors.primary} />
-                  <Text style={[styles.secondaryActionButtonText, { color: brandColors.primary }]}>Vincular shop_id</Text>
-                </>
-              )}
-            </TouchableOpacity>
+              <View style={styles.formRow}>
+                <TouchableOpacity
+                  style={[styles.secondaryActionButton, { borderColor: brandColors.primary }]}
+                  onPress={handleManualBindStore}
+                  disabled={actionLoading === 'bind-manual'}>
+                  {actionLoading === 'bind-manual' ? (
+                    <ActivityIndicator size="small" color={brandColors.primary} />
+                  ) : (
+                    <>
+                      <Icon name="link" size={15} color={brandColors.primary} />
+                      <Text style={[styles.secondaryActionButtonText, { color: brandColors.primary }]}>Vincular shop_id</Text>
+                    </>
+                  )}
+                </TouchableOpacity>
+              </View>
+            </>
+          )}
 
-            <TouchableOpacity
-              style={[styles.secondaryActionButton, styles.dangerActionButton]}
-              onPress={handleDisconnectStore}
-              disabled={actionLoading === 'disconnect'}>
-              {actionLoading === 'disconnect' ? (
-                <ActivityIndicator size="small" color="#B91C1C" />
-              ) : (
-                <>
-                  <Icon name="unlink" size={15} color="#B91C1C" />
-                  <Text style={[styles.secondaryActionButtonText, { color: '#B91C1C' }]}>Desconectar</Text>
-                </>
-              )}
-            </TouchableOpacity>
-          </View>
+          {connected && (
+            <View style={[styles.formRow, styles.formRowSingle]}>
+              <TouchableOpacity
+                style={[styles.secondaryActionButton, styles.dangerActionButton]}
+                onPress={handleDisconnectStore}
+                disabled={actionLoading === 'disconnect'}>
+                {actionLoading === 'disconnect' ? (
+                  <ActivityIndicator size="small" color="#B91C1C" />
+                ) : (
+                  <>
+                    <Icon name="unlink" size={15} color="#B91C1C" />
+                    <Text style={[styles.secondaryActionButtonText, { color: '#B91C1C' }]}>Desconectar</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            </View>
+          )}
         </View>
 
         <View style={[styles.panel, shadowStyle]}>
@@ -1666,6 +1690,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 10,
     flexWrap: 'wrap',
+  },
+  formRowSingle: {
+    justifyContent: 'flex-end',
   },
   formField: {
     width: '100%',
