@@ -35,11 +35,13 @@ const shadowStyle = Platform.select({
   web: { boxShadow: '0 10px 24px rgba(15,23,42,0.08)' },
 });
 
+
+
 const availableIntegrations = [
   {
     key: '99food',
     label: '99Food',
-    description: 'Conecte a loja, selecione produtos e publique menus validos para o marketplace.',
+    description: global.t?.t('configs','description','99description'),
     route: 'Food99IntegrationPage',
     accent: '#F97316',
     app: '99Food',
@@ -47,7 +49,7 @@ const availableIntegrations = [
   {
     key: 'ifood',
     label: 'iFood',
-    description: 'Espaco reservado para a proxima etapa da integracao, mantendo o mesmo padrao operacional.',
+    description: global.t?.t('configs','description','ifooddescription'),
     route: null,
     accent: '#EA580C',
     app: 'iFood',
@@ -55,9 +57,9 @@ const availableIntegrations = [
 ];
 
 const formatApiError = error => {
-  if (!error) return 'Nao foi possivel carregar as integracoes.';
+  if (!error) return global.t?.t('configs','erro','unableLoadIntegrations');
   if (typeof error === 'string') return error;
-  return error?.message || error?.description || error?.errmsg || 'Nao foi possivel carregar as integracoes.';
+  return error?.message || error?.description || error?.errmsg || global.t?.t('configs','erro','unableLoadIntegrations');
 };
 
 export default function IntegrationsPage({ navigation }) {
@@ -140,7 +142,7 @@ export default function IntegrationsPage({ navigation }) {
   const handleOpenIntegration = useCallback(
     integration => {
       if (!integration.route) {
-        showInfo('Essa integracao entra na proxima etapa.');
+        showInfo(global.t?.t('configs','erro','futureIntegration'));
         return;
       }
 
@@ -154,9 +156,9 @@ export default function IntegrationsPage({ navigation }) {
       <SafeAreaView style={styles.container} edges={['bottom']}>
         <View style={styles.centerState}>
           <Icon name="building" size={32} color="#94A3B8" />
-          <Text style={styles.centerStateTitle}>Selecione uma empresa para continuar</Text>
+          <Text style={styles.centerStateTitle}>{global.t?.t('configs','message','selectCompany')}</Text>
           <Text style={styles.centerStateText}>
-            A central de integracoes sempre reflete a empresa ativa no filtro.
+            {global.t?.t('configs','message','integrationCenterReflectsActiveCompany')}
           </Text>
         </View>
       </SafeAreaView>
@@ -168,9 +170,9 @@ export default function IntegrationsPage({ navigation }) {
       <SafeAreaView style={styles.container} edges={['bottom']}>
         <View style={styles.centerState}>
           <ActivityIndicator size="large" color={brandColors.primary} />
-          <Text style={styles.centerStateTitle}>Carregando integracoes</Text>
+          <Text style={styles.centerStateTitle}>{global.t?.t('configs','message','loadingIntegrations')}</Text>
           <Text style={styles.centerStateText}>
-            Estamos buscando os canais disponiveis para a empresa atual.
+            {global.t?.t('configs','message','fetchingAvailableChannels')}
           </Text>
         </View>
       </SafeAreaView>
@@ -192,10 +194,10 @@ export default function IntegrationsPage({ navigation }) {
             { backgroundColor: brandColors.primary },
           ]}>
           <View style={styles.heroCopy}>
-            <Text style={styles.heroEyebrow}>Marketplace</Text>
-            <Text style={styles.heroTitle}>Central de integracoes</Text>
+            <Text style={styles.heroEyebrow}>{global.t?.t('configs','label','marketplace')}</Text>
+            <Text style={styles.heroTitle}>{global.t?.t('configs','label','integrationCenter')}</Text>
             <Text style={styles.heroText}>
-              Escolha um canal para conectar a loja, revisar a operacao atual e publicar informacoes sem sair do manager.
+              {global.t?.t('configs','label','integrationCenterDescription')}
             </Text>
           </View>
           <View style={styles.heroBadge}>
@@ -205,11 +207,11 @@ export default function IntegrationsPage({ navigation }) {
 
         <View style={styles.companyRow}>
           <View>
-            <Text style={styles.sectionTitle}>Empresa ativa</Text>
-            <Text style={styles.companyName}>{currentCompany?.name || currentCompany?.alias || `Empresa #${providerId}`}</Text>
+            <Text style={styles.sectionTitle}>{global.t?.t('configs','label','activeCompany')}</Text>
+            <Text style={styles.companyName}>{currentCompany?.name || currentCompany?.alias || `${global.t?.t('configs','label','company')} #${providerId}`}</Text>
           </View>
           <View style={styles.companyBadge}>
-            <Text style={styles.companyBadgeText}>{integrationCards.length} canais</Text>
+            <Text style={styles.companyBadgeText}>{integrationCards.length} {global.t?.t('configs','label','channels')}</Text>
           </View>
         </View>
 
@@ -217,12 +219,12 @@ export default function IntegrationsPage({ navigation }) {
           {integrationCards.map(integration => {
             const statusTone = integration.connected ? '#16A34A' : integration.route ? '#F59E0B' : '#64748B';
             const statusText = integration.connected
-              ? 'Conectada'
+              ? global.t?.t('configs','label','connected')
               : integration.route
-                ? 'Pronta para configurar'
-                : 'Em breve';
+                ? global.t?.t('configs','label','readyToConfigure')
+                : global.t?.t('configs','label','comingSoon');
             const storeLabel = integration.store?.name
-              || (integration.connected ? 'Vinculada localmente' : 'Nao vinculada');
+              || (integration.connected ? global.t?.t('configs','label','locallyLinked') : global.t?.t('configs','label','notLinked'));
 
             return (
               <TouchableOpacity
@@ -248,11 +250,11 @@ export default function IntegrationsPage({ navigation }) {
 
                 <View style={styles.integrationMetaRow}>
                   <View style={styles.integrationMetaItem}>
-                    <Text style={styles.integrationMetaLabel}>Produtos aptos</Text>
+                    <Text style={styles.integrationMetaLabel}>{global.t?.t('configs','marketplace','eligibleProducts')}</Text>
                     <Text style={styles.integrationMetaValue}>{integration.eligibleProductCount}</Text>
                   </View>
                   <View style={styles.integrationMetaItem}>
-                    <Text style={styles.integrationMetaLabel}>Loja</Text>
+                    <Text style={styles.integrationMetaLabel}>{global.t?.t('configs','marketplace','store')}</Text>
                     <Text style={styles.integrationMetaValue} numberOfLines={1}>
                       {storeLabel}
                     </Text>
@@ -261,13 +263,13 @@ export default function IntegrationsPage({ navigation }) {
 
                 {integration.connected && !integration.remoteConnected ? (
                   <Text style={styles.integrationHint}>
-                    Loja vinculada localmente. Abra a integracao para consultar ou sincronizar os dados remotos.
+                    {global.t?.t('configs','marketplace','locallyLinkedHint')}
                   </Text>
                 ) : null}
 
                 <View style={styles.integrationFooter}>
                   <Text style={styles.integrationFooterText}>
-                    {integration.route ? 'Abrir integracao' : 'Disponivel em breve'}
+                    {integration.route ? global.t?.t('configs','marketplace','openIntegration') : global.t?.t('configs','marketplace','comingSoon')}
                   </Text>
                   <Icon name={integration.route ? 'arrow-right' : 'clock'} size={16} color={integration.route ? brandColors.primary : '#94A3B8'} />
                 </View>
