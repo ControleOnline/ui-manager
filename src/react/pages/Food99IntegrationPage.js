@@ -172,7 +172,7 @@ const createEmptyStoreSettingsDraft = () => ({
 
 const isErrnoSuccess = errno => String(errno ?? '').trim() === '0';
 
-export default function Food99IntegrationPage() {
+export default function Food99IntegrationPage({ navigation }) {
   const peopleStore = useStore('people');
   const themeStore = useStore('theme');
   const { currentCompany } = peopleStore.getters;
@@ -517,6 +517,17 @@ export default function Food99IntegrationPage() {
       setRefreshing(false);
     }
   }, [fetchMenuTaskStatus, lastMenuTaskId, loadData, showError]);
+
+  const handleGoBack = useCallback(() => {
+    if (navigation?.canGoBack?.()) {
+      navigation.goBack();
+      return;
+    }
+
+    if (navigation?.navigate) {
+      navigation.navigate('IntegrationsPage');
+    }
+  }, [navigation]);
 
   const withAction = useCallback(
     async (key, action) => {
@@ -929,6 +940,11 @@ export default function Food99IntegrationPage() {
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={brandColors.primary} />
         }>
+        <TouchableOpacity style={styles.backButton} onPress={handleGoBack} activeOpacity={0.85}>
+          <Icon name="arrow-left" size={16} color="#334155" />
+          <Text style={styles.backButtonText}>Voltar para Integracoes</Text>
+        </TouchableOpacity>
+
         <View
           style={[
             styles.heroCard,
@@ -1585,6 +1601,23 @@ const styles = StyleSheet.create({
     paddingTop: 16,
     paddingBottom: 32,
     gap: 18,
+  },
+  backButton: {
+    alignSelf: 'flex-start',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    backgroundColor: '#fff',
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  backButtonText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#334155',
   },
   centerState: {
     flex: 1,
