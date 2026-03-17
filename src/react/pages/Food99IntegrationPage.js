@@ -415,7 +415,7 @@ export default function Food99IntegrationPage() {
   }, []);
 
   const loadData = useCallback(
-    async ({ silent = false } = {}) => {
+    async ({ silent = false, refreshRemote = false } = {}) => {
       if (!providerId) {
         setLoading(false);
         return;
@@ -426,9 +426,14 @@ export default function Food99IntegrationPage() {
       }
 
       try {
+        const detailParams = { provider_id: providerId };
+        if (refreshRemote) {
+          detailParams.refresh_remote = 1;
+        }
+
         const [detailResponse, settingsResponse] = await Promise.all([
           api.fetch('/marketplace/integrations/99food/detail', {
-            params: { provider_id: providerId, refresh_remote: 1 },
+            params: detailParams,
           }),
           api.fetch('/marketplace/integrations/99food/store/settings', {
             params: { provider_id: providerId },
@@ -504,7 +509,7 @@ export default function Food99IntegrationPage() {
       if (lastMenuTaskId) {
         await fetchMenuTaskStatus(lastMenuTaskId, { poll: false });
       } else {
-        await loadData({ silent: true });
+        await loadData({ silent: true, refreshRemote: true });
       }
     } catch (error) {
       showError(formatApiError(error));
