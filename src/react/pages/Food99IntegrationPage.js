@@ -63,8 +63,8 @@ const publishStateToneMap = {
 };
 
 const deliveryMethodOptions = [
-  { value: '1', label: 'Loja (1)' },
-  { value: '2', label: 'Entrega 99 (2)' },
+  { value: '2', label: 'Loja (2)' },
+  { value: '1', label: 'Entrega 99 (1)' },
 ];
 
 const shadowStyle = Platform.select({
@@ -133,7 +133,7 @@ const normalizeDeliveryMethodCode = value => {
 
   const lower = normalized.toLowerCase();
   if (lower.includes('99') || lower.includes('platform') || lower.includes('didi')) {
-    return '2';
+    return '1';
   }
 
   if (
@@ -143,7 +143,7 @@ const normalizeDeliveryMethodCode = value => {
     lower.includes('self') ||
     lower.includes('loja')
   ) {
-    return '1';
+    return '2';
   }
 
   return '';
@@ -151,8 +151,8 @@ const normalizeDeliveryMethodCode = value => {
 
 const formatDeliveryMethodLabel = value => {
   const code = normalizeDeliveryMethodCode(value);
-  if (code === '1') return 'Loja';
-  if (code === '2') return 'Entrega 99';
+  if (code === '2') return 'Loja';
+  if (code === '1') return 'Entrega 99';
 
   const raw = String(value || '').trim();
   return raw || '-';
@@ -172,7 +172,7 @@ const createEmptyStoreSettingsDraft = () => ({
 
 const isErrnoSuccess = errno => String(errno ?? '').trim() === '0';
 
-export default function Food99IntegrationPage({ navigation }) {
+export default function Food99IntegrationPage() {
   const peopleStore = useStore('people');
   const themeStore = useStore('theme');
   const { currentCompany } = peopleStore.getters;
@@ -518,17 +518,6 @@ export default function Food99IntegrationPage({ navigation }) {
     }
   }, [fetchMenuTaskStatus, lastMenuTaskId, loadData, showError]);
 
-  const handleGoBack = useCallback(() => {
-    if (navigation?.canGoBack?.()) {
-      navigation.goBack();
-      return;
-    }
-
-    if (navigation?.navigate) {
-      navigation.navigate('IntegrationsPage');
-    }
-  }, [navigation]);
-
   const withAction = useCallback(
     async (key, action) => {
       setActionLoading(key);
@@ -669,7 +658,7 @@ export default function Food99IntegrationPage({ navigation }) {
         }
 
         if (deliveryMethod && !['1', '2'].includes(deliveryMethod)) {
-          showError('Metodo de entrega invalido. Selecione Loja (1) ou Entrega 99 (2).');
+          showError('Metodo de entrega invalido. Selecione Loja (2) ou Entrega 99 (1).');
           return;
         }
 
@@ -940,11 +929,6 @@ export default function Food99IntegrationPage({ navigation }) {
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={brandColors.primary} />
         }>
-        <TouchableOpacity style={styles.backButton} onPress={handleGoBack} activeOpacity={0.85}>
-          <Icon name="arrow-left" size={16} color="#334155" />
-          <Text style={styles.backButtonText}>Voltar para Integracoes</Text>
-        </TouchableOpacity>
-
         <View
           style={[
             styles.heroCard,
@@ -1601,23 +1585,6 @@ const styles = StyleSheet.create({
     paddingTop: 16,
     paddingBottom: 32,
     gap: 18,
-  },
-  backButton: {
-    alignSelf: 'flex-start',
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    backgroundColor: '#fff',
-    borderRadius: 999,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-  },
-  backButtonText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#334155',
   },
   centerState: {
     flex: 1,
