@@ -151,6 +151,10 @@ export default function IntegrationsPage({ navigation }) {
     [navigation, showInfo],
   );
 
+  const handleOpenHistory = useCallback(() => {
+    navigation.navigate('Food99OrderHistoryPage');
+  }, [navigation]);
+
   if (!providerId) {
     return (
       <SafeAreaView style={styles.container} edges={['bottom']}>
@@ -273,6 +277,19 @@ export default function IntegrationsPage({ navigation }) {
                   </Text>
                   <Icon name={integration.route ? 'arrow-right' : 'clock'} size={16} color={integration.route ? brandColors.primary : '#94A3B8'} />
                 </View>
+
+                {integration.key === '99food' ? (
+                  <TouchableOpacity
+                    style={styles.historyButton}
+                    activeOpacity={0.85}
+                    onPress={event => {
+                      event?.stopPropagation?.();
+                      handleOpenHistory();
+                    }}>
+                    <Icon name="clock" size={16} color="#C2410C" />
+                    <Text style={styles.historyButtonText}>Ver historico de pedidos</Text>
+                  </TouchableOpacity>
+                ) : null}
               </TouchableOpacity>
             );
           })}
@@ -462,5 +479,22 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
     color: '#0F172A',
+  },
+  historyButton: {
+    marginTop: 12,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#FED7AA',
+    backgroundColor: '#FFF7ED',
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  historyButtonText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#C2410C',
   },
 });

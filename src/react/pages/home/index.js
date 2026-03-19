@@ -134,6 +134,13 @@ export default function HomePage({ navigation }) {
       backgroundColor: colors?.primary || '#1B5587',
       onPress: () => handleTo('IntegrationsPage'),
     },
+    {
+      id: '14',
+      title: 'Historico 99Food',
+      icon: 'clock-o',
+      backgroundColor: '#F97316',
+      onPress: () => handleTo('Food99OrderHistoryPage'),
+    },
   ]
 
   const renderButton = ({ item }) => (
