@@ -20,11 +20,12 @@ const managerRoutes = [
     name: 'DisplayList',
     component: DisplayList,
     options: {
-      headerShown: false,
+      headerShown: true,
       headerBackVisible: false,
       title: global.t?.t("configs", "title", "displays"),
       showBottomToolBar: true,
       showCompanyFilter: true,
+      companyFilterMode: 'icon',
     },
   },
   {
