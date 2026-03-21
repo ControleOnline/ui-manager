@@ -136,7 +136,7 @@ export default function HomePage({ navigation }) {
     },
     {
       id: '14',
-      title: 'Historico 99Food',
+      title: global.t?.t('configs','button_title','99FoodOrderHistory'),
       icon: 'clock-o',
       backgroundColor: '#F97316',
       onPress: () => handleTo('Food99OrderHistoryPage'),

@@ -114,7 +114,7 @@ export default function Food99OrderHistoryPage({ navigation }) {
       const fetchedOrders = Array.isArray(response) ? response : [];
       setOrders(fetchedOrders.filter(matchesFood99Order));
     } catch (fetchError) {
-      setError(fetchError?.message || 'Nao foi possivel carregar o historico 99Food.');
+      setError(fetchError?.message || global.t?.t("configs", "title", "unableToLoadHistory"));
       setOrders([]);
     } finally {
       setLoading(false);
@@ -154,9 +154,9 @@ export default function Food99OrderHistoryPage({ navigation }) {
         <View style={[styles.heroCard, shadowStyle, { backgroundColor: brandColors.primary }]}>
           <View style={styles.heroCopy}>
             <Text style={styles.heroEyebrow}>99Food</Text>
-            <Text style={styles.heroTitle}>Historico de pedidos</Text>
+            <Text style={styles.heroTitle}>{global.t?.t("configs", "title", "orderHistory")}</Text>
             <Text style={styles.heroText}>
-              Consulte rapidamente pedidos da 99Food, incluindo cancelados e concluidos, e abra o detalhe para ver o estado da integracao.
+              {global.t?.t("configs", "title", "orderHistoryResume")}
             </Text>
           </View>
           <View style={styles.heroBadge}>
@@ -166,9 +166,9 @@ export default function Food99OrderHistoryPage({ navigation }) {
 
         <View style={styles.summaryRow}>
           <View>
-            <Text style={styles.sectionTitle}>Empresa ativa</Text>
+            <Text style={styles.sectionTitle}>{global.t?.t("configs", "title", "activeCompany")}</Text>
             <Text style={styles.companyName}>
-              {currentCompany?.name || currentCompany?.alias || 'Selecione uma empresa'}
+              {currentCompany?.name || currentCompany?.alias || global.t?.t("configs", "title", "selectCompany")}
             </Text>
           </View>
           <View style={styles.countPill}>
@@ -179,17 +179,15 @@ export default function Food99OrderHistoryPage({ navigation }) {
         {loading ? (
           <View style={styles.centerState}>
             <ActivityIndicator size="large" color={brandColors.primary} />
-            <Text style={styles.centerStateTitle}>Carregando historico 99Food</Text>
-            <Text style={styles.centerStateText}>
-              Buscando pedidos da empresa ativa.
-            </Text>
+            <Text style={styles.centerStateTitle}>{global.t?.t("configs", "title", "loadingHistory")}</Text>
+            <Text style={styles.centerStateText}>{global.t?.t("configs", "title", "fetchingOrders")}</Text>
           </View>
         ) : null}
 
         {!loading && !!error ? (
           <View style={styles.centerState}>
             <Icon name="alert-circle" size={28} color="#DC2626" />
-            <Text style={styles.centerStateTitle}>Nao foi possivel carregar</Text>
+            <Text style={styles.centerStateTitle}>{global.t?.t("configs", "title", "unableToLoadHistory")}</Text>
             <Text style={styles.centerStateText}>{error}</Text>
           </View>
         ) : null}
@@ -197,9 +195,9 @@ export default function Food99OrderHistoryPage({ navigation }) {
         {!loading && !error && orders.length === 0 ? (
           <View style={styles.centerState}>
             <Icon name="inbox" size={28} color="#94A3B8" />
-            <Text style={styles.centerStateTitle}>Nenhum pedido 99Food encontrado</Text>
+            <Text style={styles.centerStateTitle}>{global.t?.t("configs", "title", "noOrdersFound")}</Text>
             <Text style={styles.centerStateText}>
-              Se existirem pedidos na API com outro nome de app, ajustamos o filtro depois.
+              {global.t?.t("configs", "title", "noOrdersFoundMessage")}
             </Text>
           </View>
         ) : null}
@@ -228,7 +226,7 @@ export default function Food99OrderHistoryPage({ navigation }) {
 
                   <View style={styles.orderFooter}>
                     <Text style={styles.orderFooterText}>
-                      Toque para abrir o detalhe e ver o estado remoto da 99Food.
+                      {global.t?.t("configs", "title", "tapToViewDetails")}
                     </Text>
                   </View>
                 </TouchableOpacity>

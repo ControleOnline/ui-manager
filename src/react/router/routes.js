@@ -83,7 +83,7 @@ const managerRoutes = [
     options: {
       headerShown: true,
       headerBackVisible: true,
-      title: 'Historico 99Food',
+      title: global.t?.t("configs", "title", "99FoodOrderHistory"),
       showCompanyFilter: true,
       companyFilterMode: 'icon',
     },
