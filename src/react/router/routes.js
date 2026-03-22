@@ -32,9 +32,12 @@ const managerRoutes = [
     name: 'DisplayDetails',
     component: DisplayDetails,
     options: {
-      headerShown: false,
-      headerBackVisible: false,
+      headerShown: true,
+      headerBackVisible: true,
       title: global.t?.t("configs", "title", "displayDetails"),
+      showBottomToolBar: true,
+      showCompanyFilter: true,
+      companyFilterMode: 'icon',
     },
   },
   {
