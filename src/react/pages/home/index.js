@@ -252,7 +252,7 @@ export default function HomePage({ navigation }) {
             <ShortcutCard label="Produtos" icon="package" color={HEX.success} onPress={() => go('CategoriesPage')} />
           </ShortcutsRow>
           <ShortcutsRow>
-            <ShortcutCard label="Estoque" icon="archive" color={HEX.warning} onPress={() => go('Inventory')} />
+            <ShortcutCard label="Estoque" icon="archive" color={HEX.warning} onPress={() => go('InventoriesPage')} />
             <ShortcutCard label="Sugestão de Compra" icon="truck" color={HEX.purple} onPress={() => go('PurchasingSuggestion')} />
           </ShortcutsRow>
         </SectionBlock>
