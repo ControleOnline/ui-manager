@@ -275,9 +275,9 @@ export default function HomePage({ navigation }) {
             <ShortcutCard label="Displays PPC" icon="monitor" color={HEX.purple} onPress={() => go('DisplayList')} />
             <ShortcutCard label="Integrações" icon="link" color={HEX.info} onPress={() => go('IntegrationsPage')} />
           </ShortcutsRow>
-          <ShortcutsRow last>
+          <ShortcutsRow>
             <ShortcutCard label="Histórico 99Food" icon="clock" color={HEX.orange} onPress={() => go('Food99OrderHistoryPage')} />
-            <View style={{ flex: 1 }} />
+            <ShortcutCard label="Conexões" icon="radio" color={HEX.success} onPress={() => go('ConnectionsPage')} />
           </ShortcutsRow>
         </SectionBlock>
 

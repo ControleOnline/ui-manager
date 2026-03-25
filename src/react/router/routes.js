@@ -7,9 +7,11 @@ import Receivables from '@controleonline/ui-financial/src/react/pages/Receivable
 import OwnTransfers from '@controleonline/ui-financial/src/react/pages/OwnTransfers';
 
 import CashRegisters from '@controleonline/ui-manager/src/react/pages/CashRegisters';
+import ConnectionsPage from '@controleonline/ui-manager/src/react/pages/Connections';
 import Food99IntegrationPage from '@controleonline/ui-manager/src/react/pages/Food99IntegrationPage';
 import Food99OrderHistoryPage from '@controleonline/ui-manager/src/react/pages/Food99OrderHistoryPage';
 import IntegrationsPage from '@controleonline/ui-manager/src/react/pages/Integrations';
+import WhatsAppConnectionPage from '@controleonline/ui-manager/src/react/pages/WhatsAppConnectionPage';
 import DisplayList from '@controleonline/ui-ppc/src/react/pages/displays/displayPage';
 import DisplayDetails from '@controleonline/ui-ppc/src/react/pages/displays/DisplayDetails';
 import DisplayForm from '@controleonline/ui-ppc/src/react/pages/displays/DisplayForm';
@@ -56,6 +58,28 @@ const managerRoutes = [
       headerShown: true,
       headerBackVisible: false,
       title: global.t?.t("configs", "title", "queueAddProducts"),
+    },
+  },
+  {
+    name: 'ConnectionsPage',
+    component: ConnectionsPage,
+    options: {
+      headerShown: true,
+      headerBackVisible: true,
+      title: 'Conexoes',
+      showCompanyFilter: true,
+      companyFilterMode: 'icon',
+    },
+  },
+  {
+    name: 'WhatsAppConnectionPage',
+    component: WhatsAppConnectionPage,
+    options: {
+      headerShown: true,
+      headerBackVisible: true,
+      title: 'WhatsApp',
+      showCompanyFilter: true,
+      companyFilterMode: 'icon',
     },
   },
   {
