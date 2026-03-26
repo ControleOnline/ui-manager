@@ -149,6 +149,34 @@ export default function IFoodIntegrationPage() {
     });
   }, [applyDetailResponse, providerId, showError, showInfo, withAction]);
 
+  const handleCatalogSync = useCallback(async () => {
+    if (!providerId) {
+      return;
+    }
+
+    await withAction('catalog_sync', async () => {
+      try {
+        const response = await api.fetch('/marketplace/integrations/ifood/menu/sync', {
+          method: 'POST',
+          body: JSON.stringify({
+            provider_id: providerId,
+          }),
+        });
+
+        applyDetailResponse(response);
+        if (String(response?.result?.errno ?? '') === '0') {
+          const synced = response?.result?.data?.synced ?? 0;
+          showInfo(`Catalogo iFood sincronizado. ${synced} produto(s) vinculado(s).`);
+          return;
+        }
+
+        showError(formatApiError(response?.result || response));
+      } catch (error) {
+        showError(formatApiError(error));
+      }
+    });
+  }, [applyDetailResponse, providerId, showError, showInfo, withAction]);
+
   const handleMenuUpload = useCallback(async () => {
     if (!providerId) {
       return;
@@ -490,6 +518,27 @@ export default function IFoodIntegrationPage() {
                   <Icon name="upload-cloud" size={16} color={brandColors.primary} />
                   <Text style={[styles.menuUploadButtonText, { color: brandColors.primary }]}>
                     Upload de cardapio
+                  </Text>
+                </>
+              )}
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              activeOpacity={0.9}
+              style={[
+                styles.menuUploadButton,
+                { borderColor: '#0EA5E9', backgroundColor: withOpacity('#0EA5E9', 0.08) },
+                (!connected || actionLoading !== null) && styles.menuUploadButtonDisabled,
+              ]}
+              onPress={handleCatalogSync}
+              disabled={!connected || actionLoading !== null}>
+              {actionLoading === 'catalog_sync' ? (
+                <ActivityIndicator color="#0EA5E9" size="small" />
+              ) : (
+                <>
+                  <Icon name="download-cloud" size={16} color="#0EA5E9" />
+                  <Text style={[styles.menuUploadButtonText, { color: '#0EA5E9' }]}>
+                    Sincronizar catalogo do iFood
                   </Text>
                 </>
               )}
