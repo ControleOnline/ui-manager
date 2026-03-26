@@ -1,4 +1,4 @@
-import PurchasingSuggestion from '@controleonline/ui-orders/src/react/pages/orders/purchasing/Suggestion';
+import PurchaseSuggestions from '@controleonline/ui-products/src/react/pages/PurchaseSuggestions';
 import Inventory from '@controleonline/ui-orders/src/react/pages/inventory';
 
 import IncomeStatement from '@controleonline/ui-financial/src/react/pages/reports/IncomeStatement';
@@ -179,13 +179,13 @@ const managerRoutes = [
   },
   {
     name: 'PurchasingSuggestion',
-    component: PurchasingSuggestion,
+    component: PurchaseSuggestions,
     options: {
       headerShown: true,
       headerBackVisible: true,
-      title: global.t?.t("configs", "title", "purchasingSuggestion"),
+      title: 'Sugestões de Compra',
     },
-    initialParams: { store: 'products' },
+    initialParams: { store: 'product_inventories' },
   },
   {
     name: 'Inventory',

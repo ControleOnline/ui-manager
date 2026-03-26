@@ -255,6 +255,10 @@ export default function HomePage({ navigation }) {
             <ShortcutCard label="Estoque" icon="archive" color={HEX.warning} onPress={() => go('InventoriesPage')} />
             <ShortcutCard label="Sugestão de Compra" icon="truck" color={HEX.purple} onPress={() => go('PurchasingSuggestion')} />
           </ShortcutsRow>
+          <ShortcutsRow>
+            <ShortcutCard label="Registrar Compra" icon="shopping-cart" color={HEX.success} onPress={() => go('PurchaseFormPage')} />
+            <View style={{ flex: 1 }} />
+          </ShortcutsRow>
         </SectionBlock>
 
         {/* Bloco Clientes e CRM */}

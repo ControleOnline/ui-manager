@@ -149,6 +149,33 @@ export default function IFoodIntegrationPage() {
     });
   }, [applyDetailResponse, providerId, showError, showInfo, withAction]);
 
+  const handleMenuUpload = useCallback(async () => {
+    if (!providerId) {
+      return;
+    }
+
+    await withAction('menu_upload', async () => {
+      try {
+        const response = await api.fetch('/marketplace/integrations/ifood/menu/upload', {
+          method: 'POST',
+          body: JSON.stringify({
+            provider_id: providerId,
+          }),
+        });
+
+        applyDetailResponse(response);
+        if (String(response?.result?.errno ?? '') === '0') {
+          showInfo('Upload do cardapio iFood iniciado com sucesso.');
+          return;
+        }
+
+        showError(formatApiError(response?.result || response));
+      } catch (error) {
+        showError(formatApiError(error));
+      }
+    });
+  }, [applyDetailResponse, providerId, showError, showInfo, withAction]);
+
   const handleConnect = useCallback(async () => {
     if (!providerId) {
       return;
@@ -421,6 +448,53 @@ export default function IFoodIntegrationPage() {
               </>
             )}
           </TouchableOpacity>
+
+          <View style={styles.menuBox}>
+            <View style={styles.menuHeader}>
+              <Text style={styles.menuTitle}>Cardapio iFood</Text>
+              <View
+                style={[
+                  styles.menuStatusChip,
+                  {
+                    backgroundColor: withOpacity(connected ? '#16A34A' : '#F59E0B', 0.14),
+                  },
+                ]}>
+                <Text
+                  style={[
+                    styles.menuStatusText,
+                    { color: connected ? '#166534' : '#92400E' },
+                  ]}>
+                  {connected ? 'Pronto para publicar' : 'Conecte a loja'}
+                </Text>
+              </View>
+            </View>
+            <Text style={styles.menuHelperText}>
+              {connected
+                ? 'Use este atalho para iniciar a publicacao de cardapio da loja conectada.'
+                : 'A publicacao de cardapio fica disponivel apos conectar o merchant_id da loja.'}
+            </Text>
+
+            <TouchableOpacity
+              activeOpacity={0.9}
+              style={[
+                styles.menuUploadButton,
+                { borderColor: brandColors.primary, backgroundColor: withOpacity(brandColors.primary, 0.08) },
+                (!connected || actionLoading !== null) && styles.menuUploadButtonDisabled,
+              ]}
+              onPress={handleMenuUpload}
+              disabled={!connected || actionLoading !== null}>
+              {actionLoading === 'menu_upload' ? (
+                <ActivityIndicator color={brandColors.primary} size="small" />
+              ) : (
+                <>
+                  <Icon name="upload-cloud" size={16} color={brandColors.primary} />
+                  <Text style={[styles.menuUploadButtonText, { color: brandColors.primary }]}>
+                    Upload de cardapio
+                  </Text>
+                </>
+              )}
+            </TouchableOpacity>
+          </View>
 
           {!!selectedStore && (
             <View style={styles.selectedStoreBox}>
@@ -709,6 +783,56 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
   },
   syncButtonText: {
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  menuBox: {
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    backgroundColor: '#F8FAFC',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    gap: 8,
+  },
+  menuHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: 8,
+  },
+  menuTitle: {
+    color: '#0F172A',
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  menuStatusChip: {
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  menuStatusText: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  menuHelperText: {
+    color: '#334155',
+    fontSize: 12,
+    lineHeight: 17,
+  },
+  menuUploadButton: {
+    height: 40,
+    borderRadius: 10,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+    gap: 8,
+  },
+  menuUploadButtonDisabled: {
+    opacity: 0.55,
+  },
+  menuUploadButtonText: {
     fontSize: 13,
     fontWeight: '700',
   },
