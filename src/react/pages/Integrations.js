@@ -50,7 +50,7 @@ const availableIntegrations = [
     key: 'ifood',
     label: 'iFood',
     description: global.t?.t('configs','description','ifooddescription'),
-    route: null,
+    route: 'IFoodIntegrationPage',
     accent: '#EA580C',
     app: 'iFood',
   },
@@ -98,9 +98,13 @@ export default function IntegrationsPage({ navigation }) {
         logo,
         connected: Boolean(responseItem?.connected),
         remoteConnected: Boolean(responseItem?.remote_connected),
-        store: responseItem?.store || null,
+        store: responseItem?.store || responseItem?.selected_store || null,
         storeError: responseItem?.store_error || null,
-        integrationCode: responseItem?.food99_code || null,
+        integrationCode:
+          responseItem?.food99_code
+          || responseItem?.ifood_code
+          || responseItem?.merchant_id
+          || null,
         eligibleProductCount: responseItem?.eligible_product_count || 0,
       };
     });
