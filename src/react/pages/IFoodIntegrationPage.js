@@ -67,6 +67,7 @@ export default function IFoodIntegrationPage() {
   const [selectedIds,      setSelectedIds]       = useState(new Set());
   const [filterKey,        setFilterKey]         = useState('all');
   const [search,           setSearch]            = useState('');
+  const [storeStatus,      setStoreStatus]       = useState(null);
 
   /* ------------------------------------------------------------------ */
   /* produtos                                                             */
@@ -130,21 +131,32 @@ export default function IFoodIntegrationPage() {
     }
   }, [providerId, showError, syncPublishedSelection]);
 
+  const loadStoreStatus = useCallback(async () => {
+    if (!providerId) return;
+    try {
+      const response = await api.fetch('/marketplace/integrations/ifood/store/status', {
+        params: { provider_id: providerId },
+      });
+      if (response?.result) setStoreStatus(response.result);
+    } catch (_) { /* silencioso */ }
+  }, [providerId]);
+
   useFocusEffect(
     useCallback(() => {
       loadDetail();
       loadProducts();
-    }, [loadDetail, loadProducts]),
+      loadStoreStatus();
+    }, [loadDetail, loadProducts, loadStoreStatus]),
   );
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     try {
-      await Promise.all([loadDetail({ refreshRemote: true }), loadProducts()]);
+      await Promise.all([loadDetail({ refreshRemote: true }), loadProducts(), loadStoreStatus()]);
     } finally {
       setRefreshing(false);
     }
-  }, [loadDetail, loadProducts]);
+  }, [loadDetail, loadProducts, loadStoreStatus]);
 
   const withAction = useCallback(async (actionName, callback) => {
     setActionLoading(actionName);
@@ -237,6 +249,44 @@ export default function IFoodIntegrationPage() {
       } catch (error) { showError(formatApiError(error)); }
     });
   }, [applyDetailResponse, providerId, selectedEligible, showError, showInfo, withAction]);
+
+  const handleStoreOpen = useCallback(async () => {
+    if (!providerId) return;
+    await withAction('store_open', async () => {
+      try {
+        const response = await api.fetch('/marketplace/integrations/ifood/store/open', {
+          method: 'POST',
+          body: JSON.stringify({ provider_id: providerId }),
+        });
+        if (response?.result) setStoreStatus(response.result);
+        if (String(response?.result?.errno ?? '') === '0') {
+          showInfo('Loja aberta para pedidos no iFood.');
+          applyDetailResponse(response);
+        } else {
+          showError(formatApiError(response?.result || response));
+        }
+      } catch (error) { showError(formatApiError(error)); }
+    });
+  }, [applyDetailResponse, providerId, showError, showInfo, withAction]);
+
+  const handleStoreClose = useCallback(async () => {
+    if (!providerId) return;
+    await withAction('store_close', async () => {
+      try {
+        const response = await api.fetch('/marketplace/integrations/ifood/store/close', {
+          method: 'POST',
+          body: JSON.stringify({ provider_id: providerId }),
+        });
+        if (response?.result) setStoreStatus(response.result);
+        if (String(response?.result?.errno ?? '') === '0') {
+          showInfo('Loja fechada para pedidos no iFood.');
+          applyDetailResponse(response);
+        } else {
+          showError(formatApiError(response?.result || response));
+        }
+      } catch (error) { showError(formatApiError(error)); }
+    });
+  }, [applyDetailResponse, providerId, showError, showInfo, withAction]);
 
   const handleConnect = useCallback(async () => {
     if (!providerId) return;
@@ -388,6 +438,78 @@ export default function IFoodIntegrationPage() {
             </View>
           )}
         </View>
+
+        {/* disponibilidade */}
+        {connected && (
+          <View style={[styles.sectionCard, shadowStyle]}>
+            <View style={styles.statusRow}>
+              <Text style={styles.sectionTitle}>Disponibilidade da loja</Text>
+              {storeStatus?.data != null && (
+                <View style={[styles.availBadge, {
+                  backgroundColor: withOpacity(storeStatus.data.online ? '#16A34A' : '#DC2626', 0.12),
+                }]}>
+                  <View style={[styles.availDot, {
+                    backgroundColor: storeStatus.data.online ? '#16A34A' : '#DC2626',
+                  }]} />
+                  <Text style={[styles.availBadgeText, {
+                    color: storeStatus.data.online ? '#166534' : '#991B1B',
+                  }]}>
+                    {storeStatus.data.state_label || (storeStatus.data.online ? 'Online' : 'Offline')}
+                  </Text>
+                </View>
+              )}
+            </View>
+
+            <Text style={styles.helperText}>
+              {storeStatus?.data != null
+                ? (storeStatus.data.online
+                  ? 'A loja esta aceitando pedidos no iFood.'
+                  : 'A loja esta fechada para novos pedidos no iFood.')
+                : 'Consulte ou altere a disponibilidade da loja para receber pedidos.'}
+            </Text>
+
+            <View style={styles.availRow}>
+              <TouchableOpacity
+                activeOpacity={0.9}
+                style={[styles.availButton, { backgroundColor: '#16A34A' },
+                  (actionLoading === 'store_open' || storeStatus?.data?.online === true) && styles.availButtonDisabled,
+                ]}
+                onPress={handleStoreOpen}
+                disabled={actionLoading !== null || storeStatus?.data?.online === true}>
+                {actionLoading === 'store_open'
+                  ? <ActivityIndicator color="#fff" size="small" />
+                  : <><Icon name="check-circle" size={15} color="#fff" /><Text style={styles.availButtonText}>Abrir loja</Text></>}
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                activeOpacity={0.9}
+                style={[styles.availButton, { backgroundColor: '#DC2626' },
+                  (actionLoading === 'store_close' || storeStatus?.data?.online === false) && styles.availButtonDisabled,
+                ]}
+                onPress={handleStoreClose}
+                disabled={actionLoading !== null || storeStatus?.data?.online === false}>
+                {actionLoading === 'store_close'
+                  ? <ActivityIndicator color="#fff" size="small" />
+                  : <><Icon name="x-circle" size={15} color="#fff" /><Text style={styles.availButtonText}>Fechar loja</Text></>}
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                activeOpacity={0.9}
+                style={styles.availRefreshButton}
+                onPress={loadStoreStatus}
+                disabled={actionLoading !== null}>
+                <Icon name="refresh-cw" size={15} color="#64748B" />
+              </TouchableOpacity>
+            </View>
+
+            {storeStatus?.errno !== 0 && storeStatus?.errno != null && (
+              <View style={styles.errorBox}>
+                <Text style={styles.errorTitle}>Erro ao consultar disponibilidade</Text>
+                <Text style={styles.errorText}>{storeStatus.errmsg}</Text>
+              </View>
+            )}
+          </View>
+        )}
 
         {/* lojas */}
         <View style={[styles.sectionCard, shadowStyle]}>
@@ -724,4 +846,12 @@ const styles = StyleSheet.create({
   syncCatalogButton: { height: 42, borderRadius: 12, borderWidth: 1, borderColor: '#0EA5E9', backgroundColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 8, marginTop: 4 },
   syncCatalogButtonDisabled: { opacity: 0.5 },
   syncCatalogButtonText: { fontSize: 13, fontWeight: '700', color: '#0EA5E9' },
+  availBadge: { flexDirection: 'row', alignItems: 'center', gap: 6, borderRadius: 999, paddingHorizontal: 12, paddingVertical: 6 },
+  availDot:   { width: 7, height: 7, borderRadius: 999 },
+  availBadgeText: { fontSize: 12, fontWeight: '700' },
+  availRow:   { flexDirection: 'row', gap: 10, alignItems: 'center' },
+  availButton: { flex: 1, height: 44, borderRadius: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
+  availButtonDisabled: { opacity: 0.45 },
+  availButtonText: { color: '#fff', fontSize: 13, fontWeight: '800' },
+  availRefreshButton: { width: 44, height: 44, borderRadius: 12, borderWidth: 1, borderColor: '#E2E8F0', backgroundColor: '#F8FAFC', alignItems: 'center', justifyContent: 'center' },
 });
