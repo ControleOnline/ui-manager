@@ -1,5 +1,6 @@
 import PurchaseSuggestions from '@controleonline/ui-products/src/react/pages/PurchaseSuggestions';
 import Inventory from '@controleonline/ui-orders/src/react/pages/inventory';
+import SalesOrdersIndex from '@controleonline/ui-orders/src/react/pages/orders/sales';
 
 import IncomeStatement from '@controleonline/ui-financial/src/react/pages/reports/IncomeStatement';
 import Payables from '@controleonline/ui-financial/src/react/pages/Payables';
@@ -126,6 +127,19 @@ const managerRoutes = [
       showCompanyFilter: true,
       companyFilterMode: 'icon',
     },
+  },
+  {
+    name: 'ManagerSalesOrdersIndex',
+    component: SalesOrdersIndex,
+    options: {
+      headerShown: true,
+      headerBackVisible: true,
+      title: 'Pedidos de Venda',
+      showBottomToolBar: true,
+      showCompanyFilter: true,
+      companyFilterMode: 'icon',
+    },
+    initialParams: { store: 'orders' },
   },
   {
     name: 'CashRegistersIndex',
