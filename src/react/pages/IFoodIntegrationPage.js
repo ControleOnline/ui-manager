@@ -485,29 +485,25 @@ export default function IFoodIntegrationPage() {
 
         {/* cardapio / catalogo */}
         <View style={[styles.sectionCard, shadowStyle]}>
-          <View style={styles.menuHeader}>
+          <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Cardapio iFood</Text>
             <View style={[
-              styles.menuStatusChip,
-              { backgroundColor: withOpacity(connected ? '#16A34A' : '#F59E0B', 0.14) },
+              styles.selectionBadge,
+              { backgroundColor: withOpacity(connected ? '#16A34A' : '#F59E0B', 0.12) },
             ]}>
-              <Text style={[styles.menuStatusText, { color: connected ? '#166534' : '#92400E' }]}>
+              <Text style={[styles.selectionBadgeText, { color: connected ? '#166534' : '#92400E' }]}>
                 {connected ? 'Pronto para publicar' : 'Conecte a loja'}
               </Text>
             </View>
           </View>
 
-          <Text style={styles.menuHelperText}>
-            Selecione os produtos do seu sistema que deseja publicar no iFood. Produtos ja publicados estao pre-selecionados.
-          </Text>
-
           {/* busca */}
-          <View style={styles.searchRow}>
-            <Icon name="search" size={14} color="#94A3B8" style={styles.searchIcon} />
+          <View style={styles.searchBox}>
+            <Icon name="search" size={16} color="#94A3B8" />
             <TextInput
               value={search}
               onChangeText={setSearch}
-              placeholder="Buscar produto..."
+              placeholder="Buscar produto, categoria ou codigo"
               placeholderTextColor="#94A3B8"
               style={styles.searchInput}
               autoCapitalize="none"
@@ -523,21 +519,46 @@ export default function IFoodIntegrationPage() {
                 <TouchableOpacity
                   key={tab.key}
                   activeOpacity={0.8}
-                  style={[styles.filterTab, active && { backgroundColor: brandColors.primary, borderColor: brandColors.primary }]}
+                  style={[
+                    styles.filterChip,
+                    active && { backgroundColor: withOpacity(brandColors.primary, 0.12), borderColor: withOpacity(brandColors.primary, 0.25) },
+                  ]}
                   onPress={() => setFilterKey(tab.key)}>
-                  <Text style={[styles.filterTabText, active && styles.filterTabTextActive]}>
-                    {tab.label} ({tabCounts[tab.key]})
+                  <Text style={[styles.filterChipText, active && { color: brandColors.primary }]}>
+                    {tab.label}
                   </Text>
                 </TouchableOpacity>
               );
             })}
           </ScrollView>
 
-          {/* resumo */}
-          <View style={styles.summaryRow}>
-            <Text style={styles.summaryText}>
-              {eligibleCount} produto(s) apto(s) · {selectedIds.size} selecionado(s) · {selectedEligible.length} pronto(s) para upload
+          {/* resumo + botao upload */}
+          <View style={styles.selectionSummaryRow}>
+            <Text style={styles.selectionSummaryText}>
+              {eligibleCount} produtos aptos no cadastro atual
             </Text>
+            <TouchableOpacity
+              style={[
+                styles.uploadButton,
+                {
+                  backgroundColor: (connected && selectedEligible.length > 0)
+                    ? brandColors.primary
+                    : '#CBD5E1',
+                },
+              ]}
+              onPress={handleMenuUpload}
+              disabled={!connected || actionLoading !== null || selectedEligible.length === 0}>
+              {actionLoading === 'menu_upload'
+                ? <ActivityIndicator size="small" color="#fff" />
+                : (
+                  <>
+                    <Icon name="upload-cloud" size={15} color="#fff" />
+                    <Text style={styles.uploadButtonText}>
+                      Publicar {selectedEligible.length > 0 ? `${selectedEligible.length}` : ''} produto(s)
+                    </Text>
+                  </>
+                )}
+            </TouchableOpacity>
           </View>
 
           {/* lista de produtos */}
@@ -550,42 +571,45 @@ export default function IFoodIntegrationPage() {
                 return (
                   <TouchableOpacity
                     key={product.id}
-                    activeOpacity={eligible ? 0.8 : 1}
+                    activeOpacity={0.88}
                     style={[
                       styles.productCard,
-                      isSelected && styles.productCardSelected,
-                      !eligible && styles.productCardBlocked,
+                      isSelected && { borderColor: brandColors.primary, backgroundColor: withOpacity(brandColors.primary, 0.04) },
                     ]}
-                    onPress={() => eligible && toggleProduct(product.id)}>
-                    <View style={styles.productCardLeft}>
+                    onPress={() => toggleProduct(product.id)}>
+                    <View style={styles.productMain}>
                       <View style={[
-                        styles.productCheckCircle,
+                        styles.productStatusIcon,
                         { backgroundColor: eligible ? '#DCFCE7' : '#FEE2E2' },
                       ]}>
                         <Icon
                           name={isSelected ? 'check-circle' : eligible ? 'circle' : 'x-circle'}
-                          size={18}
-                          color={isSelected ? '#16A34A' : eligible ? '#94A3B8' : '#DC2626'}
+                          size={16}
+                          color={isSelected ? brandColors.primary : eligible ? '#16A34A' : '#DC2626'}
                         />
                       </View>
+                      <View style={styles.productContent}>
+                        <View style={styles.productTitleRow}>
+                          <Text style={styles.productName} numberOfLines={1}>{product.name}</Text>
+                          <Text style={styles.productPrice}>R$ {Number(product.price || 0).toFixed(2)}</Text>
+                        </View>
+                        <Text style={styles.productMeta} numberOfLines={1}>
+                          {product.category?.name || 'Sem categoria'} • {product.type || 'produto'}
+                        </Text>
+                        {!!product.description && (
+                          <Text style={styles.productDescription} numberOfLines={1}>{product.description}</Text>
+                        )}
+                        {!!product.ifood_item_id && (
+                          <Text style={styles.productCode}>ID iFood: {product.ifood_item_id.slice(0, 8)}...</Text>
+                        )}
+                        {published && (
+                          <Text style={styles.productRemoteState}>Ja publicado no catalogo iFood</Text>
+                        )}
+                        {!eligible && Array.isArray(product.blockers) && product.blockers.length > 0 && (
+                          <Text style={styles.productBlocker}>{product.blockers.join(' • ')}</Text>
+                        )}
+                      </View>
                     </View>
-                    <View style={styles.productCardBody}>
-                      <Text style={styles.productName} numberOfLines={1}>{product.name}</Text>
-                      <Text style={styles.productPrice}>
-                        {product.price > 0
-                          ? `R$ ${product.price.toFixed(2).replace('.', ',')}`
-                          : 'Sem preco'}
-                      </Text>
-                      {published && (
-                        <Text style={styles.productRemoteState}>Publicado no iFood</Text>
-                      )}
-                      {!eligible && Array.isArray(product.blockers) && product.blockers.length > 0 && (
-                        <Text style={styles.productBlockers}>{product.blockers.join(' · ')}</Text>
-                      )}
-                    </View>
-                    {published && (
-                      <Icon name="check-circle" size={14} color="#16A34A" style={styles.productRemoteIcon} />
-                    )}
                   </TouchableOpacity>
                 );
               })}
@@ -596,34 +620,12 @@ export default function IFoodIntegrationPage() {
             </View>
           )}
 
-          {/* acoes do cardapio */}
+          {/* sincronizar catalogo */}
           <TouchableOpacity
             activeOpacity={0.9}
             style={[
-              styles.menuUploadButton,
-              { borderColor: brandColors.primary, backgroundColor: withOpacity(brandColors.primary, 0.08) },
-              (!connected || actionLoading !== null || selectedEligible.length === 0) && styles.menuUploadButtonDisabled,
-            ]}
-            onPress={handleMenuUpload}
-            disabled={!connected || actionLoading !== null || selectedEligible.length === 0}>
-            {actionLoading === 'menu_upload'
-              ? <ActivityIndicator color={brandColors.primary} size="small" />
-              : (
-                <>
-                  <Icon name="upload-cloud" size={16} color={brandColors.primary} />
-                  <Text style={[styles.menuUploadButtonText, { color: brandColors.primary }]}>
-                    Publicar {selectedEligible.length > 0 ? `${selectedEligible.length} produto(s)` : 'selecionados'} no iFood
-                  </Text>
-                </>
-              )}
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            activeOpacity={0.9}
-            style={[
-              styles.menuUploadButton,
-              { borderColor: '#0EA5E9', backgroundColor: withOpacity('#0EA5E9', 0.08) },
-              (!connected || actionLoading !== null) && styles.menuUploadButtonDisabled,
+              styles.syncCatalogButton,
+              (!connected || actionLoading !== null) && styles.syncCatalogButtonDisabled,
             ]}
             onPress={handleCatalogSync}
             disabled={!connected || actionLoading !== null}>
@@ -631,10 +633,8 @@ export default function IFoodIntegrationPage() {
               ? <ActivityIndicator color="#0EA5E9" size="small" />
               : (
                 <>
-                  <Icon name="download-cloud" size={16} color="#0EA5E9" />
-                  <Text style={[styles.menuUploadButtonText, { color: '#0EA5E9' }]}>
-                    Sincronizar catalogo do iFood
-                  </Text>
+                  <Icon name="download-cloud" size={15} color="#0EA5E9" />
+                  <Text style={styles.syncCatalogButtonText}>Sincronizar catalogo do iFood</Text>
                 </>
               )}
           </TouchableOpacity>
