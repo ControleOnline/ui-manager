@@ -448,13 +448,9 @@ export default function IFoodIntegrationPage() {
                 <View style={[styles.availBadge, {
                   backgroundColor: withOpacity(storeStatus.data.online ? '#16A34A' : '#DC2626', 0.12),
                 }]}>
-                  <View style={[styles.availDot, {
-                    backgroundColor: storeStatus.data.online ? '#16A34A' : '#DC2626',
-                  }]} />
-                  <Text style={[styles.availBadgeText, {
-                    color: storeStatus.data.online ? '#166534' : '#991B1B',
-                  }]}>
-                    {storeStatus.data.state_label || (storeStatus.data.online ? 'Online' : 'Offline')}
+                  <View style={[styles.availDot, { backgroundColor: storeStatus.data.online ? '#16A34A' : '#DC2626' }]} />
+                  <Text style={[styles.availBadgeText, { color: storeStatus.data.online ? '#166534' : '#991B1B' }]}>
+                    {storeStatus.data.online ? 'Online' : 'Offline'}
                   </Text>
                 </View>
               )}
@@ -462,11 +458,29 @@ export default function IFoodIntegrationPage() {
 
             <Text style={styles.helperText}>
               {storeStatus?.data != null
-                ? (storeStatus.data.online
+                ? storeStatus.data.online
                   ? 'A loja esta aceitando pedidos no iFood.'
-                  : 'A loja esta fechada para novos pedidos no iFood.')
+                  : `A loja esta fechada para novos pedidos.${Array.isArray(storeStatus.data.interruptions) && storeStatus.data.interruptions.length > 0 ? ` ${storeStatus.data.interruptions.length} interrupcao(oes) ativa(s).` : ''}`
                 : 'Consulte ou altere a disponibilidade da loja para receber pedidos.'}
             </Text>
+
+            {/* operacoes */}
+            {Array.isArray(storeStatus?.data?.operations) && storeStatus.data.operations.length > 0 && (
+              <View style={styles.opsGrid}>
+                {storeStatus.data.operations.map((op, i) => {
+                  const opOnline = op.state === 'OK' || op.state === 'WARNING';
+                  const opColor  = op.state === 'OK' ? '#16A34A' : op.state === 'WARNING' ? '#D97706' : '#DC2626';
+                  return (
+                    <View key={i} style={[styles.opChip, { borderColor: withOpacity(opColor, 0.3), backgroundColor: withOpacity(opColor, 0.08) }]}>
+                      <Icon name={opOnline ? 'check-circle' : 'x-circle'} size={12} color={opColor} />
+                      <Text style={[styles.opChipText, { color: opColor }]}>
+                        {op.operation}{op.sales_channel ? ` · ${op.sales_channel}` : ''}: {op.state_label}
+                      </Text>
+                    </View>
+                  );
+                })}
+              </View>
+            )}
 
             <View style={styles.availRow}>
               <TouchableOpacity
@@ -849,6 +863,9 @@ const styles = StyleSheet.create({
   availBadge: { flexDirection: 'row', alignItems: 'center', gap: 6, borderRadius: 999, paddingHorizontal: 12, paddingVertical: 6 },
   availDot:   { width: 7, height: 7, borderRadius: 999 },
   availBadgeText: { fontSize: 12, fontWeight: '700' },
+  opsGrid:    { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+  opChip:     { flexDirection: 'row', alignItems: 'center', gap: 5, borderRadius: 10, borderWidth: 1, paddingHorizontal: 10, paddingVertical: 6 },
+  opChipText: { fontSize: 11, fontWeight: '700' },
   availRow:   { flexDirection: 'row', gap: 10, alignItems: 'center' },
   availButton: { flex: 1, height: 44, borderRadius: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
   availButtonDisabled: { opacity: 0.45 },
