@@ -12,6 +12,7 @@ import ConnectionsPage from '@controleonline/ui-manager/src/react/pages/Connecti
 import Food99IntegrationPage from '@controleonline/ui-manager/src/react/pages/Food99IntegrationPage';
 import IFoodIntegrationPage from '@controleonline/ui-manager/src/react/pages/IFoodIntegrationPage';
 import IntegrationsPage from '@controleonline/ui-manager/src/react/pages/Integrations';
+import OrderHistoryPage from '@controleonline/ui-manager/src/react/pages/OrderHistoryPage';
 import WhatsAppConnectionPage from '@controleonline/ui-manager/src/react/pages/WhatsAppConnectionPage';
 import DisplayList from '@controleonline/ui-ppc/src/react/pages/displays/displayPage';
 import DisplayDetails from '@controleonline/ui-ppc/src/react/pages/displays/DisplayDetails';
@@ -117,7 +118,18 @@ const managerRoutes = [
     },
   },
   {
-    name: 'SalesOrdersIndex',
+    name: 'OrderHistoryPage',
+    component: OrderHistoryPage,
+    options: {
+      headerShown: true,
+      headerBackVisible: true,
+      title: global.t?.t("configs", "title", "orderHistory") || 'Order History Page',
+      showCompanyFilter: true,
+      companyFilterMode: 'icon',
+    },
+  },
+  {
+    name: 'ManagerSalesOrdersIndex',
     component: SalesOrdersIndex,
     options: {
       headerShown: true,
@@ -186,6 +198,8 @@ const managerRoutes = [
       headerShown: true,
       headerBackVisible: true,
       title: 'Sugestões de Compra',
+      showCompanyFilter: true,
+      companyFilterMode: 'icon',
     },
     initialParams: { store: 'product_inventories' },
   },
@@ -202,3 +216,4 @@ const managerRoutes = [
 ];
 
 export default managerRoutes;
+

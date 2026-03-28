@@ -156,7 +156,7 @@ export default function IntegrationsPage({ navigation }) {
   );
 
   const handleOpenHistory = useCallback(() => {
-    navigation.navigate('SalesOrdersIndex', { app: '99Food' });
+    navigation.navigate('OrderHistoryPage');
   }, [navigation]);
 
   if (!providerId) {
