@@ -10,7 +10,6 @@ import OwnTransfers from '@controleonline/ui-financial/src/react/pages/OwnTransf
 import CashRegisters from '@controleonline/ui-manager/src/react/pages/CashRegisters';
 import ConnectionsPage from '@controleonline/ui-manager/src/react/pages/Connections';
 import Food99IntegrationPage from '@controleonline/ui-manager/src/react/pages/Food99IntegrationPage';
-import Food99OrderHistoryPage from '@controleonline/ui-manager/src/react/pages/Food99OrderHistoryPage';
 import IFoodIntegrationPage from '@controleonline/ui-manager/src/react/pages/IFoodIntegrationPage';
 import IntegrationsPage from '@controleonline/ui-manager/src/react/pages/Integrations';
 import WhatsAppConnectionPage from '@controleonline/ui-manager/src/react/pages/WhatsAppConnectionPage';
@@ -118,18 +117,7 @@ const managerRoutes = [
     },
   },
   {
-    name: 'Food99OrderHistoryPage',
-    component: Food99OrderHistoryPage,
-    options: {
-      headerShown: true,
-      headerBackVisible: true,
-      title: global.t?.t("configs", "title", "99FoodOrderHistory"),
-      showCompanyFilter: true,
-      companyFilterMode: 'icon',
-    },
-  },
-  {
-    name: 'ManagerSalesOrdersIndex',
+    name: 'SalesOrdersIndex',
     component: SalesOrdersIndex,
     options: {
       headerShown: true,

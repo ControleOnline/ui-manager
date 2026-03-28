@@ -41,7 +41,7 @@ const availableIntegrations = [
   {
     key: '99food',
     label: '99Food',
-    description: global.t?.t('configs','description','99description'),
+    description: global.t?.t('configs', 'description', '99description'),
     route: 'Food99IntegrationPage',
     accent: '#F97316',
     app: '99Food',
@@ -49,7 +49,7 @@ const availableIntegrations = [
   {
     key: 'ifood',
     label: 'iFood',
-    description: global.t?.t('configs','description','ifooddescription'),
+    description: global.t?.t('configs', 'description', 'ifooddescription'),
     route: 'IFoodIntegrationPage',
     accent: '#EA580C',
     app: 'iFood',
@@ -57,9 +57,9 @@ const availableIntegrations = [
 ];
 
 const formatApiError = error => {
-  if (!error) return global.t?.t('configs','erro','unableLoadIntegrations');
+  if (!error) return global.t?.t('configs', 'erro', 'unableLoadIntegrations');
   if (typeof error === 'string') return error;
-  return error?.message || error?.description || error?.errmsg || global.t?.t('configs','erro','unableLoadIntegrations');
+  return error?.message || error?.description || error?.errmsg || global.t?.t('configs', 'erro', 'unableLoadIntegrations');
 };
 
 export default function IntegrationsPage({ navigation }) {
@@ -146,7 +146,7 @@ export default function IntegrationsPage({ navigation }) {
   const handleOpenIntegration = useCallback(
     integration => {
       if (!integration.route) {
-        showInfo(global.t?.t('configs','erro','futureIntegration'));
+        showInfo(global.t?.t('configs', 'erro', 'futureIntegration'));
         return;
       }
 
@@ -156,7 +156,7 @@ export default function IntegrationsPage({ navigation }) {
   );
 
   const handleOpenHistory = useCallback(() => {
-    navigation.navigate('Food99OrderHistoryPage');
+    navigation.navigate('SalesOrdersIndex', { app: '99Food' });
   }, [navigation]);
 
   if (!providerId) {
@@ -164,9 +164,9 @@ export default function IntegrationsPage({ navigation }) {
       <SafeAreaView style={styles.container} edges={['bottom']}>
         <View style={styles.centerState}>
           <Icon name="building" size={32} color="#94A3B8" />
-          <Text style={styles.centerStateTitle}>{global.t?.t('configs','message','selectCompany')}</Text>
+          <Text style={styles.centerStateTitle}>{global.t?.t('configs', 'message', 'selectCompany')}</Text>
           <Text style={styles.centerStateText}>
-            {global.t?.t('configs','message','integrationCenterReflectsActiveCompany')}
+            {global.t?.t('configs', 'message', 'integrationCenterReflectsActiveCompany')}
           </Text>
         </View>
       </SafeAreaView>
@@ -178,9 +178,9 @@ export default function IntegrationsPage({ navigation }) {
       <SafeAreaView style={styles.container} edges={['bottom']}>
         <View style={styles.centerState}>
           <ActivityIndicator size="large" color={brandColors.primary} />
-          <Text style={styles.centerStateTitle}>{global.t?.t('configs','message','loadingIntegrations')}</Text>
+          <Text style={styles.centerStateTitle}>{global.t?.t('configs', 'message', 'loadingIntegrations')}</Text>
           <Text style={styles.centerStateText}>
-            {global.t?.t('configs','message','fetchingAvailableChannels')}
+            {global.t?.t('configs', 'message', 'fetchingAvailableChannels')}
           </Text>
         </View>
       </SafeAreaView>
@@ -202,10 +202,10 @@ export default function IntegrationsPage({ navigation }) {
             { backgroundColor: brandColors.primary },
           ]}>
           <View style={styles.heroCopy}>
-            <Text style={styles.heroEyebrow}>{global.t?.t('configs','label','marketplace')}</Text>
-            <Text style={styles.heroTitle}>{global.t?.t('configs','label','integrationCenter')}</Text>
+            <Text style={styles.heroEyebrow}>{global.t?.t('configs', 'label', 'marketplace')}</Text>
+            <Text style={styles.heroTitle}>{global.t?.t('configs', 'label', 'integrationCenter')}</Text>
             <Text style={styles.heroText}>
-              {global.t?.t('configs','label','integrationCenterDescription')}
+              {global.t?.t('configs', 'label', 'integrationCenterDescription')}
             </Text>
           </View>
           <View style={styles.heroBadge}>
@@ -215,11 +215,11 @@ export default function IntegrationsPage({ navigation }) {
 
         <View style={styles.companyRow}>
           <View>
-            <Text style={styles.sectionTitle}>{global.t?.t('configs','label','activeCompany')}</Text>
-            <Text style={styles.companyName}>{currentCompany?.name || currentCompany?.alias || `${global.t?.t('configs','label','company')} #${providerId}`}</Text>
+            <Text style={styles.sectionTitle}>{global.t?.t('configs', 'label', 'activeCompany')}</Text>
+            <Text style={styles.companyName}>{currentCompany?.name || currentCompany?.alias || `${global.t?.t('configs', 'label', 'company')} #${providerId}`}</Text>
           </View>
           <View style={styles.companyBadge}>
-            <Text style={styles.companyBadgeText}>{integrationCards.length} {global.t?.t('configs','label','channels')}</Text>
+            <Text style={styles.companyBadgeText}>{integrationCards.length} {global.t?.t('configs', 'label', 'channels')}</Text>
           </View>
         </View>
 
@@ -227,12 +227,12 @@ export default function IntegrationsPage({ navigation }) {
           {integrationCards.map(integration => {
             const statusTone = integration.connected ? '#16A34A' : integration.route ? '#F59E0B' : '#64748B';
             const statusText = integration.connected
-              ? global.t?.t('configs','label','connected')
+              ? global.t?.t('configs', 'label', 'connected')
               : integration.route
-                ? global.t?.t('configs','label','readyToConfigure')
-                : global.t?.t('configs','label','comingSoon');
+                ? global.t?.t('configs', 'label', 'readyToConfigure')
+                : global.t?.t('configs', 'label', 'comingSoon');
             const storeLabel = integration.store?.name
-              || (integration.connected ? global.t?.t('configs','label','locallyLinked') : global.t?.t('configs','label','notLinked'));
+              || (integration.connected ? global.t?.t('configs', 'label', 'locallyLinked') : global.t?.t('configs', 'label', 'notLinked'));
 
             return (
               <TouchableOpacity
@@ -258,11 +258,11 @@ export default function IntegrationsPage({ navigation }) {
 
                 <View style={styles.integrationMetaRow}>
                   <View style={styles.integrationMetaItem}>
-                    <Text style={styles.integrationMetaLabel}>{global.t?.t('configs','label','eligibleProducts')}</Text>
+                    <Text style={styles.integrationMetaLabel}>{global.t?.t('configs', 'label', 'eligibleProducts')}</Text>
                     <Text style={styles.integrationMetaValue}>{integration.eligibleProductCount}</Text>
                   </View>
                   <View style={styles.integrationMetaItem}>
-                    <Text style={styles.integrationMetaLabel}>{global.t?.t('configs','label','store')}</Text>
+                    <Text style={styles.integrationMetaLabel}>{global.t?.t('configs', 'label', 'store')}</Text>
                     <Text style={styles.integrationMetaValue} numberOfLines={1}>
                       {storeLabel}
                     </Text>
@@ -271,13 +271,13 @@ export default function IntegrationsPage({ navigation }) {
 
                 {integration.connected && !integration.remoteConnected ? (
                   <Text style={styles.integrationHint}>
-                    {global.t?.t('configs','label','locallyLinkedHint')}
+                    {global.t?.t('configs', 'label', 'locallyLinkedHint')}
                   </Text>
                 ) : null}
 
                 <View style={styles.integrationFooter}>
                   <Text style={styles.integrationFooterText}>
-                    {integration.route ? global.t?.t('configs','label','openIntegration') : global.t?.t('configs','label','comingSoon')}
+                    {integration.route ? global.t?.t('configs', 'label', 'openIntegration') : global.t?.t('configs', 'label', 'comingSoon')}
                   </Text>
                   <Icon name={integration.route ? 'arrow-right' : 'clock'} size={16} color={integration.route ? brandColors.primary : '#94A3B8'} />
                 </View>
