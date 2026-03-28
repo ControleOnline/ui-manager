@@ -96,7 +96,7 @@ export default function HomePage({ navigation }) {
   );
 
   const [stats, setStats] = useState([
-    { label: 'Pedidos', value: '...', icon: 'shopping-bag', color: HEX.info, route: 'ManagerSalesOrdersIndex' },
+    { label: 'Pedidos', value: '...', icon: 'shopping-bag', color: HEX.info, route: 'OrderHistoryPage' },
     { label: 'Clientes', value: '...', icon: 'users', color: HEX.success, route: 'ClientsIndex' },
     { label: 'Caixas', value: '...', icon: 'credit-card', color: HEX.warning, route: 'CashRegistersIndex' },
   ]);
@@ -142,7 +142,7 @@ export default function HomePage({ navigation }) {
           : null;
 
         setStats([
-          { label: 'Pedidos', value: String(ordersRes?.totalItems ?? '—'), icon: 'shopping-bag', color: HEX.info, route: 'ManagerSalesOrdersIndex' },
+          { label: 'Pedidos', value: String(ordersRes?.totalItems ?? '—'), icon: 'shopping-bag', color: HEX.info, route: 'OrderHistoryPage' },
           { label: 'Clientes', value: String(clientsRes?.totalItems ?? '—'), icon: 'users', color: HEX.success, route: 'ClientsIndex' },
           { label: 'Caixas', value: String(cashRes?.totalItems ?? '—'), icon: 'credit-card', color: HEX.warning, route: 'CashRegistersIndex' },
         ]);
@@ -248,7 +248,7 @@ export default function HomePage({ navigation }) {
           loadingSummary={loadingStats}
         >
           <ShortcutsRow>
-            <ShortcutCard label="Pedidos de Venda" icon="shopping-bag" color={HEX.info} onPress={() => go('ManagerSalesOrdersIndex')} />
+            <ShortcutCard label="Histórico de Pedidos" icon="clock" color={HEX.info} onPress={() => go('OrderHistoryPage')} />
             <ShortcutCard label="Produtos" icon="package" color={HEX.success} onPress={() => go('CategoriesPage')} />
           </ShortcutsRow>
           <ShortcutsRow>
@@ -280,8 +280,8 @@ export default function HomePage({ navigation }) {
             <ShortcutCard label="Integrações" icon="link" color={HEX.info} onPress={() => go('IntegrationsPage')} />
           </ShortcutsRow>
           <ShortcutsRow>
-            <ShortcutCard label="Histórico de Pedidos" icon="clock" color={HEX.orange} onPress={() => go('OrderHistoryPage')} />
             <ShortcutCard label="Conexões" icon="radio" color={HEX.success} onPress={() => go('ConnectionsPage')} />
+            <View style={{ flex: 1 }} />
           </ShortcutsRow>
         </SectionBlock>
 

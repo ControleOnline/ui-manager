@@ -1,6 +1,7 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Image,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -10,148 +11,95 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect, useIsFocused } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/Feather';
 
 import { useStore } from '@store';
-import OrderHeader from '@controleonline/ui-orders/src/react/components/OrderHeader';
+import Formatter from '@controleonline/ui-common/src/utils/formatter';
+import { getOrderChannelLabel, getOrderChannelLogo } from '@assets/ppc/channels';
 import { colors } from '@controleonline/../../src/styles/colors';
 import {
   resolveThemePalette,
   withOpacity,
 } from '@controleonline/../../src/styles/branding';
 
-const TERMINAL_STATUS_PATTERN = /cancel|closed|fechad|finaliz|entreg/i;
 const DATE_INPUT_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
 const STATUS_LABELS = {
-  open: 'Aberto',
-  closed: 'Fechado',
-  cancel: 'Cancelado',
-  canceled: 'Cancelado',
+  open:      'Aberto',
+  closed:    'Fechado',
+  cancel:    'Cancelado',
+  canceled:  'Cancelado',
   cancelled: 'Cancelado',
-  pending: 'Pendente',
-  paid: 'Pago',
+  pending:   'Pendente',
+  paid:      'Pago',
 };
-
-const shadowStyle = {
-  boxShadow: '0 10px 24px rgba(15,23,42,0.08)',
-};
-
-const CHANNEL_PRESETS = ['99Food', 'iFood', 'SHOP'];
-const STATUS_PRESETS = ['open', 'pending', 'paid', 'closed', 'cancelled'];
 
 const DATE_FILTER_OPTIONS = [
-  { key: 'all', label: 'Todo periodo' },
-  { key: 'today', label: 'Hoje' },
-  { key: '7d', label: '7 dias' },
-  { key: '30d', label: '30 dias' },
+  { key: 'all',    label: 'Todo período' },
+  { key: 'today',  label: 'Hoje' },
+  { key: '7d',     label: '7 dias' },
+  { key: '30d',    label: '30 dias' },
   { key: 'custom', label: 'Personalizado' },
 ];
 
-const pad2 = value => String(value).padStart(2, '0');
+const CHANNEL_PRESETS = ['99Food', 'iFood', 'SHOP'];
+const STATUS_PRESETS   = ['open', 'pending', 'paid', 'closed', 'cancelled'];
 
-const formatDateToApi = date =>
-  `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())} ${pad2(
-    date.getHours(),
-  )}:${pad2(date.getMinutes())}:${pad2(date.getSeconds())}`;
+const pad2 = v => String(v).padStart(2, '0');
+
+const formatDateToApi = d =>
+  `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())} ${pad2(d.getHours())}:${pad2(d.getMinutes())}:${pad2(d.getSeconds())}`;
 
 const parseDateInput = value => {
-  const normalized = String(value || '').trim();
-  if (!DATE_INPUT_PATTERN.test(normalized)) return null;
-
-  const [year, month, day] = normalized.split('-').map(part => Number(part));
-  const parsed = new Date(year, month - 1, day, 0, 0, 0, 0);
-  if (Number.isNaN(parsed.getTime())) return null;
-  return parsed;
-};
-
-const extractOrderCode = order => {
-  const entries = Array.isArray(order?.extraData) ? order.extraData : [];
-  const codeEntry = entries.find(item => item?.extra_fields?.name === 'code' && item?.value);
-  return String(codeEntry?.value || '').trim();
-};
-
-const getSearchText = order =>
-  [
-    order?.id,
-    order?.app,
-    order?.status?.status,
-    order?.status?.realStatus,
-    extractOrderCode(order),
-  ]
-    .filter(Boolean)
-    .join(' ')
-    .toLowerCase();
-
-const getStatusTone = order => {
-  const realStatus = String(order?.status?.realStatus || '').toLowerCase();
-  const label = String(order?.status?.status || '').toLowerCase();
-
-  if (TERMINAL_STATUS_PATTERN.test(realStatus) || TERMINAL_STATUS_PATTERN.test(label)) {
-    return {
-      backgroundColor: '#FEF2F2',
-      textColor: '#B91C1C',
-      label: STATUS_LABELS[realStatus] || STATUS_LABELS[label] || 'Terminal',
-    };
-  }
-
-  if (realStatus === 'open' || label === 'open') {
-    return {
-      backgroundColor: '#ECFDF5',
-      textColor: '#047857',
-      label: 'Aberto',
-    };
-  }
-
-  return {
-    backgroundColor: '#EFF6FF',
-    textColor: '#1D4ED8',
-    label: STATUS_LABELS[realStatus] || STATUS_LABELS[label] || 'Em andamento',
-  };
+  const s = String(value || '').trim();
+  if (!DATE_INPUT_PATTERN.test(s)) return null;
+  const [y, m, day] = s.split('-').map(Number);
+  const d = new Date(y, m - 1, day, 0, 0, 0, 0);
+  return isNaN(d.getTime()) ? null : d;
 };
 
 const getDateRange = (dateFilter, customRange) => {
   const now = new Date();
-
   if (dateFilter === 'today') {
     const start = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
     return { after: formatDateToApi(start), before: formatDateToApi(now) };
   }
-
   if (dateFilter === '7d') {
-    const start = new Date(now);
-    start.setDate(now.getDate() - 7);
+    const start = new Date(now); start.setDate(now.getDate() - 7);
     return { after: formatDateToApi(start), before: formatDateToApi(now) };
   }
-
   if (dateFilter === '30d') {
-    const start = new Date(now);
-    start.setDate(now.getDate() - 30);
+    const start = new Date(now); start.setDate(now.getDate() - 30);
     return { after: formatDateToApi(start), before: formatDateToApi(now) };
   }
-
   if (dateFilter === 'custom') {
     const from = parseDateInput(customRange?.from);
-    const to = parseDateInput(customRange?.to);
-
+    const to   = parseDateInput(customRange?.to);
     if (!from && !to) return {};
-
-    if (from) {
-      from.setHours(0, 0, 0, 0);
-    }
-    if (to) {
-      to.setHours(23, 59, 59, 999);
-    }
-
+    if (from) from.setHours(0, 0, 0, 0);
+    if (to)   to.setHours(23, 59, 59, 999);
     return {
-      after: from ? formatDateToApi(from) : null,
-      before: to ? formatDateToApi(to) : null,
+      after:  from ? formatDateToApi(from) : null,
+      before: to   ? formatDateToApi(to)   : null,
     };
   }
-
   return {};
 };
+
+const normalizeApp = order => String(order?.app || '').trim();
+
+const getStatusLabel = order => {
+  const rs = String(order?.status?.realStatus || '').toLowerCase();
+  const s  = String(order?.status?.status    || '').toLowerCase();
+  return STATUS_LABELS[rs] || STATUS_LABELS[s] || order?.status?.status || 'Em andamento';
+};
+
+const getStatusColor = order => order?.status?.color || '#64748B';
+
+const getSearchText = order =>
+  [order?.id, order?.app, order?.status?.status, order?.status?.realStatus]
+    .filter(Boolean).join(' ').toLowerCase();
 
 const FilterChip = ({ active, label, onPress }) => (
   <TouchableOpacity
@@ -163,323 +111,290 @@ const FilterChip = ({ active, label, onPress }) => (
 );
 
 export default function OrderHistoryPage({ navigation }) {
-  const ordersStore = useStore('orders');
-  const peopleStore = useStore('people');
-  const themeStore = useStore('theme');
+  const ordersStore  = useStore('orders');
+  const peopleStore  = useStore('people');
+  const themeStore   = useStore('theme');
+  const isFocused    = useIsFocused();
 
-  const { currentCompany } = peopleStore.getters;
+  const { currentCompany }   = peopleStore.getters;
   const { colors: themeColors } = themeStore.getters;
   const { actions: orderActions } = ordersStore;
 
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [error, setError] = useState('');
-  const [orders, setOrders] = useState([]);
+  const [loading,       setLoading]       = useState(true);
+  const [refreshing,    setRefreshing]    = useState(false);
+  const [error,         setError]         = useState('');
+  const [orders,        setOrders]        = useState([]);
   const [channelFilter, setChannelFilter] = useState('all');
-  const [statusFilter, setStatusFilter] = useState('all');
-  const [dateFilter, setDateFilter] = useState('all');
-  const [searchText, setSearchText] = useState('');
+  const [statusFilter,  setStatusFilter]  = useState('all');
+  const [dateFilter,    setDateFilter]    = useState('all');
+  const [searchText,    setSearchText]    = useState('');
   const [customFromInput, setCustomFromInput] = useState('');
-  const [customToInput, setCustomToInput] = useState('');
-  const [customRange, setCustomRange] = useState({ from: '', to: '' });
+  const [customToInput,   setCustomToInput]   = useState('');
+  const [customRange,   setCustomRange]   = useState({ from: '', to: '' });
   const [dateValidationMessage, setDateValidationMessage] = useState('');
 
   const brandColors = useMemo(
-    () =>
-      resolveThemePalette(
-        {
-          ...themeColors,
-          ...(currentCompany?.theme?.colors || {}),
-        },
-        colors,
-      ),
+    () => resolveThemePalette({ ...themeColors, ...(currentCompany?.theme?.colors || {}) }, colors),
     [themeColors, currentCompany?.id],
   );
 
-  const channelOptions = useMemo(() => {
-    const dynamicChannels = orders
-      .map(order => String(order?.app || '').trim())
-      .filter(Boolean);
-
-    const normalized = new Set([
-      ...CHANNEL_PRESETS,
-      ...dynamicChannels,
-      channelFilter !== 'all' ? channelFilter : null,
-    ]);
-
-    return [
-      { key: 'all', label: 'Todos' },
-      ...Array.from(normalized)
-        .filter(Boolean)
-        .map(value => ({ key: value, label: value })),
-    ];
-  }, [channelFilter, orders]);
-
-  const statusOptions = useMemo(() => {
-    const dynamicStatuses = orders
-      .map(order => String(order?.status?.realStatus || '').toLowerCase())
-      .filter(Boolean);
-
-    const normalized = new Set([
-      ...STATUS_PRESETS,
-      ...dynamicStatuses,
-      statusFilter !== 'all' ? statusFilter : null,
-    ]);
-
-    return [
-      { key: 'all', label: 'Todos' },
-      ...Array.from(normalized)
-        .filter(Boolean)
-        .map(value => ({
-          key: value,
-          label: STATUS_LABELS[value] || value,
-        })),
-    ];
-  }, [orders, statusFilter]);
-
-  const filteredOrders = useMemo(() => {
-    const normalizedSearch = String(searchText || '').trim().toLowerCase();
-    if (!normalizedSearch) return orders;
-
-    return orders.filter(order => getSearchText(order).includes(normalizedSearch));
-  }, [orders, searchText]);
+  /* ─── fetch ──────────────────────────────────────────────────── */
 
   const loadOrders = useCallback(async () => {
-    if (!currentCompany?.id) {
-      setOrders([]);
-      setLoading(false);
-      return;
-    }
+    if (!currentCompany?.id) { setOrders([]); setLoading(false); return; }
 
     try {
       setError('');
       const query = {
-        provider: `/people/${currentCompany.id}`,
-        orderType: 'sale',
-        itemsPerPage: 200,
-        page: 1,
-        order: { alterDate: 'DESC' },
+        provider:     `/people/${currentCompany.id}`,
+        orderType:    'sale',
+        itemsPerPage: 300,
+        page:         1,
+        order:        { alterDate: 'DESC' },
       };
 
-      if (channelFilter !== 'all') {
-        query.app = channelFilter;
-      }
-
-      if (statusFilter !== 'all') {
-        query['status.realStatus'] = statusFilter;
-      }
-
       const dateRange = getDateRange(dateFilter, customRange);
-      if (dateRange?.after) {
-        query['alterDate[after]'] = dateRange.after;
-      }
-      if (dateRange?.before) {
-        query['alterDate[before]'] = dateRange.before;
-      }
+      if (dateRange?.after)  query['alterDate[after]']  = dateRange.after;
+      if (dateRange?.before) query['alterDate[before]'] = dateRange.before;
 
       const response = await orderActions.getItems(query);
       setOrders(Array.isArray(response) ? response : []);
-    } catch (fetchError) {
-      setError(fetchError?.message || global.t?.t('configs', 'title', 'unableToLoadHistory'));
+    } catch (err) {
+      setError(err?.message || 'Não foi possível carregar o histórico.');
       setOrders([]);
     } finally {
       setLoading(false);
     }
-  }, [
-    channelFilter,
-    currentCompany?.id,
-    customRange,
-    dateFilter,
-    orderActions,
-    statusFilter,
-  ]);
+  }, [currentCompany?.id, dateFilter, customRange, orderActions]);
 
-  useFocusEffect(
-    useCallback(() => {
-      setLoading(true);
-      loadOrders();
-    }, [loadOrders]),
-  );
+  /* dispara quando a tela ganha foco OU quando loadOrders muda (filtro de data / empresa) */
+  useEffect(() => {
+    if (!isFocused) return;
+    setLoading(true);
+    loadOrders();
+  }, [isFocused, loadOrders]);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    try {
-      await loadOrders();
-    } finally {
-      setRefreshing(false);
-    }
+    try { await loadOrders(); } finally { setRefreshing(false); }
   }, [loadOrders]);
 
-  const openOrder = useCallback(
-    order => {
-      navigation.navigate('OrderDetails', { order, kds: true });
-    },
-    [navigation],
-  );
+  /* ─── filtros client-side ────────────────────────────────────── */
+
+  const channelOptions = useMemo(() => {
+    const apps = new Set([...CHANNEL_PRESETS, ...orders.map(o => normalizeApp(o)).filter(Boolean)]);
+    if (channelFilter !== 'all') apps.add(channelFilter);
+    return [
+      { key: 'all', label: 'Todos' },
+      ...Array.from(apps).map(k => ({ key: k, label: k })),
+    ];
+  }, [orders, channelFilter]);
+
+  const statusOptions = useMemo(() => {
+    const statuses = new Set([
+      ...STATUS_PRESETS,
+      ...orders.map(o => String(o?.status?.realStatus || '').toLowerCase()).filter(Boolean),
+    ]);
+    if (statusFilter !== 'all') statuses.add(statusFilter);
+    return [
+      { key: 'all', label: 'Todos' },
+      ...Array.from(statuses).map(k => ({ key: k, label: STATUS_LABELS[k] || k })),
+    ];
+  }, [orders, statusFilter]);
+
+  const filteredOrders = useMemo(() => {
+    let result = orders;
+
+    if (channelFilter !== 'all') {
+      if (channelFilter === 'SHOP') {
+        result = result.filter(o => !normalizeApp(o) || normalizeApp(o) === 'SHOP');
+      } else {
+        result = result.filter(o => normalizeApp(o) === channelFilter);
+      }
+    }
+
+    if (statusFilter !== 'all') {
+      const st = statusFilter.toLowerCase();
+      result = result.filter(o => {
+        const rs = String(o?.status?.realStatus || '').toLowerCase();
+        const s  = String(o?.status?.status    || '').toLowerCase();
+        return rs === st || s === st;
+      });
+    }
+
+    if (searchText.trim()) {
+      const q = searchText.trim().toLowerCase();
+      result = result.filter(o => getSearchText(o).includes(q));
+    }
+
+    return result;
+  }, [orders, channelFilter, statusFilter, searchText]);
+
+  /* ─── data personalizada ─────────────────────────────────────── */
 
   const applyCustomRange = useCallback(() => {
     if (dateFilter !== 'custom') return;
-
-    const fromValue = String(customFromInput || '').trim();
-    const toValue = String(customToInput || '').trim();
-
-    if (!fromValue && !toValue) {
-      setDateValidationMessage('');
-      setCustomRange({ from: '', to: '' });
-      return;
-    }
-
-    const fromDate = fromValue ? parseDateInput(fromValue) : null;
-    const toDate = toValue ? parseDateInput(toValue) : null;
-
-    if ((fromValue && !fromDate) || (toValue && !toDate)) {
-      setDateValidationMessage('Use o formato AAAA-MM-DD');
-      return;
-    }
-
-    if (fromDate && toDate && fromDate.getTime() > toDate.getTime()) {
-      setDateValidationMessage('Data inicial nao pode ser maior que a final');
-      return;
-    }
-
+    const fromVal = String(customFromInput || '').trim();
+    const toVal   = String(customToInput   || '').trim();
+    if (!fromVal && !toVal) { setDateValidationMessage(''); setCustomRange({ from: '', to: '' }); return; }
+    const fromDate = fromVal ? parseDateInput(fromVal) : null;
+    const toDate   = toVal   ? parseDateInput(toVal)   : null;
+    if ((fromVal && !fromDate) || (toVal && !toDate)) { setDateValidationMessage('Use o formato AAAA-MM-DD'); return; }
+    if (fromDate && toDate && fromDate > toDate) { setDateValidationMessage('Data inicial não pode ser maior que a final'); return; }
     setDateValidationMessage('');
-    setCustomRange({ from: fromValue, to: toValue });
+    setCustomRange({ from: fromVal, to: toVal });
   }, [customFromInput, customToInput, dateFilter]);
 
   const clearCustomRange = useCallback(() => {
-    setCustomFromInput('');
-    setCustomToInput('');
-    setDateValidationMessage('');
-    setCustomRange({ from: '', to: '' });
+    setCustomFromInput(''); setCustomToInput('');
+    setDateValidationMessage(''); setCustomRange({ from: '', to: '' });
   }, []);
+
+  const openOrder = useCallback(order => {
+    navigation.navigate('OrderDetails', { order, kds: true });
+  }, [navigation]);
+
+  /* ─── render card ────────────────────────────────────────────── */
+
+  const renderCard = useCallback(order => {
+    const channelLogo  = getOrderChannelLogo(order);
+    const channelLabel = getOrderChannelLabel(order) || normalizeApp(order) || 'SHOP';
+    const statusLabel  = getStatusLabel(order);
+    const statusColor  = getStatusColor(order);
+    const price        = Number(order?.price || 0);
+
+    return (
+      <TouchableOpacity
+        key={order.id}
+        style={styles.orderCard}
+        activeOpacity={0.85}
+        onPress={() => openOrder(order)}>
+
+        {/* topo: identidade + badge */}
+        <View style={styles.cardTopRow}>
+          <View style={styles.orderIdentity}>
+            <View style={styles.orderIconWrap}>
+              {channelLogo
+                ? <Image source={channelLogo} style={styles.channelLogo} resizeMode="contain" />
+                : <Icon name="shopping-bag" size={16} color="#64748B" />}
+            </View>
+            <View>
+              <Text style={styles.orderId}>Pedido #{order.id}</Text>
+              <Text style={styles.orderDate}>
+                {Formatter.formatDateYmdTodmY(order?.orderDate, true)}
+              </Text>
+            </View>
+          </View>
+
+          <View style={[styles.statusBadge, { borderColor: withOpacity(statusColor, 0.4), backgroundColor: withOpacity(statusColor, 0.08) }]}>
+            <View style={[styles.statusDot, { backgroundColor: statusColor }]} />
+            <Text style={[styles.statusText, { color: statusColor }]}>{statusLabel}</Text>
+          </View>
+        </View>
+
+        {/* meta: canal + valor */}
+        <View style={styles.cardMetaRow}>
+          <Text style={styles.channelText} numberOfLines={1}>{channelLabel}</Text>
+          <Text style={styles.priceText}>{Formatter.formatMoney(price)}</Text>
+        </View>
+      </TouchableOpacity>
+    );
+  }, [openOrder]);
+
+  /* ─── UI ─────────────────────────────────────────────────────── */
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: brandColors.background }]} edges={['bottom']}>
       <ScrollView
         contentContainerStyle={styles.scroll}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={brandColors.primary} />
-        }>
-        <View style={[styles.heroCard, shadowStyle, { backgroundColor: brandColors.primary }]}>
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={brandColors.primary} />}>
+
+        {/* cabeçalho */}
+        <View style={[styles.heroCard, { backgroundColor: brandColors.primary }]}>
           <View style={styles.heroCopy}>
             <Text style={styles.heroEyebrow}>Pedidos</Text>
-            <Text style={styles.heroTitle}>{global.t?.t('configs', 'title', 'orderHistory') || 'Order History'}</Text>
-            <Text style={styles.heroText}>
-              {global.t?.t('configs', 'title', 'orderHistoryResume') ||
-                'Historico completo das ordens com filtros por canal, data e status.'}
-            </Text>
+            <Text style={styles.heroTitle}>Histórico de Pedidos</Text>
+            <Text style={styles.heroText}>Filtre por canal, status e período.</Text>
           </View>
           <View style={styles.heroBadge}>
-            <Icon name="clock" size={22} color={brandColors.primary} />
+            <Icon name="shopping-bag" size={22} color={brandColors.primary} />
           </View>
         </View>
 
+        {/* empresa + contagem */}
         <View style={styles.summaryRow}>
           <View>
-            <Text style={styles.sectionTitle}>{global.t?.t('configs', 'title', 'activeCompany')}</Text>
-            <Text style={styles.companyName}>
-              {currentCompany?.name || currentCompany?.alias || global.t?.t('configs', 'title', 'selectCompany')}
-            </Text>
+            <Text style={styles.sectionTitle}>{currentCompany?.name || currentCompany?.alias || 'Empresa'}</Text>
           </View>
           <View style={styles.countPill}>
             <Text style={styles.countPillText}>{filteredOrders.length} pedidos</Text>
           </View>
         </View>
 
+        {/* filtros */}
         <View style={styles.filtersCard}>
-          <Text style={styles.filtersTitle}>Filtros avancados</Text>
+          <Text style={styles.filtersTitle}>Filtros</Text>
 
           <TextInput
             value={searchText}
             onChangeText={setSearchText}
-            placeholder="Buscar por pedido, canal ou codigo"
+            placeholder="Buscar por ID ou canal"
             placeholderTextColor="#94A3B8"
             style={styles.searchInput}
           />
 
           <Text style={styles.filterLabel}>Canal</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipsRow}>
-            {channelOptions.map(option => (
-              <FilterChip
-                key={`channel-${option.key}`}
-                active={channelFilter === option.key}
-                label={option.label}
-                onPress={() => setChannelFilter(option.key)}
-              />
+            {channelOptions.map(opt => (
+              <FilterChip key={`ch-${opt.key}`} active={channelFilter === opt.key} label={opt.label} onPress={() => setChannelFilter(opt.key)} />
             ))}
           </ScrollView>
 
           <Text style={styles.filterLabel}>Status</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipsRow}>
-            {statusOptions.map(option => (
-              <FilterChip
-                key={`status-${option.key}`}
-                active={statusFilter === option.key}
-                label={option.label}
-                onPress={() => setStatusFilter(option.key)}
-              />
+            {statusOptions.map(opt => (
+              <FilterChip key={`st-${opt.key}`} active={statusFilter === opt.key} label={opt.label} onPress={() => setStatusFilter(opt.key)} />
             ))}
           </ScrollView>
 
-          <Text style={styles.filterLabel}>Periodo</Text>
+          <Text style={styles.filterLabel}>Período</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipsRow}>
-            {DATE_FILTER_OPTIONS.map(option => (
-              <FilterChip
-                key={`period-${option.key}`}
-                active={dateFilter === option.key}
-                label={option.label}
-                onPress={() => setDateFilter(option.key)}
-              />
+            {DATE_FILTER_OPTIONS.map(opt => (
+              <FilterChip key={`dt-${opt.key}`} active={dateFilter === opt.key} label={opt.label} onPress={() => setDateFilter(opt.key)} />
             ))}
           </ScrollView>
 
           {dateFilter === 'custom' ? (
             <View style={styles.customDateWrap}>
               <View style={styles.customDateInputs}>
-                <TextInput
-                  value={customFromInput}
-                  onChangeText={setCustomFromInput}
-                  placeholder="Inicio (AAAA-MM-DD)"
-                  placeholderTextColor="#94A3B8"
-                  style={[styles.searchInput, styles.dateInput]}
-                />
-                <TextInput
-                  value={customToInput}
-                  onChangeText={setCustomToInput}
-                  placeholder="Fim (AAAA-MM-DD)"
-                  placeholderTextColor="#94A3B8"
-                  style={[styles.searchInput, styles.dateInput]}
-                />
+                <TextInput value={customFromInput} onChangeText={setCustomFromInput} placeholder="Início (AAAA-MM-DD)" placeholderTextColor="#94A3B8" style={[styles.searchInput, styles.dateInput]} />
+                <TextInput value={customToInput}   onChangeText={setCustomToInput}   placeholder="Fim (AAAA-MM-DD)"   placeholderTextColor="#94A3B8" style={[styles.searchInput, styles.dateInput]} />
               </View>
-
-              {!!dateValidationMessage ? (
-                <Text style={styles.validationText}>{dateValidationMessage}</Text>
-              ) : null}
-
+              {!!dateValidationMessage && <Text style={styles.validationText}>{dateValidationMessage}</Text>}
               <View style={styles.customDateActions}>
                 <TouchableOpacity style={styles.secondaryButton} activeOpacity={0.9} onPress={clearCustomRange}>
                   <Text style={styles.secondaryButtonText}>Limpar</Text>
                 </TouchableOpacity>
-                <TouchableOpacity style={styles.primaryButton} activeOpacity={0.9} onPress={applyCustomRange}>
-                  <Text style={styles.primaryButtonText}>Aplicar periodo</Text>
+                <TouchableOpacity style={[styles.primaryButton, { backgroundColor: brandColors.primary }]} activeOpacity={0.9} onPress={applyCustomRange}>
+                  <Text style={styles.primaryButtonText}>Aplicar período</Text>
                 </TouchableOpacity>
               </View>
             </View>
           ) : null}
         </View>
 
+        {/* estados vazios / erro */}
         {loading ? (
           <View style={styles.centerState}>
             <ActivityIndicator size="large" color={brandColors.primary} />
-            <Text style={styles.centerStateTitle}>{global.t?.t('configs', 'title', 'loadingHistory')}</Text>
-            <Text style={styles.centerStateText}>{global.t?.t('configs', 'title', 'fetchingOrders')}</Text>
+            <Text style={styles.centerStateTitle}>Carregando pedidos…</Text>
           </View>
         ) : null}
 
         {!loading && !!error ? (
           <View style={styles.centerState}>
             <Icon name="alert-circle" size={28} color="#DC2626" />
-            <Text style={styles.centerStateTitle}>{global.t?.t('configs', 'title', 'unableToLoadHistory')}</Text>
+            <Text style={styles.centerStateTitle}>Erro ao carregar</Text>
             <Text style={styles.centerStateText}>{error}</Text>
           </View>
         ) : null}
@@ -487,276 +402,96 @@ export default function OrderHistoryPage({ navigation }) {
         {!loading && !error && filteredOrders.length === 0 ? (
           <View style={styles.centerState}>
             <Icon name="inbox" size={28} color="#94A3B8" />
-            <Text style={styles.centerStateTitle}>{global.t?.t('configs', 'title', 'noOrdersFound')}</Text>
-            <Text style={styles.centerStateText}>
-              {global.t?.t('configs', 'title', 'noOrdersFoundMessage')}
-            </Text>
+            <Text style={styles.centerStateTitle}>Nenhum pedido encontrado</Text>
+            <Text style={styles.centerStateText}>Tente ajustar os filtros acima.</Text>
           </View>
         ) : null}
 
+        {/* lista */}
         {!loading && !error ? (
           <View style={styles.list}>
-            {filteredOrders.map(order => {
-              const tone = getStatusTone(order);
-
-              return (
-                <TouchableOpacity
-                  key={order.id}
-                  activeOpacity={0.9}
-                  onPress={() => openOrder(order)}
-                  style={styles.orderCard}>
-                  <View style={styles.orderTopRow}>
-                    <View style={[styles.statusHint, { backgroundColor: tone.backgroundColor }]}>
-                      <Text style={[styles.statusHintText, { color: tone.textColor }]}>
-                        {tone.label}
-                      </Text>
-                    </View>
-                    <Icon name="arrow-up-right" size={18} color="#64748B" />
-                  </View>
-
-                  <OrderHeader order={order} showCustomer compact />
-
-                  <View style={styles.orderFooter}>
-                    <Text style={styles.orderFooterText}>
-                      {global.t?.t('configs', 'title', 'tapToViewDetails')}
-                    </Text>
-                  </View>
-                </TouchableOpacity>
-              );
-            })}
+            {filteredOrders.map(order => renderCard(order))}
           </View>
         ) : null}
+
       </ScrollView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  scroll: {
-    paddingHorizontal: 20,
-    paddingTop: 16,
-    paddingBottom: 32,
-    gap: 18,
-  },
+  container:  { flex: 1 },
+  scroll:     { paddingHorizontal: 20, paddingTop: 16, paddingBottom: 32, gap: 16 },
+
   heroCard: {
-    borderRadius: 24,
-    padding: 22,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
+    borderRadius: 24, padding: 22,
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start',
+    shadowColor: '#0F172A', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.12, shadowRadius: 16,
+    elevation: 5,
   },
-  heroCopy: {
-    flex: 1,
-    paddingRight: 16,
-  },
-  heroEyebrow: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: 'rgba(255,255,255,0.78)',
-    textTransform: 'uppercase',
-    letterSpacing: 1,
-    marginBottom: 8,
-  },
-  heroTitle: {
-    fontSize: 28,
-    fontWeight: '800',
-    color: '#fff',
-    marginBottom: 10,
-    letterSpacing: -0.8,
-  },
-  heroText: {
-    fontSize: 14,
-    lineHeight: 21,
-    color: 'rgba(255,255,255,0.88)',
-  },
-  heroBadge: {
-    width: 48,
-    height: 48,
-    borderRadius: 16,
-    backgroundColor: '#fff',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  summaryRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 12,
-  },
-  sectionTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#0F172A',
-    marginBottom: 4,
-  },
-  companyName: {
-    fontSize: 14,
-    color: '#475569',
-    fontWeight: '600',
-  },
-  countPill: {
-    borderRadius: 999,
-    backgroundColor: '#EFF6FF',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-  },
-  countPillText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#1D4ED8',
-  },
-  filtersCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 20,
-    padding: 16,
-    gap: 10,
-  },
-  filtersTitle: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#0F172A',
-  },
-  searchInput: {
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    fontSize: 14,
-    color: '#0F172A',
-    backgroundColor: '#fff',
-  },
-  filterLabel: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#64748B',
-    textTransform: 'uppercase',
-    letterSpacing: 0.8,
-    marginTop: 2,
-  },
-  chipsRow: {
-    flexDirection: 'row',
-    gap: 8,
-    paddingVertical: 2,
-  },
-  filterChip: {
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: '#CBD5E1',
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-    backgroundColor: '#fff',
-  },
-  filterChipActive: {
-    borderColor: '#2563EB',
-    backgroundColor: '#EFF6FF',
-  },
-  filterChipText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#475569',
-  },
-  filterChipTextActive: {
-    color: '#1D4ED8',
-  },
-  customDateWrap: {
-    gap: 10,
-    marginTop: 2,
-  },
-  customDateInputs: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  dateInput: {
-    flex: 1,
-  },
-  validationText: {
-    color: '#DC2626',
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  customDateActions: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    gap: 8,
-  },
-  primaryButton: {
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    backgroundColor: '#2563EB',
-  },
-  primaryButtonText: {
-    color: '#fff',
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  secondaryButton: {
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    backgroundColor: '#F1F5F9',
-  },
-  secondaryButtonText: {
-    color: '#334155',
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  centerState: {
-    backgroundColor: '#fff',
-    borderRadius: 20,
-    padding: 24,
-    alignItems: 'center',
-    gap: 10,
-  },
-  centerStateTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#0F172A',
-    textAlign: 'center',
-  },
-  centerStateText: {
-    fontSize: 14,
-    color: '#64748B',
-    textAlign: 'center',
-    lineHeight: 20,
-  },
-  list: {
-    gap: 14,
-  },
+  heroCopy:    { flex: 1, paddingRight: 16 },
+  heroEyebrow: { fontSize: 11, fontWeight: '700', color: 'rgba(255,255,255,0.75)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 6 },
+  heroTitle:   { fontSize: 24, fontWeight: '800', color: '#fff', marginBottom: 6, letterSpacing: -0.5 },
+  heroText:    { fontSize: 13, lineHeight: 19, color: 'rgba(255,255,255,0.85)' },
+  heroBadge:   { width: 46, height: 46, borderRadius: 14, backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center' },
+
+  summaryRow:    { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  sectionTitle:  { fontSize: 16, fontWeight: '700', color: '#0F172A' },
+  countPill:     { borderRadius: 999, backgroundColor: '#EFF6FF', paddingHorizontal: 12, paddingVertical: 7 },
+  countPillText: { fontSize: 12, fontWeight: '700', color: '#1D4ED8' },
+
+  filtersCard:  { backgroundColor: '#fff', borderRadius: 20, padding: 16, gap: 10 },
+  filtersTitle: { fontSize: 15, fontWeight: '700', color: '#0F172A' },
+  searchInput:  { borderWidth: 1, borderColor: '#E2E8F0', borderRadius: 12, paddingHorizontal: 12, paddingVertical: 10, fontSize: 14, color: '#0F172A', backgroundColor: '#fff' },
+  filterLabel:  { fontSize: 11, fontWeight: '700', color: '#64748B', textTransform: 'uppercase', letterSpacing: 0.8, marginTop: 2 },
+  chipsRow:     { flexDirection: 'row', gap: 8, paddingVertical: 2 },
+  filterChip:        { borderRadius: 999, borderWidth: 1, borderColor: '#CBD5E1', paddingHorizontal: 12, paddingVertical: 7, backgroundColor: '#fff' },
+  filterChipActive:  { borderColor: '#2563EB', backgroundColor: '#EFF6FF' },
+  filterChipText:    { fontSize: 12, fontWeight: '600', color: '#475569' },
+  filterChipTextActive: { color: '#1D4ED8' },
+
+  customDateWrap:    { gap: 10, marginTop: 2 },
+  customDateInputs:  { flexDirection: 'row', gap: 8 },
+  dateInput:         { flex: 1 },
+  validationText:    { color: '#DC2626', fontSize: 12, fontWeight: '600' },
+  customDateActions: { flexDirection: 'row', justifyContent: 'flex-end', gap: 8 },
+  primaryButton:     { borderRadius: 10, paddingHorizontal: 12, paddingVertical: 8 },
+  primaryButtonText: { color: '#fff', fontSize: 12, fontWeight: '700' },
+  secondaryButton:   { borderRadius: 10, paddingHorizontal: 12, paddingVertical: 8, backgroundColor: '#F1F5F9' },
+  secondaryButtonText: { color: '#334155', fontSize: 12, fontWeight: '700' },
+
+  centerState:      { backgroundColor: '#fff', borderRadius: 20, padding: 24, alignItems: 'center', gap: 10 },
+  centerStateTitle: { fontSize: 18, fontWeight: '700', color: '#0F172A', textAlign: 'center' },
+  centerStateText:  { fontSize: 14, color: '#64748B', textAlign: 'center', lineHeight: 20 },
+
+  list: { gap: 12 },
+
   orderCard: {
     backgroundColor: '#fff',
-    borderRadius: 24,
-    padding: 18,
+    borderRadius: 20,
+    padding: 16,
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
   },
-  orderTopRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
+  cardTopRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
+  orderIdentity: { flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 },
+  orderIconWrap: {
+    width: 38, height: 38, borderRadius: 12,
+    backgroundColor: '#F8FAFC', borderWidth: 1, borderColor: '#E2E8F0',
+    alignItems: 'center', justifyContent: 'center',
   },
-  statusHint: {
-    borderRadius: 999,
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-  },
-  statusHintText: {
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  orderFooter: {
-    marginTop: 4,
-    paddingTop: 8,
-    borderTopWidth: 1,
-    borderTopColor: withOpacity('#CBD5E1', 0.7),
-  },
-  orderFooterText: {
-    fontSize: 13,
-    color: '#64748B',
-    lineHeight: 18,
-  },
+  channelLogo: { width: 22, height: 22 },
+  orderId:   { fontSize: 15, fontWeight: '800', color: '#0F172A' },
+  orderDate: { fontSize: 12, color: '#64748B', marginTop: 1 },
+
+  statusBadge: { flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4, gap: 5 },
+  statusDot:   { width: 7, height: 7, borderRadius: 999 },
+  statusText:  { fontSize: 11, fontWeight: '700' },
+
+  cardMetaRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingTop: 10, borderTopWidth: 1, borderTopColor: '#F1F5F9' },
+  channelText: { fontSize: 13, fontWeight: '600', color: '#475569', flex: 1 },
+  priceText:   { fontSize: 15, fontWeight: '800', color: '#16A34A' },
 });
