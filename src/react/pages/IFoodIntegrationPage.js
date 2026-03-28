@@ -17,6 +17,7 @@ import Icon from 'react-native-vector-icons/Feather';
 
 import { api } from '@controleonline/ui-common/src/api';
 import useToastMessage from '@controleonline/ui-crm/src/react/hooks/useToastMessage';
+import AnimatedModal from '@controleonline/ui-crm/src/react/components/AnimatedModal';
 import { useStore } from '@store';
 import { colors } from '@controleonline/../../src/styles/colors';
 import {
@@ -44,6 +45,8 @@ const formatApiError = error => {
   return error?.message || error?.description || error?.errmsg || 'Nao foi possivel carregar os dados da integracao iFood.';
 };
 
+const countCollection = collection => (Array.isArray(collection) ? collection.length : 0);
+
 export default function IFoodIntegrationPage() {
   const peopleStore = useStore('people');
   const themeStore  = useStore('theme');
@@ -68,6 +71,8 @@ export default function IFoodIntegrationPage() {
   const [filterKey,        setFilterKey]         = useState('all');
   const [search,           setSearch]            = useState('');
   const [storeStatus,      setStoreStatus]       = useState(null);
+  const [previewVisible,   setPreviewVisible]    = useState(false);
+  const [previewData,      setPreviewData]       = useState(null);
 
   /* ------------------------------------------------------------------ */
   /* produtos                                                             */
@@ -173,7 +178,19 @@ export default function IFoodIntegrationPage() {
       if (filterKey === 'eligible' && !p.eligible) return false;
       if (filterKey === 'blocked'  &&  p.eligible) return false;
       if (filterKey === 'selected' && !selectedIds.has(String(p.id))) return false;
-      if (q && !String(p.name || '').toLowerCase().includes(q)) return false;
+      if (q) {
+        const haystack = [
+          p?.name,
+          p?.description,
+          p?.category?.name,
+          p?.ifood_item_id,
+          p?.id,
+        ]
+          .filter(Boolean)
+          .join(' ')
+          .toLowerCase();
+        if (!haystack.includes(q)) return false;
+      }
       return true;
     });
   }, [products, filterKey, search, selectedIds]);
@@ -224,9 +241,9 @@ export default function IFoodIntegrationPage() {
     });
   }, [applyDetailResponse, providerId, showError, showInfo, withAction]);
 
-  const handleMenuUpload = useCallback(async () => {
+  const handleMenuUpload = useCallback(async (selectedProducts = selectedEligible) => {
     if (!providerId) return;
-    if (selectedEligible.length === 0) {
+    if (!Array.isArray(selectedProducts) || selectedProducts.length === 0) {
       showInfo('Selecione ao menos um produto elegivel para publicar.');
       return;
     }
@@ -236,19 +253,58 @@ export default function IFoodIntegrationPage() {
           method: 'POST',
           body: JSON.stringify({
             provider_id: providerId,
-            product_ids: selectedEligible.map(p => p.id),
+            product_ids: selectedProducts.map(p => p.id),
           }),
         });
         applyDetailResponse(response, { syncSelection: true });
         if (String(response?.result?.errno ?? '') === '0') {
           const pushed = response?.result?.data?.pushed_count ?? 0;
           showInfo(`Cardapio enviado ao iFood. ${pushed} produto(s) publicado(s).`);
+          setPreviewVisible(false);
           return;
         }
         showError(formatApiError(response?.result || response));
       } catch (error) { showError(formatApiError(error)); }
     });
   }, [applyDetailResponse, providerId, selectedEligible, showError, showInfo, withAction]);
+
+  const minimumRequiredItems = Number(productsResponse?.minimum_required_items || 1);
+
+  const buildPreviewData = useCallback(() => {
+    const categoriesMap = new Map();
+    selectedEligible.forEach(product => {
+      const categoryName = String(product?.category?.name || 'Sem categoria').trim();
+      const current = categoriesMap.get(categoryName) || 0;
+      categoriesMap.set(categoryName, current + 1);
+    });
+
+    const categories = Array.from(categoriesMap.entries()).map(([categoryName, count], index) => ({
+      app_category_id: `${index + 1}`,
+      category_name: categoryName,
+      app_item_ids: Array.from({ length: count }).map((_, idx) => `${categoryName}-${idx + 1}`),
+    }));
+
+    return {
+      eligible_product_count: selectedEligible.length,
+      payload: {
+        menus: selectedEligible.length > 0 ? [{ app_menu_id: 'ifood_default_menu' }] : [],
+        categories,
+        items: selectedEligible.map(product => ({
+          app_item_id: String(product.id),
+          item_name: product.name,
+        })),
+      },
+    };
+  }, [selectedEligible]);
+
+  const handleOpenPreview = useCallback(() => {
+    if (selectedEligible.length < minimumRequiredItems) {
+      showInfo(`Selecione pelo menos ${minimumRequiredItems} produto(s) elegivel(is) para pre-visualizar.`);
+      return;
+    }
+    setPreviewData(buildPreviewData());
+    setPreviewVisible(true);
+  }, [buildPreviewData, minimumRequiredItems, selectedEligible.length, showInfo]);
 
   const handleStoreOpen = useCallback(async () => {
     if (!providerId) return;
@@ -632,6 +688,9 @@ export default function IFoodIntegrationPage() {
               </Text>
             </View>
           </View>
+          <Text style={styles.catalogHint}>
+            Escolha pelo menos {minimumRequiredItems} produto(s) elegiveis para o menu do iFood.
+          </Text>
 
           {/* busca */}
           <View style={styles.searchBox}>
@@ -675,23 +734,21 @@ export default function IFoodIntegrationPage() {
             </Text>
             <TouchableOpacity
               style={[
-                styles.uploadButton,
+                styles.previewButton,
                 {
-                  backgroundColor: (connected && selectedEligible.length > 0)
+                  backgroundColor: (connected && selectedEligible.length >= minimumRequiredItems)
                     ? brandColors.primary
                     : '#CBD5E1',
                 },
               ]}
-              onPress={handleMenuUpload}
-              disabled={!connected || actionLoading !== null || selectedEligible.length === 0}>
+              onPress={handleOpenPreview}
+              disabled={!connected || actionLoading !== null || selectedEligible.length < minimumRequiredItems}>
               {actionLoading === 'menu_upload'
                 ? <ActivityIndicator size="small" color="#fff" />
                 : (
                   <>
-                    <Icon name="upload-cloud" size={15} color="#fff" />
-                    <Text style={styles.uploadButtonText}>
-                      Publicar {selectedEligible.length > 0 ? `${selectedEligible.length}` : ''} produto(s)
-                    </Text>
+                    <Icon name="eye" size={15} color="#fff" />
+                    <Text style={styles.previewButtonText}>Pre-visualizar menu</Text>
                   </>
                 )}
             </TouchableOpacity>
@@ -777,6 +834,82 @@ export default function IFoodIntegrationPage() {
         </View>
 
       </ScrollView>
+
+      <AnimatedModal visible={previewVisible} onRequestClose={() => setPreviewVisible(false)}>
+        <View style={styles.modalShell}>
+          <View style={styles.modalCard}>
+            <View style={styles.modalHeader}>
+              <View>
+                <Text style={styles.modalTitle}>Pre-visualizacao do menu</Text>
+                <Text style={styles.modalSubtitle}>
+                  {previewData?.eligible_product_count || selectedEligible.length} produtos prontos para upload
+                </Text>
+              </View>
+              <TouchableOpacity onPress={() => setPreviewVisible(false)} style={styles.modalCloseButton}>
+                <Icon name="x" size={18} color="#475569" />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.modalContent}>
+              <View style={styles.modalSummaryGrid}>
+                <View style={styles.modalSummaryCard}>
+                  <Text style={styles.modalSummaryValue}>{countCollection(previewData?.payload?.menus)}</Text>
+                  <Text style={styles.modalSummaryLabel}>Menus</Text>
+                </View>
+                <View style={styles.modalSummaryCard}>
+                  <Text style={styles.modalSummaryValue}>{countCollection(previewData?.payload?.categories)}</Text>
+                  <Text style={styles.modalSummaryLabel}>Categorias</Text>
+                </View>
+                <View style={styles.modalSummaryCard}>
+                  <Text style={styles.modalSummaryValue}>{countCollection(previewData?.payload?.items)}</Text>
+                  <Text style={styles.modalSummaryLabel}>Itens</Text>
+                </View>
+              </View>
+
+              <View style={styles.previewSection}>
+                <Text style={styles.previewSectionTitle}>Categorias</Text>
+                {(previewData?.payload?.categories || []).map(category => (
+                  <View key={category.app_category_id} style={styles.previewLine}>
+                    <Text style={styles.previewLineTitle}>{category.category_name}</Text>
+                    <Text style={styles.previewLineMeta}>{countCollection(category.app_item_ids)} item(ns)</Text>
+                  </View>
+                ))}
+              </View>
+
+              <View style={styles.previewSection}>
+                <Text style={styles.previewSectionTitle}>Itens selecionados</Text>
+                {selectedEligible.map(product => (
+                  <View key={product.id} style={styles.previewLine}>
+                    <Text style={styles.previewLineTitle}>{product.name}</Text>
+                    <Text style={styles.previewLineMeta}>
+                      {product.category?.name || 'Sem categoria'} • R$ {Number(product.price || 0).toFixed(2)}
+                    </Text>
+                  </View>
+                ))}
+              </View>
+            </ScrollView>
+
+            <View style={styles.modalActions}>
+              <TouchableOpacity style={styles.secondaryButton} onPress={() => setPreviewVisible(false)}>
+                <Text style={styles.secondaryButtonText}>Fechar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.primaryButton, styles.modalPrimaryButton, { backgroundColor: brandColors.primary }]}
+                onPress={() => handleMenuUpload(selectedEligible)}
+                disabled={actionLoading === 'menu_upload'}>
+                {actionLoading === 'menu_upload' ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <>
+                    <Icon name="upload-cloud" size={16} color="#fff" />
+                    <Text style={styles.primaryButtonText}>Publicar menu</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </AnimatedModal>
     </SafeAreaView>
   );
 }
@@ -796,6 +929,12 @@ const styles = StyleSheet.create({
   sectionCard:  { borderRadius: 20, backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#E2E8F0', padding: 16, gap: 12 },
   statusRow:    { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   sectionTitle: { color: '#0F172A', fontSize: 17, fontWeight: '800' },
+  catalogHint: {
+    color: '#64748B',
+    fontSize: 13,
+    lineHeight: 18,
+    marginTop: -2,
+  },
   statusBadge:  { borderRadius: 999, paddingHorizontal: 12, paddingVertical: 6 },
   statusBadgeText: { fontSize: 12, fontWeight: '700' },
   metaGrid:     { flexDirection: 'row', gap: 10 },
@@ -840,8 +979,8 @@ const styles = StyleSheet.create({
   filterChipText: { fontSize: 12, fontWeight: '700', color: '#475569' },
   selectionSummaryRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginTop: 8, marginBottom: 16 },
   selectionSummaryText: { flex: 1, fontSize: 13, color: '#64748B', lineHeight: 18 },
-  uploadButton: { minHeight: 42, borderRadius: 14, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
-  uploadButtonText: { color: '#fff', fontSize: 13, fontWeight: '800' },
+  previewButton: { minHeight: 42, borderRadius: 14, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
+  previewButtonText: { color: '#fff', fontSize: 13, fontWeight: '800' },
   productsList: { gap: 10 },
   productCard:  { borderWidth: 1, borderColor: '#E2E8F0', borderRadius: 18, padding: 14, backgroundColor: '#fff' },
   productMain:  { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
@@ -860,6 +999,134 @@ const styles = StyleSheet.create({
   syncCatalogButton: { height: 42, borderRadius: 12, borderWidth: 1, borderColor: '#0EA5E9', backgroundColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 8, marginTop: 4 },
   syncCatalogButtonDisabled: { opacity: 0.5 },
   syncCatalogButtonText: { fontSize: 13, fontWeight: '700', color: '#0EA5E9' },
+  modalShell: {
+    flex: 1,
+    justifyContent: 'flex-end',
+  },
+  modalCard: {
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    paddingHorizontal: 20,
+    paddingTop: 18,
+    paddingBottom: 24,
+    maxHeight: '88%',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: 12,
+    marginBottom: 16,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: '#0F172A',
+  },
+  modalSubtitle: {
+    fontSize: 13,
+    color: '#64748B',
+    marginTop: 4,
+  },
+  modalCloseButton: {
+    width: 34,
+    height: 34,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#F8FAFC',
+  },
+  modalContent: {
+    paddingBottom: 10,
+  },
+  modalSummaryGrid: {
+    flexDirection: 'row',
+    gap: 10,
+    marginBottom: 18,
+  },
+  modalSummaryCard: {
+    flex: 1,
+    backgroundColor: '#F8FAFC',
+    borderRadius: 16,
+    padding: 14,
+    alignItems: 'center',
+  },
+  modalSummaryValue: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#0F172A',
+    marginBottom: 4,
+  },
+  modalSummaryLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#64748B',
+  },
+  previewSection: {
+    marginBottom: 18,
+  },
+  previewSectionTitle: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#0F172A',
+    marginBottom: 10,
+  },
+  previewLine: {
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 14,
+    padding: 12,
+    marginBottom: 8,
+    backgroundColor: '#fff',
+  },
+  previewLineTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#0F172A',
+    marginBottom: 4,
+  },
+  previewLineMeta: {
+    fontSize: 12,
+    color: '#64748B',
+  },
+  modalActions: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 8,
+  },
+  secondaryButton: {
+    flex: 1,
+    minHeight: 46,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#fff',
+  },
+  secondaryButtonText: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#334155',
+  },
+  primaryButton: {
+    minHeight: 46,
+    borderRadius: 14,
+    paddingHorizontal: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  primaryButtonText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  modalPrimaryButton: {
+    flex: 1.4,
+  },
   availBadge: { flexDirection: 'row', alignItems: 'center', gap: 6, borderRadius: 999, paddingHorizontal: 12, paddingVertical: 6 },
   availDot:   { width: 7, height: 7, borderRadius: 999 },
   availBadgeText: { fontSize: 12, fontWeight: '700' },
