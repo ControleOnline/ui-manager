@@ -42,6 +42,11 @@ const DATE_FILTER_OPTIONS = [
 const CHANNEL_PRESETS = ['99Food', 'iFood', 'SHOP'];
 const STATUS_PRESETS   = ['open', 'pending', 'paid', 'closed', 'cancelled'];
 
+const TABS = [
+  { key: 'sale',     label: 'Vendas',  icon: 'shopping-bag' },
+  { key: 'purchase', label: 'Compras', icon: 'truck'        },
+];
+
 /* ─── helpers ───────────────────────────────────────────────────────── */
 
 const pad2 = v => String(v).padStart(2, '0');
@@ -129,9 +134,10 @@ export default function OrderHistoryPage({ navigation }) {
   const [refreshing,    setRefreshing]    = useState(false);
   const [error,         setError]         = useState('');
 
-  const [channelFilter, setChannelFilter] = useState('all');
-  const [statusFilter,  setStatusFilter]  = useState('all');
-  const [dateFilter,    setDateFilter]    = useState('all');
+  const [orderTypeFilter, setOrderTypeFilter] = useState('sale');
+  const [channelFilter,   setChannelFilter]   = useState('all');
+  const [statusFilter,    setStatusFilter]    = useState('all');
+  const [dateFilter,      setDateFilter]      = useState('all');
   const [searchText,    setSearchText]    = useState('');
   const [customFromInput, setCustomFromInput] = useState('');
   const [customToInput,   setCustomToInput]   = useState('');
@@ -152,11 +158,11 @@ export default function OrderHistoryPage({ navigation }) {
       setError('');
       const query = {
         provider:     `/people/${currentCompany.id}`,
-        orderType:    'sale',
         itemsPerPage: PAGE_SIZE,
         page:         targetPage,
         order:        { alterDate: 'DESC' },
       };
+      if (orderTypeFilter !== 'all') query.orderType = orderTypeFilter;
       const dateRange = getDateRange(dateFilter, customRange);
       if (dateRange?.after)  query['alterDate[after]']  = dateRange.after;
       if (dateRange?.before) query['alterDate[before]'] = dateRange.before;
@@ -175,7 +181,7 @@ export default function OrderHistoryPage({ navigation }) {
       setLoadingMore(false);
       setRefreshing(false);
     }
-  }, [currentCompany?.id, dateFilter, customRange, orderActions]);
+  }, [currentCompany?.id, orderTypeFilter, dateFilter, customRange, orderActions]);
 
   /* dispara reset ao focar ou trocar filtro de data/empresa */
   useEffect(() => {
@@ -206,7 +212,8 @@ export default function OrderHistoryPage({ navigation }) {
   /* ─── filtros client-side (canal, status, busca) ─────────────────── */
 
   const channelOptions = useMemo(() => {
-    const apps = new Set([...CHANNEL_PRESETS, ...orders.map(o => normalizeApp(o)).filter(Boolean)]);
+    const saleOrders = orders.filter(o => (o.orderType || 'sale') === 'sale');
+    const apps = new Set([...CHANNEL_PRESETS, ...saleOrders.map(o => normalizeApp(o)).filter(Boolean)]);
     if (channelFilter !== 'all') apps.add(channelFilter);
     return [{ key: 'all', label: 'Todos' }, ...Array.from(apps).map(k => ({ key: k, label: k }))];
   }, [orders, channelFilter]);
@@ -270,8 +277,11 @@ export default function OrderHistoryPage({ navigation }) {
   /* ─── card de pedido ─────────────────────────────────────────────── */
 
   const renderCard = useCallback(order => {
-    const channelLogo  = getOrderChannelLogo(order);
-    const channelLabel = getOrderChannelLabel(order) || normalizeApp(order) || 'SHOP';
+    const isPurchase   = order.orderType === 'purchase';
+    const channelLogo  = isPurchase ? null : getOrderChannelLogo(order);
+    const channelLabel = isPurchase
+      ? (order.client?.alias || order.client?.name || 'Fornecedor')
+      : (getOrderChannelLabel(order) || normalizeApp(order) || 'SHOP');
     const statusLabel  = getStatusLabel(order);
     const statusColor  = getStatusColor(order);
     const price        = Number(order?.price || 0);
@@ -285,10 +295,15 @@ export default function OrderHistoryPage({ navigation }) {
       >
         <View style={styles.cardTopRow}>
           <View style={styles.orderIdentity}>
-            <View style={styles.orderIconWrap}>
+            <View style={[styles.orderIconWrap, isPurchase && styles.orderIconWrapPurchase]}>
               {channelLogo
                 ? <Image source={channelLogo} style={styles.channelLogo} resizeMode="contain" />
-                : <Icon name="shopping-bag" size={16} color="#64748B" />}
+                : <Icon
+                    name={isPurchase ? 'truck' : 'shopping-bag'}
+                    size={16}
+                    color={isPurchase ? '#D97706' : '#64748B'}
+                  />
+              }
             </View>
             <View>
               <Text style={styles.orderId}>Pedido #{order.id}</Text>
@@ -309,7 +324,9 @@ export default function OrderHistoryPage({ navigation }) {
 
         <View style={styles.cardMetaRow}>
           <Text style={styles.channelText} numberOfLines={1}>{channelLabel}</Text>
-          <Text style={styles.priceText}>{Formatter.formatMoney(price)}</Text>
+          <Text style={[styles.priceText, isPurchase && styles.purchasePriceText]}>
+            {Formatter.formatMoney(price)}
+          </Text>
         </View>
       </TouchableOpacity>
     );
@@ -330,11 +347,36 @@ export default function OrderHistoryPage({ navigation }) {
           <View style={styles.heroCopy}>
             <Text style={styles.heroEyebrow}>Pedidos</Text>
             <Text style={styles.heroTitle}>Histórico de Pedidos</Text>
-            <Text style={styles.heroText}>Filtre por canal, status e período.</Text>
+            <Text style={styles.heroText}>
+              {orderTypeFilter === 'purchase'
+                ? 'Compras de fornecedores, status e período.'
+                : 'Filtre por canal, status e período.'
+              }
+            </Text>
           </View>
           <View style={styles.heroBadge}>
-            <Icon name="shopping-bag" size={22} color={brandColors.primary} />
+            <Icon name={orderTypeFilter === 'purchase' ? 'truck' : 'shopping-bag'} size={22} color={brandColors.primary} />
           </View>
+        </View>
+
+        {/* tabs Vendas | Compras */}
+        <View style={styles.tabBar}>
+          {TABS.map(tab => {
+            const active = orderTypeFilter === tab.key;
+            return (
+              <TouchableOpacity
+                key={tab.key}
+                style={[styles.tabItem, active && [styles.tabItemActive, { borderBottomColor: brandColors.primary }]]}
+                onPress={() => { setOrderTypeFilter(tab.key); setChannelFilter('all'); setStatusFilter('all'); }}
+                activeOpacity={0.8}
+              >
+                <Icon name={tab.icon} size={14} color={active ? brandColors.primary : '#94A3B8'} />
+                <Text style={[styles.tabLabel, active && [styles.tabLabelActive, { color: brandColors.primary }]]}>
+                  {tab.label}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
         </View>
 
         {/* empresa + contagem */}
@@ -352,17 +394,21 @@ export default function OrderHistoryPage({ navigation }) {
           <TextInput
             value={searchText}
             onChangeText={setSearchText}
-            placeholder="Buscar por ID ou canal"
+            placeholder={orderTypeFilter === 'purchase' ? 'Buscar por ID ou fornecedor' : 'Buscar por ID ou canal'}
             placeholderTextColor="#94A3B8"
             style={styles.searchInput}
           />
 
-          <Text style={styles.filterLabel}>Canal</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipsRow}>
-            {channelOptions.map(opt => (
-              <FilterChip key={`ch-${opt.key}`} active={channelFilter === opt.key} label={opt.label} onPress={() => setChannelFilter(opt.key)} />
-            ))}
-          </ScrollView>
+          {orderTypeFilter === 'sale' && (
+            <>
+              <Text style={styles.filterLabel}>Canal</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipsRow}>
+                {channelOptions.map(opt => (
+                  <FilterChip key={`ch-${opt.key}`} active={channelFilter === opt.key} label={opt.label} onPress={() => setChannelFilter(opt.key)} />
+                ))}
+              </ScrollView>
+            </>
+          )}
 
           <Text style={styles.filterLabel}>Status</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipsRow}>
@@ -512,9 +558,28 @@ const styles = StyleSheet.create({
   statusDot:   { width: 7, height: 7, borderRadius: 999 },
   statusText:  { fontSize: 11, fontWeight: '700' },
 
-  cardMetaRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingTop: 10, borderTopWidth: 1, borderTopColor: '#F1F5F9' },
-  channelText: { fontSize: 13, fontWeight: '600', color: '#475569', flex: 1 },
-  priceText:   { fontSize: 15, fontWeight: '800', color: '#16A34A' },
+  tabBar: {
+    flexDirection: 'row',
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  tabItem: {
+    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: 6, paddingVertical: 12,
+    borderBottomWidth: 2.5, borderBottomColor: 'transparent',
+  },
+  tabItemActive: {},
+  tabLabel:       { fontSize: 13, fontWeight: '600', color: '#94A3B8' },
+  tabLabelActive: { fontWeight: '700' },
+
+  cardMetaRow:  { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingTop: 10, borderTopWidth: 1, borderTopColor: '#F1F5F9' },
+  channelText:  { fontSize: 13, fontWeight: '600', color: '#475569', flex: 1 },
+  priceText:    { fontSize: 15, fontWeight: '800', color: '#16A34A' },
+  purchasePriceText: { color: '#D97706' },
+  orderIconWrapPurchase: { backgroundColor: '#FFFBEB', borderColor: '#FCD34D' },
 
   endText: { textAlign: 'center', fontSize: 12, color: '#CBD5E1', paddingVertical: 16 },
 });
