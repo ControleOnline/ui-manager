@@ -11,28 +11,24 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useFocusEffect, useIsFocused } from '@react-navigation/native';
+import { useIsFocused } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/Feather';
 
 import { useStore } from '@store';
 import Formatter from '@controleonline/ui-common/src/utils/formatter';
 import { getOrderChannelLabel, getOrderChannelLogo } from '@assets/ppc/channels';
 import { colors } from '@controleonline/../../src/styles/colors';
-import {
-  resolveThemePalette,
-  withOpacity,
-} from '@controleonline/../../src/styles/branding';
+import { resolveThemePalette, withOpacity } from '@controleonline/../../src/styles/branding';
+
+/* ─── constantes ────────────────────────────────────────────────────── */
+
+const PAGE_SIZE = 50;
 
 const DATE_INPUT_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
 const STATUS_LABELS = {
-  open:      'Aberto',
-  closed:    'Fechado',
-  cancel:    'Cancelado',
-  canceled:  'Cancelado',
-  cancelled: 'Cancelado',
-  pending:   'Pendente',
-  paid:      'Pago',
+  open: 'Aberto', closed: 'Fechado', cancel: 'Cancelado',
+  canceled: 'Cancelado', cancelled: 'Cancelado', pending: 'Pendente', paid: 'Pago',
 };
 
 const DATE_FILTER_OPTIONS = [
@@ -45,6 +41,8 @@ const DATE_FILTER_OPTIONS = [
 
 const CHANNEL_PRESETS = ['99Food', 'iFood', 'SHOP'];
 const STATUS_PRESETS   = ['open', 'pending', 'paid', 'closed', 'cancelled'];
+
+/* ─── helpers ───────────────────────────────────────────────────────── */
 
 const pad2 = v => String(v).padStart(2, '0');
 
@@ -79,51 +77,58 @@ const getDateRange = (dateFilter, customRange) => {
     if (!from && !to) return {};
     if (from) from.setHours(0, 0, 0, 0);
     if (to)   to.setHours(23, 59, 59, 999);
-    return {
-      after:  from ? formatDateToApi(from) : null,
-      before: to   ? formatDateToApi(to)   : null,
-    };
+    return { after: from ? formatDateToApi(from) : null, before: to ? formatDateToApi(to) : null };
   }
   return {};
 };
 
-const normalizeApp = order => String(order?.app || '').trim();
-
-const getStatusLabel = order => {
-  const rs = String(order?.status?.realStatus || '').toLowerCase();
-  const s  = String(order?.status?.status    || '').toLowerCase();
-  return STATUS_LABELS[rs] || STATUS_LABELS[s] || order?.status?.status || 'Em andamento';
+const normalizeApp  = o => String(o?.app || '').trim();
+const getStatusLabel = o => {
+  const rs = String(o?.status?.realStatus || '').toLowerCase();
+  const s  = String(o?.status?.status    || '').toLowerCase();
+  return STATUS_LABELS[rs] || STATUS_LABELS[s] || o?.status?.status || 'Em andamento';
 };
-
-const getStatusColor = order => order?.status?.color || '#64748B';
-
-const getSearchText = order =>
-  [order?.id, order?.app, order?.status?.status, order?.status?.realStatus]
-    .filter(Boolean).join(' ').toLowerCase();
+const getStatusColor = o => o?.status?.color || '#64748B';
+const getSearchText  = o =>
+  [o?.id, o?.app, o?.status?.status, o?.status?.realStatus].filter(Boolean).join(' ').toLowerCase();
 
 const FilterChip = ({ active, label, onPress }) => (
   <TouchableOpacity
     style={[styles.filterChip, active && styles.filterChipActive]}
     activeOpacity={0.9}
-    onPress={onPress}>
+    onPress={onPress}
+  >
     <Text style={[styles.filterChipText, active && styles.filterChipTextActive]}>{label}</Text>
   </TouchableOpacity>
 );
 
-export default function OrderHistoryPage({ navigation }) {
-  const ordersStore  = useStore('orders');
-  const peopleStore  = useStore('people');
-  const themeStore   = useStore('theme');
-  const isFocused    = useIsFocused();
+/* ─── componente principal ──────────────────────────────────────────── */
 
-  const { currentCompany }   = peopleStore.getters;
+export default function OrderHistoryPage({ navigation }) {
+  const ordersStore = useStore('orders');
+  const peopleStore = useStore('people');
+  const themeStore  = useStore('theme');
+  const isFocused   = useIsFocused();
+
+  const { currentCompany }      = peopleStore.getters;
   const { colors: themeColors } = themeStore.getters;
   const { actions: orderActions } = ordersStore;
 
+  const brandColors = useMemo(
+    () => resolveThemePalette({ ...themeColors, ...(currentCompany?.theme?.colors || {}) }, colors),
+    [themeColors, currentCompany?.id],
+  );
+
+  /* ─── estado ──────────────────────────────────────────────────────── */
+
+  const [orders,        setOrders]        = useState([]);
+  const [page,          setPage]          = useState(1);
+  const [hasMore,       setHasMore]       = useState(false);
   const [loading,       setLoading]       = useState(true);
+  const [loadingMore,   setLoadingMore]   = useState(false);
   const [refreshing,    setRefreshing]    = useState(false);
   const [error,         setError]         = useState('');
-  const [orders,        setOrders]        = useState([]);
+
   const [channelFilter, setChannelFilter] = useState('all');
   const [statusFilter,  setStatusFilter]  = useState('all');
   const [dateFilter,    setDateFilter]    = useState('all');
@@ -133,61 +138,77 @@ export default function OrderHistoryPage({ navigation }) {
   const [customRange,   setCustomRange]   = useState({ from: '', to: '' });
   const [dateValidationMessage, setDateValidationMessage] = useState('');
 
-  const brandColors = useMemo(
-    () => resolveThemePalette({ ...themeColors, ...(currentCompany?.theme?.colors || {}) }, colors),
-    [themeColors, currentCompany?.id],
-  );
+  /* ref para evitar fetch duplicado */
+  const fetchingRef = useRef(false);
 
-  /* ─── fetch ──────────────────────────────────────────────────── */
+  /* ─── fetch (aceita página, acumula ou substitui) ────────────────── */
 
-  const loadOrders = useCallback(async () => {
+  const fetchPage = useCallback(async (targetPage, replace = false) => {
     if (!currentCompany?.id) { setOrders([]); setLoading(false); return; }
+    if (fetchingRef.current) return;
+    fetchingRef.current = true;
 
     try {
       setError('');
       const query = {
         provider:     `/people/${currentCompany.id}`,
         orderType:    'sale',
-        itemsPerPage: 300,
-        page:         1,
+        itemsPerPage: PAGE_SIZE,
+        page:         targetPage,
         order:        { alterDate: 'DESC' },
       };
-
       const dateRange = getDateRange(dateFilter, customRange);
       if (dateRange?.after)  query['alterDate[after]']  = dateRange.after;
       if (dateRange?.before) query['alterDate[before]'] = dateRange.before;
 
       const response = await orderActions.getItems(query);
-      setOrders(Array.isArray(response) ? response : []);
+      const items = Array.isArray(response) ? response : [];
+
+      setOrders(prev => replace ? items : [...prev, ...items]);
+      setPage(targetPage);
+      setHasMore(items.length === PAGE_SIZE);
     } catch (err) {
       setError(err?.message || 'Não foi possível carregar o histórico.');
-      setOrders([]);
     } finally {
+      fetchingRef.current = false;
       setLoading(false);
+      setLoadingMore(false);
+      setRefreshing(false);
     }
   }, [currentCompany?.id, dateFilter, customRange, orderActions]);
 
-  /* dispara quando a tela ganha foco OU quando loadOrders muda (filtro de data / empresa) */
+  /* dispara reset ao focar ou trocar filtro de data/empresa */
   useEffect(() => {
     if (!isFocused) return;
     setLoading(true);
-    loadOrders();
-  }, [isFocused, loadOrders]);
+    setOrders([]);
+    fetchPage(1, true);
+  }, [isFocused, fetchPage]);
 
-  const onRefresh = useCallback(async () => {
+  /* pull-to-refresh */
+  const onRefresh = useCallback(() => {
     setRefreshing(true);
-    try { await loadOrders(); } finally { setRefreshing(false); }
-  }, [loadOrders]);
+    setOrders([]);
+    fetchPage(1, true);
+  }, [fetchPage]);
 
-  /* ─── filtros client-side ────────────────────────────────────── */
+  /* scroll infinito — carrega próxima página */
+  const loadMore = useCallback(() => {
+    if (loadingMore || !hasMore || fetchingRef.current) return;
+    setLoadingMore(true);
+    fetchPage(page + 1, false);
+  }, [loadingMore, hasMore, page, fetchPage]);
+
+  const handleScroll = useCallback(({ nativeEvent: { layoutMeasurement, contentOffset, contentSize } }) => {
+    if (layoutMeasurement.height + contentOffset.y >= contentSize.height - 60) loadMore();
+  }, [loadMore]);
+
+  /* ─── filtros client-side (canal, status, busca) ─────────────────── */
 
   const channelOptions = useMemo(() => {
     const apps = new Set([...CHANNEL_PRESETS, ...orders.map(o => normalizeApp(o)).filter(Boolean)]);
     if (channelFilter !== 'all') apps.add(channelFilter);
-    return [
-      { key: 'all', label: 'Todos' },
-      ...Array.from(apps).map(k => ({ key: k, label: k })),
-    ];
+    return [{ key: 'all', label: 'Todos' }, ...Array.from(apps).map(k => ({ key: k, label: k }))];
   }, [orders, channelFilter]);
 
   const statusOptions = useMemo(() => {
@@ -196,15 +217,11 @@ export default function OrderHistoryPage({ navigation }) {
       ...orders.map(o => String(o?.status?.realStatus || '').toLowerCase()).filter(Boolean),
     ]);
     if (statusFilter !== 'all') statuses.add(statusFilter);
-    return [
-      { key: 'all', label: 'Todos' },
-      ...Array.from(statuses).map(k => ({ key: k, label: STATUS_LABELS[k] || k })),
-    ];
+    return [{ key: 'all', label: 'Todos' }, ...Array.from(statuses).map(k => ({ key: k, label: STATUS_LABELS[k] || k }))];
   }, [orders, statusFilter]);
 
   const filteredOrders = useMemo(() => {
     let result = orders;
-
     if (channelFilter !== 'all') {
       if (channelFilter === 'SHOP') {
         result = result.filter(o => !normalizeApp(o) || normalizeApp(o) === 'SHOP');
@@ -212,25 +229,21 @@ export default function OrderHistoryPage({ navigation }) {
         result = result.filter(o => normalizeApp(o) === channelFilter);
       }
     }
-
     if (statusFilter !== 'all') {
       const st = statusFilter.toLowerCase();
-      result = result.filter(o => {
-        const rs = String(o?.status?.realStatus || '').toLowerCase();
-        const s  = String(o?.status?.status    || '').toLowerCase();
-        return rs === st || s === st;
-      });
+      result = result.filter(o =>
+        String(o?.status?.realStatus || '').toLowerCase() === st ||
+        String(o?.status?.status    || '').toLowerCase() === st
+      );
     }
-
     if (searchText.trim()) {
       const q = searchText.trim().toLowerCase();
       result = result.filter(o => getSearchText(o).includes(q));
     }
-
     return result;
   }, [orders, channelFilter, statusFilter, searchText]);
 
-  /* ─── data personalizada ─────────────────────────────────────── */
+  /* ─── data personalizada ─────────────────────────────────────────── */
 
   const applyCustomRange = useCallback(() => {
     if (dateFilter !== 'custom') return;
@@ -254,7 +267,7 @@ export default function OrderHistoryPage({ navigation }) {
     navigation.navigate('OrderDetails', { order, kds: true });
   }, [navigation]);
 
-  /* ─── render card ────────────────────────────────────────────── */
+  /* ─── card de pedido ─────────────────────────────────────────────── */
 
   const renderCard = useCallback(order => {
     const channelLogo  = getOrderChannelLogo(order);
@@ -268,9 +281,8 @@ export default function OrderHistoryPage({ navigation }) {
         key={order.id}
         style={styles.orderCard}
         activeOpacity={0.85}
-        onPress={() => openOrder(order)}>
-
-        {/* topo: identidade + badge */}
+        onPress={() => openOrder(order)}
+      >
         <View style={styles.cardTopRow}>
           <View style={styles.orderIdentity}>
             <View style={styles.orderIconWrap}>
@@ -286,13 +298,15 @@ export default function OrderHistoryPage({ navigation }) {
             </View>
           </View>
 
-          <View style={[styles.statusBadge, { borderColor: withOpacity(statusColor, 0.4), backgroundColor: withOpacity(statusColor, 0.08) }]}>
+          <View style={[
+            styles.statusBadge,
+            { borderColor: withOpacity(statusColor, 0.4), backgroundColor: withOpacity(statusColor, 0.08) },
+          ]}>
             <View style={[styles.statusDot, { backgroundColor: statusColor }]} />
             <Text style={[styles.statusText, { color: statusColor }]}>{statusLabel}</Text>
           </View>
         </View>
 
-        {/* meta: canal + valor */}
         <View style={styles.cardMetaRow}>
           <Text style={styles.channelText} numberOfLines={1}>{channelLabel}</Text>
           <Text style={styles.priceText}>{Formatter.formatMoney(price)}</Text>
@@ -301,14 +315,16 @@ export default function OrderHistoryPage({ navigation }) {
     );
   }, [openOrder]);
 
-  /* ─── UI ─────────────────────────────────────────────────────── */
+  /* ─── render ─────────────────────────────────────────────────────── */
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: brandColors.background }]} edges={['bottom']}>
       <ScrollView
         contentContainerStyle={styles.scroll}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={brandColors.primary} />}>
-
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={brandColors.primary} />}
+        onScroll={handleScroll}
+        scrollEventThrottle={200}
+      >
         {/* cabeçalho */}
         <View style={[styles.heroCard, { backgroundColor: brandColors.primary }]}>
           <View style={styles.heroCopy}>
@@ -323,11 +339,9 @@ export default function OrderHistoryPage({ navigation }) {
 
         {/* empresa + contagem */}
         <View style={styles.summaryRow}>
-          <View>
-            <Text style={styles.sectionTitle}>{currentCompany?.name || currentCompany?.alias || 'Empresa'}</Text>
-          </View>
+          <Text style={styles.sectionTitle}>{currentCompany?.name || currentCompany?.alias || 'Empresa'}</Text>
           <View style={styles.countPill}>
-            <Text style={styles.countPillText}>{filteredOrders.length} pedidos</Text>
+            <Text style={styles.countPillText}>{filteredOrders.length}{hasMore ? '+' : ''} pedidos</Text>
           </View>
         </View>
 
@@ -364,7 +378,7 @@ export default function OrderHistoryPage({ navigation }) {
             ))}
           </ScrollView>
 
-          {dateFilter === 'custom' ? (
+          {dateFilter === 'custom' && (
             <View style={styles.customDateWrap}>
               <View style={styles.customDateInputs}>
                 <TextInput value={customFromInput} onChangeText={setCustomFromInput} placeholder="Início (AAAA-MM-DD)" placeholderTextColor="#94A3B8" style={[styles.searchInput, styles.dateInput]} />
@@ -380,39 +394,53 @@ export default function OrderHistoryPage({ navigation }) {
                 </TouchableOpacity>
               </View>
             </View>
-          ) : null}
+          )}
         </View>
 
-        {/* estados vazios / erro */}
-        {loading ? (
+        {/* loading inicial */}
+        {loading && (
           <View style={styles.centerState}>
             <ActivityIndicator size="large" color={brandColors.primary} />
             <Text style={styles.centerStateTitle}>Carregando pedidos…</Text>
           </View>
-        ) : null}
+        )}
 
-        {!loading && !!error ? (
+        {/* erro */}
+        {!loading && !!error && (
           <View style={styles.centerState}>
             <Icon name="alert-circle" size={28} color="#DC2626" />
             <Text style={styles.centerStateTitle}>Erro ao carregar</Text>
             <Text style={styles.centerStateText}>{error}</Text>
           </View>
-        ) : null}
+        )}
 
-        {!loading && !error && filteredOrders.length === 0 ? (
+        {/* vazio */}
+        {!loading && !error && filteredOrders.length === 0 && (
           <View style={styles.centerState}>
             <Icon name="inbox" size={28} color="#94A3B8" />
             <Text style={styles.centerStateTitle}>Nenhum pedido encontrado</Text>
             <Text style={styles.centerStateText}>Tente ajustar os filtros acima.</Text>
           </View>
-        ) : null}
+        )}
 
         {/* lista */}
-        {!loading && !error ? (
+        {!loading && !error && (
           <View style={styles.list}>
             {filteredOrders.map(order => renderCard(order))}
           </View>
-        ) : null}
+        )}
+
+        {/* loading mais */}
+        {loadingMore && (
+          <View style={{ paddingVertical: 16, alignItems: 'center' }}>
+            <ActivityIndicator size="small" color={brandColors.primary} />
+          </View>
+        )}
+
+        {/* fim da lista */}
+        {!loading && !hasMore && filteredOrders.length > 0 && (
+          <Text style={styles.endText}>— Todos os pedidos carregados —</Text>
+        )}
 
       </ScrollView>
     </SafeAreaView>
@@ -420,14 +448,13 @@ export default function OrderHistoryPage({ navigation }) {
 }
 
 const styles = StyleSheet.create({
-  container:  { flex: 1 },
-  scroll:     { paddingHorizontal: 20, paddingTop: 16, paddingBottom: 32, gap: 16 },
+  container: { flex: 1 },
+  scroll:    { paddingHorizontal: 20, paddingTop: 16, paddingBottom: 32, gap: 16 },
 
   heroCard: {
     borderRadius: 24, padding: 22,
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start',
-    shadowColor: '#0F172A', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.12, shadowRadius: 16,
-    elevation: 5,
+    shadowColor: '#0F172A', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.12, shadowRadius: 16, elevation: 5,
   },
   heroCopy:    { flex: 1, paddingRight: 16 },
   heroEyebrow: { fontSize: 11, fontWeight: '700', color: 'rgba(255,255,255,0.75)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 6 },
@@ -467,16 +494,10 @@ const styles = StyleSheet.create({
   list: { gap: 12 },
 
   orderCard: {
-    backgroundColor: '#fff',
-    borderRadius: 20,
-    padding: 16,
-    shadowColor: '#0F172A',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
+    backgroundColor: '#fff', borderRadius: 20, padding: 16,
+    shadowColor: '#0F172A', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 8, elevation: 2,
   },
-  cardTopRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
+  cardTopRow:    { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
   orderIdentity: { flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 },
   orderIconWrap: {
     width: 38, height: 38, borderRadius: 12,
@@ -484,8 +505,8 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
   },
   channelLogo: { width: 22, height: 22 },
-  orderId:   { fontSize: 15, fontWeight: '800', color: '#0F172A' },
-  orderDate: { fontSize: 12, color: '#64748B', marginTop: 1 },
+  orderId:     { fontSize: 15, fontWeight: '800', color: '#0F172A' },
+  orderDate:   { fontSize: 12, color: '#64748B', marginTop: 1 },
 
   statusBadge: { flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4, gap: 5 },
   statusDot:   { width: 7, height: 7, borderRadius: 999 },
@@ -494,4 +515,6 @@ const styles = StyleSheet.create({
   cardMetaRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingTop: 10, borderTopWidth: 1, borderTopColor: '#F1F5F9' },
   channelText: { fontSize: 13, fontWeight: '600', color: '#475569', flex: 1 },
   priceText:   { fontSize: 15, fontWeight: '800', color: '#16A34A' },
+
+  endText: { textAlign: 'center', fontSize: 12, color: '#CBD5E1', paddingVertical: 16 },
 });
