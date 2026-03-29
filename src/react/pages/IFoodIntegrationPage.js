@@ -73,6 +73,9 @@ export default function IFoodIntegrationPage() {
   const [storeStatus,      setStoreStatus]       = useState(null);
   const [previewVisible,   setPreviewVisible]    = useState(false);
   const [previewData,      setPreviewData]       = useState(null);
+  const [itemStatusLoading, setItemStatusLoading] = useState(new Set());
+  const [itemPriceEditing,  setItemPriceEditing]  = useState({});
+  const [itemPriceLoading,  setItemPriceLoading]  = useState(new Set());
 
   /* ------------------------------------------------------------------ */
   /* produtos                                                             */
@@ -374,6 +377,74 @@ export default function IFoodIntegrationPage() {
       } catch (error) { showError(formatApiError(error)); }
     });
   }, [applyDetailResponse, providerId, showError, withAction]);
+
+  const handleItemStatusToggle = useCallback(async (product) => {
+    if (!providerId || !product?.ifood_item_id) return;
+    const itemId = product.ifood_item_id;
+    const nextStatus = product.ifood_status === 'UNAVAILABLE' ? 'AVAILABLE' : 'UNAVAILABLE';
+    setItemStatusLoading(prev => new Set([...prev, itemId]));
+    try {
+      const response = await api.fetch('/marketplace/integrations/ifood/menu/item/status', {
+        method: 'PATCH',
+        body: JSON.stringify({ provider_id: providerId, item_id: itemId, status: nextStatus }),
+      });
+      if (String(response?.result?.errno ?? '') === '0') {
+        setProductsResponse(prev => {
+          if (!prev?.products) return prev;
+          return {
+            ...prev,
+            products: prev.products.map(p =>
+              p.ifood_item_id === itemId ? { ...p, ifood_status: nextStatus } : p
+            ),
+          };
+        });
+        showInfo(`Item ${nextStatus === 'AVAILABLE' ? 'disponivel' : 'indisponivel'} no iFood.`);
+      } else {
+        showError(formatApiError(response?.result || response));
+      }
+    } catch (error) {
+      showError(formatApiError(error));
+    } finally {
+      setItemStatusLoading(prev => { const s = new Set(prev); s.delete(itemId); return s; });
+    }
+  }, [providerId, showError, showInfo]);
+
+  const handleItemPriceSave = useCallback(async (product) => {
+    if (!providerId || !product?.ifood_item_id) return;
+    const itemId = product.ifood_item_id;
+    const raw = itemPriceEditing[itemId];
+    const price = parseFloat(String(raw ?? '').replace(',', '.'));
+    if (!Number.isFinite(price) || price <= 0) {
+      showError('Informe um preco valido maior que zero.');
+      return;
+    }
+    setItemPriceLoading(prev => new Set([...prev, itemId]));
+    try {
+      const response = await api.fetch('/marketplace/integrations/ifood/menu/item/price', {
+        method: 'PATCH',
+        body: JSON.stringify({ provider_id: providerId, item_id: itemId, price }),
+      });
+      if (String(response?.result?.errno ?? '') === '0') {
+        setProductsResponse(prev => {
+          if (!prev?.products) return prev;
+          return {
+            ...prev,
+            products: prev.products.map(p =>
+              p.ifood_item_id === itemId ? { ...p, price } : p
+            ),
+          };
+        });
+        setItemPriceEditing(prev => { const n = { ...prev }; delete n[itemId]; return n; });
+        showInfo('Preco atualizado no iFood.');
+      } else {
+        showError(formatApiError(response?.result || response));
+      }
+    } catch (error) {
+      showError(formatApiError(error));
+    } finally {
+      setItemPriceLoading(prev => { const s = new Set(prev); s.delete(itemId); return s; });
+    }
+  }, [itemPriceEditing, providerId, showError, showInfo]);
 
   /* ------------------------------------------------------------------ */
   /* render estados vazios                                                */
@@ -758,9 +829,16 @@ export default function IFoodIntegrationPage() {
           {filteredProducts.length > 0 ? (
             <View style={styles.productsList}>
               {filteredProducts.map(product => {
-                const isSelected = selectedIds.has(String(product.id));
-                const eligible   = Boolean(product.eligible);
-                const published  = Boolean(product.published_remotely);
+                const isSelected  = selectedIds.has(String(product.id));
+                const eligible    = Boolean(product.eligible);
+                const published   = Boolean(product.published_remotely);
+                const itemId      = product.ifood_item_id || null;
+                const ifoodStatus = product.ifood_status || 'AVAILABLE';
+                const isAvailable = ifoodStatus !== 'UNAVAILABLE';
+                const statusBusy  = itemStatusLoading.has(itemId);
+                const priceBusy   = itemPriceLoading.has(itemId);
+                const draftPrice  = itemId ? itemPriceEditing[itemId] : undefined;
+                const editingPrice = draftPrice !== undefined;
                 return (
                   <TouchableOpacity
                     key={product.id}
@@ -771,32 +849,97 @@ export default function IFoodIntegrationPage() {
                     ]}
                     onPress={() => toggleProduct(product.id)}>
                     <View style={styles.productMain}>
-                      <View style={[
-                        styles.productStatusIcon,
-                        { backgroundColor: eligible ? '#DCFCE7' : '#FEE2E2' },
-                      ]}>
-                        <Icon
-                          name={isSelected ? 'check-circle' : eligible ? 'circle' : 'x-circle'}
-                          size={16}
-                          color={isSelected ? brandColors.primary : eligible ? '#16A34A' : '#DC2626'}
+                      {product.cover_image_url ? (
+                        <Image
+                          source={{ uri: product.cover_image_url }}
+                          style={styles.productThumb}
+                          resizeMode="cover"
                         />
-                      </View>
+                      ) : (
+                        <View style={[styles.productStatusIcon, { backgroundColor: eligible ? '#DCFCE7' : '#FEE2E2' }]}>
+                          <Icon
+                            name={isSelected ? 'check-circle' : eligible ? 'circle' : 'x-circle'}
+                            size={16}
+                            color={isSelected ? brandColors.primary : eligible ? '#16A34A' : '#DC2626'}
+                          />
+                        </View>
+                      )}
                       <View style={styles.productContent}>
                         <View style={styles.productTitleRow}>
                           <Text style={styles.productName} numberOfLines={1}>{product.name}</Text>
-                          <Text style={styles.productPrice}>R$ {Number(product.price || 0).toFixed(2)}</Text>
+                          {published && itemId ? (
+                            <TouchableOpacity
+                              activeOpacity={0.8}
+                              onPress={(e) => { e.stopPropagation?.(); handleItemStatusToggle(product); }}
+                              disabled={statusBusy}
+                              style={[
+                                styles.itemStatusBadge,
+                                { backgroundColor: isAvailable ? '#DCFCE7' : '#FEE2E2' },
+                              ]}>
+                              {statusBusy
+                                ? <ActivityIndicator size={10} color={isAvailable ? '#16A34A' : '#DC2626'} />
+                                : <Text style={[styles.itemStatusText, { color: isAvailable ? '#15803D' : '#B91C1C' }]}>
+                                    {isAvailable ? 'Ativo' : 'Inativo'}
+                                  </Text>}
+                            </TouchableOpacity>
+                          ) : (
+                            <Text style={styles.productPrice}>R$ {Number(product.price || 0).toFixed(2)}</Text>
+                          )}
                         </View>
+
                         <Text style={styles.productMeta} numberOfLines={1}>
                           {product.category?.name || 'Sem categoria'} • {product.type || 'produto'}
                         </Text>
                         {!!product.description && (
                           <Text style={styles.productDescription} numberOfLines={1}>{product.description}</Text>
                         )}
-                        {!!product.ifood_item_id && (
-                          <Text style={styles.productCode}>ID iFood: {product.ifood_item_id.slice(0, 8)}...</Text>
+
+                        {published && itemId ? (
+                          <View style={styles.priceEditRow}>
+                            {editingPrice ? (
+                              <>
+                                <TextInput
+                                  value={String(draftPrice)}
+                                  onChangeText={v => setItemPriceEditing(prev => ({ ...prev, [itemId]: v }))}
+                                  keyboardType="decimal-pad"
+                                  style={styles.priceInput}
+                                  placeholder="0.00"
+                                  placeholderTextColor="#94A3B8"
+                                  onSubmitEditing={() => handleItemPriceSave(product)}
+                                />
+                                <TouchableOpacity
+                                  onPress={(e) => { e.stopPropagation?.(); handleItemPriceSave(product); }}
+                                  disabled={priceBusy}
+                                  style={styles.priceSaveButton}>
+                                  {priceBusy
+                                    ? <ActivityIndicator size={12} color="#fff" />
+                                    : <Icon name="check" size={13} color="#fff" />}
+                                </TouchableOpacity>
+                                <TouchableOpacity
+                                  onPress={(e) => { e.stopPropagation?.(); setItemPriceEditing(prev => { const n = { ...prev }; delete n[itemId]; return n; }); }}
+                                  style={styles.priceCancelButton}>
+                                  <Icon name="x" size={13} color="#64748B" />
+                                </TouchableOpacity>
+                              </>
+                            ) : (
+                              <TouchableOpacity
+                                onPress={(e) => {
+                                  e.stopPropagation?.();
+                                  setItemPriceEditing(prev => ({ ...prev, [itemId]: String(product.price ?? '') }));
+                                }}
+                                style={styles.priceEditTrigger}>
+                                <Text style={styles.priceEditText}>R$ {Number(product.price || 0).toFixed(2)}</Text>
+                                <Icon name="edit-2" size={11} color="#64748B" />
+                              </TouchableOpacity>
+                            )}
+                          </View>
+                        ) : null}
+
+                        {!!itemId && (
+                          <Text style={styles.productCode}>ID iFood: {itemId.slice(0, 8)}...</Text>
                         )}
                         {published && (
-                          <Text style={styles.productRemoteState}>Ja publicado no catalogo iFood</Text>
+                          <Text style={styles.productRemoteState}>Publicado no catalogo iFood</Text>
                         )}
                         {!eligible && Array.isArray(product.blockers) && product.blockers.length > 0 && (
                           <Text style={styles.productBlocker}>{product.blockers.join(' • ')}</Text>
@@ -984,7 +1127,8 @@ const styles = StyleSheet.create({
   productsList: { gap: 10 },
   productCard:  { borderWidth: 1, borderColor: '#E2E8F0', borderRadius: 18, padding: 14, backgroundColor: '#fff' },
   productMain:  { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
-  productStatusIcon: { width: 34, height: 34, borderRadius: 12, alignItems: 'center', justifyContent: 'center', marginTop: 2 },
+  productStatusIcon: { width: 44, height: 44, borderRadius: 12, alignItems: 'center', justifyContent: 'center', marginTop: 2 },
+  productThumb: { width: 44, height: 44, borderRadius: 10, marginTop: 2, backgroundColor: '#F1F5F9' },
   productContent: { flex: 1, minWidth: 0 },
   productTitleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginBottom: 4 },
   productName:  { flex: 1, fontSize: 15, fontWeight: '800', color: '#0F172A' },
@@ -994,6 +1138,14 @@ const styles = StyleSheet.create({
   productCode:  { fontSize: 11, color: '#1D4ED8', fontWeight: '700' },
   productRemoteState: { fontSize: 11, color: '#15803D', fontWeight: '700', marginTop: 4 },
   productBlocker: { fontSize: 11, color: '#DC2626', fontWeight: '700', marginTop: 4 },
+  itemStatusBadge: { borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4, minWidth: 44, alignItems: 'center', justifyContent: 'center' },
+  itemStatusText: { fontSize: 11, fontWeight: '800' },
+  priceEditRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 },
+  priceEditTrigger: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  priceEditText: { fontSize: 13, fontWeight: '800', color: '#1E293B' },
+  priceInput: { flex: 1, borderWidth: 1, borderColor: '#CBD5E1', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4, fontSize: 13, color: '#0F172A', backgroundColor: '#F8FAFC', maxWidth: 100 },
+  priceSaveButton: { width: 28, height: 28, borderRadius: 8, backgroundColor: '#16A34A', alignItems: 'center', justifyContent: 'center' },
+  priceCancelButton: { width: 28, height: 28, borderRadius: 8, backgroundColor: '#F1F5F9', alignItems: 'center', justifyContent: 'center' },
   emptyProducts: { borderRadius: 12, borderWidth: 1, borderColor: '#E2E8F0', backgroundColor: '#F8FAFC', padding: 16, alignItems: 'center' },
   emptyProductsText: { color: '#64748B', fontSize: 13 },
   syncCatalogButton: { height: 42, borderRadius: 12, borderWidth: 1, borderColor: '#0EA5E9', backgroundColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 8, marginTop: 4 },
