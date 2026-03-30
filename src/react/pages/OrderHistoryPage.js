@@ -27,8 +27,9 @@ const PAGE_SIZE = 50;
 const DATE_INPUT_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
 const STATUS_LABELS = {
-  open: 'Aberto', closed: 'Fechado', cancel: 'Cancelado',
-  canceled: 'Cancelado', cancelled: 'Cancelado', pending: 'Pendente', paid: 'Pago',
+  open: 'Aberto', pending: 'Pendente', closed: 'Fechado',
+  canceled: 'Cancelado', cancelled: 'Cancelado', cancel: 'Cancelado',
+  paid: 'Pago', 'waiting payment': 'Aguard. pagto', quote: 'Orçamento',
 };
 
 const DATE_FILTER_OPTIONS = [
@@ -47,13 +48,14 @@ const CHANNEL_OPTIONS = [
   { key: 'POS',    label: 'POS'      },
 ];
 
+/* Valores exatos do ENUM real_status no banco: open | pending | canceled | closed
+   Obs: 'paid' não é realStatus — pedidos pagos ficam com real_status='open' */
 const STATUS_OPTIONS = [
-  { key: 'all',       label: 'Todos'     },
-  { key: 'open',      label: 'Aberto'    },
-  { key: 'pending',   label: 'Pendente'  },
-  { key: 'paid',      label: 'Pago'      },
-  { key: 'closed',    label: 'Fechado'   },
-  { key: 'cancelled', label: 'Cancelado' },
+  { key: 'all',      label: 'Todos'     },
+  { key: 'open',     label: 'Aberto'    },
+  { key: 'pending',  label: 'Pendente'  },
+  { key: 'closed',   label: 'Fechado'   },
+  { key: 'canceled', label: 'Cancelado' },
 ];
 
 const TABS = [
