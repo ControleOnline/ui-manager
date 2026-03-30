@@ -39,8 +39,22 @@ const DATE_FILTER_OPTIONS = [
   { key: 'custom', label: 'Personalizado' },
 ];
 
-const CHANNEL_PRESETS = ['99Food', 'iFood', 'SHOP'];
-const STATUS_PRESETS   = ['open', 'pending', 'paid', 'closed', 'cancelled'];
+const CHANNEL_OPTIONS = [
+  { key: 'all',    label: 'Todos'    },
+  { key: '99Food', label: '99Food'   },
+  { key: 'iFood',  label: 'iFood'    },
+  { key: 'SHOP',   label: 'SHOP'     },
+  { key: 'POS',    label: 'POS'      },
+];
+
+const STATUS_OPTIONS = [
+  { key: 'all',       label: 'Todos'     },
+  { key: 'open',      label: 'Aberto'    },
+  { key: 'pending',   label: 'Pendente'  },
+  { key: 'paid',      label: 'Pago'      },
+  { key: 'closed',    label: 'Fechado'   },
+  { key: 'cancelled', label: 'Cancelado' },
+];
 
 const TABS = [
   { key: 'sale',     label: 'Vendas',        icon: 'shopping-bag'  },
@@ -168,6 +182,8 @@ export default function OrderHistoryPage({ navigation }) {
         order:        { alterDate: 'DESC' },
       };
       if (orderTypeFilter !== 'all') query.orderType = orderTypeFilter;
+      if (channelFilter  !== 'all')  query.app = channelFilter;
+      if (statusFilter   !== 'all')  query['status.realStatus'] = statusFilter;
       const dateRange = getDateRange(dateFilter, customRange);
       if (dateRange?.after)  query['alterDate[after]']  = dateRange.after;
       if (dateRange?.before) query['alterDate[before]'] = dateRange.before;
@@ -186,7 +202,7 @@ export default function OrderHistoryPage({ navigation }) {
       setLoadingMore(false);
       setRefreshing(false);
     }
-  }, [currentCompany?.id, orderTypeFilter, dateFilter, customRange, orderActions]);
+  }, [currentCompany?.id, orderTypeFilter, channelFilter, statusFilter, dateFilter, customRange, orderActions]);
 
   /* dispara reset ao focar ou trocar filtro de data/empresa */
   useEffect(() => {
@@ -216,44 +232,11 @@ export default function OrderHistoryPage({ navigation }) {
 
   /* ─── filtros client-side (canal, status, busca) ─────────────────── */
 
-  const channelOptions = useMemo(() => {
-    const saleOrders = orders.filter(o => (o.orderType || 'sale') === 'sale');
-    const apps = new Set([...CHANNEL_PRESETS, ...saleOrders.map(o => normalizeApp(o)).filter(Boolean)]);
-    if (channelFilter !== 'all') apps.add(channelFilter);
-    return [{ key: 'all', label: 'Todos' }, ...Array.from(apps).map(k => ({ key: k, label: k }))];
-  }, [orders, channelFilter]);
-
-  const statusOptions = useMemo(() => {
-    const statuses = new Set([
-      ...STATUS_PRESETS,
-      ...orders.map(o => String(o?.status?.realStatus || '').toLowerCase()).filter(Boolean),
-    ]);
-    if (statusFilter !== 'all') statuses.add(statusFilter);
-    return [{ key: 'all', label: 'Todos' }, ...Array.from(statuses).map(k => ({ key: k, label: STATUS_LABELS[k] || k }))];
-  }, [orders, statusFilter]);
-
   const filteredOrders = useMemo(() => {
-    let result = orders;
-    if (channelFilter !== 'all') {
-      if (channelFilter === 'SHOP') {
-        result = result.filter(o => !normalizeApp(o) || normalizeApp(o) === 'SHOP');
-      } else {
-        result = result.filter(o => normalizeApp(o) === channelFilter);
-      }
-    }
-    if (statusFilter !== 'all') {
-      const st = statusFilter.toLowerCase();
-      result = result.filter(o =>
-        String(o?.status?.realStatus || '').toLowerCase() === st ||
-        String(o?.status?.status    || '').toLowerCase() === st
-      );
-    }
-    if (searchText.trim()) {
-      const q = searchText.trim().toLowerCase();
-      result = result.filter(o => getSearchText(o).includes(q));
-    }
-    return result;
-  }, [orders, channelFilter, statusFilter, searchText]);
+    if (!searchText.trim()) return orders;
+    const q = searchText.trim().toLowerCase();
+    return orders.filter(o => getSearchText(o).includes(q));
+  }, [orders, searchText]);
 
   /* ─── data personalizada ─────────────────────────────────────────── */
 
@@ -454,7 +437,7 @@ export default function OrderHistoryPage({ navigation }) {
             <>
               <Text style={styles.filterLabel}>Canal</Text>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipsRow}>
-                {channelOptions.map(opt => (
+                {CHANNEL_OPTIONS.map(opt => (
                   <FilterChip key={`ch-${opt.key}`} active={channelFilter === opt.key} label={opt.label} onPress={() => setChannelFilter(opt.key)} />
                 ))}
               </ScrollView>
@@ -465,7 +448,7 @@ export default function OrderHistoryPage({ navigation }) {
             <>
               <Text style={styles.filterLabel}>Status</Text>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipsRow}>
-                {statusOptions.map(opt => (
+                {STATUS_OPTIONS.map(opt => (
                   <FilterChip key={`st-${opt.key}`} active={statusFilter === opt.key} label={opt.label} onPress={() => setStatusFilter(opt.key)} />
                 ))}
               </ScrollView>
