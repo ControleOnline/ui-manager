@@ -43,9 +43,14 @@ const CHANNEL_PRESETS = ['99Food', 'iFood', 'SHOP'];
 const STATUS_PRESETS   = ['open', 'pending', 'paid', 'closed', 'cancelled'];
 
 const TABS = [
-  { key: 'sale',     label: 'Vendas',  icon: 'shopping-bag' },
-  { key: 'purchase', label: 'Compras', icon: 'truck'        },
+  { key: 'sale',     label: 'Vendas',        icon: 'shopping-bag'  },
+  { key: 'purchase', label: 'Compras',        icon: 'truck'         },
+  { key: 'transfer', label: 'Transferências', icon: 'repeat'        },
+  { key: 'loss',     label: 'Perdas',         icon: 'trending-down' },
 ];
+
+/* tabs sem filtro de canal/status */
+const SIMPLE_TABS = new Set(['transfer', 'loss']);
 
 /* ─── helpers ───────────────────────────────────────────────────────── */
 
@@ -278,13 +283,45 @@ export default function OrderHistoryPage({ navigation }) {
 
   const renderCard = useCallback(order => {
     const isPurchase   = order.orderType === 'purchase';
-    const channelLogo  = isPurchase ? null : getOrderChannelLogo(order);
+    const isTransfer   = order.orderType === 'transfer';
+    const isLoss       = order.orderType === 'loss';
+    const channelLogo  = (isPurchase || isTransfer || isLoss) ? null : getOrderChannelLogo(order);
+
     const channelLabel = isPurchase
       ? (order.client?.alias || order.client?.name || 'Fornecedor')
-      : (getOrderChannelLabel(order) || normalizeApp(order) || 'SHOP');
-    const statusLabel  = getStatusLabel(order);
-    const statusColor  = getStatusColor(order);
-    const price        = Number(order?.price || 0);
+      : isTransfer
+        ? 'Transferência de estoque'
+        : isLoss
+          ? 'Baixa / perda'
+          : (getOrderChannelLabel(order) || normalizeApp(order) || 'SHOP');
+
+    const statusLabel = getStatusLabel(order);
+    const statusColor = getStatusColor(order);
+    const price       = Number(order?.price || 0);
+
+    const iconName =
+        isPurchase ? 'truck'
+      : isTransfer ? 'repeat'
+      : isLoss     ? 'trending-down'
+      : 'shopping-bag';
+
+    const iconColor =
+        isPurchase ? '#D97706'
+      : isTransfer ? '#7C3AED'
+      : isLoss     ? '#DC2626'
+      : '#64748B';
+
+    const iconWrapStyle =
+        isPurchase ? styles.orderIconWrapPurchase
+      : isTransfer ? styles.orderIconWrapTransfer
+      : isLoss     ? styles.orderIconWrapLoss
+      : null;
+
+    const priceStyle =
+        isPurchase ? styles.purchasePriceText
+      : isTransfer ? styles.transferPriceText
+      : isLoss     ? styles.lossPriceText
+      : null;
 
     return (
       <TouchableOpacity
@@ -295,14 +332,10 @@ export default function OrderHistoryPage({ navigation }) {
       >
         <View style={styles.cardTopRow}>
           <View style={styles.orderIdentity}>
-            <View style={[styles.orderIconWrap, isPurchase && styles.orderIconWrapPurchase]}>
+            <View style={[styles.orderIconWrap, iconWrapStyle]}>
               {channelLogo
                 ? <Image source={channelLogo} style={styles.channelLogo} resizeMode="contain" />
-                : <Icon
-                    name={isPurchase ? 'truck' : 'shopping-bag'}
-                    size={16}
-                    color={isPurchase ? '#D97706' : '#64748B'}
-                  />
+                : <Icon name={iconName} size={16} color={iconColor} />
               }
             </View>
             <View>
@@ -313,20 +346,24 @@ export default function OrderHistoryPage({ navigation }) {
             </View>
           </View>
 
-          <View style={[
-            styles.statusBadge,
-            { borderColor: withOpacity(statusColor, 0.4), backgroundColor: withOpacity(statusColor, 0.08) },
-          ]}>
-            <View style={[styles.statusDot, { backgroundColor: statusColor }]} />
-            <Text style={[styles.statusText, { color: statusColor }]}>{statusLabel}</Text>
-          </View>
+          {!isTransfer && !isLoss && (
+            <View style={[
+              styles.statusBadge,
+              { borderColor: withOpacity(statusColor, 0.4), backgroundColor: withOpacity(statusColor, 0.08) },
+            ]}>
+              <View style={[styles.statusDot, { backgroundColor: statusColor }]} />
+              <Text style={[styles.statusText, { color: statusColor }]}>{statusLabel}</Text>
+            </View>
+          )}
         </View>
 
         <View style={styles.cardMetaRow}>
           <Text style={styles.channelText} numberOfLines={1}>{channelLabel}</Text>
-          <Text style={[styles.priceText, isPurchase && styles.purchasePriceText]}>
-            {Formatter.formatMoney(price)}
-          </Text>
+          {price > 0 && (
+            <Text style={[styles.priceText, priceStyle]}>
+              {Formatter.formatMoney(price)}
+            </Text>
+          )}
         </View>
       </TouchableOpacity>
     );
@@ -348,19 +385,28 @@ export default function OrderHistoryPage({ navigation }) {
             <Text style={styles.heroEyebrow}>Pedidos</Text>
             <Text style={styles.heroTitle}>Histórico de Pedidos</Text>
             <Text style={styles.heroText}>
-              {orderTypeFilter === 'purchase'
-                ? 'Compras de fornecedores, status e período.'
-                : 'Filtre por canal, status e período.'
-              }
+              { orderTypeFilter === 'purchase'  ? 'Compras de fornecedores por período.'
+              : orderTypeFilter === 'transfer'  ? 'Transferências entre localidades por período.'
+              : orderTypeFilter === 'loss'      ? 'Perdas e baixas de estoque por período.'
+              : 'Filtre por canal, status e período.' }
             </Text>
           </View>
           <View style={styles.heroBadge}>
-            <Icon name={orderTypeFilter === 'purchase' ? 'truck' : 'shopping-bag'} size={22} color={brandColors.primary} />
+            <Icon
+              name={
+                orderTypeFilter === 'purchase' ? 'truck'
+              : orderTypeFilter === 'transfer' ? 'repeat'
+              : orderTypeFilter === 'loss'     ? 'trending-down'
+              : 'shopping-bag'
+              }
+              size={22}
+              color={brandColors.primary}
+            />
           </View>
         </View>
 
-        {/* tabs Vendas | Compras */}
-        <View style={styles.tabBar}>
+        {/* tabs Vendas | Compras | Transferências | Perdas */}
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.tabBar} contentContainerStyle={styles.tabBarContent}>
           {TABS.map(tab => {
             const active = orderTypeFilter === tab.key;
             return (
@@ -377,7 +423,7 @@ export default function OrderHistoryPage({ navigation }) {
               </TouchableOpacity>
             );
           })}
-        </View>
+        </ScrollView>
 
         {/* empresa + contagem */}
         <View style={styles.summaryRow}>
@@ -394,7 +440,12 @@ export default function OrderHistoryPage({ navigation }) {
           <TextInput
             value={searchText}
             onChangeText={setSearchText}
-            placeholder={orderTypeFilter === 'purchase' ? 'Buscar por ID ou fornecedor' : 'Buscar por ID ou canal'}
+            placeholder={
+              orderTypeFilter === 'purchase' ? 'Buscar por ID ou fornecedor'
+            : orderTypeFilter === 'transfer' ? 'Buscar por ID'
+            : orderTypeFilter === 'loss'     ? 'Buscar por ID'
+            : 'Buscar por ID ou canal'
+            }
             placeholderTextColor="#94A3B8"
             style={styles.searchInput}
           />
@@ -410,12 +461,16 @@ export default function OrderHistoryPage({ navigation }) {
             </>
           )}
 
-          <Text style={styles.filterLabel}>Status</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipsRow}>
-            {statusOptions.map(opt => (
-              <FilterChip key={`st-${opt.key}`} active={statusFilter === opt.key} label={opt.label} onPress={() => setStatusFilter(opt.key)} />
-            ))}
-          </ScrollView>
+          {!SIMPLE_TABS.has(orderTypeFilter) && (
+            <>
+              <Text style={styles.filterLabel}>Status</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipsRow}>
+                {statusOptions.map(opt => (
+                  <FilterChip key={`st-${opt.key}`} active={statusFilter === opt.key} label={opt.label} onPress={() => setStatusFilter(opt.key)} />
+                ))}
+              </ScrollView>
+            </>
+          )}
 
           <Text style={styles.filterLabel}>Período</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipsRow}>
@@ -559,16 +614,17 @@ const styles = StyleSheet.create({
   statusText:  { fontSize: 11, fontWeight: '700' },
 
   tabBar: {
-    flexDirection: 'row',
     backgroundColor: '#fff',
     borderRadius: 16,
-    overflow: 'hidden',
     borderWidth: 1,
     borderColor: '#E2E8F0',
   },
+  tabBarContent: {
+    flexDirection: 'row',
+  },
   tabItem: {
-    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    gap: 6, paddingVertical: 12,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: 6, paddingVertical: 12, paddingHorizontal: 16,
     borderBottomWidth: 2.5, borderBottomColor: 'transparent',
   },
   tabItemActive: {},
@@ -578,8 +634,12 @@ const styles = StyleSheet.create({
   cardMetaRow:  { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingTop: 10, borderTopWidth: 1, borderTopColor: '#F1F5F9' },
   channelText:  { fontSize: 13, fontWeight: '600', color: '#475569', flex: 1 },
   priceText:    { fontSize: 15, fontWeight: '800', color: '#16A34A' },
-  purchasePriceText: { color: '#D97706' },
-  orderIconWrapPurchase: { backgroundColor: '#FFFBEB', borderColor: '#FCD34D' },
+  purchasePriceText:  { color: '#D97706' },
+  transferPriceText:  { color: '#7C3AED' },
+  lossPriceText:      { color: '#DC2626' },
+  orderIconWrapPurchase:  { backgroundColor: '#FFFBEB', borderColor: '#FCD34D' },
+  orderIconWrapTransfer:  { backgroundColor: '#F5F3FF', borderColor: '#DDD6FE' },
+  orderIconWrapLoss:      { backgroundColor: '#FEF2F2', borderColor: '#FECACA' },
 
   endText: { textAlign: 'center', fontSize: 12, color: '#CBD5E1', paddingVertical: 16 },
 });
