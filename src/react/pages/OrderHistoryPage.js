@@ -116,7 +116,14 @@ const getStatusLabel = o => {
 };
 const getStatusColor = o => o?.status?.color || '#64748B';
 const getSearchText  = o =>
-  [o?.id, o?.app, o?.status?.status, o?.status?.realStatus].filter(Boolean).join(' ').toLowerCase();
+  [
+    o?.id,
+    o?.app,
+    o?.client?.name,
+    o?.client?.alias,
+    o?.status?.status,
+    o?.status?.realStatus,
+  ].filter(Boolean).join(' ').toLowerCase();
 
 const FilterChip = ({ active, label, onPress }) => (
   <TouchableOpacity
@@ -178,17 +185,17 @@ export default function OrderHistoryPage({ navigation }) {
     try {
       setError('');
       const query = {
-        provider:     `/people/${currentCompany.id}`,
-        itemsPerPage: PAGE_SIZE,
-        page:         targetPage,
-        order:        { alterDate: 'DESC' },
+        provider:           `/people/${currentCompany.id}`,
+        itemsPerPage:       PAGE_SIZE,
+        page:               targetPage,
+        'order[orderDate]': 'DESC',
       };
       if (orderTypeFilter !== 'all') query.orderType = orderTypeFilter;
       if (channelFilter  !== 'all')  query.app = channelFilter;
       if (statusFilter   !== 'all')  query['status.realStatus'] = statusFilter;
       const dateRange = getDateRange(dateFilter, customRange);
-      if (dateRange?.after)  query['alterDate[after]']  = dateRange.after;
-      if (dateRange?.before) query['alterDate[before]'] = dateRange.before;
+      if (dateRange?.after)  query['orderDate[after]']  = dateRange.after;
+      if (dateRange?.before) query['orderDate[before]'] = dateRange.before;
 
       const response = await orderActions.getItems(query);
       const items = Array.isArray(response) ? response : [];
