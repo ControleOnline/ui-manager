@@ -188,7 +188,7 @@ export default function OrderHistoryPage({ navigation }) {
         provider:           `/people/${currentCompany.id}`,
         itemsPerPage:       PAGE_SIZE,
         page:               targetPage,
-        'order[orderDate]': 'DESC',
+        'order[id]': 'desc',
       };
       if (orderTypeFilter !== 'all') query.orderType = orderTypeFilter;
       if (channelFilter  !== 'all')  query.app = channelFilter;
@@ -243,7 +243,7 @@ export default function OrderHistoryPage({ navigation }) {
 
   const filteredOrders = useMemo(() => {
     if (!searchText.trim()) return orders;
-    const q = searchText.trim().toLowerCase();
+    const q = searchText.trim().toLowerCase().replace(/^#/, '');
     return orders.filter(o => getSearchText(o).includes(q));
   }, [orders, searchText]);
 
