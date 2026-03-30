@@ -42,7 +42,7 @@ const DATE_FILTER_OPTIONS = [
 
 const CHANNEL_OPTIONS = [
   { key: 'all',    label: 'Todos'    },
-  { key: '99Food', label: '99Food'   },
+  { key: 'Food99', label: '99Food'   },
   { key: 'iFood',  label: 'iFood'    },
   { key: 'SHOP',   label: 'SHOP'     },
   { key: 'POS',    label: 'POS'      },
