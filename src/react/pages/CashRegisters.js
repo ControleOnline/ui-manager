@@ -64,9 +64,9 @@ const CashRegisters = () => {
   );
 
   const renderWalletGroup = deviceConfig => {
-    const walletGroups = walletData ? Object.values(walletData) : [];
     const walletData =
       inflowsByDevice[deviceConfig.device.id]?.[0]?.payments?.wallet;
+    const walletGroups = walletData ? Object.values(walletData) : [];
     const deviceTotal =
       inflowsByDevice[deviceConfig.device.id]?.[0]?.payments?.total;
 
