@@ -26,47 +26,8 @@ const PAGE_SIZE = 50;
 
 const DATE_INPUT_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
-const STATUS_LABELS = {
-  open: 'Aberto', pending: 'Pendente', closed: 'Fechado',
-  canceled: 'Cancelado', cancelled: 'Cancelado', cancel: 'Cancelado',
-  paid: 'Pago', 'waiting payment': 'Aguard. pagto', quote: 'Orçamento',
-};
-
-const DATE_FILTER_OPTIONS = [
-  { key: 'all',    label: 'Todo período' },
-  { key: 'today',  label: 'Hoje' },
-  { key: '7d',     label: '7 dias' },
-  { key: '30d',    label: '30 dias' },
-  { key: 'custom', label: 'Personalizado' },
-];
-
-const CHANNEL_OPTIONS = [
-  { key: 'all',    label: 'Todos'    },
-  { key: 'Food99', label: '99Food'   },
-  { key: 'iFood',  label: 'iFood'    },
-  { key: 'SHOP',   label: 'SHOP'     },
-  { key: 'POS',    label: 'POS'      },
-];
-
-/* Valores exatos do ENUM real_status no banco: open | pending | canceled | closed
-   Obs: 'paid' não é realStatus — pedidos pagos ficam com real_status='open' */
-const STATUS_OPTIONS = [
-  { key: 'all',      label: 'Todos'     },
-  { key: 'open',     label: 'Aberto'    },
-  { key: 'pending',  label: 'Pendente'  },
-  { key: 'closed',   label: 'Fechado'   },
-  { key: 'canceled', label: 'Cancelado' },
-];
-
-const TABS = [
-  { key: 'sale',     label: 'Vendas',        icon: 'shopping-bag'  },
-  { key: 'purchase', label: 'Compras',        icon: 'truck'         },
-  { key: 'transfer', label: 'Transferências', icon: 'repeat'        },
-  { key: 'loss',     label: 'Perdas',         icon: 'trending-down' },
-];
-
 /* tabs sem filtro de canal/status */
-const SIMPLE_TABS = new Set(['transfer', 'loss']);
+const SIMPLE_TAB_KEYS = new Set(['transfer', 'loss']);
 
 /* ─── helpers ───────────────────────────────────────────────────────── */
 
@@ -109,11 +70,6 @@ const getDateRange = (dateFilter, customRange) => {
 };
 
 const normalizeApp  = o => String(o?.app || '').trim();
-const getStatusLabel = o => {
-  const rs = String(o?.status?.realStatus || '').toLowerCase();
-  const s  = String(o?.status?.status    || '').toLowerCase();
-  return STATUS_LABELS[rs] || STATUS_LABELS[s] || o?.status?.status || 'Em andamento';
-};
 const getStatusColor = o => o?.status?.color || '#64748B';
 const getSearchText  = o =>
   [
@@ -152,6 +108,53 @@ export default function OrderHistoryPage({ navigation }) {
     () => resolveThemePalette({ ...themeColors, ...(currentCompany?.theme?.colors || {}) }, colors),
     [themeColors, currentCompany?.id],
   );
+
+  const dateFilterOptions = useMemo(() => ([
+    { key: 'all', label: global.t?.t('orders', 'label', 'period_all') },
+    { key: 'today', label: global.t?.t('orders', 'label', 'period_today') },
+    { key: '7d', label: global.t?.t('orders', 'label', 'period_7d') },
+    { key: '30d', label: global.t?.t('orders', 'label', 'period_30d') },
+    { key: 'custom', label: global.t?.t('orders', 'label', 'period_custom') },
+  ]), []);
+
+  const channelOptions = useMemo(() => ([
+    { key: 'all', label: global.t?.t('orders', 'label', 'all') },
+    { key: 'Food99', label: global.t?.t('orders', 'label', 'channel_food99') },
+    { key: 'iFood', label: global.t?.t('orders', 'label', 'channel_ifood') },
+    { key: 'SHOP', label: global.t?.t('orders', 'label', 'channel_shop') },
+    { key: 'POS', label: global.t?.t('orders', 'label', 'channel_pos') },
+  ]), []);
+
+  const statusOptions = useMemo(() => ([
+    { key: 'all', label: global.t?.t('orders', 'label', 'all') },
+    { key: 'open', label: global.t?.t('orders', 'status', 'open') },
+    { key: 'pending', label: global.t?.t('orders', 'status', 'pending') },
+    { key: 'closed', label: global.t?.t('orders', 'status', 'closed') },
+    { key: 'canceled', label: global.t?.t('orders', 'status', 'canceled') },
+  ]), []);
+
+  const tabs = useMemo(() => ([
+    { key: 'sale', label: global.t?.t('orders', 'label', 'tab_sale'), icon: 'shopping-bag' },
+    { key: 'purchase', label: global.t?.t('orders', 'label', 'tab_purchase'), icon: 'truck' },
+    { key: 'transfer', label: global.t?.t('orders', 'label', 'tab_transfer'), icon: 'repeat' },
+    { key: 'loss', label: global.t?.t('orders', 'label', 'tab_loss'), icon: 'trending-down' },
+  ]), []);
+
+  const getStatusLabel = useCallback((order) => {
+    const rs = String(order?.status?.realStatus || '').toLowerCase();
+    const s = String(order?.status?.status || '').toLowerCase();
+    const statusKey = rs || s;
+
+    if (statusKey === 'open') return global.t?.t('orders', 'status', 'open');
+    if (statusKey === 'pending') return global.t?.t('orders', 'status', 'pending');
+    if (statusKey === 'closed') return global.t?.t('orders', 'status', 'closed');
+    if (statusKey === 'canceled') return global.t?.t('orders', 'status', 'canceled');
+    if (statusKey === 'paid') return global.t?.t('orders', 'status', 'paid');
+    if (statusKey === 'waiting payment') return global.t?.t('orders', 'status', 'waiting_payment');
+    if (statusKey === 'quote') return global.t?.t('orders', 'status', 'quote');
+
+    return order?.status?.status || global.t?.t('orders', 'status', 'in_progress');
+  }, []);
 
   /* ─── estado ──────────────────────────────────────────────────────── */
 
@@ -254,8 +257,8 @@ export default function OrderHistoryPage({ navigation }) {
     if (!fromVal && !toVal) { setDateValidationMessage(''); setCustomRange({ from: '', to: '' }); return; }
     const fromDate = fromVal ? parseDateInput(fromVal) : null;
     const toDate   = toVal   ? parseDateInput(toVal)   : null;
-    if ((fromVal && !fromDate) || (toVal && !toDate)) { setDateValidationMessage('Use o formato AAAA-MM-DD'); return; }
-    if (fromDate && toDate && fromDate > toDate) { setDateValidationMessage('Data inicial não pode ser maior que a final'); return; }
+    if ((fromVal && !fromDate) || (toVal && !toDate)) { setDateValidationMessage(global.t?.t('orders', 'validation', 'invalid_date_format')); return; }
+    if (fromDate && toDate && fromDate > toDate) { setDateValidationMessage(global.t?.t('orders', 'validation', 'invalid_date_range')); return; }
     setDateValidationMessage('');
     setCustomRange({ from: fromVal, to: toVal });
   }, [customFromInput, customToInput, dateFilter]);
@@ -278,12 +281,12 @@ export default function OrderHistoryPage({ navigation }) {
     const channelLogo  = (isPurchase || isTransfer || isLoss) ? null : getOrderChannelLogo(order);
 
     const channelLabel = isPurchase
-      ? (order.client?.alias || order.client?.name || 'Fornecedor')
+      ? (order.client?.alias || order.client?.name || global.t?.t('orders', 'label', 'supplier'))
       : isTransfer
-        ? 'Transferência de estoque'
+        ? global.t?.t('orders', 'label', 'stock_transfer')
         : isLoss
-          ? 'Baixa / perda'
-          : (getOrderChannelLabel(order) || normalizeApp(order) || 'SHOP');
+          ? global.t?.t('orders', 'label', 'stock_loss')
+          : (getOrderChannelLabel(order) || normalizeApp(order) || global.t?.t('orders', 'label', 'shop'));
 
     const statusLabel = getStatusLabel(order);
     const statusColor = getStatusColor(order);
@@ -329,7 +332,7 @@ export default function OrderHistoryPage({ navigation }) {
               }
             </View>
             <View>
-              <Text style={styles.orderId}>Pedido #{order.id}</Text>
+              <Text style={styles.orderId}>{global.t?.t('orders', 'label', 'order')} #{order.id}</Text>
               <Text style={styles.orderDate}>
                 {Formatter.formatDateYmdTodmY(order?.orderDate, true)}
               </Text>
@@ -357,7 +360,7 @@ export default function OrderHistoryPage({ navigation }) {
         </View>
       </TouchableOpacity>
     );
-  }, [openOrder]);
+  }, [getStatusLabel, openOrder]);
 
   /* ─── render ─────────────────────────────────────────────────────── */
 
@@ -372,13 +375,13 @@ export default function OrderHistoryPage({ navigation }) {
         {/* cabeçalho */}
         <View style={[styles.heroCard, { backgroundColor: brandColors.primary }]}>
           <View style={styles.heroCopy}>
-            <Text style={styles.heroEyebrow}>Pedidos</Text>
-            <Text style={styles.heroTitle}>Histórico de Pedidos</Text>
+            <Text style={styles.heroEyebrow}>{global.t?.t('orders', 'title', 'orders')}</Text>
+            <Text style={styles.heroTitle}>{global.t?.t('orders', 'title', 'history')}</Text>
             <Text style={styles.heroText}>
-              { orderTypeFilter === 'purchase'  ? 'Compras de fornecedores por período.'
-              : orderTypeFilter === 'transfer'  ? 'Transferências entre localidades por período.'
-              : orderTypeFilter === 'loss'      ? 'Perdas e baixas de estoque por período.'
-              : 'Filtre por canal, status e período.' }
+              { orderTypeFilter === 'purchase'  ? global.t?.t('orders', 'description', 'purchase_period')
+              : orderTypeFilter === 'transfer'  ? global.t?.t('orders', 'description', 'transfer_period')
+              : orderTypeFilter === 'loss'      ? global.t?.t('orders', 'description', 'loss_period')
+              : global.t?.t('orders', 'description', 'filter_channel_status_period') }
             </Text>
           </View>
           <View style={styles.heroBadge}>
@@ -397,7 +400,7 @@ export default function OrderHistoryPage({ navigation }) {
 
         {/* tabs Vendas | Compras | Transferências | Perdas */}
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.tabBar} contentContainerStyle={styles.tabBarContent}>
-          {TABS.map(tab => {
+          {tabs.map(tab => {
             const active = orderTypeFilter === tab.key;
             return (
               <TouchableOpacity
@@ -417,24 +420,24 @@ export default function OrderHistoryPage({ navigation }) {
 
         {/* empresa + contagem */}
         <View style={styles.summaryRow}>
-          <Text style={styles.sectionTitle}>{currentCompany?.name || currentCompany?.alias || 'Empresa'}</Text>
+          <Text style={styles.sectionTitle}>{currentCompany?.name || currentCompany?.alias || global.t?.t('orders', 'label', 'company')}</Text>
           <View style={styles.countPill}>
-            <Text style={styles.countPillText}>{filteredOrders.length}{hasMore ? '+' : ''} pedidos</Text>
+            <Text style={styles.countPillText}>{filteredOrders.length}{hasMore ? '+' : ''} {global.t?.t('order','label','orders')}</Text>
           </View>
         </View>
 
         {/* filtros */}
         <View style={styles.filtersCard}>
-          <Text style={styles.filtersTitle}>Filtros</Text>
+          <Text style={styles.filtersTitle}>{global.t?.t('orders','title','filters')}</Text>
 
           <TextInput
             value={searchText}
             onChangeText={setSearchText}
             placeholder={
-              orderTypeFilter === 'purchase' ? 'Buscar por ID ou fornecedor'
-            : orderTypeFilter === 'transfer' ? 'Buscar por ID'
-            : orderTypeFilter === 'loss'     ? 'Buscar por ID'
-            : 'Buscar por ID ou canal'
+              orderTypeFilter === 'purchase' ? global.t?.t('orders','placeholder','search_purchase')
+            : orderTypeFilter === 'transfer' ? global.t?.t('orders','placeholder','search_transfer')
+            : orderTypeFilter === 'loss'     ? global.t?.t('orders','placeholder','search_loss')
+            : global.t?.t('orders','placeholder','search_default')
             }
             placeholderTextColor="#94A3B8"
             style={styles.searchInput}
@@ -442,29 +445,29 @@ export default function OrderHistoryPage({ navigation }) {
 
           {orderTypeFilter === 'sale' && (
             <>
-              <Text style={styles.filterLabel}>Canal</Text>
+              <Text style={styles.filterLabel}>{global.t?.t('orders','label','channel')}</Text>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipsRow}>
-                {CHANNEL_OPTIONS.map(opt => (
+                {channelOptions.map(opt => (
                   <FilterChip key={`ch-${opt.key}`} active={channelFilter === opt.key} label={opt.label} onPress={() => setChannelFilter(opt.key)} />
                 ))}
               </ScrollView>
             </>
           )}
 
-          {!SIMPLE_TABS.has(orderTypeFilter) && (
+          {!SIMPLE_TAB_KEYS.has(orderTypeFilter) && (
             <>
-              <Text style={styles.filterLabel}>Status</Text>
+              <Text style={styles.filterLabel}>{global.t?.t('orders','label','status')}</Text>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipsRow}>
-                {STATUS_OPTIONS.map(opt => (
+                {statusOptions.map(opt => (
                   <FilterChip key={`st-${opt.key}`} active={statusFilter === opt.key} label={opt.label} onPress={() => setStatusFilter(opt.key)} />
                 ))}
               </ScrollView>
             </>
           )}
 
-          <Text style={styles.filterLabel}>Período</Text>
+          <Text style={styles.filterLabel}>{global.t?.t('orders','label','period')}</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipsRow}>
-            {DATE_FILTER_OPTIONS.map(opt => (
+            {dateFilterOptions.map(opt => (
               <FilterChip key={`dt-${opt.key}`} active={dateFilter === opt.key} label={opt.label} onPress={() => setDateFilter(opt.key)} />
             ))}
           </ScrollView>
@@ -472,16 +475,16 @@ export default function OrderHistoryPage({ navigation }) {
           {dateFilter === 'custom' && (
             <View style={styles.customDateWrap}>
               <View style={styles.customDateInputs}>
-                <TextInput value={customFromInput} onChangeText={setCustomFromInput} placeholder="Início (AAAA-MM-DD)" placeholderTextColor="#94A3B8" style={[styles.searchInput, styles.dateInput]} />
-                <TextInput value={customToInput}   onChangeText={setCustomToInput}   placeholder="Fim (AAAA-MM-DD)"   placeholderTextColor="#94A3B8" style={[styles.searchInput, styles.dateInput]} />
+                <TextInput value={customFromInput} onChangeText={setCustomFromInput} placeholder={global.t?.t('orders', 'placeholder', 'date_from')} placeholderTextColor="#94A3B8" style={[styles.searchInput, styles.dateInput]} />
+                <TextInput value={customToInput}   onChangeText={setCustomToInput}   placeholder={global.t?.t('orders', 'placeholder', 'date_to')}   placeholderTextColor="#94A3B8" style={[styles.searchInput, styles.dateInput]} />
               </View>
               {!!dateValidationMessage && <Text style={styles.validationText}>{dateValidationMessage}</Text>}
               <View style={styles.customDateActions}>
                 <TouchableOpacity style={styles.secondaryButton} activeOpacity={0.9} onPress={clearCustomRange}>
-                  <Text style={styles.secondaryButtonText}>Limpar</Text>
+                  <Text style={styles.secondaryButtonText}>{global.t?.t('orders', 'button', 'clear')}</Text>
                 </TouchableOpacity>
                 <TouchableOpacity style={[styles.primaryButton, { backgroundColor: brandColors.primary }]} activeOpacity={0.9} onPress={applyCustomRange}>
-                  <Text style={styles.primaryButtonText}>Aplicar período</Text>
+                  <Text style={styles.primaryButtonText}>{global.t?.t('orders', 'button', 'apply_period')}</Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -492,7 +495,7 @@ export default function OrderHistoryPage({ navigation }) {
         {storeLoading && (
           <View style={styles.centerState}>
             <ActivityIndicator size="large" color={brandColors.primary} />
-            <Text style={styles.centerStateTitle}>Carregando pedidos…</Text>
+            <Text style={styles.centerStateTitle}>{global.t?.t('orders', 'state', 'loading_orders')}</Text>
           </View>
         )}
 
@@ -500,7 +503,7 @@ export default function OrderHistoryPage({ navigation }) {
         {!storeLoading && !!error && (
           <View style={styles.centerState}>
             <Icon name="alert-circle" size={28} color="#DC2626" />
-            <Text style={styles.centerStateTitle}>Erro ao carregar</Text>
+            <Text style={styles.centerStateTitle}>{global.t?.t('orders', 'state', 'load_error')}</Text>
             <Text style={styles.centerStateText}>{error}</Text>
           </View>
         )}
@@ -509,8 +512,8 @@ export default function OrderHistoryPage({ navigation }) {
         {!storeLoading && !error && filteredOrders.length === 0 && (
           <View style={styles.centerState}>
             <Icon name="inbox" size={28} color="#94A3B8" />
-            <Text style={styles.centerStateTitle}>Nenhum pedido encontrado</Text>
-            <Text style={styles.centerStateText}>Tente ajustar os filtros acima.</Text>
+            <Text style={styles.centerStateTitle}>{global.t?.t('orders', 'state', 'empty')}</Text>
+            <Text style={styles.centerStateText}>{global.t?.t('orders', 'state', 'adjust_filters')}</Text>
           </View>
         )}
 
@@ -530,7 +533,7 @@ export default function OrderHistoryPage({ navigation }) {
 
         {/* fim da lista */}
         {!storeLoading && !hasMore && filteredOrders.length > 0 && (
-          <Text style={styles.endText}>— Todos os pedidos carregados —</Text>
+          <Text style={styles.endText}>{global.t?.t('orders', 'state', 'all_loaded')}</Text>
         )}
 
       </ScrollView>
