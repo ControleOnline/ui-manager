@@ -145,7 +145,8 @@ export default function OrderHistoryPage({ navigation }) {
 
   const { currentCompany }      = peopleStore.getters;
   const { colors: themeColors } = themeStore.getters;
-  const { actions: orderActions } = ordersStore;
+  const { actions: orderActions, getters: ordersGetters } = ordersStore;
+  const { isLoading: storeLoading } = ordersGetters;
 
   const brandColors = useMemo(
     () => resolveThemePalette({ ...themeColors, ...(currentCompany?.theme?.colors || {}) }, colors),
@@ -157,7 +158,6 @@ export default function OrderHistoryPage({ navigation }) {
   const [orders,        setOrders]        = useState([]);
   const [page,          setPage]          = useState(1);
   const [hasMore,       setHasMore]       = useState(false);
-  const [loading,       setLoading]       = useState(true);
   const [loadingMore,   setLoadingMore]   = useState(false);
   const [refreshing,    setRefreshing]    = useState(false);
   const [error,         setError]         = useState('');
@@ -178,7 +178,7 @@ export default function OrderHistoryPage({ navigation }) {
   /* ─── fetch (aceita página, acumula ou substitui) ────────────────── */
 
   const fetchPage = useCallback(async (targetPage, replace = false) => {
-    if (!currentCompany?.id) { setOrders([]); setLoading(false); return; }
+    if (!currentCompany?.id) { setOrders([]); return; }
     if (fetchingRef.current) return;
     fetchingRef.current = true;
 
@@ -207,7 +207,6 @@ export default function OrderHistoryPage({ navigation }) {
       setError(err?.message || 'Não foi possível carregar o histórico.');
     } finally {
       fetchingRef.current = false;
-      setLoading(false);
       setLoadingMore(false);
       setRefreshing(false);
     }
@@ -491,7 +490,7 @@ export default function OrderHistoryPage({ navigation }) {
         </View>
 
         {/* loading inicial */}
-        {loading && (
+        {storeLoading && (
           <View style={styles.centerState}>
             <ActivityIndicator size="large" color={brandColors.primary} />
             <Text style={styles.centerStateTitle}>Carregando pedidos…</Text>
@@ -499,7 +498,7 @@ export default function OrderHistoryPage({ navigation }) {
         )}
 
         {/* erro */}
-        {!loading && !!error && (
+        {!storeLoading && !!error && (
           <View style={styles.centerState}>
             <Icon name="alert-circle" size={28} color="#DC2626" />
             <Text style={styles.centerStateTitle}>Erro ao carregar</Text>
@@ -508,7 +507,7 @@ export default function OrderHistoryPage({ navigation }) {
         )}
 
         {/* vazio */}
-        {!loading && !error && filteredOrders.length === 0 && (
+        {!storeLoading && !error && filteredOrders.length === 0 && (
           <View style={styles.centerState}>
             <Icon name="inbox" size={28} color="#94A3B8" />
             <Text style={styles.centerStateTitle}>Nenhum pedido encontrado</Text>
@@ -517,7 +516,7 @@ export default function OrderHistoryPage({ navigation }) {
         )}
 
         {/* lista */}
-        {!loading && !error && (
+        {!storeLoading && !error && (
           <View style={styles.list}>
             {filteredOrders.map(order => renderCard(order))}
           </View>
@@ -531,7 +530,7 @@ export default function OrderHistoryPage({ navigation }) {
         )}
 
         {/* fim da lista */}
-        {!loading && !hasMore && filteredOrders.length > 0 && (
+        {!storeLoading && !hasMore && filteredOrders.length > 0 && (
           <Text style={styles.endText}>— Todos os pedidos carregados —</Text>
         )}
 
