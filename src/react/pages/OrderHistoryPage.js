@@ -215,7 +215,6 @@ export default function OrderHistoryPage({ navigation }) {
   /* dispara reset ao focar ou trocar filtro de data/empresa */
   useEffect(() => {
     if (!isFocused) return;
-    setLoading(true);
     setOrders([]);
     fetchPage(1, true);
   }, [isFocused, fetchPage]);
