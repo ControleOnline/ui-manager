@@ -422,7 +422,7 @@ export default function OrderHistoryPage({ navigation }) {
         <View style={styles.summaryRow}>
           <Text style={styles.sectionTitle}>{currentCompany?.name || currentCompany?.alias || global.t?.t('orders', 'label', 'company')}</Text>
           <View style={styles.countPill}>
-            <Text style={styles.countPillText}>{filteredOrders.length}{hasMore ? '+' : ''} {global.t?.t('order','label','orders')}</Text>
+            <Text style={styles.countPillText}>{filteredOrders.length}{hasMore ? '+' : ''} {global.t?.t('orders','label','orders')}</Text>
           </View>
         </View>
 

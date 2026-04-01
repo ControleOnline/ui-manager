@@ -122,7 +122,7 @@ const managerRoutes = [
     options: {
       headerShown: true,
       headerBackVisible: true,
-      title: global.t?.t("configs", "title", "orderHistory") || 'Order History Page',
+      title: global.t?.t("configs", "title", "orderHistory"),
       showCompanyFilter: true,
       companyFilterMode: 'icon',
     },
