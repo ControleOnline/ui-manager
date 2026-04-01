@@ -95,7 +95,7 @@ export default function IFoodIntegrationPage() {
   const applyDetailResponse = useCallback((response, { syncSelection = false } = {}) => {
     setDetail(response || null);
     const integrationMerchantId = String(
-      response?.integration?.merchant_id || response?.integration?.ifood_code || response?.selected_store?.merchant_id || '',
+      response?.integration?.ifood_code || response?.integration?.merchant_id || response?.selected_store?.merchant_id || '',
     );
     if (integrationMerchantId !== '') setMerchantIdInput(integrationMerchantId);
 
@@ -350,7 +350,7 @@ export default function IFoodIntegrationPage() {
   const handleConnect = useCallback(async () => {
     if (!providerId) return;
     const merchantId = String(merchantIdInput || '').trim();
-    if (!merchantId) { showInfo('Informe o merchant_id da loja iFood para conectar.'); return; }
+    if (!merchantId) { showInfo('Informe o código da loja iFood para conectar.'); return; }
     await withAction('connect', async () => {
       try {
         const response = await api.fetch('/marketplace/integrations/ifood/store/connect', {
@@ -476,8 +476,9 @@ export default function IFoodIntegrationPage() {
   /* ------------------------------------------------------------------ */
   const integration    = detail?.integration || {};
   const stores         = Array.isArray(detail?.stores?.items) ? detail.stores.items : [];
+  const ifoodCode      = String(integration?.ifood_code || integration?.merchant_id || '');
   const selectedStore  = detail?.selected_store || stores.find(
-    s => String(s?.merchant_id || '') === String(integration?.merchant_id || ''),
+    s => String(s?.merchant_id || '') === ifoodCode,
   );
   const connected      = Boolean(integration?.connected);
   const authAvailable  = Boolean(integration?.auth_available);
@@ -554,7 +555,7 @@ export default function IFoodIntegrationPage() {
                 ? 'A vinculacao local esta confirmada na conta iFood.'
                 : connected
                   ? 'Loja vinculada localmente. Execute sincronizacao para validar no iFood.'
-                  : 'Selecione ou informe o merchant_id para conectar a loja.'}
+                  : 'Selecione uma loja ou informe o código iFood para conectar.'}
             </Text>
           </View>
 
@@ -660,7 +661,7 @@ export default function IFoodIntegrationPage() {
             <View style={styles.storesList}>
               {stores.map(store => {
                 const sid      = String(store?.merchant_id || '');
-                const selected = sid !== '' && sid === merchantIdInput;
+                const selected = sid !== '' && (sid === merchantIdInput || sid === ifoodCode);
                 return (
                   <TouchableOpacity
                     key={sid}
@@ -681,7 +682,7 @@ export default function IFoodIntegrationPage() {
                         </Text>
                       </View>
                     </View>
-                    <Text style={styles.storeCode}>merchant_id: {sid}</Text>
+                    <Text style={styles.storeCode}>código: {sid}</Text>
                   </TouchableOpacity>
                 );
               })}
@@ -694,7 +695,7 @@ export default function IFoodIntegrationPage() {
             </View>
           )}
 
-          <Text style={styles.inputLabel}>merchant_id para vinculacao</Text>
+          <Text style={styles.inputLabel}>Código iFood para vinculação</Text>
           <TextInput
             value={merchantIdInput}
             onChangeText={setMerchantIdInput}
@@ -741,7 +742,7 @@ export default function IFoodIntegrationPage() {
             <View style={styles.selectedStoreBox}>
               <Text style={styles.selectedStoreTitle}>Loja selecionada</Text>
               <Text style={styles.selectedStoreText}>{selectedStore?.name || 'Sem nome'}</Text>
-              <Text style={styles.selectedStoreText}>merchant_id: {selectedStore?.merchant_id}</Text>
+              <Text style={styles.selectedStoreText}>código: {selectedStore?.merchant_id}</Text>
             </View>
           )}
         </View>
