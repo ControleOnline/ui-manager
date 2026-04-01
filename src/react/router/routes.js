@@ -67,7 +67,7 @@ const managerRoutes = [
     options: {
       headerShown: true,
       headerBackVisible: true,
-      title: 'Conexoes',
+      title: global.t?.t("configs", "title", "connections"),
       showCompanyFilter: true,
       companyFilterMode: 'icon',
     },
@@ -78,7 +78,7 @@ const managerRoutes = [
     options: {
       headerShown: true,
       headerBackVisible: true,
-      title: 'WhatsApp',
+      title: global.t?.t("configs", "title", "whatsApp"),
       showCompanyFilter: true,
       companyFilterMode: 'icon',
     },
