@@ -179,7 +179,7 @@ export default function OrderHistoryPage({ navigation }) {
   const fetchingRef = useRef(false);
 
   const goToAddProduct = useCallback(() => {
-    navigation.navigate('AddProductScreen', { forceCreate: true });
+    navigation.navigate('PdvPage', { orderType: orderTypeFilter });
   }, [navigation]);
 
   /* ─── fetch (aceita página, acumula ou substitui) ────────────────── */
