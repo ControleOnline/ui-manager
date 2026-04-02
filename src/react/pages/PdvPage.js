@@ -59,6 +59,12 @@ const calcCartItemTotal = item =>
 
 const toFloat = str => parseFloat(String(str || '0').replace(',', '.')) || 0
 
+const extractItems = response => {
+  if (Array.isArray(response)) return response
+  if (Array.isArray(response?.['hydra:member'])) return response['hydra:member']
+  return []
+}
+
 /* ─── tela de categorias ─────────────────────────────────────────────── */
 
 const CategoryGrid = ({ categories, categoriesLoading, onSelect, palette }) => {
@@ -651,6 +657,14 @@ export default function PdvPage() {
     [cart],
   )
 
+  const addSimpleProduct = useCallback((product) => {
+    const key = `simple_${product.id}`
+    setCart(prev => ({
+      ...prev,
+      [key]: { product, quantity: (prev[key]?.quantity || 0) + 1, subProducts: [], extraPrice: 0 },
+    }))
+  }, [])
+
   /* ── abrir modal de grupos (para qualquer produto) ── */
   const openCustomize = useCallback(async (product) => {
     setCustModal({ visible: true, product })
@@ -659,7 +673,12 @@ export default function PdvPage() {
     setCustLoading(true)
 
     try {
-      const groups = await productGroupStore.actions.getItems({ product: product.id })
+      const groupsResponse = await productGroupStore.actions.getItems({
+        parentProduct: `/products/${product.id}`,
+        people: currentCompany?.id,
+        itemsPerPage: 200,
+      })
+      const groups = extractItems(groupsResponse)
       if (!groups || groups.length === 0) {
         // sem grupos → adiciona direto ao carrinho
         setCustLoading(false)
@@ -671,9 +690,12 @@ export default function PdvPage() {
       const prodsMap = {}
       await Promise.all(
         groups.map(async g => {
-          prodsMap[g.id] = await productGroupProdStore.actions.getItems({
+          const groupProductsResponse = await productGroupProdStore.actions.getItems({
             productGroup: `/product_groups/${g.id}`,
-          }) || []
+            productType: 'component',
+            itemsPerPage: 200,
+          })
+          prodsMap[g.id] = extractItems(groupProductsResponse)
         }),
       )
       setCustGroupProds(prodsMap)
@@ -683,15 +705,7 @@ export default function PdvPage() {
     } finally {
       setCustLoading(false)
     }
-  }, [])
-
-  const addSimpleProduct = useCallback((product) => {
-    const key = `simple_${product.id}`
-    setCart(prev => ({
-      ...prev,
-      [key]: { product, quantity: (prev[key]?.quantity || 0) + 1, subProducts: [], extraPrice: 0 },
-    }))
-  }, [])
+  }, [addSimpleProduct, currentCompany?.id, productGroupProdStore.actions, productGroupStore.actions])
 
   /* ── todos os produtos passam por openCustomize ── */
   const handleProductPress = useCallback((product) => {
