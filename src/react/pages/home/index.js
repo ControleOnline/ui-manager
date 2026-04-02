@@ -248,15 +248,18 @@ export default function HomePage({ navigation }) {
           loadingSummary={loadingStats}
         >
           <ShortcutsRow>
+            <ShortcutCard label="PDV"                                                           icon="shopping-bag"   color={HEX.orange}  onPress={() => go('PdvPage')}             />
             <ShortcutCard label={global.t?.t('configs', 'button_title', 'orderHistory')}        icon="clock"          color={HEX.info}    onPress={() => go('OrderHistoryPage')}    />
-            <ShortcutCard label={global.t?.t('configs', 'button_title', 'products')}            icon="package"        color={HEX.success} onPress={() => go('CategoriesPage')}      />
           </ShortcutsRow>
           <ShortcutsRow>
+            <ShortcutCard label={global.t?.t('configs', 'button_title', 'products')}            icon="package"        color={HEX.success} onPress={() => go('CategoriesPage')}      />
             <ShortcutCard label={global.t?.t('configs', 'button_title', 'inventory')}           icon="archive"        color={HEX.warning} onPress={() => go('InventoriesPage')}     />
+          </ShortcutsRow>
+          <ShortcutsRow>
             <ShortcutCard label={global.t?.t('configs', 'button_title', 'purchasingSuggestion')} icon="truck"          color={HEX.purple}  onPress={() => go('PurchasingSuggestion')}/>
+            <ShortcutCard label={global.t?.t('configs', 'button_title', 'purchaseForm')}        icon="shopping-cart"  color={HEX.success} onPress={() => go('PurchaseFormPage')}    />
           </ShortcutsRow>
           <ShortcutsRow last>
-            <ShortcutCard label={global.t?.t('configs', 'button_title', 'purchaseForm')}        icon="shopping-cart"  color={HEX.success} onPress={() => go('PurchaseFormPage')}    />
             <View style={{ flex: 1 }} />
           </ShortcutsRow>
         </SectionBlock>

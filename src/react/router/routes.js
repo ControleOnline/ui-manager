@@ -1,5 +1,6 @@
 import PurchaseSuggestions from '@controleonline/ui-products/src/react/pages/PurchaseSuggestions';
 import Inventory from '@controleonline/ui-orders/src/react/pages/inventory';
+import PdvPage from '@controleonline/ui-manager/src/react/pages/PdvPage';
 
 import IncomeStatement from '@controleonline/ui-financial/src/react/pages/reports/IncomeStatement';
 import Payables from '@controleonline/ui-financial/src/react/pages/Payables';
@@ -112,6 +113,18 @@ const managerRoutes = [
       headerShown: true,
       headerBackVisible: true,
       title: 'iFood',
+      showCompanyFilter: true,
+      companyFilterMode: 'icon',
+    },
+  },
+  {
+    name: 'PdvPage',
+    component: PdvPage,
+    options: {
+      headerShown: true,
+      headerBackVisible: true,
+      title: 'PDV',
+      showBottomToolBar: true,
       showCompanyFilter: true,
       companyFilterMode: 'icon',
     },
