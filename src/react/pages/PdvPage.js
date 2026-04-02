@@ -37,10 +37,6 @@ const buildCoverUrl = (files, coverId) => {
 const normalizeStr = v =>
   String(v || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
 
-/**
- * Calcula o delta de preço dos grupos selecionados.
- * priceCalculation: 'sum' | 'biggest' | 'average' | 'free'
- */
 const calcGroupExtraPrice = (group, selectedInGroup) => {
   const prices = selectedInGroup.map(i => Number(i.price || 0))
   if (!prices.length) return 0
@@ -54,39 +50,44 @@ const calcGroupExtraPrice = (group, selectedInGroup) => {
 }
 
 const calcCartItemTotal = cartItem => {
-  const base = Number(cartItem.product?.price || 0) * cartItem.quantity
+  const base = Number(cartItem.product?.price || 0)
   const extra = cartItem.extraPrice || 0
-  return base + extra * cartItem.quantity
+  return (base + extra) * cartItem.quantity
 }
+
+const toFloat = str => parseFloat(String(str || '0').replace(',', '.')) || 0
 
 /* ─── tela de categorias ─────────────────────────────────────────────── */
 
-const CategoryGrid = ({ categories, allProducts, onSelect, palette, styles }) => (
+const CategoryGrid = ({ categories, categoriesLoading, totalProductCount, onSelect, palette, styles }) => (
   <View style={{ flex: 1 }}>
-    <FlatList
-      data={categories}
-      keyExtractor={c => String(c.id)}
-      numColumns={2}
-      contentContainerStyle={{ padding: 10, paddingBottom: 20 }}
-      ListHeaderComponent={
-        <TouchableOpacity
-          onPress={() => onSelect(null)}
-          style={[styles.catCard, { borderColor: palette.primary, backgroundColor: withOpacity(palette.primary, 0.07) }]}
-          activeOpacity={0.85}
-        >
-          <MaterialCommunityIcons name="view-grid" size={32} color={palette.primary} />
-          <Text style={[styles.catCardName, { color: palette.primary }]}>Todos os produtos</Text>
-          <Text style={[styles.catCardCount, { color: palette.textSecondary }]}>
-            {allProducts.length} produto{allProducts.length !== 1 ? 's' : ''}
-          </Text>
-        </TouchableOpacity>
-      }
-      renderItem={({ item: cat }) => {
-        const count = allProducts.filter(p => {
-          const c = p.category || p.productCategory
-          return c?.id === cat.id
-        }).length
-        return (
+    {categoriesLoading ? (
+      <View style={styles.loadingWrap}>
+        <ActivityIndicator size="large" color={palette.primary} />
+        <Text style={[styles.loadingText, { color: palette.textSecondary }]}>Carregando categorias...</Text>
+      </View>
+    ) : (
+      <FlatList
+        data={categories}
+        keyExtractor={c => String(c.id || c['@id'])}
+        numColumns={2}
+        contentContainerStyle={{ padding: 10, paddingBottom: 20 }}
+        ListHeaderComponent={
+          <TouchableOpacity
+            onPress={() => onSelect(null)}
+            style={[styles.catCard, { borderColor: palette.primary, backgroundColor: withOpacity(palette.primary, 0.07) }]}
+            activeOpacity={0.85}
+          >
+            <MaterialCommunityIcons name="view-grid" size={32} color={palette.primary} />
+            <Text style={[styles.catCardName, { color: palette.primary }]}>Todos os produtos</Text>
+            {totalProductCount > 0 && (
+              <Text style={[styles.catCardCount, { color: palette.textSecondary }]}>
+                {totalProductCount} produto{totalProductCount !== 1 ? 's' : ''}
+              </Text>
+            )}
+          </TouchableOpacity>
+        }
+        renderItem={({ item: cat }) => (
           <TouchableOpacity
             onPress={() => onSelect(cat)}
             style={[styles.catCard, { borderColor: palette.border }]}
@@ -96,13 +97,15 @@ const CategoryGrid = ({ categories, allProducts, onSelect, palette, styles }) =>
             <Text style={[styles.catCardName, { color: palette.text }]} numberOfLines={2}>
               {cat.category || cat.name || 'Categoria'}
             </Text>
-            <Text style={[styles.catCardCount, { color: palette.textSecondary }]}>
-              {count} produto{count !== 1 ? 's' : ''}
-            </Text>
           </TouchableOpacity>
-        )
-      }}
-    />
+        )}
+        ListEmptyComponent={
+          <View style={[styles.emptyWrap, { marginTop: 20 }]}>
+            <Text style={[styles.emptyText, { color: palette.textSecondary }]}>Nenhuma categoria cadastrada</Text>
+          </View>
+        }
+      />
+    )}
   </View>
 )
 
@@ -215,8 +218,7 @@ const pdvCard = StyleSheet.create({
 /* ─── modal de customização ──────────────────────────────────────────── */
 
 const CustomizeModal = ({ visible, product, groups, groupProducts, onConfirm, onClose, palette }) => {
-  const [selections, setSelections] = useState({}) // { groupId: [productGroupProductObj] }
-  const [loadingGroups, setLoadingGroups] = useState(false)
+  const [selections, setSelections] = useState({})
 
   useEffect(() => {
     if (visible) setSelections({})
@@ -229,13 +231,9 @@ const CustomizeModal = ({ visible, product, groups, groupProducts, onConfirm, on
       if (already) {
         return { ...prev, [group.id]: cur.filter(i => i['@id'] !== item['@id']) }
       }
-      // respeita maximum
       if (group.maximum && cur.length >= group.maximum) {
-        // remove o primeiro para dar lugar ao novo (radio em max=1)
-        if (group.maximum === 1) {
-          return { ...prev, [group.id]: [item] }
-        }
-        return prev // já no limite
+        if (group.maximum === 1) return { ...prev, [group.id]: [item] }
+        return prev
       }
       return { ...prev, [group.id]: [...cur, item] }
     })
@@ -244,7 +242,6 @@ const CustomizeModal = ({ visible, product, groups, groupProducts, onConfirm, on
   const isSelected = (groupId, item) =>
     (selections[groupId] || []).some(i => i['@id'] === item['@id'])
 
-  // preço extra total
   const extraPrice = useMemo(() => {
     return groups.reduce((total, group) => {
       const sel = selections[group.id] || []
@@ -252,20 +249,17 @@ const CustomizeModal = ({ visible, product, groups, groupProducts, onConfirm, on
     }, 0)
   }, [groups, selections])
 
-  // validação: grupos obrigatórios com mínimo
   const isValid = useMemo(() => {
     return groups.every(group => {
       if (!group.required && !group.minimum) return true
-      const sel = (selections[group.id] || []).length
-      return sel >= (group.minimum || 1)
+      return (selections[group.id] || []).length >= (group.minimum || 1)
     })
   }, [groups, selections])
 
   const handleConfirm = () => {
     const subProducts = []
     groups.forEach(group => {
-      const sel = selections[group.id] || []
-      sel.forEach(item => {
+      ;(selections[group.id] || []).forEach(item => {
         subProducts.push({
           productGroupProduct: item,
           groupId: group.id,
@@ -289,7 +283,6 @@ const CustomizeModal = ({ visible, product, groups, groupProducts, onConfirm, on
       <View style={custStyles.overlay}>
         <View style={[custStyles.sheet, { backgroundColor: palette.modalBg || palette.surface || '#fff' }]}>
 
-          {/* header */}
           <View style={[custStyles.header, { borderBottomColor: palette.border }]}>
             <View style={{ flex: 1 }}>
               <Text style={[custStyles.title, { color: palette.text }]} numberOfLines={1}>
@@ -305,7 +298,6 @@ const CustomizeModal = ({ visible, product, groups, groupProducts, onConfirm, on
             </TouchableOpacity>
           </View>
 
-          {/* grupos */}
           <ScrollView style={custStyles.body} showsVerticalScrollIndicator={false}>
             {groups.map(group => {
               const items = groupProducts[group.id] || []
@@ -314,7 +306,6 @@ const CustomizeModal = ({ visible, product, groups, groupProducts, onConfirm, on
 
               return (
                 <View key={group.id} style={[custStyles.groupBlock, { borderColor: palette.border }]}>
-                  {/* título do grupo */}
                   <View style={custStyles.groupHeader}>
                     <View style={{ flex: 1 }}>
                       <Text style={[custStyles.groupName, { color: palette.text }]}>
@@ -342,7 +333,6 @@ const CustomizeModal = ({ visible, product, groups, groupProducts, onConfirm, on
                     </View>
                   </View>
 
-                  {/* opções */}
                   {items.map((item, idx) => {
                     const selected = isSelected(group.id, item)
                     const isAtMax = group.maximum && (selections[group.id] || []).length >= group.maximum && !selected
@@ -405,7 +395,6 @@ const CustomizeModal = ({ visible, product, groups, groupProducts, onConfirm, on
             })}
           </ScrollView>
 
-          {/* rodapé */}
           <View style={[custStyles.footer, { borderTopColor: palette.border }]}>
             <View>
               <Text style={[custStyles.totalLabel, { color: palette.textSecondary }]}>Total do item</Text>
@@ -512,56 +501,64 @@ const custStyles = StyleSheet.create({
 /* ─── componente principal ──────────────────────────────────────────── */
 
 export default function PdvPage({ navigation }) {
-  const productsStore      = useStore('products')
-  const ordersStore        = useStore('orders')
-  const invoiceStore       = useStore('invoice')
-  const peopleStore        = useStore('people')
-  const walletStore        = useStore('walletPaymentType')
-  const themeStore         = useStore('theme')
-  const productGroupStore  = useStore('product_group')
+  const productsStore         = useStore('products')
+  const ordersStore           = useStore('orders')
+  const invoiceStore          = useStore('invoice')
+  const peopleStore           = useStore('people')
+  const walletStore           = useStore('walletPaymentType')
+  const themeStore            = useStore('theme')
+  const productGroupStore     = useStore('product_group')
   const productGroupProdStore = useStore('product_group_product')
+  const categoriesStore       = useStore('categories')
 
   const palette = useMemo(() => resolveThemePalette(themeStore?.getters?.colors), [themeStore?.getters?.colors])
   const styles  = useMemo(() => createStyles(palette), [palette])
 
   const { currentCompany, defaultCompany } = peopleStore.getters
-  const { items: allProducts, isLoading: productsLoading } = productsStore.getters
+  const { items: allProducts, isLoading: productsLoading, totalItems: productsTotalItems } = productsStore.getters
   const { isSaving: orderSaving }   = ordersStore.getters
   const { isSaving: invoiceSaving } = invoiceStore.getters
   const { items: paymentTypes, isLoading: paymentsLoading } = walletStore.getters
+  const { items: categoryItems, isLoading: categoriesLoading } = categoriesStore.getters
 
   /* ── tela atual: 'categories' | 'products' ── */
   const [screen, setScreen]               = useState('categories')
   const [selectedCategory, setSelectedCategory] = useState(null)
   const [search, setSearch]               = useState('')
 
-  /* ── carrinho: { productKey: { product, quantity, subProducts, extraPrice } } ── */
+  /* ── carrinho: { key: { product, quantity, subProducts, extraPrice } } ── */
   const [cart, setCart] = useState({})
 
   /* ── modal de customização ── */
-  const [custModal, setCustModal]       = useState({ visible: false, product: null })
-  const [custGroups, setCustGroups]     = useState([])
-  const [custGroupProds, setCustGroupProds] = useState({}) // { groupId: [...] }
-  const [custLoading, setCustLoading]   = useState(false)
+  const [custModal, setCustModal]         = useState({ visible: false, product: null })
+  const [custGroups, setCustGroups]       = useState([])
+  const [custGroupProds, setCustGroupProds] = useState({})
+  const [custLoading, setCustLoading]     = useState(false)
 
   /* ── checkout ── */
   const [checkoutVisible, setCheckoutVisible] = useState(false)
-  const [selectedPayment, setSelectedPayment] = useState(null)
-  const [customAmount, setCustomAmount]       = useState('')
   const [step, setStep]                       = useState('cart')
   const [processingMsg, setProcessingMsg]     = useState('')
 
-  /* ── carregar produtos e pagamentos ── */
+  /* ── múltiplos pagamentos ── */
+  // payments: [{ id, paymentType: walletObj, amount: string }]
+  const [payments, setPayments]               = useState([])
+  const [newPaymentType, setNewPaymentType]   = useState(null)
+  const [newPaymentAmount, setNewPaymentAmount] = useState('')
+
+  /* ── carregar categorias, produtos e pagamentos ── */
   useFocusEffect(
     useCallback(() => {
       if (!currentCompany?.id) return
+      categoriesStore.actions.getItems({ company: currentCompany.id })
+      walletStore.actions.getItems({ company: currentCompany.id })
+      // carrega todos os produtos para a tela de categorias mostrar totais
       productsStore.actions.getItems({
         active: 1,
         'order[product]': 'ASC',
         company: currentCompany.id,
-        type: ['custom', 'product', 'manufactured', 'service'],
+        itemsPerPage: 1, // só precisamos do totalItems
       })
-      walletStore.actions.getItems({ company: currentCompany.id })
     }, [currentCompany?.id]),
   )
 
@@ -576,29 +573,35 @@ export default function PdvPage({ navigation }) {
         setCheckoutVisible(false)
         setCustModal({ visible: false, product: null })
         setStep('cart')
+        setPayments([])
+        setNewPaymentType(null)
+        setNewPaymentAmount('')
       }
     }, []),
   )
 
-  /* ── categorias únicas ── */
-  const categories = useMemo(() => {
-    const map = new Map()
-    ;(allProducts || []).forEach(p => {
-      const c = p.category || p.productCategory
-      if (c?.id && !map.has(c.id)) map.set(c.id, c)
-    })
-    return Array.from(map.values())
-  }, [allProducts])
+  /* ── ao selecionar categoria: carrega produtos filtrados ── */
+  const handleSelectCategory = useCallback((cat) => {
+    setSelectedCategory(cat)
+    setScreen('products')
+    setSearch('')
+    const params = {
+      active: 1,
+      'order[product]': 'ASC',
+      company: currentCompany.id,
+      itemsPerPage: 50,
+    }
+    if (cat) {
+      params['productCategory.category'] = cat['@id']
+    } else {
+      // sem filtro de categoria = todos
+    }
+    productsStore.actions.getItems(params)
+  }, [currentCompany?.id])
 
-  /* ── produtos filtrados ── */
+  /* ── produtos filtrados por busca local ── */
   const filteredProducts = useMemo(() => {
     let list = allProducts || []
-    if (selectedCategory) {
-      list = list.filter(p => {
-        const c = p.category || p.productCategory
-        return c?.id === selectedCategory.id
-      })
-    }
     if (search.trim()) {
       const q = normalizeStr(search.trim())
       list = list.filter(p =>
@@ -608,14 +611,22 @@ export default function PdvPage({ navigation }) {
       )
     }
     return list
-  }, [allProducts, selectedCategory, search])
+  }, [allProducts, search])
 
-  /* ── totais ── */
+  /* ── totais do carrinho ── */
   const cartItems = useMemo(() => Object.values(cart).filter(i => i.quantity > 0), [cart])
   const cartCount = useMemo(() => cartItems.reduce((s, i) => s + i.quantity, 0), [cartItems])
   const cartTotal = useMemo(() => cartItems.reduce((s, i) => s + calcCartItemTotal(i), 0), [cartItems])
 
-  /* ── quantidade de um produto no carrinho (ignora customizações distintas) ── */
+  /* ── totais do pagamento ── */
+  const paymentsTotal = useMemo(
+    () => payments.reduce((s, p) => s + toFloat(p.amount), 0),
+    [payments],
+  )
+  const remaining = useMemo(() => Math.max(0, cartTotal - paymentsTotal), [cartTotal, paymentsTotal])
+  const troco     = useMemo(() => Math.max(0, paymentsTotal - cartTotal), [cartTotal, paymentsTotal])
+
+  /* ── quantidade de um produto no carrinho ── */
   const getProductQty = useCallback(
     productId =>
       Object.values(cart)
@@ -634,7 +645,6 @@ export default function PdvPage({ navigation }) {
     try {
       const groups = await productGroupStore.actions.getItems({ product: product.id })
       if (!groups || groups.length === 0) {
-        // sem grupos → adiciona direto
         setCustLoading(false)
         setCustModal({ visible: false, product: null })
         addSimpleProduct(product)
@@ -653,7 +663,6 @@ export default function PdvPage({ navigation }) {
       )
       setCustGroupProds(prodsMap)
     } catch {
-      // erro → adiciona simples
       setCustModal({ visible: false, product: null })
       addSimpleProduct(product)
     } finally {
@@ -690,7 +699,6 @@ export default function PdvPage({ navigation }) {
   /* ── confirmar customização ── */
   const handleCustomizeConfirm = useCallback((subProducts, extraPrice) => {
     const product = custModal.product
-    // cada customização distinta vira uma key única no carrinho
     const key = `custom_${product.id}_${Date.now()}`
     setCart(prev => ({
       ...prev,
@@ -699,7 +707,7 @@ export default function PdvPage({ navigation }) {
     setCustModal({ visible: false, product: null })
   }, [custModal.product])
 
-  /* ── remover item do carrinho ── */
+  /* ── remover/adicionar item do carrinho ── */
   const removeCartItem = useCallback((key) => {
     setCart(prev => {
       const next = { ...prev }
@@ -722,15 +730,35 @@ export default function PdvPage({ navigation }) {
   /* ── abrir checkout ── */
   const openCheckout = () => {
     if (cartCount === 0) return
-    setCustomAmount(cartTotal.toFixed(2).replace('.', ','))
-    setSelectedPayment(null)
+    setPayments([])
+    setNewPaymentType(null)
+    setNewPaymentAmount(cartTotal.toFixed(2).replace('.', ','))
     setStep('cart')
     setCheckoutVisible(true)
   }
 
+  /* ── adicionar forma de pagamento ── */
+  const addPayment = () => {
+    if (!newPaymentType) return
+    const amt = toFloat(newPaymentAmount)
+    if (amt <= 0) return
+    setPayments(prev => [
+      ...prev,
+      { id: Date.now(), paymentType: newPaymentType, amount: newPaymentAmount },
+    ])
+    setNewPaymentType(null)
+    // sugere o restante como próximo valor
+    const nextRemaining = Math.max(0, cartTotal - paymentsTotal - amt)
+    setNewPaymentAmount(nextRemaining > 0 ? nextRemaining.toFixed(2).replace('.', ',') : '')
+  }
+
+  const removePayment = (id) => {
+    setPayments(prev => prev.filter(p => p.id !== id))
+  }
+
   /* ── finalizar pedido ── */
   const handleFinalize = useCallback(async () => {
-    if (!selectedPayment) return
+    if (payments.length === 0 || paymentsTotal < cartTotal) return
     setStep('processing')
     setProcessingMsg('Criando pedido...')
     try {
@@ -738,35 +766,27 @@ export default function PdvPage({ navigation }) {
       const order = await ordersStore.actions.save({
         app: 'POS',
         provider: '/people/' + currentCompany.id,
-        status: '/statuses/' + status,
+        status: status ? '/statuses/' + status : undefined,
         orderType: 'sale',
       })
 
       setProcessingMsg('Adicionando produtos...')
-      // itens simples agrupados por produto
       const simpleMap = {}
-      // itens customizados: um save por item
       for (const item of cartItems) {
         if (item.subProducts && item.subProducts.length > 0) {
-          await productGroupProdStore.actions.save
-            ? null
-            : null // just to reference the store
-          // usa o endpoint order_products diretamente
-          const orderProductsStore = useStore ? null : null // workaround
-          // chama via ordersStore custom action
           const payload = {
             product: item.product['@id'],
             quantity: item.quantity,
             order: order['@id'],
             sub_products: item.subProducts.map(sp => ({
-              product: sp.productGroupProduct.productChild['@id'].replace(/\D/g, ''),
+              product: sp.productGroupProduct.productChild?.['@id'],
               productGroup: sp.groupId,
               quantity: sp.quantity,
             })),
           }
           await ordersStore.actions.addProducts(order.id, [payload])
         } else {
-          const pid = item.product['@id'].replace(/\D/g, '')
+          const pid = item.product['@id']
           simpleMap[pid] = (simpleMap[pid] || 0) + item.quantity
         }
       }
@@ -780,17 +800,18 @@ export default function PdvPage({ navigation }) {
       }
 
       setProcessingMsg('Registrando pagamento...')
-      const rawAmount = String(customAmount).replace(',', '.')
-      const total = parseFloat(rawAmount) || cartTotal
-      await invoiceStore.actions.save({
-        dueDate: Formatter.getCurrentDate(),
-        status: '/statuses/' + defaultCompany?.configs?.['pos-paid-status'],
-        destinationWallet: selectedPayment.wallet['@id'],
-        paymentType: selectedPayment.paymentType['@id'],
-        price: total,
-        receiver: '/people/' + currentCompany.id,
-        order: order['@id'],
-      })
+      const paidStatus = defaultCompany?.configs?.['pos-paid-status']
+      for (const payment of payments) {
+        await invoiceStore.actions.save({
+          dueDate: Formatter.getCurrentDate(),
+          status: paidStatus ? '/statuses/' + paidStatus : undefined,
+          destinationWallet: payment.paymentType.wallet?.['@id'],
+          paymentType: payment.paymentType.paymentType?.['@id'],
+          price: toFloat(payment.amount),
+          receiver: '/people/' + currentCompany.id,
+          order: order['@id'],
+        })
+      }
 
       setStep('done')
       setProcessingMsg('')
@@ -799,7 +820,7 @@ export default function PdvPage({ navigation }) {
       setStep('error')
       setProcessingMsg(e?.message || 'Erro ao finalizar pedido')
     }
-  }, [selectedPayment, cartItems, customAmount, cartTotal, currentCompany, defaultCompany])
+  }, [payments, paymentsTotal, cartTotal, cartItems, currentCompany, defaultCompany])
 
   /* ── renderização ── */
   const renderProduct = useCallback(({ item }) => (
@@ -822,7 +843,7 @@ export default function PdvPage({ navigation }) {
               <MaterialCommunityIcons name="magnify" size={20} color={palette.textSecondary} style={{ marginRight: 8 }} />
               <TextInput
                 value={search}
-                onChangeText={v => { setSearch(v); if (v) setScreen('products') }}
+                onChangeText={v => { setSearch(v); if (v) { setScreen('products'); handleSelectCategory(null) } }}
                 placeholder="Buscar produto..."
                 placeholderTextColor={palette.textSecondary}
                 style={[styles.searchText, { color: palette.text }]}
@@ -830,30 +851,20 @@ export default function PdvPage({ navigation }) {
             </View>
           </View>
 
-          {productsLoading ? (
-            <View style={styles.loadingWrap}>
-              <ActivityIndicator size="large" color={palette.primary} />
-              <Text style={[styles.loadingText, { color: palette.textSecondary }]}>Carregando...</Text>
-            </View>
-          ) : (
-            <CategoryGrid
-              categories={categories}
-              allProducts={allProducts || []}
-              onSelect={cat => {
-                setSelectedCategory(cat)
-                setScreen('products')
-              }}
-              palette={palette}
-              styles={styles}
-            />
-          )}
+          <CategoryGrid
+            categories={categoryItems || []}
+            categoriesLoading={categoriesLoading}
+            totalProductCount={productsTotalItems || (allProducts || []).length}
+            onSelect={handleSelectCategory}
+            palette={palette}
+            styles={styles}
+          />
         </View>
       )}
 
       {/* ── tela de produtos ── */}
       {(screen === 'products' || !!search) && (
         <View style={{ flex: 1 }}>
-          {/* header da tela de produtos */}
           <View style={styles.productsHeader}>
             <TouchableOpacity
               onPress={() => { setScreen('categories'); setSearch(''); setSelectedCategory(null) }}
@@ -882,7 +893,6 @@ export default function PdvPage({ navigation }) {
             </View>
           </View>
 
-          {/* título da categoria */}
           {selectedCategory && !search && (
             <View style={[styles.catTitle, { borderBottomColor: palette.border }]}>
               <MaterialCommunityIcons name="tag" size={16} color={palette.primary} />
@@ -1025,16 +1035,6 @@ export default function PdvPage({ navigation }) {
                     <Text style={[styles.cartTotalLabel, { color: palette.textSecondary }]}>Total</Text>
                     <Text style={[styles.cartTotalValue, { color: palette.primary }]}>{Formatter.formatMoney(cartTotal)}</Text>
                   </View>
-                  <View style={styles.amountRow}>
-                    <Text style={[styles.amountLabel, { color: palette.textSecondary }]}>Valor a cobrar</Text>
-                    <TextInput
-                      value={customAmount}
-                      onChangeText={setCustomAmount}
-                      keyboardType="decimal-pad"
-                      style={[styles.amountInput, { borderColor: palette.border, color: palette.text }]}
-                      selectTextOnFocus
-                    />
-                  </View>
                 </View>
 
                 <View style={styles.cartActions}>
@@ -1051,49 +1051,114 @@ export default function PdvPage({ navigation }) {
             {/* step: pagamento */}
             {step === 'payment' && (
               <>
-                {paymentsLoading ? (
-                  <View style={styles.loadingWrap}><ActivityIndicator color={palette.primary} /></View>
-                ) : (
-                  <ScrollView style={styles.paymentList} showsVerticalScrollIndicator={false}>
-                    {(paymentTypes || []).map(pt => {
-                      const sel = selectedPayment?.paymentType?.id === pt.paymentType?.id
-                      return (
-                        <TouchableOpacity
-                          key={pt.paymentType?.id}
-                          onPress={() => setSelectedPayment(pt)}
-                          style={[
-                            styles.paymentOption,
-                            {
-                              borderColor: sel ? palette.primary : palette.border,
-                              backgroundColor: sel ? withOpacity(palette.primary, 0.08) : 'transparent',
-                            },
-                          ]}
-                          activeOpacity={0.8}
-                        >
-                          <MaterialCommunityIcons
-                            name={sel ? 'radiobox-marked' : 'radiobox-blank'}
-                            size={22}
-                            color={sel ? palette.primary : palette.textSecondary}
-                          />
-                          <Text style={[styles.paymentName, { color: sel ? palette.primary : palette.text }]}>
-                            {pt.paymentType?.paymentType}
-                          </Text>
-                        </TouchableOpacity>
-                      )
-                    })}
-                    {(!paymentTypes || paymentTypes.length === 0) && (
-                      <Text style={[styles.emptyText, { color: palette.textSecondary, padding: 24, textAlign: 'center' }]}>
-                        Nenhuma forma de pagamento configurada
-                      </Text>
-                    )}
-                  </ScrollView>
-                )}
+                <ScrollView style={styles.paymentScroll} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
 
-                <View style={[styles.paymentSummary, { borderTopColor: palette.border }]}>
-                  <Text style={[styles.cartTotalLabel, { color: palette.textSecondary }]}>Total a cobrar</Text>
-                  <Text style={[styles.cartTotalValue, { color: palette.primary }]}>
-                    {customAmount ? `R$ ${customAmount}` : Formatter.formatMoney(cartTotal)}
-                  </Text>
+                  {/* formas adicionadas */}
+                  {payments.map(p => (
+                    <View key={p.id} style={[styles.paymentAdded, { borderBottomColor: palette.border }]}>
+                      <MaterialCommunityIcons name="check-circle" size={18} color={palette.success || '#22C55E'} />
+                      <Text style={[styles.paymentAddedName, { color: palette.text }]}>
+                        {p.paymentType?.paymentType?.paymentType}
+                      </Text>
+                      <Text style={[styles.paymentAddedAmount, { color: palette.primary }]}>
+                        {Formatter.formatMoney(toFloat(p.amount))}
+                      </Text>
+                      <TouchableOpacity onPress={() => removePayment(p.id)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                        <MaterialCommunityIcons name="close-circle" size={18} color={palette.danger || '#EF4444'} />
+                      </TouchableOpacity>
+                    </View>
+                  ))}
+
+                  {/* seletor de nova forma */}
+                  <View style={[styles.addPaymentBlock, { borderColor: palette.border }]}>
+                    <Text style={[styles.addPaymentTitle, { color: palette.textSecondary }]}>
+                      {payments.length === 0 ? 'Selecione a forma de pagamento' : 'Adicionar outra forma'}
+                    </Text>
+
+                    {paymentsLoading ? (
+                      <ActivityIndicator color={palette.primary} style={{ marginVertical: 12 }} />
+                    ) : (
+                      (paymentTypes || []).map(pt => {
+                        const sel = newPaymentType?.paymentType?.id === pt.paymentType?.id
+                        return (
+                          <TouchableOpacity
+                            key={pt.paymentType?.id}
+                            onPress={() => setNewPaymentType(pt)}
+                            style={[
+                              styles.paymentOption,
+                              {
+                                borderColor: sel ? palette.primary : palette.border,
+                                backgroundColor: sel ? withOpacity(palette.primary, 0.08) : 'transparent',
+                              },
+                            ]}
+                            activeOpacity={0.8}
+                          >
+                            <MaterialCommunityIcons
+                              name={sel ? 'radiobox-marked' : 'radiobox-blank'}
+                              size={22}
+                              color={sel ? palette.primary : palette.textSecondary}
+                            />
+                            <Text style={[styles.paymentName, { color: sel ? palette.primary : palette.text }]}>
+                              {pt.paymentType?.paymentType}
+                            </Text>
+                          </TouchableOpacity>
+                        )
+                      })
+                    )}
+
+                    {/* valor */}
+                    {newPaymentType && (
+                      <View style={styles.paymentAmountRow}>
+                        <Text style={[styles.paymentAmountLabel, { color: palette.textSecondary }]}>Valor</Text>
+                        <TextInput
+                          value={newPaymentAmount}
+                          onChangeText={setNewPaymentAmount}
+                          keyboardType="decimal-pad"
+                          style={[styles.amountInput, { borderColor: palette.primary, color: palette.text }]}
+                          selectTextOnFocus
+                          autoFocus
+                        />
+                        <TouchableOpacity
+                          onPress={addPayment}
+                          style={[styles.addPaymentBtn, { backgroundColor: palette.primary }]}
+                          activeOpacity={0.85}
+                        >
+                          <MaterialCommunityIcons name="plus" size={20} color="#fff" />
+                          <Text style={styles.addPaymentBtnText}>Adicionar</Text>
+                        </TouchableOpacity>
+                      </View>
+                    )}
+                  </View>
+                </ScrollView>
+
+                {/* resumo de valores */}
+                <View style={[styles.paymentTotals, { borderTopColor: palette.border }]}>
+                  <View style={styles.paymentTotalRow}>
+                    <Text style={[styles.paymentTotalLabel, { color: palette.textSecondary }]}>Total do pedido</Text>
+                    <Text style={[styles.paymentTotalValue, { color: palette.text }]}>{Formatter.formatMoney(cartTotal)}</Text>
+                  </View>
+                  <View style={styles.paymentTotalRow}>
+                    <Text style={[styles.paymentTotalLabel, { color: palette.textSecondary }]}>Total informado</Text>
+                    <Text style={[styles.paymentTotalValue, { color: paymentsTotal >= cartTotal ? (palette.success || '#22C55E') : palette.text }]}>
+                      {Formatter.formatMoney(paymentsTotal)}
+                    </Text>
+                  </View>
+                  {remaining > 0 && (
+                    <View style={styles.paymentTotalRow}>
+                      <Text style={[styles.paymentTotalLabel, { color: palette.danger || '#EF4444' }]}>Falta</Text>
+                      <Text style={[styles.paymentTotalValue, { color: palette.danger || '#EF4444', fontWeight: '900' }]}>
+                        {Formatter.formatMoney(remaining)}
+                      </Text>
+                    </View>
+                  )}
+                  {troco > 0 && (
+                    <View style={[styles.paymentTotalRow, styles.trocoRow, { backgroundColor: withOpacity(palette.success || '#22C55E', 0.1), borderRadius: 10 }]}>
+                      <Text style={[styles.paymentTotalLabel, { color: palette.success || '#22C55E', fontWeight: '800' }]}>Troco</Text>
+                      <Text style={[styles.paymentTotalValue, { color: palette.success || '#22C55E', fontWeight: '900', fontSize: 20 }]}>
+                        {Formatter.formatMoney(troco)}
+                      </Text>
+                    </View>
+                  )}
                 </View>
 
                 <View style={styles.cartActions}>
@@ -1102,8 +1167,8 @@ export default function PdvPage({ navigation }) {
                   </TouchableOpacity>
                   <TouchableOpacity
                     onPress={handleFinalize}
-                    disabled={!selectedPayment || orderSaving || invoiceSaving}
-                    style={[styles.btnPrimary, { backgroundColor: selectedPayment ? palette.primary : palette.border }]}
+                    disabled={payments.length === 0 || paymentsTotal < cartTotal || orderSaving || invoiceSaving}
+                    style={[styles.btnPrimary, { backgroundColor: (payments.length > 0 && paymentsTotal >= cartTotal) ? palette.primary : palette.border }]}
                     activeOpacity={0.85}
                   >
                     <Text style={styles.btnPrimaryText}>Finalizar venda</Text>
@@ -1126,6 +1191,13 @@ export default function PdvPage({ navigation }) {
                 <MaterialCommunityIcons name="check-circle" size={64} color={palette.success || '#22C55E'} />
                 <Text style={[styles.feedbackTitle, { color: palette.text }]}>Venda concluída!</Text>
                 <Text style={[styles.feedbackText, { color: palette.textSecondary }]}>Pedido registrado com sucesso.</Text>
+                {troco > 0 && (
+                  <View style={[styles.trocoRow, { backgroundColor: withOpacity(palette.success || '#22C55E', 0.1), borderRadius: 12, paddingHorizontal: 20, paddingVertical: 12, marginTop: 8 }]}>
+                    <Text style={{ color: palette.success || '#22C55E', fontWeight: '800', fontSize: 16 }}>
+                      Troco: {Formatter.formatMoney(troco)}
+                    </Text>
+                  </View>
+                )}
                 <TouchableOpacity
                   onPress={() => { setCheckoutVisible(false); setScreen('categories') }}
                   style={[styles.btnPrimary, { backgroundColor: palette.primary, marginTop: 24, minWidth: 160 }]}
@@ -1205,7 +1277,6 @@ const createStyles = palette => StyleSheet.create({
   catTitleText: { fontSize: 14, fontWeight: '800' },
   catTitleCount: { fontSize: 13 },
 
-  /* category grid */
   catCard: {
     flex: 1,
     margin: 5,
@@ -1231,7 +1302,6 @@ const createStyles = palette => StyleSheet.create({
   emptyWrap: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: 12, padding: 32 },
   emptyText: { fontSize: 14, textAlign: 'center' },
 
-  /* cust loading overlay */
   custLoadOverlay: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(0,0,0,0.4)',
@@ -1249,7 +1319,6 @@ const createStyles = palette => StyleSheet.create({
     }),
   },
 
-  /* FAB */
   cartFab: {
     position: 'absolute',
     bottom: 24,
@@ -1280,12 +1349,11 @@ const createStyles = palette => StyleSheet.create({
   cartFabTotal: { color: '#fff', fontWeight: '800', fontSize: 16, flex: 1 },
   cartFabLabel: { color: 'rgba(255,255,255,0.85)', fontSize: 13, fontWeight: '600' },
 
-  /* modal checkout */
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
   modalSheet: {
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
-    maxHeight: '90%',
+    maxHeight: '92%',
     paddingBottom: Platform.OS === 'ios' ? 34 : 16,
   },
   modalHeader: {
@@ -1298,7 +1366,7 @@ const createStyles = palette => StyleSheet.create({
   },
   modalTitle: { fontSize: 18, fontWeight: '800' },
 
-  cartList: { maxHeight: 340 },
+  cartList: { maxHeight: 300 },
   cartItem: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1315,29 +1383,94 @@ const createStyles = palette => StyleSheet.create({
   cartQtyNum: { fontSize: 15, fontWeight: '700', minWidth: 20, textAlign: 'center' },
   cartItemTotal: { fontSize: 14, fontWeight: '800', minWidth: 70, textAlign: 'right' },
 
-  cartSummary: { paddingHorizontal: 16, paddingTop: 12, borderTopWidth: 1, gap: 10 },
+  cartSummary: { paddingHorizontal: 16, paddingVertical: 12, borderTopWidth: 1 },
   cartTotalRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   cartTotalLabel: { fontSize: 14, fontWeight: '600' },
   cartTotalValue: { fontSize: 22, fontWeight: '900' },
-  amountRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
-  amountLabel: { fontSize: 13, fontWeight: '600' },
-  amountInput: {
-    borderWidth: 1.5, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 8,
-    fontSize: 16, fontWeight: '700', minWidth: 120, textAlign: 'right',
-  },
 
-  paymentList: { maxHeight: 320, paddingHorizontal: 12, paddingTop: 8 },
+  /* pagamento */
+  paymentScroll: { maxHeight: 380, paddingHorizontal: 12, paddingTop: 4 },
+
+  paymentAdded: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 4,
+    borderBottomWidth: 1,
+  },
+  paymentAddedName: { flex: 1, fontSize: 14, fontWeight: '700' },
+  paymentAddedAmount: { fontSize: 15, fontWeight: '800' },
+
+  addPaymentBlock: {
+    borderWidth: 1,
+    borderRadius: 14,
+    padding: 12,
+    marginTop: 10,
+    marginBottom: 6,
+  },
+  addPaymentTitle: { fontSize: 12, fontWeight: '700', marginBottom: 8, textTransform: 'uppercase', letterSpacing: 0.5 },
+
   paymentOption: {
-    flexDirection: 'row', alignItems: 'center', gap: 12,
-    borderWidth: 1.5, borderRadius: 12, paddingHorizontal: 16, paddingVertical: 14, marginBottom: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    borderWidth: 1.5,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    marginBottom: 6,
   },
-  paymentName: { fontSize: 15, fontWeight: '700' },
-  paymentSummary: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    paddingHorizontal: 16, paddingTop: 12, paddingBottom: 4, borderTopWidth: 1,
-  },
+  paymentName: { fontSize: 15, fontWeight: '700', flex: 1 },
 
-  cartActions: { flexDirection: 'row', gap: 10, paddingHorizontal: 16, paddingTop: 12, paddingBottom: 4 },
+  paymentAmountRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginTop: 10,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: '#E2E8F0',
+  },
+  paymentAmountLabel: { fontSize: 13, fontWeight: '600' },
+  amountInput: {
+    flex: 1,
+    borderWidth: 1.5,
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    fontSize: 16,
+    fontWeight: '700',
+    textAlign: 'right',
+  },
+  addPaymentBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  addPaymentBtnText: { color: '#fff', fontWeight: '800', fontSize: 14 },
+
+  paymentTotals: {
+    borderTopWidth: 1,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    gap: 6,
+  },
+  paymentTotalRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 4,
+    paddingVertical: 2,
+  },
+  paymentTotalLabel: { fontSize: 13, fontWeight: '600' },
+  paymentTotalValue: { fontSize: 15, fontWeight: '800' },
+  trocoRow: { paddingHorizontal: 12, paddingVertical: 6 },
+
+  cartActions: { flexDirection: 'row', gap: 10, paddingHorizontal: 16, paddingTop: 10, paddingBottom: 4 },
   btnPrimary: { flex: 1, borderRadius: 12, paddingVertical: 14, alignItems: 'center', justifyContent: 'center' },
   btnPrimaryText: { color: '#fff', fontWeight: '800', fontSize: 15 },
   btnSecondary: { flex: 1, borderRadius: 12, paddingVertical: 14, alignItems: 'center', justifyContent: 'center', borderWidth: 1.5 },
