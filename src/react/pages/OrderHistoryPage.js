@@ -60,18 +60,18 @@ const getDateRange = (dateFilter, customRange) => {
   }
   if (dateFilter === 'custom') {
     const from = parseDateInput(customRange?.from);
-    const to   = parseDateInput(customRange?.to);
+    const to = parseDateInput(customRange?.to);
     if (!from && !to) return {};
     if (from) from.setHours(0, 0, 0, 0);
-    if (to)   to.setHours(23, 59, 59, 999);
+    if (to) to.setHours(23, 59, 59, 999);
     return { after: from ? formatDateToApi(from) : null, before: to ? formatDateToApi(to) : null };
   }
   return {};
 };
 
-const normalizeApp  = o => String(o?.app || '').trim();
+const normalizeApp = o => String(o?.app || '').trim();
 const getStatusColor = o => o?.status?.color || '#64748B';
-const getSearchText  = o =>
+const getSearchText = o =>
   [
     o?.id,
     o?.app,
@@ -96,10 +96,10 @@ const FilterChip = ({ active, label, onPress }) => (
 export default function OrderHistoryPage({ navigation }) {
   const ordersStore = useStore('orders');
   const peopleStore = useStore('people');
-  const themeStore  = useStore('theme');
-  const isFocused   = useIsFocused();
+  const themeStore = useStore('theme');
+  const isFocused = useIsFocused();
 
-  const { currentCompany }      = peopleStore.getters;
+  const { currentCompany } = peopleStore.getters;
   const { colors: themeColors } = themeStore.getters;
   const { actions: orderActions, getters: ordersGetters } = ordersStore;
   const { isLoading: storeLoading } = ordersGetters;
@@ -158,25 +158,29 @@ export default function OrderHistoryPage({ navigation }) {
 
   /* ─── estado ──────────────────────────────────────────────────────── */
 
-  const [orders,        setOrders]        = useState([]);
-  const [page,          setPage]          = useState(1);
-  const [hasMore,       setHasMore]       = useState(false);
-  const [loadingMore,   setLoadingMore]   = useState(false);
-  const [refreshing,    setRefreshing]    = useState(false);
-  const [error,         setError]         = useState('');
+  const [orders, setOrders] = useState([]);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState('');
 
   const [orderTypeFilter, setOrderTypeFilter] = useState('sale');
-  const [channelFilter,   setChannelFilter]   = useState('all');
-  const [statusFilter,    setStatusFilter]    = useState('all');
-  const [dateFilter,      setDateFilter]      = useState('all');
-  const [searchText,    setSearchText]    = useState('');
+  const [channelFilter, setChannelFilter] = useState('all');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [dateFilter, setDateFilter] = useState('all');
+  const [searchText, setSearchText] = useState('');
   const [customFromInput, setCustomFromInput] = useState('');
-  const [customToInput,   setCustomToInput]   = useState('');
-  const [customRange,   setCustomRange]   = useState({ from: '', to: '' });
+  const [customToInput, setCustomToInput] = useState('');
+  const [customRange, setCustomRange] = useState({ from: '', to: '' });
   const [dateValidationMessage, setDateValidationMessage] = useState('');
 
   /* ref para evitar fetch duplicado */
   const fetchingRef = useRef(false);
+
+  const goToAddProduct = useCallback(() => {
+    navigation.navigate('AddProductScreen', { forceCreate: true });
+  }, [navigation]);
 
   /* ─── fetch (aceita página, acumula ou substitui) ────────────────── */
 
@@ -188,16 +192,16 @@ export default function OrderHistoryPage({ navigation }) {
     try {
       setError('');
       const query = {
-        provider:           `/people/${currentCompany.id}`,
-        itemsPerPage:       PAGE_SIZE,
-        page:               targetPage,
+        provider: `/people/${currentCompany.id}`,
+        itemsPerPage: PAGE_SIZE,
+        page: targetPage,
         'order[id]': 'desc',
       };
       if (orderTypeFilter !== 'all') query.orderType = orderTypeFilter;
-      if (channelFilter  !== 'all')  query.app = channelFilter;
-      if (statusFilter   !== 'all')  query['status.realStatus'] = statusFilter;
+      if (channelFilter !== 'all') query.app = channelFilter;
+      if (statusFilter !== 'all') query['status.realStatus'] = statusFilter;
       const dateRange = getDateRange(dateFilter, customRange);
-      if (dateRange?.after)  query['orderDate[after]']  = dateRange.after;
+      if (dateRange?.after) query['orderDate[after]'] = dateRange.after;
       if (dateRange?.before) query['orderDate[before]'] = dateRange.before;
 
       const response = await orderActions.getItems(query);
@@ -253,10 +257,10 @@ export default function OrderHistoryPage({ navigation }) {
   const applyCustomRange = useCallback(() => {
     if (dateFilter !== 'custom') return;
     const fromVal = String(customFromInput || '').trim();
-    const toVal   = String(customToInput   || '').trim();
+    const toVal = String(customToInput || '').trim();
     if (!fromVal && !toVal) { setDateValidationMessage(''); setCustomRange({ from: '', to: '' }); return; }
     const fromDate = fromVal ? parseDateInput(fromVal) : null;
-    const toDate   = toVal   ? parseDateInput(toVal)   : null;
+    const toDate = toVal ? parseDateInput(toVal) : null;
     if ((fromVal && !fromDate) || (toVal && !toDate)) { setDateValidationMessage(global.t?.t('orders', 'validation', 'invalid_date_format')); return; }
     if (fromDate && toDate && fromDate > toDate) { setDateValidationMessage(global.t?.t('orders', 'validation', 'invalid_date_range')); return; }
     setDateValidationMessage('');
@@ -275,10 +279,10 @@ export default function OrderHistoryPage({ navigation }) {
   /* ─── card de pedido ─────────────────────────────────────────────── */
 
   const renderCard = useCallback(order => {
-    const isPurchase   = order.orderType === 'purchase';
-    const isTransfer   = order.orderType === 'transfer';
-    const isLoss       = order.orderType === 'loss';
-    const channelLogo  = (isPurchase || isTransfer || isLoss) ? null : getOrderChannelLogo(order);
+    const isPurchase = order.orderType === 'purchase';
+    const isTransfer = order.orderType === 'transfer';
+    const isLoss = order.orderType === 'loss';
+    const channelLogo = (isPurchase || isTransfer || isLoss) ? null : getOrderChannelLogo(order);
 
     const channelLabel = isPurchase
       ? (order.client?.alias || order.client?.name || global.t?.t('orders', 'label', 'supplier'))
@@ -290,31 +294,33 @@ export default function OrderHistoryPage({ navigation }) {
 
     const statusLabel = getStatusLabel(order);
     const statusColor = getStatusColor(order);
-    const price       = Number(order?.price || 0);
+    const price = Number(order?.price || 0);
 
     const iconName =
-        isPurchase ? 'truck'
-      : isTransfer ? 'repeat'
-      : isLoss     ? 'trending-down'
-      : 'shopping-bag';
+      isPurchase ? 'truck'
+        : isTransfer ? 'repeat'
+          : isLoss ? 'trending-down'
+            : 'shopping-bag';
 
     const iconColor =
-        isPurchase ? '#D97706'
-      : isTransfer ? '#7C3AED'
-      : isLoss     ? '#DC2626'
-      : '#64748B';
+      isPurchase ? '#D97706'
+        : isTransfer ? '#7C3AED'
+          : isLoss ? '#DC2626'
+            : '#64748B';
 
     const iconWrapStyle =
-        isPurchase ? styles.orderIconWrapPurchase
-      : isTransfer ? styles.orderIconWrapTransfer
-      : isLoss     ? styles.orderIconWrapLoss
-      : null;
+      isPurchase ? styles.orderIconWrapPurchase
+        : isTransfer ? styles.orderIconWrapTransfer
+          : isLoss ? styles.orderIconWrapLoss
+            : null;
 
     const priceStyle =
-        isPurchase ? styles.purchasePriceText
-      : isTransfer ? styles.transferPriceText
-      : isLoss     ? styles.lossPriceText
-      : null;
+      isPurchase ? styles.purchasePriceText
+        : isTransfer ? styles.transferPriceText
+          : isLoss ? styles.lossPriceText
+            : null;
+
+
 
     return (
       <TouchableOpacity
@@ -378,19 +384,19 @@ export default function OrderHistoryPage({ navigation }) {
             <Text style={styles.heroEyebrow}>{global.t?.t('orders', 'title', 'orders')}</Text>
             <Text style={styles.heroTitle}>{global.t?.t('orders', 'title', 'history')}</Text>
             <Text style={styles.heroText}>
-              { orderTypeFilter === 'purchase'  ? global.t?.t('orders', 'description', 'purchase_period')
-              : orderTypeFilter === 'transfer'  ? global.t?.t('orders', 'description', 'transfer_period')
-              : orderTypeFilter === 'loss'      ? global.t?.t('orders', 'description', 'loss_period')
-              : global.t?.t('orders', 'description', 'filter_channel_status_period') }
+              {orderTypeFilter === 'purchase' ? global.t?.t('orders', 'description', 'purchase_period')
+                : orderTypeFilter === 'transfer' ? global.t?.t('orders', 'description', 'transfer_period')
+                  : orderTypeFilter === 'loss' ? global.t?.t('orders', 'description', 'loss_period')
+                    : global.t?.t('orders', 'description', 'filter_channel_status_period')}
             </Text>
           </View>
           <View style={styles.heroBadge}>
             <Icon
               name={
                 orderTypeFilter === 'purchase' ? 'truck'
-              : orderTypeFilter === 'transfer' ? 'repeat'
-              : orderTypeFilter === 'loss'     ? 'trending-down'
-              : 'shopping-bag'
+                  : orderTypeFilter === 'transfer' ? 'repeat'
+                    : orderTypeFilter === 'loss' ? 'trending-down'
+                      : 'shopping-bag'
               }
               size={22}
               color={brandColors.primary}
@@ -422,22 +428,22 @@ export default function OrderHistoryPage({ navigation }) {
         <View style={styles.summaryRow}>
           <Text style={styles.sectionTitle}>{currentCompany?.name || currentCompany?.alias || global.t?.t('orders', 'label', 'company')}</Text>
           <View style={styles.countPill}>
-            <Text style={styles.countPillText}>{filteredOrders.length}{hasMore ? '+' : ''} {global.t?.t('orders','label','orders')}</Text>
+            <Text style={styles.countPillText}>{filteredOrders.length}{hasMore ? '+' : ''} {global.t?.t('orders', 'label', 'orders')}</Text>
           </View>
         </View>
 
         {/* filtros */}
         <View style={styles.filtersCard}>
-          <Text style={styles.filtersTitle}>{global.t?.t('orders','title','filters')}</Text>
+          <Text style={styles.filtersTitle}>{global.t?.t('orders', 'title', 'filters')}</Text>
 
           <TextInput
             value={searchText}
             onChangeText={setSearchText}
             placeholder={
-              orderTypeFilter === 'purchase' ? global.t?.t('orders','placeholder','search_purchase')
-            : orderTypeFilter === 'transfer' ? global.t?.t('orders','placeholder','search_transfer')
-            : orderTypeFilter === 'loss'     ? global.t?.t('orders','placeholder','search_loss')
-            : global.t?.t('orders','placeholder','search_default')
+              orderTypeFilter === 'purchase' ? global.t?.t('orders', 'placeholder', 'search_purchase')
+                : orderTypeFilter === 'transfer' ? global.t?.t('orders', 'placeholder', 'search_transfer')
+                  : orderTypeFilter === 'loss' ? global.t?.t('orders', 'placeholder', 'search_loss')
+                    : global.t?.t('orders', 'placeholder', 'search_default')
             }
             placeholderTextColor="#94A3B8"
             style={styles.searchInput}
@@ -445,7 +451,7 @@ export default function OrderHistoryPage({ navigation }) {
 
           {orderTypeFilter === 'sale' && (
             <>
-              <Text style={styles.filterLabel}>{global.t?.t('orders','label','channel')}</Text>
+              <Text style={styles.filterLabel}>{global.t?.t('orders', 'label', 'channel')}</Text>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipsRow}>
                 {channelOptions.map(opt => (
                   <FilterChip key={`ch-${opt.key}`} active={channelFilter === opt.key} label={opt.label} onPress={() => setChannelFilter(opt.key)} />
@@ -456,7 +462,7 @@ export default function OrderHistoryPage({ navigation }) {
 
           {!SIMPLE_TAB_KEYS.has(orderTypeFilter) && (
             <>
-              <Text style={styles.filterLabel}>{global.t?.t('orders','label','status')}</Text>
+              <Text style={styles.filterLabel}>{global.t?.t('orders', 'label', 'status')}</Text>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipsRow}>
                 {statusOptions.map(opt => (
                   <FilterChip key={`st-${opt.key}`} active={statusFilter === opt.key} label={opt.label} onPress={() => setStatusFilter(opt.key)} />
@@ -465,7 +471,7 @@ export default function OrderHistoryPage({ navigation }) {
             </>
           )}
 
-          <Text style={styles.filterLabel}>{global.t?.t('orders','label','period')}</Text>
+          <Text style={styles.filterLabel}>{global.t?.t('orders', 'label', 'period')}</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipsRow}>
             {dateFilterOptions.map(opt => (
               <FilterChip key={`dt-${opt.key}`} active={dateFilter === opt.key} label={opt.label} onPress={() => setDateFilter(opt.key)} />
@@ -476,7 +482,7 @@ export default function OrderHistoryPage({ navigation }) {
             <View style={styles.customDateWrap}>
               <View style={styles.customDateInputs}>
                 <TextInput value={customFromInput} onChangeText={setCustomFromInput} placeholder={global.t?.t('orders', 'placeholder', 'date_from')} placeholderTextColor="#94A3B8" style={[styles.searchInput, styles.dateInput]} />
-                <TextInput value={customToInput}   onChangeText={setCustomToInput}   placeholder={global.t?.t('orders', 'placeholder', 'date_to')}   placeholderTextColor="#94A3B8" style={[styles.searchInput, styles.dateInput]} />
+                <TextInput value={customToInput} onChangeText={setCustomToInput} placeholder={global.t?.t('orders', 'placeholder', 'date_to')} placeholderTextColor="#94A3B8" style={[styles.searchInput, styles.dateInput]} />
               </View>
               {!!dateValidationMessage && <Text style={styles.validationText}>{dateValidationMessage}</Text>}
               <View style={styles.customDateActions}>
@@ -537,53 +543,61 @@ export default function OrderHistoryPage({ navigation }) {
         )}
 
       </ScrollView>
+      <TouchableOpacity
+        style={[styles.fab, { backgroundColor: brandColors.primary }]}
+        activeOpacity={0.85}
+        onPress={goToAddProduct}
+      >
+        <Icon name="plus" size={22} color="#fff" />
+      </TouchableOpacity>
+
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  scroll:    { paddingHorizontal: 20, paddingTop: 16, paddingBottom: 32, gap: 16 },
+  scroll: { paddingHorizontal: 20, paddingTop: 16, paddingBottom: 32, gap: 16 },
 
   heroCard: {
     borderRadius: 24, padding: 22,
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start',
     shadowColor: '#0F172A', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.12, shadowRadius: 16, elevation: 5,
   },
-  heroCopy:    { flex: 1, paddingRight: 16 },
+  heroCopy: { flex: 1, paddingRight: 16 },
   heroEyebrow: { fontSize: 11, fontWeight: '700', color: 'rgba(255,255,255,0.75)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 6 },
-  heroTitle:   { fontSize: 24, fontWeight: '800', color: '#fff', marginBottom: 6, letterSpacing: -0.5 },
-  heroText:    { fontSize: 13, lineHeight: 19, color: 'rgba(255,255,255,0.85)' },
-  heroBadge:   { width: 46, height: 46, borderRadius: 14, backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center' },
+  heroTitle: { fontSize: 24, fontWeight: '800', color: '#fff', marginBottom: 6, letterSpacing: -0.5 },
+  heroText: { fontSize: 13, lineHeight: 19, color: 'rgba(255,255,255,0.85)' },
+  heroBadge: { width: 46, height: 46, borderRadius: 14, backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center' },
 
-  summaryRow:    { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  sectionTitle:  { fontSize: 16, fontWeight: '700', color: '#0F172A' },
-  countPill:     { borderRadius: 999, backgroundColor: '#EFF6FF', paddingHorizontal: 12, paddingVertical: 7 },
+  summaryRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  sectionTitle: { fontSize: 16, fontWeight: '700', color: '#0F172A' },
+  countPill: { borderRadius: 999, backgroundColor: '#EFF6FF', paddingHorizontal: 12, paddingVertical: 7 },
   countPillText: { fontSize: 12, fontWeight: '700', color: '#1D4ED8' },
 
-  filtersCard:  { backgroundColor: '#fff', borderRadius: 20, padding: 16, gap: 10 },
+  filtersCard: { backgroundColor: '#fff', borderRadius: 20, padding: 16, gap: 10 },
   filtersTitle: { fontSize: 15, fontWeight: '700', color: '#0F172A' },
-  searchInput:  { borderWidth: 1, borderColor: '#E2E8F0', borderRadius: 12, paddingHorizontal: 12, paddingVertical: 10, fontSize: 14, color: '#0F172A', backgroundColor: '#fff' },
-  filterLabel:  { fontSize: 11, fontWeight: '700', color: '#64748B', textTransform: 'uppercase', letterSpacing: 0.8, marginTop: 2 },
-  chipsRow:     { flexDirection: 'row', gap: 8, paddingVertical: 2 },
-  filterChip:        { borderRadius: 999, borderWidth: 1, borderColor: '#CBD5E1', paddingHorizontal: 12, paddingVertical: 7, backgroundColor: '#fff' },
-  filterChipActive:  { borderColor: '#2563EB', backgroundColor: '#EFF6FF' },
-  filterChipText:    { fontSize: 12, fontWeight: '600', color: '#475569' },
+  searchInput: { borderWidth: 1, borderColor: '#E2E8F0', borderRadius: 12, paddingHorizontal: 12, paddingVertical: 10, fontSize: 14, color: '#0F172A', backgroundColor: '#fff' },
+  filterLabel: { fontSize: 11, fontWeight: '700', color: '#64748B', textTransform: 'uppercase', letterSpacing: 0.8, marginTop: 2 },
+  chipsRow: { flexDirection: 'row', gap: 8, paddingVertical: 2 },
+  filterChip: { borderRadius: 999, borderWidth: 1, borderColor: '#CBD5E1', paddingHorizontal: 12, paddingVertical: 7, backgroundColor: '#fff' },
+  filterChipActive: { borderColor: '#2563EB', backgroundColor: '#EFF6FF' },
+  filterChipText: { fontSize: 12, fontWeight: '600', color: '#475569' },
   filterChipTextActive: { color: '#1D4ED8' },
 
-  customDateWrap:    { gap: 10, marginTop: 2 },
-  customDateInputs:  { flexDirection: 'row', gap: 8 },
-  dateInput:         { flex: 1 },
-  validationText:    { color: '#DC2626', fontSize: 12, fontWeight: '600' },
+  customDateWrap: { gap: 10, marginTop: 2 },
+  customDateInputs: { flexDirection: 'row', gap: 8 },
+  dateInput: { flex: 1 },
+  validationText: { color: '#DC2626', fontSize: 12, fontWeight: '600' },
   customDateActions: { flexDirection: 'row', justifyContent: 'flex-end', gap: 8 },
-  primaryButton:     { borderRadius: 10, paddingHorizontal: 12, paddingVertical: 8 },
+  primaryButton: { borderRadius: 10, paddingHorizontal: 12, paddingVertical: 8 },
   primaryButtonText: { color: '#fff', fontSize: 12, fontWeight: '700' },
-  secondaryButton:   { borderRadius: 10, paddingHorizontal: 12, paddingVertical: 8, backgroundColor: '#F1F5F9' },
+  secondaryButton: { borderRadius: 10, paddingHorizontal: 12, paddingVertical: 8, backgroundColor: '#F1F5F9' },
   secondaryButtonText: { color: '#334155', fontSize: 12, fontWeight: '700' },
 
-  centerState:      { backgroundColor: '#fff', borderRadius: 20, padding: 24, alignItems: 'center', gap: 10 },
+  centerState: { backgroundColor: '#fff', borderRadius: 20, padding: 24, alignItems: 'center', gap: 10 },
   centerStateTitle: { fontSize: 18, fontWeight: '700', color: '#0F172A', textAlign: 'center' },
-  centerStateText:  { fontSize: 14, color: '#64748B', textAlign: 'center', lineHeight: 20 },
+  centerStateText: { fontSize: 14, color: '#64748B', textAlign: 'center', lineHeight: 20 },
 
   list: { gap: 12 },
 
@@ -591,7 +605,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff', borderRadius: 20, padding: 16,
     shadowColor: '#0F172A', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 8, elevation: 2,
   },
-  cardTopRow:    { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
+  cardTopRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
   orderIdentity: { flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 },
   orderIconWrap: {
     width: 38, height: 38, borderRadius: 12,
@@ -599,12 +613,12 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
   },
   channelLogo: { width: 22, height: 22 },
-  orderId:     { fontSize: 15, fontWeight: '800', color: '#0F172A' },
-  orderDate:   { fontSize: 12, color: '#64748B', marginTop: 1 },
+  orderId: { fontSize: 15, fontWeight: '800', color: '#0F172A' },
+  orderDate: { fontSize: 12, color: '#64748B', marginTop: 1 },
 
   statusBadge: { flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4, gap: 5 },
-  statusDot:   { width: 7, height: 7, borderRadius: 999 },
-  statusText:  { fontSize: 11, fontWeight: '700' },
+  statusDot: { width: 7, height: 7, borderRadius: 999 },
+  statusText: { fontSize: 11, fontWeight: '700' },
 
   tabBar: {
     backgroundColor: '#fff',
@@ -621,18 +635,34 @@ const styles = StyleSheet.create({
     borderBottomWidth: 2.5, borderBottomColor: 'transparent',
   },
   tabItemActive: {},
-  tabLabel:       { fontSize: 13, fontWeight: '600', color: '#94A3B8' },
+  tabLabel: { fontSize: 13, fontWeight: '600', color: '#94A3B8' },
   tabLabelActive: { fontWeight: '700' },
 
-  cardMetaRow:  { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingTop: 10, borderTopWidth: 1, borderTopColor: '#F1F5F9' },
-  channelText:  { fontSize: 13, fontWeight: '600', color: '#475569', flex: 1 },
-  priceText:    { fontSize: 15, fontWeight: '800', color: '#16A34A' },
-  purchasePriceText:  { color: '#D97706' },
-  transferPriceText:  { color: '#7C3AED' },
-  lossPriceText:      { color: '#DC2626' },
-  orderIconWrapPurchase:  { backgroundColor: '#FFFBEB', borderColor: '#FCD34D' },
-  orderIconWrapTransfer:  { backgroundColor: '#F5F3FF', borderColor: '#DDD6FE' },
-  orderIconWrapLoss:      { backgroundColor: '#FEF2F2', borderColor: '#FECACA' },
+  cardMetaRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingTop: 10, borderTopWidth: 1, borderTopColor: '#F1F5F9' },
+  channelText: { fontSize: 13, fontWeight: '600', color: '#475569', flex: 1 },
+  priceText: { fontSize: 15, fontWeight: '800', color: '#16A34A' },
+  purchasePriceText: { color: '#D97706' },
+  transferPriceText: { color: '#7C3AED' },
+  lossPriceText: { color: '#DC2626' },
+  orderIconWrapPurchase: { backgroundColor: '#FFFBEB', borderColor: '#FCD34D' },
+  orderIconWrapTransfer: { backgroundColor: '#F5F3FF', borderColor: '#DDD6FE' },
+  orderIconWrapLoss: { backgroundColor: '#FEF2F2', borderColor: '#FECACA' },
 
   endText: { textAlign: 'center', fontSize: 12, color: '#CBD5E1', paddingVertical: 16 },
+  fab: {
+    position: 'absolute',
+    right: 20,
+    bottom: 20,
+    width: 56,
+    height: 56,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 6,
+  },
 });
