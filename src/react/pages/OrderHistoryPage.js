@@ -207,8 +207,8 @@ export default function OrderHistoryPage({ navigation }) {
       env.APP_TYPE === 'POS' && (query['device.device'] = storagedDevice.id);
 
       const dateRange = getDateRange(dateFilter, customRange);
-      if (dateRange?.after) query['orderDate[after]'] = dateRange.after;
-      if (dateRange?.before) query['orderDate[before]'] = dateRange.before;
+      if (dateRange?.after) query['alterDate[after]'] = dateRange.after;
+      if (dateRange?.before) query['alterDate[before]'] = dateRange.before;
 
       const response = await orderActions.getItems(query);
       const items = Array.isArray(response) ? response : [];
@@ -223,14 +223,34 @@ export default function OrderHistoryPage({ navigation }) {
       setLoadingMore(false);
       setRefreshing(false);
     }
-  }, [currentCompany?.id, orderTypeFilter, channelFilter, statusFilter, dateFilter, customRange, orderActions]);
+  }, [
+    currentCompany?.id,
+    orderTypeFilter,
+    channelFilter,
+    statusFilter,
+    dateFilter,
+    customRange?.from,
+    customRange?.to,
+    orderActions,
+  ]);
 
   /* dispara reset ao focar ou trocar filtro de data/empresa */
   useEffect(() => {
     if (!isFocused) return;
     setOrders([]);
+    setPage(1);
+    setHasMore(false);
     fetchPage(1, true);
-  }, [isFocused, fetchPage]);
+  }, [
+    isFocused,
+    currentCompany?.id,
+    orderTypeFilter,
+    channelFilter,
+    statusFilter,
+    dateFilter,
+    customRange?.from,
+    customRange?.to,
+  ]);
 
   /* pull-to-refresh */
   const onRefresh = useCallback(() => {
@@ -346,7 +366,10 @@ export default function OrderHistoryPage({ navigation }) {
             <View>
               <Text style={styles.orderId}>{global.t?.t('orders', 'label', 'order')} #{order.id}</Text>
               <Text style={styles.orderDate}>
-                {Formatter.formatDateYmdTodmY(order?.orderDate, true)}
+                {Formatter.formatDateYmdTodmY(
+                  order?.alterDate || order?.alter_date || order?.orderDate || order?.order_date,
+                  true,
+                )}
               </Text>
             </View>
           </View>

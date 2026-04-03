@@ -126,7 +126,7 @@ export default function HomePage({ navigation }) {
           await Promise.all([
             api.fetch('/orders',            { params: { provider: currentCompany.id, itemsPerPage: 1 } }).catch(() => null),
             api.fetch('/people',            { params: { 'link.company': `/people/${currentCompany.id}`, 'link.linkType': 'client', itemsPerPage: 1 } }).catch(() => null),
-            api.fetch('/cash-registers',    { params: { company: currentCompany.id, itemsPerPage: 1 } }).catch(() => null),
+            api.fetch('/device_configs',    { params: { people: currentCompany.id, itemsPerPage: 1 } }).catch(() => null),
             api.fetch('/income_statements', { params: { people: currentCompany.id, year: currentYear } }).catch(() => null),
             api.fetch('/products',          { params: { company: currentCompany.id, itemsPerPage: 1 } }).catch(() => null),
           ]);
