@@ -13,7 +13,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useIsFocused } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/Feather';
-
+import { env } from '@env';
 import { useStore } from '@store';
 import Formatter from '@controleonline/ui-common/src/utils/formatter';
 import { getOrderChannelLabel, getOrderChannelLogo } from '@assets/ppc/channels';
@@ -98,7 +98,9 @@ export default function OrderHistoryPage({ navigation }) {
   const peopleStore = useStore('people');
   const themeStore = useStore('theme');
   const isFocused = useIsFocused();
-
+  const deviceStore = useStore('device')
+  const deviceGetters = deviceStore.getters
+  const { item: storagedDevice } = deviceGetters
   const { currentCompany } = peopleStore.getters;
   const { colors: themeColors } = themeStore.getters;
   const { actions: orderActions, getters: ordersGetters } = ordersStore;
@@ -199,7 +201,11 @@ export default function OrderHistoryPage({ navigation }) {
       };
       if (orderTypeFilter !== 'all') query.orderType = orderTypeFilter;
       if (channelFilter !== 'all') query.app = channelFilter;
-      if (statusFilter !== 'all') query['status.realStatus'] = statusFilter;
+
+      if (statusFilter !== 'all') query['status.realStatus'] = env.APP_TYPE === 'POS' ? ['open', 'pending'] : statusFilter;
+
+      env.APP_TYPE === 'POS' && (query['device.device'] = storagedDevice.id);
+
       const dateRange = getDateRange(dateFilter, customRange);
       if (dateRange?.after) query['orderDate[after]'] = dateRange.after;
       if (dateRange?.before) query['orderDate[before]'] = dateRange.before;
@@ -405,24 +411,26 @@ export default function OrderHistoryPage({ navigation }) {
         </View>
 
         {/* tabs Vendas | Compras | Transferências | Perdas */}
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.tabBar} contentContainerStyle={styles.tabBarContent}>
-          {tabs.map(tab => {
-            const active = orderTypeFilter === tab.key;
-            return (
-              <TouchableOpacity
-                key={tab.key}
-                style={[styles.tabItem, active && [styles.tabItemActive, { borderBottomColor: brandColors.primary }]]}
-                onPress={() => { setOrderTypeFilter(tab.key); setChannelFilter('all'); setStatusFilter('all'); }}
-                activeOpacity={0.8}
-              >
-                <Icon name={tab.icon} size={14} color={active ? brandColors.primary : '#94A3B8'} />
-                <Text style={[styles.tabLabel, active && [styles.tabLabelActive, { color: brandColors.primary }]]}>
-                  {tab.label}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
-        </ScrollView>
+        {env.APP_TYPE !== 'POS' && (
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.tabBar} contentContainerStyle={styles.tabBarContent}>
+            {tabs.map(tab => {
+              const active = orderTypeFilter === tab.key;
+              return (
+                <TouchableOpacity
+                  key={tab.key}
+                  style={[styles.tabItem, active && [styles.tabItemActive, { borderBottomColor: brandColors.primary }]]}
+                  onPress={() => { setOrderTypeFilter(tab.key); setChannelFilter('all'); setStatusFilter('all'); }}
+                  activeOpacity={0.8}
+                >
+                  <Icon name={tab.icon} size={14} color={active ? brandColors.primary : '#94A3B8'} />
+                  <Text style={[styles.tabLabel, active && [styles.tabLabelActive, { color: brandColors.primary }]]}>
+                    {tab.label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+        )}
 
         {/* empresa + contagem */}
         <View style={styles.summaryRow}>
@@ -449,7 +457,7 @@ export default function OrderHistoryPage({ navigation }) {
             style={styles.searchInput}
           />
 
-          {orderTypeFilter === 'sale' && (
+          {env.APP_TYPE !== 'POS' && orderTypeFilter === 'sale' && (
             <>
               <Text style={styles.filterLabel}>{global.t?.t('orders', 'label', 'channel')}</Text>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipsRow}>
@@ -460,7 +468,7 @@ export default function OrderHistoryPage({ navigation }) {
             </>
           )}
 
-          {!SIMPLE_TAB_KEYS.has(orderTypeFilter) && (
+          {env.APP_TYPE !== 'POS' && !SIMPLE_TAB_KEYS.has(orderTypeFilter) && (
             <>
               <Text style={styles.filterLabel}>{global.t?.t('orders', 'label', 'status')}</Text>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipsRow}>
@@ -470,13 +478,15 @@ export default function OrderHistoryPage({ navigation }) {
               </ScrollView>
             </>
           )}
-
-          <Text style={styles.filterLabel}>{global.t?.t('orders', 'label', 'period')}</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipsRow}>
-            {dateFilterOptions.map(opt => (
-              <FilterChip key={`dt-${opt.key}`} active={dateFilter === opt.key} label={opt.label} onPress={() => setDateFilter(opt.key)} />
-            ))}
-          </ScrollView>
+          {env.APP_TYPE !== 'POS' && (
+            <>
+              <Text style={styles.filterLabel}>{global.t?.t('orders', 'label', 'period')}</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipsRow}>
+                {dateFilterOptions.map(opt => (
+                  <FilterChip key={`dt-${opt.key}`} active={dateFilter === opt.key} label={opt.label} onPress={() => setDateFilter(opt.key)} />
+                ))}
+              </ScrollView>
+            </>)}
 
           {dateFilter === 'custom' && (
             <View style={styles.customDateWrap}>
