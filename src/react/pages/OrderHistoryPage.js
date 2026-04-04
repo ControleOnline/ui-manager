@@ -97,10 +97,12 @@ export default function OrderHistoryPage({ navigation }) {
   const ordersStore = useStore('orders');
   const peopleStore = useStore('people');
   const themeStore = useStore('theme');
+  const deviceConfigStore = useStore('device_config');
   const isFocused = useIsFocused();
   const deviceStore = useStore('device')
   const deviceGetters = deviceStore.getters
   const { item: storagedDevice } = deviceGetters
+  const { item: deviceConfig } = deviceConfigStore.getters;
   const { currentCompany } = peopleStore.getters;
   const { colors: themeColors } = themeStore.getters;
   const { actions: orderActions, getters: ordersGetters } = ordersStore;
@@ -177,12 +179,33 @@ export default function OrderHistoryPage({ navigation }) {
   const [customRange, setCustomRange] = useState({ from: '', to: '' });
   const [dateValidationMessage, setDateValidationMessage] = useState('');
 
+  const isCashRegisterClosed = useMemo(() => {
+    const closedId = Number(deviceConfig?.configs?.['cash-wallet-closed-id']);
+    return (
+      !deviceConfig?.configs ||
+      deviceConfig?.configs?.['cash-wallet-closed-id'] === undefined ||
+      (Number.isFinite(closedId) && closedId > 0)
+    );
+  }, [deviceConfig?.configs]);
+
   /* ref para evitar fetch duplicado */
   const fetchingRef = useRef(false);
 
   const goToAddProduct = useCallback(() => {
+    if (env.APP_TYPE === 'POS' && isCashRegisterClosed) {
+      navigation.navigate('CloseCashRegister');
+      return;
+    }
+
     navigation.navigate('PdvPage', { orderType: orderTypeFilter });
-  }, [navigation]);
+  }, [navigation, orderTypeFilter, isCashRegisterClosed]);
+
+  useEffect(() => {
+    if (!isFocused || env.APP_TYPE !== 'POS') return;
+    if (!isCashRegisterClosed) return;
+
+    navigation.navigate('CloseCashRegister');
+  }, [isFocused, isCashRegisterClosed, navigation]);
 
   /* ─── fetch (aceita página, acumula ou substitui) ────────────────── */
 
