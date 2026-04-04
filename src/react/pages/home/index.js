@@ -237,6 +237,14 @@ export default function HomePage({ navigation }) {
             <ShortcutCard label={global.t?.t('configs', 'button_title', 'transfers')}    icon="repeat"      color={HEX.purple}  onPress={() => go('OwnTransfers')}        />
             <ShortcutCard label={global.t?.t('configs', 'button_title', 'cashRegisters')} icon="credit-card" color={HEX.warning} onPress={() => go('CashRegistersIndex')}  />
           </ShortcutsRow>
+          <ShortcutsRow>
+            <ShortcutCard label="Carteiras"               icon="briefcase"  color={HEX.info}    onPress={() => go('WalletsPage')}          />
+            <ShortcutCard label="Formas de Pagamento"     icon="credit-card" color={HEX.purple}  onPress={() => go('PaymentTypesPage')}     />
+          </ShortcutsRow>
+          <ShortcutsRow last>
+            <ShortcutCard label="Categorias Financeiras" icon="tag"        color={HEX.warning} onPress={() => go('InvoiceCategoriesPage')} />
+            <View style={{ flex: 1 }} />
+          </ShortcutsRow>
         </SectionBlock>
 
         {/* Bloco Operações */}
