@@ -11,6 +11,7 @@ import PaymentTypesPage from '@controleonline/ui-financial/src/react/pages/Payme
 import InvoiceCategoriesPage from '@controleonline/ui-financial/src/react/pages/InvoiceCategoriesPage';
 
 import CashRegisters from '@controleonline/ui-manager/src/react/pages/CashRegisters';
+import CashRegisterDetailPage from '@controleonline/ui-manager/src/react/pages/CashRegisterDetailPage';
 import ConnectionsPage from '@controleonline/ui-manager/src/react/pages/Connections';
 import Food99IntegrationPage from '@controleonline/ui-manager/src/react/pages/Food99IntegrationPage';
 import IFoodIntegrationPage from '@controleonline/ui-manager/src/react/pages/IFoodIntegrationPage';
@@ -152,6 +153,17 @@ const managerRoutes = [
       title: global.t?.t("configs", "title", "cashRegisters"),
       showCompanyFilter: true,
       companyFilterMode: 'icon',
+    },
+    initialParams: { store: 'device_config' },
+  },
+  {
+    name: 'CashRegisterDetail',
+    component: CashRegisterDetailPage,
+    options: {
+      headerShown: true,
+      headerBackVisible: true,
+      title: 'Detalhes do Caixa',
+      showCompanyFilter: false,
     },
     initialParams: { store: 'invoice' },
   },
