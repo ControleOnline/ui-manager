@@ -266,8 +266,8 @@ const CashRegisterDetailPage = () => {
             </View>
 
             <View style={styles.aliasBlock}>
-              {editingAlias ? (
-                <View style={styles.aliasEditRow}>
+              <View style={styles.aliasRow}>
+                {editingAlias ? (
                   <TextInput
                     ref={aliasInputRef}
                     style={styles.aliasInput}
@@ -278,33 +278,27 @@ const CashRegisterDetailPage = () => {
                     autoCapitalize="words"
                     selectTextOnFocus
                   />
-                  {savingAlias ? (
-                    <ActivityIndicator size="small" color={brandColors.primary} style={{ marginLeft: 6 }} />
-                  ) : (
-                    <>
-                      <TouchableOpacity onPress={saveAlias} style={styles.aliasActionBtn}>
-                        <Icon name="check" size={15} color={hex.success} />
-                      </TouchableOpacity>
-                      <TouchableOpacity onPress={cancelEditAlias} style={styles.aliasActionBtn}>
-                        <Icon name="x" size={15} color={hex.danger} />
-                      </TouchableOpacity>
-                    </>
-                  )}
-                </View>
-              ) : (
-                <TouchableOpacity
-                  style={styles.aliasRow}
-                  onPress={deviceId ? startEditAlias : undefined}
-                  activeOpacity={deviceId ? 0.7 : 1}
-                >
+                ) : (
                   <Text style={styles.deviceAlias} numberOfLines={1} ellipsizeMode="tail">
                     {alias}
                   </Text>
-                  {!!deviceId && (
-                    <Icon name="edit-2" size={12} color="#94A3B8" style={{ marginLeft: 6 }} />
-                  )}
-                </TouchableOpacity>
-              )}
+                )}
+
+                {!!deviceId && (
+                  <TouchableOpacity
+                    style={styles.editAliasBtn}
+                    onPress={editingAlias ? saveAlias : startEditAlias}
+                    activeOpacity={0.8}
+                    disabled={savingAlias}
+                  >
+                    {savingAlias
+                      ? <ActivityIndicator size="small" color={brandColors.primary} />
+                      : <Icon name={editingAlias ? 'check' : 'edit'} size={14} color={editingAlias ? hex.success : '#64748B'} />
+                    }
+                  </TouchableOpacity>
+                )}
+              </View>
+
               <Text style={styles.deviceString} numberOfLines={1} ellipsizeMode="middle">
                 {deviceString}
               </Text>
@@ -312,13 +306,6 @@ const CashRegisterDetailPage = () => {
           </View>
 
           <View style={styles.deviceHeaderRight}>
-            <View style={[styles.statusBadge, { backgroundColor: withOpacity(accent, 0.12), borderColor: withOpacity(accent, 0.4) }]}>
-              <View style={[styles.statusDot, { backgroundColor: accent }]} />
-              <Text style={[styles.statusText, { color: accent }]}>
-                {isOpen ? 'Aberto' : 'Fechado'}
-              </Text>
-            </View>
-
             <TouchableOpacity
               style={[styles.toggleBtn, { backgroundColor: isOpen ? hex.danger : hex.success }, actionLoading && { opacity: 0.6 }]}
               onPress={handleToggle}
@@ -475,24 +462,24 @@ const styles = StyleSheet.create({
   },
   deviceHeaderLeft: { flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1, minWidth: 0 },
   deviceIconBox: { width: 42, height: 42, borderRadius: 12, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
-  aliasBlock:    { flex: 1, minWidth: 0 },
-  aliasRow:      { flexDirection: 'row', alignItems: 'center', minWidth: 0 },
-  aliasEditRow:  { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  aliasBlock:  { flex: 1, minWidth: 0 },
+  aliasRow:    { flexDirection: 'row', alignItems: 'center', gap: 6, minWidth: 0 },
   aliasInput: {
-    flex: 1, fontSize: 15, fontWeight: '700', color: '#0F172A',
+    flex: 1,
+    fontSize: 15, fontWeight: '700', color: '#0F172A',
     borderBottomWidth: 1.5, borderBottomColor: '#0EA5E9',
     paddingVertical: 2, paddingHorizontal: 0,
+    outlineStyle: 'none',
   },
-  aliasActionBtn: { padding: 4 },
-  deviceAlias:   { fontSize: 15, fontWeight: '800', color: '#0F172A', flexShrink: 1 },
-  deviceString:  { fontSize: 11, color: '#94A3B8', marginTop: 2 },
+  editAliasBtn: {
+    width: 26, height: 26, borderRadius: 13,
+    backgroundColor: '#E2E8F0',
+    alignItems: 'center', justifyContent: 'center',
+    flexShrink: 0,
+  },
+  deviceAlias:       { fontSize: 15, fontWeight: '800', color: '#0F172A', flex: 1 },
+  deviceString:      { fontSize: 11, color: '#94A3B8', marginTop: 2 },
   deviceHeaderRight: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  statusBadge: {
-    flexDirection: 'row', alignItems: 'center', gap: 5,
-    borderRadius: 999, borderWidth: 1, paddingHorizontal: 9, paddingVertical: 4,
-  },
-  statusDot:  { width: 6, height: 6, borderRadius: 3 },
-  statusText: { fontSize: 11, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.3 },
   toggleBtn: {
     flexDirection: 'row', alignItems: 'center', gap: 5,
     paddingHorizontal: 12, paddingVertical: 8, borderRadius: 10,
