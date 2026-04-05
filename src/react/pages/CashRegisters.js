@@ -81,6 +81,7 @@ const CashRegisters = () => {
   const goToDetail = useCallback(dc => {
     navigation.navigate('CashRegisterDetail', {
       dcId:         dc.id,
+      deviceId:     dc.device?.id,
       deviceString: dc.device?.device,
       alias:        dc.device?.alias || dc.device?.device || `Dispositivo #${dc.id}`,
       configs:      dc.configs || {},

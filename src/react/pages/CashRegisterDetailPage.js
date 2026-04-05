@@ -12,7 +12,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useFocusEffect, useRoute } from '@react-navigation/native';
+import { useFocusEffect, useNavigation, useRoute } from '@react-navigation/native';
 import { useStore } from '@store';
 import Formatter from '@controleonline/ui-common/src/utils/formatter';
 import StateStore from '@controleonline/ui-layout/src/react/components/StateStore';
@@ -68,11 +68,13 @@ const confirm = (msg, cb) => {
 };
 
 const CashRegisterDetailPage = () => {
-  const route = useRoute();
-  const { deviceString, alias, configs: initialConfigs } = route.params || {};
+  const route      = useRoute();
+  const navigation = useNavigation();
+  const { deviceId, deviceString, alias: initialAlias, configs: initialConfigs } = route.params || {};
 
   const invoiceStore      = useStore('invoice');
   const deviceConfigStore = useStore('device_config');
+  const deviceStore       = useStore('device');
   const peopleStore       = useStore('people');
   const themeStore        = useStore('theme');
 
@@ -83,6 +85,7 @@ const CashRegisterDetailPage = () => {
   actionsRef.current = {
     invoiceActions:      invoiceStore.actions,
     deviceConfigActions: deviceConfigStore.actions,
+    deviceActions:       deviceStore.actions,
   };
 
   const brandColors = useMemo(
@@ -96,6 +99,13 @@ const CashRegisterDetailPage = () => {
   const [loadingData,   setLoadingData]   = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
   const [search,        setSearch]        = useState('');
+
+  // Edição inline do alias
+  const [alias,        setAlias]        = useState(initialAlias || '');
+  const [editingAlias, setEditingAlias] = useState(false);
+  const [aliasInput,   setAliasInput]   = useState(alias);
+  const [savingAlias,  setSavingAlias]  = useState(false);
+  const aliasInputRef = useRef(null);
 
   const isOpen = useMemo(() => getIsOpen(configs), [configs]);
 
@@ -163,6 +173,37 @@ const CashRegisterDetailPage = () => {
     });
   };
 
+  const startEditAlias = useCallback(() => {
+    setAliasInput(alias);
+    setEditingAlias(true);
+    setTimeout(() => aliasInputRef.current?.focus(), 80);
+  }, [alias]);
+
+  const cancelEditAlias = useCallback(() => {
+    setEditingAlias(false);
+    setAliasInput(alias);
+  }, [alias]);
+
+  const saveAlias = useCallback(async () => {
+    const trimmed = aliasInput.trim();
+    if (!trimmed || trimmed === alias || !deviceId) {
+      cancelEditAlias();
+      return;
+    }
+    setSavingAlias(true);
+    try {
+      await actionsRef.current.deviceActions.updateItem({ id: deviceId, alias: trimmed });
+      setAlias(trimmed);
+      navigation.setParams({ alias: trimmed });
+      setEditingAlias(false);
+    } catch {
+      // silencioso — mantém o valor anterior
+      cancelEditAlias();
+    } finally {
+      setSavingAlias(false);
+    }
+  }, [aliasInput, alias, deviceId, cancelEditAlias, navigation]);
+
   // Totais derivados
   const productTotal = useMemo(
     () => products.reduce((s, p) => s + Number(p.order_product_total || 0), 0),
@@ -213,6 +254,7 @@ const CashRegisterDetailPage = () => {
     <SafeAreaView style={[styles.container, { backgroundColor: brandColors.background }]}>
       <StateStore store="invoice" />
       <StateStore store="device_config" />
+      <StateStore store="device" />
 
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
 
@@ -222,9 +264,50 @@ const CashRegisterDetailPage = () => {
             <View style={[styles.deviceIconBox, { backgroundColor: withOpacity(accent, 0.1) }]}>
               <Icon name="monitor" size={20} color={accent} />
             </View>
-            <View>
-              <Text style={styles.deviceAlias}>{alias}</Text>
-              <Text style={styles.deviceString}>{deviceString}</Text>
+
+            <View style={styles.aliasBlock}>
+              {editingAlias ? (
+                <View style={styles.aliasEditRow}>
+                  <TextInput
+                    ref={aliasInputRef}
+                    style={styles.aliasInput}
+                    value={aliasInput}
+                    onChangeText={setAliasInput}
+                    onSubmitEditing={saveAlias}
+                    returnKeyType="done"
+                    autoCapitalize="words"
+                    selectTextOnFocus
+                  />
+                  {savingAlias ? (
+                    <ActivityIndicator size="small" color={brandColors.primary} style={{ marginLeft: 6 }} />
+                  ) : (
+                    <>
+                      <TouchableOpacity onPress={saveAlias} style={styles.aliasActionBtn}>
+                        <Icon name="check" size={15} color={hex.success} />
+                      </TouchableOpacity>
+                      <TouchableOpacity onPress={cancelEditAlias} style={styles.aliasActionBtn}>
+                        <Icon name="x" size={15} color={hex.danger} />
+                      </TouchableOpacity>
+                    </>
+                  )}
+                </View>
+              ) : (
+                <TouchableOpacity
+                  style={styles.aliasRow}
+                  onPress={deviceId ? startEditAlias : undefined}
+                  activeOpacity={deviceId ? 0.7 : 1}
+                >
+                  <Text style={styles.deviceAlias} numberOfLines={1} ellipsizeMode="tail">
+                    {alias}
+                  </Text>
+                  {!!deviceId && (
+                    <Icon name="edit-2" size={12} color="#94A3B8" style={{ marginLeft: 6 }} />
+                  )}
+                </TouchableOpacity>
+              )}
+              <Text style={styles.deviceString} numberOfLines={1} ellipsizeMode="middle">
+                {deviceString}
+              </Text>
             </View>
           </View>
 
@@ -390,9 +473,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     ...cardShadow,
   },
-  deviceHeaderLeft: { flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 },
-  deviceIconBox: { width: 42, height: 42, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
-  deviceAlias:   { fontSize: 16, fontWeight: '800', color: '#0F172A' },
+  deviceHeaderLeft: { flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1, minWidth: 0 },
+  deviceIconBox: { width: 42, height: 42, borderRadius: 12, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+  aliasBlock:    { flex: 1, minWidth: 0 },
+  aliasRow:      { flexDirection: 'row', alignItems: 'center', minWidth: 0 },
+  aliasEditRow:  { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  aliasInput: {
+    flex: 1, fontSize: 15, fontWeight: '700', color: '#0F172A',
+    borderBottomWidth: 1.5, borderBottomColor: '#0EA5E9',
+    paddingVertical: 2, paddingHorizontal: 0,
+  },
+  aliasActionBtn: { padding: 4 },
+  deviceAlias:   { fontSize: 15, fontWeight: '800', color: '#0F172A', flexShrink: 1 },
   deviceString:  { fontSize: 11, color: '#94A3B8', marginTop: 2 },
   deviceHeaderRight: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   statusBadge: {
