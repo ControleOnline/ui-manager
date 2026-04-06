@@ -136,15 +136,24 @@ export default function IFoodIntegrationPage() {
       });
       const raw = response?.result?.data?.shifts ?? response?.result?.data ?? response?.data ?? [];
       if (Array.isArray(raw) && raw.length > 0) {
-        // iFood retorna plano [{dayOfWeek, start:"HH:MM:SS", duration}] — agrupa por dia
-        const grouped = raw[0]?.shifts
-          ? raw
-          : raw.reduce((acc, { dayOfWeek, start, duration }) => {
-              let entry = acc.find(e => e.dayOfWeek === dayOfWeek);
-              if (!entry) { entry = { dayOfWeek, shifts: [] }; acc.push(entry); }
-              entry.shifts.push({ start: String(start).substring(0, 5), duration });
-              return acc;
-            }, []);
+        const groupByDay = (list) => list.reduce((acc, { dayOfWeek, start, duration }) => {
+          let entry = acc.find(e => e.dayOfWeek === dayOfWeek);
+          if (!entry) { entry = { dayOfWeek, shifts: [] }; acc.push(entry); }
+          entry.shifts.push({ start: String(start).substring(0, 5), duration });
+          return acc;
+        }, []);
+
+        let grouped;
+        if (raw[0]?.dayOfWeek) {
+          // Ja agrupado por dia: [{dayOfWeek, shifts:[...]}]
+          grouped = raw;
+        } else if (raw[0]?.shifts) {
+          // iFood retornou outer wrapper: [{shifts:[{dayOfWeek,...}]}] — extrai e agrupa
+          grouped = groupByDay(raw.flatMap(r => r.shifts || []));
+        } else {
+          // iFood retornou plano: [{dayOfWeek, start, duration}] — agrupa
+          grouped = groupByDay(raw);
+        }
         setHours(grouped);
       }
     } catch (_) { /* silencioso */ }
@@ -897,7 +906,7 @@ export default function IFoodIntegrationPage() {
             )}
 
             {!hoursLoading && !hoursEditing && (
-              Array.isArray(hours) ? (
+              Array.isArray(hours) && hours.length > 0 ? (
                 <View style={{ gap: 8 }}>
                   {DAY_ORDER.map(day => {
                     const entry  = hours.find(h => h.dayOfWeek === day);
