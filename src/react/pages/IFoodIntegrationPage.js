@@ -144,10 +144,10 @@ export default function IFoodIntegrationPage() {
         }, []);
 
         let grouped;
-        if (raw[0]?.dayOfWeek) {
+        if (raw[0]?.dayOfWeek && Array.isArray(raw[0]?.shifts)) {
           // Ja agrupado por dia: [{dayOfWeek, shifts:[...]}]
           grouped = raw;
-        } else if (raw[0]?.shifts) {
+        } else if (!raw[0]?.dayOfWeek && raw[0]?.shifts) {
           // iFood retornou outer wrapper: [{shifts:[{dayOfWeek,...}]}] — extrai e agrupa
           grouped = groupByDay(raw.flatMap(r => r.shifts || []));
         } else {
