@@ -40,12 +40,20 @@ const DAY_LABELS = {
 const DAY_ORDER = ['MONDAY','TUESDAY','WEDNESDAY','THURSDAY','FRIDAY','SATURDAY','SUNDAY'];
 
 const calcEndTime = (start, durationMin) => {
-  if (!start || !durationMin) return '--:--';
+  if (!start || durationMin == null || durationMin === '') return '--:--';
   const [h, m] = start.split(':').map(Number);
   const total = h * 60 + m + Number(durationMin);
   const eh = Math.floor(total / 60) % 24;
   const em = total % 60;
   return `${String(eh).padStart(2, '0')}:${String(em).padStart(2, '0')}`;
+};
+
+const calcDuration = (start, end) => {
+  const [sh, sm] = (start || '00:00').split(':').map(Number);
+  const [eh, em] = (end   || '23:59').split(':').map(Number);
+  let d = (eh * 60 + em) - (sh * 60 + sm);
+  if (d <= 0) d += 1440;
+  return d;
 };
 
 const shadowStyle = Platform.select({
@@ -500,7 +508,14 @@ export default function IFoodIntegrationPage() {
   }, [itemPriceEditing, providerId, showError, showInfo]);
 
   const startEditHours = useCallback(() => {
-    setHoursDraft(hours ? JSON.parse(JSON.stringify(hours)) : []);
+    // Monta draft com todos os 7 dias — dias sem shifts = fechado
+    const draft = DAY_ORDER.map(day => {
+      const existing = (hours || []).find(h => h.dayOfWeek === day);
+      const isOpen   = !!existing && (existing.shifts || []).length > 0;
+      const shifts   = isOpen ? existing.shifts : [{ start: '09:00', duration: 840 }];
+      return { dayOfWeek: day, open: isOpen, shifts };
+    });
+    setHoursDraft(draft);
     setHoursEditing(true);
   }, [hours]);
 
@@ -514,9 +529,12 @@ export default function IFoodIntegrationPage() {
       if (!Array.isArray(prev)) return prev;
       return prev.map(day => {
         if (day.dayOfWeek !== dayOfWeek) return day;
-        const shifts = (day.shifts || []).map((s, i) =>
-          i === shiftIdx ? { ...s, [field]: value } : s
-        );
+        if (field === 'open') return { ...day, open: value };
+        const shifts = (day.shifts || []).map((s, i) => {
+          if (i !== shiftIdx) return s;
+          if (field === 'end') return { ...s, duration: calcDuration(s.start, value) };
+          return { ...s, [field]: value };
+        });
         return { ...day, shifts };
       });
     });
@@ -526,12 +544,28 @@ export default function IFoodIntegrationPage() {
     if (!providerId || !hoursDraft) return;
     setHoursSaving(true);
     try {
+      // Converte draft para flat shifts — apenas dias com open=true
+      const flatShifts = (hoursDraft || [])
+        .filter(d => d.open)
+        .flatMap(d => (d.shifts || []).map(s => ({
+          dayOfWeek: d.dayOfWeek,
+          start:     /^\d{2}:\d{2}$/.test(s.start) ? s.start + ':00' : s.start,
+          duration:  Number(s.duration) || 840,
+        })));
+
       const response = await api.fetch('/marketplace/integrations/ifood/store/hours', {
         method: 'PUT',
-        body: JSON.stringify({ provider_id: providerId, shifts: hoursDraft }),
+        body: JSON.stringify({ provider_id: providerId, shifts: flatShifts }),
       });
       if (String(response?.result?.errno ?? response?.errno ?? '') === '0') {
-        setHours(hoursDraft);
+        // Reconstroi hours agrupado para exibicao
+        const grouped = flatShifts.reduce((acc, { dayOfWeek, start, duration }) => {
+          let entry = acc.find(e => e.dayOfWeek === dayOfWeek);
+          if (!entry) { entry = { dayOfWeek, shifts: [] }; acc.push(entry); }
+          entry.shifts.push({ start: String(start).substring(0, 5), duration });
+          return acc;
+        }, []);
+        setHours(grouped);
         setHoursEditing(false);
         setHoursDraft(null);
         showInfo('Horarios de funcionamento atualizados no iFood.');
@@ -863,19 +897,23 @@ export default function IFoodIntegrationPage() {
             )}
 
             {!hoursLoading && !hoursEditing && (
-              Array.isArray(hours) && hours.length > 0 ? (
+              Array.isArray(hours) ? (
                 <View style={{ gap: 8 }}>
-                  {DAY_ORDER.filter(d => hours.some(h => h.dayOfWeek === d)).map(day => {
-                    const entry = hours.find(h => h.dayOfWeek === day);
+                  {DAY_ORDER.map(day => {
+                    const entry  = hours.find(h => h.dayOfWeek === day);
+                    const isOpen = !!entry && (entry.shifts || []).length > 0;
                     return (
                       <View key={day} style={styles.hoursDayRow}>
-                        <Text style={styles.hoursDayLabel}>{DAY_LABELS[day]}</Text>
+                        <Text style={[styles.hoursDayLabel, !isOpen && { color: '#94A3B8' }]}>{DAY_LABELS[day]}</Text>
                         <View style={{ flex: 1, gap: 2 }}>
-                          {(entry.shifts || []).map((s, i) => (
-                            <Text key={i} style={styles.hoursValue}>
-                              {s.start} – {calcEndTime(s.start, s.duration)}
-                            </Text>
-                          ))}
+                          {isOpen
+                            ? (entry.shifts || []).map((s, i) => (
+                                <Text key={i} style={styles.hoursValue}>
+                                  {s.start} – {calcEndTime(s.start, s.duration)}
+                                </Text>
+                              ))
+                            : <Text style={styles.hoursClosed}>Fechado</Text>
+                          }
                         </View>
                       </View>
                     );
@@ -888,29 +926,48 @@ export default function IFoodIntegrationPage() {
 
             {hoursEditing && Array.isArray(hoursDraft) && (
               hoursDraft.length > 0 ? (
-                <View style={{ gap: 10 }}>
+                <View style={{ gap: 8 }}>
                   {DAY_ORDER.map(day => {
-                    const entry = hoursDraft.find(h => h.dayOfWeek === day);
-                    if (!entry) return null;
+                    const entry = hoursDraft.find(h => h.dayOfWeek === day) || { dayOfWeek: day, open: false, shifts: [{ start: '09:00', duration: 840 }] };
                     return (
-                      <View key={day} style={styles.hoursDayRow}>
-                        <Text style={styles.hoursDayLabel}>{DAY_LABELS[day]}</Text>
-                        <View style={{ flex: 1, gap: 6 }}>
-                          {(entry.shifts || []).map((s, i) => (
-                            <View key={i} style={styles.hoursInputRow}>
-                              <TextInput
-                                value={s.start}
-                                onChangeText={v => updateHoursDraft(day, i, 'start', v)}
-                                style={styles.hoursInput}
-                                placeholder="HH:MM"
-                                placeholderTextColor="#94A3B8"
-                                keyboardType="numbers-and-punctuation"
-                              />
-                              <Text style={styles.hoursSep}>–</Text>
-                              <Text style={styles.hoursValue}>{calcEndTime(s.start, s.duration)}</Text>
-                            </View>
-                          ))}
-                        </View>
+                      <View key={day} style={[styles.hoursDayRow, { alignItems: 'center' }]}>
+                        {/* Toggle aberto/fechado */}
+                        <TouchableOpacity
+                          onPress={() => updateHoursDraft(day, null, 'open', !entry.open)}
+                          disabled={hoursSaving}
+                          style={[styles.dayToggle, entry.open && styles.dayToggleOn]}>
+                          <View style={[styles.dayToggleThumb, entry.open && styles.dayToggleThumbOn]} />
+                        </TouchableOpacity>
+                        <Text style={[styles.hoursDayLabel, !entry.open && { color: '#94A3B8' }]}>{DAY_LABELS[day]}</Text>
+                        {entry.open ? (
+                          <View style={{ flex: 1, gap: 6 }}>
+                            {(entry.shifts || []).map((s, i) => (
+                              <View key={i} style={styles.hoursInputRow}>
+                                <TextInput
+                                  value={s.start}
+                                  onChangeText={v => updateHoursDraft(day, i, 'start', v)}
+                                  style={styles.hoursInput}
+                                  placeholder="HH:MM"
+                                  placeholderTextColor="#94A3B8"
+                                  keyboardType="numbers-and-punctuation"
+                                  editable={!hoursSaving}
+                                />
+                                <Text style={styles.hoursSep}>–</Text>
+                                <TextInput
+                                  value={calcEndTime(s.start, s.duration)}
+                                  onChangeText={v => updateHoursDraft(day, i, 'end', v)}
+                                  style={styles.hoursInput}
+                                  placeholder="HH:MM"
+                                  placeholderTextColor="#94A3B8"
+                                  keyboardType="numbers-and-punctuation"
+                                  editable={!hoursSaving}
+                                />
+                              </View>
+                            ))}
+                          </View>
+                        ) : (
+                          <Text style={styles.hoursClosed}>Fechado</Text>
+                        )}
                       </View>
                     );
                   })}
@@ -1666,11 +1723,16 @@ const styles = StyleSheet.create({
   hoursDayRow:       { flexDirection: 'row', alignItems: 'flex-start', gap: 10, paddingVertical: 4, borderBottomWidth: 1, borderBottomColor: '#F1F5F9' },
   hoursDayLabel:     { width: 72, fontSize: 13, fontWeight: '700', color: '#334155', paddingTop: 2 },
   hoursValue:        { fontSize: 13, color: '#0F172A', fontWeight: '600' },
+  hoursClosed:       { fontSize: 12, color: '#94A3B8', fontWeight: '600', fontStyle: 'italic', paddingTop: 2 },
   hoursInputRow:     { flexDirection: 'row', alignItems: 'center', gap: 6 },
   hoursInput:        { width: 70, borderWidth: 1, borderColor: '#CBD5E1', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4, fontSize: 13, color: '#0F172A', backgroundColor: '#F8FAFC' },
   hoursSep:          { fontSize: 13, color: '#94A3B8', fontWeight: '600' },
   hoursCancelBtn:    { minHeight: 44, paddingHorizontal: 16, borderRadius: 12, borderWidth: 1, borderColor: '#E2E8F0', alignItems: 'center', justifyContent: 'center', backgroundColor: '#fff' },
   hoursCancelText:   { fontSize: 13, fontWeight: '700', color: '#64748B' },
+  dayToggle:         { width: 34, height: 20, borderRadius: 10, backgroundColor: '#E2E8F0', paddingHorizontal: 2, justifyContent: 'center' },
+  dayToggleOn:       { backgroundColor: '#16A34A' },
+  dayToggleThumb:    { width: 16, height: 16, borderRadius: 8, backgroundColor: '#fff' },
+  dayToggleThumbOn:  { marginLeft: 'auto' },
 
   optionsSection:       { marginTop: 8, paddingTop: 8, borderTopWidth: 1, borderTopColor: '#F1F5F9', gap: 6 },
   optionsSectionLabel:  { fontSize: 11, fontWeight: '700', color: '#64748B', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 2 },
