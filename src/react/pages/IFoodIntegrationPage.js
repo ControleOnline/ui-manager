@@ -776,23 +776,28 @@ export default function IFoodIntegrationPage() {
                 : 'Consulte ou altere a disponibilidade da loja para receber pedidos.'}
             </Text>
 
-            {/* operacoes */}
-            {Array.isArray(storeStatus?.data?.operations) && storeStatus.data.operations.length > 0 && (
-              <View style={styles.opsGrid}>
-                {storeStatus.data.operations.map((op, i) => {
-                  const opOnline = op.state === 'OK' || op.state === 'WARNING';
-                  const opColor  = op.state === 'OK' ? '#16A34A' : op.state === 'WARNING' ? '#D97706' : '#DC2626';
-                  return (
-                    <View key={i} style={[styles.opChip, { borderColor: withOpacity(opColor, 0.3), backgroundColor: withOpacity(opColor, 0.08) }]}>
-                      <Icon name={opOnline ? 'check-circle' : 'x-circle'} size={12} color={opColor} />
-                      <Text style={[styles.opChipText, { color: opColor }]}>
-                        {op.operation}{op.sales_channel ? ` · ${op.sales_channel}` : ''}: {op.state_label}
-                      </Text>
-                    </View>
-                  );
-                })}
-              </View>
-            )}
+            {/* operacoes — oculta chips ERROR quando a loja ja esta offline (redundante com o badge) */}
+            {Array.isArray(storeStatus?.data?.operations) && (() => {
+              const storeOnline = storeStatus.data.online === true;
+              const visibleOps  = storeStatus.data.operations.filter(op => storeOnline || op.state !== 'ERROR');
+              if (visibleOps.length === 0) return null;
+              return (
+                <View style={styles.opsGrid}>
+                  {visibleOps.map((op, i) => {
+                    const opOnline = op.state === 'OK' || op.state === 'WARNING';
+                    const opColor  = op.state === 'OK' ? '#16A34A' : op.state === 'WARNING' ? '#D97706' : '#DC2626';
+                    return (
+                      <View key={i} style={[styles.opChip, { borderColor: withOpacity(opColor, 0.3), backgroundColor: withOpacity(opColor, 0.08) }]}>
+                        <Icon name={opOnline ? 'check-circle' : 'x-circle'} size={12} color={opColor} />
+                        <Text style={[styles.opChipText, { color: opColor }]}>
+                          {op.operation}{op.sales_channel ? ` · ${op.sales_channel}` : ''}: {op.state_label}
+                        </Text>
+                      </View>
+                    );
+                  })}
+                </View>
+              );
+            })()}
 
             <View style={styles.availRow}>
               <TouchableOpacity
