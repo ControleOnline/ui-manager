@@ -33,6 +33,21 @@ const filterTabs = [
   { key: 'blocked',  label: 'Com bloqueio' },
 ];
 
+const DAY_LABELS = {
+  MONDAY: 'Segunda', TUESDAY: 'Terça', WEDNESDAY: 'Quarta',
+  THURSDAY: 'Quinta', FRIDAY: 'Sexta', SATURDAY: 'Sábado', SUNDAY: 'Domingo',
+};
+const DAY_ORDER = ['MONDAY','TUESDAY','WEDNESDAY','THURSDAY','FRIDAY','SATURDAY','SUNDAY'];
+
+const calcEndTime = (start, durationMin) => {
+  if (!start || !durationMin) return '--:--';
+  const [h, m] = start.split(':').map(Number);
+  const total = h * 60 + m + Number(durationMin);
+  const eh = Math.floor(total / 60) % 24;
+  const em = total % 60;
+  return `${String(eh).padStart(2, '0')}:${String(em).padStart(2, '0')}`;
+};
+
 const shadowStyle = Platform.select({
   ios:     { shadowColor: '#0F172A', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.08, shadowRadius: 16 },
   android: { elevation: 3 },
@@ -77,6 +92,15 @@ export default function IFoodIntegrationPage() {
   const [itemPriceEditing,  setItemPriceEditing]  = useState({});
   const [itemPriceLoading,  setItemPriceLoading]  = useState(new Set());
 
+  const [hours,            setHours]            = useState(null);
+  const [hoursLoading,     setHoursLoading]     = useState(false);
+  const [hoursSaving,      setHoursSaving]      = useState(false);
+  const [hoursEditing,     setHoursEditing]     = useState(false);
+  const [hoursDraft,       setHoursDraft]       = useState(null);
+  const [optStatusLoading, setOptStatusLoading] = useState(new Set());
+  const [optPriceEditing,  setOptPriceEditing]  = useState({});
+  const [optPriceLoading,  setOptPriceLoading]  = useState(new Set());
+
   /* ------------------------------------------------------------------ */
   /* produtos                                                             */
   /* ------------------------------------------------------------------ */
@@ -92,6 +116,33 @@ export default function IFoodIntegrationPage() {
     setSelectedIds(new Set(ids));
   }, []);
 
+  /* ------------------------------------------------------------------ */
+  /* horarios de funcionamento                                           */
+  /* ------------------------------------------------------------------ */
+  const loadHours = useCallback(async () => {
+    if (!providerId) return;
+    setHoursLoading(true);
+    try {
+      const response = await api.fetch('/marketplace/integrations/ifood/store/hours', {
+        params: { provider_id: providerId },
+      });
+      const raw = response?.result?.data?.shifts ?? response?.result?.data ?? response?.data ?? [];
+      if (Array.isArray(raw) && raw.length > 0) {
+        // iFood retorna plano [{dayOfWeek, start:"HH:MM:SS", duration}] — agrupa por dia
+        const grouped = raw[0]?.shifts
+          ? raw
+          : raw.reduce((acc, { dayOfWeek, start, duration }) => {
+              let entry = acc.find(e => e.dayOfWeek === dayOfWeek);
+              if (!entry) { entry = { dayOfWeek, shifts: [] }; acc.push(entry); }
+              entry.shifts.push({ start: String(start).substring(0, 5), duration });
+              return acc;
+            }, []);
+        setHours(grouped);
+      }
+    } catch (_) { /* silencioso */ }
+    finally { setHoursLoading(false); }
+  }, [providerId]);
+
   const applyDetailResponse = useCallback((response, { syncSelection = false } = {}) => {
     setDetail(response || null);
     const integrationMerchantId = String(
@@ -105,7 +156,9 @@ export default function IFoodIntegrationPage() {
         syncPublishedSelection(response.products?.products || []);
       }
     }
-  }, [syncPublishedSelection]);
+
+    if (response?.integration?.connected) loadHours();
+  }, [syncPublishedSelection, loadHours]);
 
   /* ------------------------------------------------------------------ */
   /* carregamento                                                         */
@@ -446,6 +499,137 @@ export default function IFoodIntegrationPage() {
     }
   }, [itemPriceEditing, providerId, showError, showInfo]);
 
+  const startEditHours = useCallback(() => {
+    setHoursDraft(hours ? JSON.parse(JSON.stringify(hours)) : []);
+    setHoursEditing(true);
+  }, [hours]);
+
+  const cancelEditHours = useCallback(() => {
+    setHoursEditing(false);
+    setHoursDraft(null);
+  }, []);
+
+  const updateHoursDraft = useCallback((dayOfWeek, shiftIdx, field, value) => {
+    setHoursDraft(prev => {
+      if (!Array.isArray(prev)) return prev;
+      return prev.map(day => {
+        if (day.dayOfWeek !== dayOfWeek) return day;
+        const shifts = (day.shifts || []).map((s, i) =>
+          i === shiftIdx ? { ...s, [field]: value } : s
+        );
+        return { ...day, shifts };
+      });
+    });
+  }, []);
+
+  const saveHours = useCallback(async () => {
+    if (!providerId || !hoursDraft) return;
+    setHoursSaving(true);
+    try {
+      const response = await api.fetch('/marketplace/integrations/ifood/store/hours', {
+        method: 'PUT',
+        body: JSON.stringify({ provider_id: providerId, shifts: hoursDraft }),
+      });
+      if (String(response?.result?.errno ?? response?.errno ?? '') === '0') {
+        setHours(hoursDraft);
+        setHoursEditing(false);
+        setHoursDraft(null);
+        showInfo('Horarios de funcionamento atualizados no iFood.');
+      } else {
+        showError(formatApiError(response?.result || response));
+      }
+    } catch (error) {
+      showError(formatApiError(error));
+    } finally {
+      setHoursSaving(false);
+    }
+  }, [hoursDraft, providerId, showError, showInfo]);
+
+  /* ------------------------------------------------------------------ */
+  /* opcoes / complementos iFood                                         */
+  /* ------------------------------------------------------------------ */
+  const handleOptionStatusToggle = useCallback(async (product, opt) => {
+    if (!providerId || !opt?.ifood_option_id) return;
+    const optionId   = opt.ifood_option_id;
+    const nextStatus = opt.ifood_status === 'UNAVAILABLE' ? 'AVAILABLE' : 'UNAVAILABLE';
+    setOptStatusLoading(prev => new Set([...prev, optionId]));
+    try {
+      const response = await api.fetch('/marketplace/integrations/ifood/menu/option/status', {
+        method: 'PATCH',
+        body: JSON.stringify({ provider_id: providerId, option_id: optionId, status: nextStatus }),
+      });
+      if (String(response?.result?.errno ?? '') === '0') {
+        setProductsResponse(prev => {
+          if (!prev?.products) return prev;
+          return {
+            ...prev,
+            products: prev.products.map(p =>
+              p.id === product.id
+                ? {
+                    ...p,
+                    options: (p.options || []).map(o =>
+                      o.ifood_option_id === optionId ? { ...o, ifood_status: nextStatus } : o
+                    ),
+                  }
+                : p
+            ),
+          };
+        });
+        showInfo(`Complemento ${nextStatus === 'AVAILABLE' ? 'disponivel' : 'indisponivel'} no iFood.`);
+      } else {
+        showError(formatApiError(response?.result || response));
+      }
+    } catch (error) {
+      showError(formatApiError(error));
+    } finally {
+      setOptStatusLoading(prev => { const s = new Set(prev); s.delete(optionId); return s; });
+    }
+  }, [providerId, showError, showInfo]);
+
+  const handleOptionPriceSave = useCallback(async (product, opt) => {
+    if (!providerId || !opt?.ifood_option_id) return;
+    const optionId = opt.ifood_option_id;
+    const raw      = optPriceEditing[optionId];
+    const price    = parseFloat(String(raw ?? '').replace(',', '.'));
+    if (!Number.isFinite(price) || price <= 0) {
+      showError('Informe um preco valido maior que zero.');
+      return;
+    }
+    setOptPriceLoading(prev => new Set([...prev, optionId]));
+    try {
+      const response = await api.fetch('/marketplace/integrations/ifood/menu/option/price', {
+        method: 'PATCH',
+        body: JSON.stringify({ provider_id: providerId, option_id: optionId, price }),
+      });
+      if (String(response?.result?.errno ?? '') === '0') {
+        setProductsResponse(prev => {
+          if (!prev?.products) return prev;
+          return {
+            ...prev,
+            products: prev.products.map(p =>
+              p.id === product.id
+                ? {
+                    ...p,
+                    options: (p.options || []).map(o =>
+                      o.ifood_option_id === optionId ? { ...o, price } : o
+                    ),
+                  }
+                : p
+            ),
+          };
+        });
+        setOptPriceEditing(prev => { const n = { ...prev }; delete n[optionId]; return n; });
+        showInfo('Preco do complemento atualizado no iFood.');
+      } else {
+        showError(formatApiError(response?.result || response));
+      }
+    } catch (error) {
+      showError(formatApiError(error));
+    } finally {
+      setOptPriceLoading(prev => { const s = new Set(prev); s.delete(optionId); return s; });
+    }
+  }, [optPriceEditing, providerId, showError, showInfo]);
+
   /* ------------------------------------------------------------------ */
   /* render estados vazios                                                */
   /* ------------------------------------------------------------------ */
@@ -649,6 +833,113 @@ export default function IFoodIntegrationPage() {
                 <Text style={styles.errorTitle}>Erro ao consultar disponibilidade</Text>
                 <Text style={styles.errorText}>{storeStatus.errmsg}</Text>
               </View>
+            )}
+          </View>
+        )}
+
+        {/* horarios de funcionamento */}
+        {connected && (
+          <View style={[styles.sectionCard, shadowStyle]}>
+            <View style={styles.statusRow}>
+              <Text style={styles.sectionTitle}>Horarios de funcionamento</Text>
+              {!hoursEditing && (
+                <TouchableOpacity
+                  onPress={startEditHours}
+                  style={styles.hoursEditBtn}
+                  disabled={hoursLoading}>
+                  <Icon name="edit-2" size={13} color="#0EA5E9" />
+                  <Text style={styles.hoursEditBtnText}>Editar</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+
+            {hoursLoading && (
+              <ActivityIndicator size="small" color="#0EA5E9" />
+            )}
+
+            {!hoursLoading && !hoursEditing && (
+              Array.isArray(hours) && hours.length > 0 ? (
+                <View style={{ gap: 8 }}>
+                  {DAY_ORDER.filter(d => hours.some(h => h.dayOfWeek === d)).map(day => {
+                    const entry = hours.find(h => h.dayOfWeek === day);
+                    return (
+                      <View key={day} style={styles.hoursDayRow}>
+                        <Text style={styles.hoursDayLabel}>{DAY_LABELS[day]}</Text>
+                        <View style={{ flex: 1, gap: 2 }}>
+                          {(entry.shifts || []).map((s, i) => (
+                            <Text key={i} style={styles.hoursValue}>
+                              {s.start} – {calcEndTime(s.start, s.duration)}
+                            </Text>
+                          ))}
+                        </View>
+                      </View>
+                    );
+                  })}
+                </View>
+              ) : (
+                <Text style={styles.helperText}>Nenhum horario configurado. Toque em Editar para definir.</Text>
+              )
+            )}
+
+            {hoursEditing && Array.isArray(hoursDraft) && (
+              hoursDraft.length > 0 ? (
+                <View style={{ gap: 10 }}>
+                  {DAY_ORDER.map(day => {
+                    const entry = hoursDraft.find(h => h.dayOfWeek === day);
+                    if (!entry) return null;
+                    return (
+                      <View key={day} style={styles.hoursDayRow}>
+                        <Text style={styles.hoursDayLabel}>{DAY_LABELS[day]}</Text>
+                        <View style={{ flex: 1, gap: 6 }}>
+                          {(entry.shifts || []).map((s, i) => (
+                            <View key={i} style={styles.hoursInputRow}>
+                              <TextInput
+                                value={s.start}
+                                onChangeText={v => updateHoursDraft(day, i, 'start', v)}
+                                style={styles.hoursInput}
+                                placeholder="HH:MM"
+                                placeholderTextColor="#94A3B8"
+                                keyboardType="numbers-and-punctuation"
+                              />
+                              <Text style={styles.hoursSep}>–</Text>
+                              <Text style={styles.hoursValue}>{calcEndTime(s.start, s.duration)}</Text>
+                            </View>
+                          ))}
+                        </View>
+                      </View>
+                    );
+                  })}
+                  <View style={styles.availRow}>
+                    <TouchableOpacity
+                      onPress={saveHours}
+                      disabled={hoursSaving}
+                      style={[styles.actionButton, { backgroundColor: '#16A34A' }]}>
+                      {hoursSaving
+                        ? <ActivityIndicator color="#fff" size="small" />
+                        : <><Icon name="check" size={15} color="#fff" /><Text style={styles.actionButtonText}>Salvar horarios</Text></>}
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      onPress={cancelEditHours}
+                      disabled={hoursSaving}
+                      style={styles.hoursCancelBtn}>
+                      <Text style={styles.hoursCancelText}>Cancelar</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              ) : (
+                <View style={{ gap: 10 }}>
+                  <View style={styles.helperRow}>
+                    <Text style={styles.helperText}>
+                      Nenhum horario retornado pelo iFood. Sincronize o catalogo e tente novamente.
+                    </Text>
+                  </View>
+                  <TouchableOpacity
+                    onPress={cancelEditHours}
+                    style={styles.hoursCancelBtn}>
+                    <Text style={styles.hoursCancelText}>Fechar</Text>
+                  </TouchableOpacity>
+                </View>
+              )
             )}
           </View>
         )}
@@ -944,6 +1235,79 @@ export default function IFoodIntegrationPage() {
                         )}
                         {!eligible && Array.isArray(product.blockers) && product.blockers.length > 0 && (
                           <Text style={styles.productBlocker}>{product.blockers.join(' • ')}</Text>
+                        )}
+
+                        {/* complementos iFood */}
+                        {published && Array.isArray(product.options) && product.options.length > 0 && (
+                          <View style={styles.optionsSection}>
+                            <Text style={styles.optionsSectionLabel}>Complementos iFood</Text>
+                            {product.options.map((opt, oi) => {
+                              const hasIfoodId  = !!opt.ifood_option_id;
+                              const oId         = opt.ifood_option_id || null;
+                              const oAvail      = opt.ifood_status !== 'UNAVAILABLE';
+                              const oBusy       = oId ? optStatusLoading.has(oId) : false;
+                              const oPriceBusy  = oId ? optPriceLoading.has(oId) : false;
+                              const oDraftPrice = oId ? optPriceEditing[oId] : undefined;
+                              const oEditing    = oDraftPrice !== undefined;
+                              return (
+                                <View key={oi} style={styles.optionRow}>
+                                  <View style={styles.optionInfo}>
+                                    <Text style={styles.optionName} numberOfLines={1}>{opt.name || `Complemento ${oi + 1}`}</Text>
+                                    {!hasIfoodId && (
+                                      <Text style={styles.optNoIfoodId}>Sem ID iFood</Text>
+                                    )}
+                                  </View>
+                                  {hasIfoodId && (
+                                    <View style={styles.optionControls}>
+                                      {oEditing ? (
+                                        <>
+                                          <TextInput
+                                            value={String(oDraftPrice)}
+                                            onChangeText={v => setOptPriceEditing(prev => ({ ...prev, [oId]: v }))}
+                                            keyboardType="decimal-pad"
+                                            style={styles.priceInput}
+                                            placeholder="0.00"
+                                            placeholderTextColor="#94A3B8"
+                                            onSubmitEditing={(e) => { e.stopPropagation?.(); handleOptionPriceSave(product, opt); }}
+                                          />
+                                          <TouchableOpacity
+                                            onPress={(e) => { e.stopPropagation?.(); handleOptionPriceSave(product, opt); }}
+                                            disabled={oPriceBusy}
+                                            style={styles.priceSaveButton}>
+                                            {oPriceBusy
+                                              ? <ActivityIndicator size={12} color="#fff" />
+                                              : <Icon name="check" size={13} color="#fff" />}
+                                          </TouchableOpacity>
+                                          <TouchableOpacity
+                                            onPress={(e) => { e.stopPropagation?.(); setOptPriceEditing(prev => { const n = { ...prev }; delete n[oId]; return n; }); }}
+                                            style={styles.priceCancelButton}>
+                                            <Icon name="x" size={13} color="#64748B" />
+                                          </TouchableOpacity>
+                                        </>
+                                      ) : (
+                                        <TouchableOpacity
+                                          onPress={(e) => { e.stopPropagation?.(); setOptPriceEditing(prev => ({ ...prev, [oId]: String(opt.price ?? '') })); }}
+                                          style={styles.priceEditTrigger}>
+                                          <Text style={styles.priceEditText}>R$ {Number(opt.price || 0).toFixed(2)}</Text>
+                                          <Icon name="edit-2" size={11} color="#64748B" />
+                                        </TouchableOpacity>
+                                      )}
+                                      <TouchableOpacity
+                                        onPress={(e) => { e.stopPropagation?.(); handleOptionStatusToggle(product, opt); }}
+                                        disabled={oBusy}
+                                        style={[styles.optStatusBadge, { backgroundColor: oAvail ? '#DCFCE7' : '#FEE2E2' }]}>
+                                        {oBusy
+                                          ? <ActivityIndicator size={10} color={oAvail ? '#16A34A' : '#DC2626'} />
+                                          : <Text style={[styles.itemStatusText, { color: oAvail ? '#15803D' : '#B91C1C' }]}>
+                                              {oAvail ? 'Ativo' : 'Inativo'}
+                                            </Text>}
+                                      </TouchableOpacity>
+                                    </View>
+                                  )}
+                                </View>
+                              );
+                            })}
+                          </View>
                         )}
                       </View>
                     </View>
@@ -1291,4 +1655,24 @@ const styles = StyleSheet.create({
   availButtonDisabled: { opacity: 0.45 },
   availButtonText: { color: '#fff', fontSize: 13, fontWeight: '800' },
   availRefreshButton: { width: 44, height: 44, borderRadius: 12, borderWidth: 1, borderColor: '#E2E8F0', backgroundColor: '#F8FAFC', alignItems: 'center', justifyContent: 'center' },
+
+  hoursEditBtn:      { flexDirection: 'row', alignItems: 'center', gap: 5, borderRadius: 999, borderWidth: 1, borderColor: '#BAE6FD', backgroundColor: '#F0F9FF', paddingHorizontal: 10, paddingVertical: 5 },
+  hoursEditBtnText:  { fontSize: 12, fontWeight: '700', color: '#0EA5E9' },
+  hoursDayRow:       { flexDirection: 'row', alignItems: 'flex-start', gap: 10, paddingVertical: 4, borderBottomWidth: 1, borderBottomColor: '#F1F5F9' },
+  hoursDayLabel:     { width: 72, fontSize: 13, fontWeight: '700', color: '#334155', paddingTop: 2 },
+  hoursValue:        { fontSize: 13, color: '#0F172A', fontWeight: '600' },
+  hoursInputRow:     { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  hoursInput:        { width: 70, borderWidth: 1, borderColor: '#CBD5E1', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4, fontSize: 13, color: '#0F172A', backgroundColor: '#F8FAFC' },
+  hoursSep:          { fontSize: 13, color: '#94A3B8', fontWeight: '600' },
+  hoursCancelBtn:    { minHeight: 44, paddingHorizontal: 16, borderRadius: 12, borderWidth: 1, borderColor: '#E2E8F0', alignItems: 'center', justifyContent: 'center', backgroundColor: '#fff' },
+  hoursCancelText:   { fontSize: 13, fontWeight: '700', color: '#64748B' },
+
+  optionsSection:       { marginTop: 8, paddingTop: 8, borderTopWidth: 1, borderTopColor: '#F1F5F9', gap: 6 },
+  optionsSectionLabel:  { fontSize: 11, fontWeight: '700', color: '#64748B', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 2 },
+  optionRow:            { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8, paddingVertical: 4 },
+  optionInfo:           { flex: 1, minWidth: 0 },
+  optionName:           { fontSize: 13, fontWeight: '600', color: '#0F172A' },
+  optionControls:       { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  optStatusBadge:       { borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4, minWidth: 44, alignItems: 'center', justifyContent: 'center' },
+  optNoIfoodId:         { fontSize: 10, color: '#94A3B8', fontWeight: '600', fontStyle: 'italic' },
 });
