@@ -565,7 +565,7 @@ export default function PdvPage() {
 
   const palette = useMemo(() => resolveThemePalette(themeStore?.getters?.colors), [themeStore?.getters?.colors])
 
-  const { currentCompany, defaultCompany } = peopleStore.getters
+  const { currentCompany, defaultCompany, items: peopleItems, isLoading: peopleLoading } = peopleStore.getters
   const { items: allProducts, isLoading: productsLoading } = productsStore.getters
   const { isSaving: orderSaving }   = ordersStore.getters
   const { isSaving: invoiceSaving } = invoiceStore.getters
@@ -590,6 +590,10 @@ export default function PdvPage() {
   const [newPaymentType, setNewPaymentType]   = useState(null)
   const [newPaymentAmount, setNewPaymentAmount] = useState('')
 
+  const [selectedPeople, setSelectedPeople]   = useState(null)
+  const [peopleQuery, setPeopleQuery]         = useState('')
+  const [finalTroco, setFinalTroco]           = useState(0)
+
   /* ── carregar categorias e pagamentos ── */
   useFocusEffect(
     useCallback(() => {
@@ -599,9 +603,22 @@ export default function PdvPage() {
         'order[name]': 'ASC',
         company: currentCompany.id,
       })
-      walletStore.actions.getItems({ company: currentCompany.id })
+      walletStore.actions.getItems({ people: '/people/' + currentCompany.id })
     }, [currentCompany?.id]),
   )
+
+  const searchPeople = useCallback((query) => {
+    if (!query.trim() || !currentCompany?.id) {
+      peopleStore.actions.setItems([])
+      return
+    }
+    peopleStore.actions.getItems({
+      'link.company': '/people/' + currentCompany.id,
+      'link.linkType': 'client',
+      name: query.trim(),
+      itemsPerPage: 5,
+    })
+  }, [currentCompany?.id])
 
   /* ── reset ao sair ── */
   useFocusEffect(
@@ -614,6 +631,9 @@ export default function PdvPage() {
       setCustModal({ visible: false, product: null })
       setStep('cart')
       setPayments([])
+      setSelectedPeople(null)
+      setPeopleQuery('')
+      peopleStore.actions.setItems([])
     }, []),
   )
 
@@ -771,33 +791,40 @@ export default function PdvPage() {
   /* ── finalizar ── */
   const handleFinalize = useCallback(async () => {
     if (payments.length === 0 || paymentsTotal < cartTotal) return
+    const posStatus = defaultCompany?.configs?.['pos-default-status']
+    if (!posStatus) {
+      setStep('error')
+      setProcessingMsg('Status padrão do PDV não configurado. Configure pos-default-status na empresa.')
+      return
+    }
     setStep('processing')
     setProcessingMsg('Criando pedido...')
     try {
-      const status = defaultCompany?.configs?.['pos-default-status']
-      const order = await ordersStore.actions.save({
+      const orderPayload = {
         app: 'POS',
         provider: '/people/' + currentCompany.id,
-        status: status ? '/statuses/' + status : undefined,
+        status: '/statuses/' + posStatus,
         orderType: 'sale',
-      })
+      }
+      if (selectedPeople?.['@id']) orderPayload.people = selectedPeople['@id']
+      const order = await ordersStore.actions.save(orderPayload)
 
       setProcessingMsg('Adicionando produtos...')
+      const toId = iri => String(iri || '').replace(/\D/g, '')
       const simpleMap = {}
       for (const item of cartItems) {
         if (item.subProducts?.length > 0) {
           await ordersStore.actions.addProducts(order.id, [{
-            product: item.product['@id'],
+            product: toId(item.product['@id']),
             quantity: item.quantity,
-            order: order['@id'],
             sub_products: item.subProducts.map(sp => ({
-              product: sp.productGroupProduct.productChild?.['@id'],
+              product: toId(sp.productGroupProduct.productChild?.['@id']),
               productGroup: sp.groupId,
               quantity: sp.quantity,
             })),
           }])
         } else {
-          const pid = item.product['@id']
+          const pid = toId(item.product['@id'])
           simpleMap[pid] = (simpleMap[pid] || 0) + item.quantity
         }
       }
@@ -810,25 +837,28 @@ export default function PdvPage() {
       setProcessingMsg('Registrando pagamento...')
       const paidStatus = defaultCompany?.configs?.['pos-paid-status']
       for (const payment of payments) {
-        await invoiceStore.actions.save({
+        const invoicePayload = {
           dueDate: Formatter.getCurrentDate(),
-          status: paidStatus ? '/statuses/' + paidStatus : undefined,
           destinationWallet: payment.paymentType.wallet?.['@id'],
           paymentType: payment.paymentType.paymentType?.['@id'],
           price: toFloat(payment.amount),
           receiver: '/people/' + currentCompany.id,
           order: order['@id'],
-        })
+        }
+        if (paidStatus) invoicePayload.status = '/statuses/' + paidStatus
+        await invoiceStore.actions.save(invoicePayload)
       }
 
+      setFinalTroco(Math.max(0, paymentsTotal - cartTotal))
       setStep('done')
       setProcessingMsg('')
       setCart({})
+      setPayments([])
     } catch (e) {
       setStep('error')
       setProcessingMsg(e?.message || 'Erro ao finalizar pedido')
     }
-  }, [payments, paymentsTotal, cartTotal, cartItems, currentCompany, defaultCompany])
+  }, [payments, paymentsTotal, cartTotal, cartItems, currentCompany, defaultCompany, selectedPeople])
 
   return (
     <SafeAreaView style={[gs.root, { backgroundColor: palette.background || '#F8FAFC' }]}>
@@ -1016,6 +1046,49 @@ export default function PdvPage() {
                   </View>
                 </View>
 
+                {/* cliente opcional */}
+                <View style={[gs.clientBlock, { borderTopColor: palette.border }]}>
+                  <Text style={[gs.addPayTitle, { color: palette.textSecondary }]}>Cliente (opcional)</Text>
+                  {selectedPeople ? (
+                    <View style={[gs.clientSelected, { borderColor: palette.primary, backgroundColor: withOpacity(palette.primary, 0.06) }]}>
+                      <MaterialCommunityIcons name="account-check" size={18} color={palette.primary} />
+                      <Text style={[gs.clientSelectedName, { color: palette.primary, flex: 1 }]} numberOfLines={1}>
+                        {selectedPeople.name || selectedPeople.people}
+                      </Text>
+                      <TouchableOpacity onPress={() => { setSelectedPeople(null); setPeopleQuery(''); peopleStore.actions.setItems([]) }} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                        <MaterialCommunityIcons name="close-circle" size={18} color={palette.textSecondary} />
+                      </TouchableOpacity>
+                    </View>
+                  ) : (
+                    <>
+                      <View style={[gs.clientSearch, { borderColor: palette.border, backgroundColor: palette.surface || '#fff' }]}>
+                        <MaterialCommunityIcons name="magnify" size={16} color={palette.textSecondary} />
+                        <TextInput
+                          value={peopleQuery}
+                          onChangeText={v => { setPeopleQuery(v); searchPeople(v) }}
+                          placeholder="Buscar por nome..."
+                          placeholderTextColor={palette.textSecondary}
+                          style={[gs.searchText, { color: palette.text, flex: 1 }]}
+                        />
+                        {peopleLoading && <ActivityIndicator size="small" color={palette.primary} />}
+                      </View>
+                      {peopleQuery.trim().length > 0 && (peopleItems || []).map(p => (
+                        <TouchableOpacity
+                          key={p['@id'] || p.id}
+                          onPress={() => { setSelectedPeople(p); setPeopleQuery(''); peopleStore.actions.setItems([]) }}
+                          style={[gs.clientResult, { borderColor: palette.border }]}
+                          activeOpacity={0.7}
+                        >
+                          <MaterialCommunityIcons name="account" size={16} color={palette.textSecondary} />
+                          <Text style={[gs.clientResultName, { color: palette.text }]} numberOfLines={1}>
+                            {p.name || p.people}
+                          </Text>
+                        </TouchableOpacity>
+                      ))}
+                    </>
+                  )}
+                </View>
+
                 <View style={gs.actions}>
                   <TouchableOpacity onPress={() => setCart({})} style={[gs.btnSec, { borderColor: palette.border }]}>
                     <Text style={[gs.btnSecText, { color: palette.textSecondary }]}>Limpar</Text>
@@ -1162,10 +1235,10 @@ export default function PdvPage() {
                 <MaterialCommunityIcons name="check-circle" size={64} color={palette.success || '#22C55E'} />
                 <Text style={[gs.feedbackTitle, { color: palette.text }]}>Venda concluída!</Text>
                 <Text style={[gs.feedbackText, { color: palette.textSecondary }]}>Pedido registrado com sucesso.</Text>
-                {troco > 0 && (
-                  <View style={{ backgroundColor: withOpacity(palette.success || '#22C55E', 0.1), borderRadius: 12, paddingHorizontal: 20, paddingVertical: 10, marginTop: 4 }}>
-                    <Text style={{ color: palette.success || '#22C55E', fontWeight: '800', fontSize: 16 }}>
-                      Troco: {Formatter.formatMoney(troco)}
+                {finalTroco > 0 && (
+                  <View style={{ backgroundColor: palette.success || '#22C55E', borderRadius: 12, paddingHorizontal: 24, paddingVertical: 12, marginTop: 4 }}>
+                    <Text style={{ color: '#fff', fontWeight: '800', fontSize: 16 }}>
+                      Troco: {Formatter.formatMoney(finalTroco)}
                     </Text>
                   </View>
                 )}
@@ -1327,6 +1400,14 @@ const gs = StyleSheet.create({
 
   cartSummary: { paddingHorizontal: 16, paddingVertical: 10, borderTopWidth: 1 },
   totalRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+
+  /* cliente */
+  clientBlock: { paddingHorizontal: 16, paddingVertical: 10, borderTopWidth: 1 },
+  clientSearch: { flexDirection: 'row', alignItems: 'center', gap: 8, borderWidth: 1, borderRadius: 10, paddingHorizontal: 10, paddingVertical: 8, marginTop: 6 },
+  clientSelected: { flexDirection: 'row', alignItems: 'center', gap: 8, borderWidth: 1.5, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10, marginTop: 6 },
+  clientSelectedName: { fontSize: 14, fontWeight: '700' },
+  clientResult: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 12, paddingVertical: 10, borderBottomWidth: 1 },
+  clientResultName: { fontSize: 14 },
   totalLabel: { fontSize: 14, fontWeight: '600' },
   totalValue: { fontSize: 22, fontWeight: '900' },
 
