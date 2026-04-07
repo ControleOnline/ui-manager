@@ -1196,9 +1196,9 @@ export default function PdvPage() {
                     </View>
                   )}
                   {troco > 0 && (
-                    <View style={[gs.payTotalRow, gs.trocoRow, { backgroundColor: withOpacity(palette.success || '#22C55E', 0.1), borderRadius: 10 }]}>
-                      <Text style={[gs.payTotalLabel, { color: palette.success || '#22C55E', fontWeight: '800' }]}>Troco</Text>
-                      <Text style={[gs.payTotalVal, { color: palette.success || '#22C55E', fontSize: 20, fontWeight: '900' }]}>
+                    <View style={[gs.payTotalRow, gs.trocoRow, { backgroundColor: palette.success || '#22C55E', borderRadius: 10 }]}>
+                      <Text style={[gs.payTotalLabel, { color: '#fff', fontWeight: '800' }]}>Troco</Text>
+                      <Text style={[gs.payTotalVal, { color: '#fff', fontSize: 20, fontWeight: '900' }]}>
                         {Formatter.formatMoney(troco)}
                       </Text>
                     </View>
