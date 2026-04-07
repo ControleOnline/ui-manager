@@ -351,6 +351,7 @@ const ProductsGrid = ({ products, isLoading, cart, onPress, palette, getProductQ
 /* ─── modal de customização ──────────────────────────────────────────── */
 
 const CustomizeModal = ({ visible, product, groups, groupProducts, onConfirm, onClose, palette }) => {
+  const { height: screenHeight } = useWindowDimensions()
   const [selections, setSelections] = useState({})
 
   useEffect(() => {
@@ -411,7 +412,7 @@ const CustomizeModal = ({ visible, product, groups, groupProducts, onConfirm, on
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
       <View style={custStyles.overlay}>
-        <View style={[custStyles.sheet, { backgroundColor: palette.modalBg || palette.surface || '#fff' }]}>
+        <View style={[custStyles.sheet, { backgroundColor: palette.modalBg || palette.surface || '#fff', maxHeight: screenHeight * 0.92 }]}>
 
           <View style={[custStyles.header, { borderBottomColor: palette.border }]}>
             <View style={{ flex: 1 }}>
@@ -526,12 +527,12 @@ const CustomizeModal = ({ visible, product, groups, groupProducts, onConfirm, on
 
 const custStyles = StyleSheet.create({
   overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.55)', justifyContent: 'flex-end' },
-  sheet: { borderTopLeftRadius: 24, borderTopRightRadius: 24, maxHeight: '92%', paddingBottom: Platform.OS === 'ios' ? 34 : 16 },
+  sheet: { borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingBottom: Platform.OS === 'ios' ? 34 : 16 },
   header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 16, borderBottomWidth: 1, gap: 12 },
   title: { fontSize: 17, fontWeight: '800' },
   subtitle: { fontSize: 13, marginTop: 2 },
-  body: { flex: 1 },
-  groupBlock: { marginHorizontal: 12, marginTop: 12, borderRadius: 14, borderWidth: 1, overflow: 'hidden' },
+  body: { flex: 1, flexShrink: 1 },
+  groupBlock: { marginHorizontal: 12, marginTop: 12, borderRadius: 14, borderWidth: 1 },
   groupHeader: { flexDirection: 'row', alignItems: 'center', padding: 14, gap: 10 },
   groupName: { fontSize: 15, fontWeight: '800' },
   groupMeta: { fontSize: 12, marginTop: 2 },
@@ -551,6 +552,7 @@ const custStyles = StyleSheet.create({
 /* ─── componente principal ──────────────────────────────────────────── */
 
 export default function PdvPage() {
+  const { height: windowHeight } = useWindowDimensions()
   const productsStore         = useStore('products')
   const ordersStore           = useStore('orders')
   const invoiceStore          = useStore('invoice')
@@ -952,7 +954,7 @@ export default function PdvPage() {
         onRequestClose={() => (step === 'done' || step === 'error') && setCheckoutVisible(false)}
       >
         <View style={gs.modalOverlay}>
-          <View style={[gs.modalSheet, { backgroundColor: palette.modalBg || palette.surface || '#fff' }]}>
+          <View style={[gs.modalSheet, { backgroundColor: palette.modalBg || palette.surface || '#fff', maxHeight: windowHeight * 0.92 }]}>
 
             <View style={[gs.modalHeader, { borderBottomColor: palette.border }]}>
               <Text style={[gs.modalTitle, { color: palette.text }]}>
@@ -1307,7 +1309,6 @@ const gs = StyleSheet.create({
   modalSheet: {
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
-    maxHeight: '92%',
     paddingBottom: Platform.OS === 'ios' ? 34 : 12,
   },
   modalHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingVertical: 16, borderBottomWidth: 1 },
