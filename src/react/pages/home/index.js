@@ -288,9 +288,9 @@ export default function HomePage({ navigation }) {
           </ShortcutsRow>
         </SectionBlock>
 
-        {/* Bloco PPC e Integrações */}
+        {/* Bloco Configurações */}
         <SectionBlock
-          title={global.t?.t('configs', 'section_title', 'ppcIntegrations')}
+          title={global.t?.t('configs', 'section_title', 'Configurations')}
           icon="monitor"
           color={HEX.purple}
           last
