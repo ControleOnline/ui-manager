@@ -96,9 +96,9 @@ export default function HomePage({ navigation }) {
   );
 
   const [stats, setStats] = useState([
-    { label: global.t?.t('configs', 'stat_label', 'orders'),       value: '...', icon: 'shopping-bag', color: HEX.info,    route: 'OrderHistoryPage'    },
-    { label: global.t?.t('configs', 'stat_label', 'customers'),    value: '...', icon: 'users',        color: HEX.success, route: 'ClientsIndex'        },
-    { label: global.t?.t('configs', 'stat_label', 'cashRegisters'),value: '...', icon: 'credit-card',  color: HEX.warning, route: 'CashRegistersIndex'  },
+    { label: global.t?.t('configs', 'stat_label', 'orders'), value: '...', icon: 'shopping-bag', color: HEX.info, route: 'OrderHistoryPage' },
+    { label: global.t?.t('configs', 'stat_label', 'customers'), value: '...', icon: 'users', color: HEX.success, route: 'ClientsIndex' },
+    { label: global.t?.t('configs', 'stat_label', 'cashRegisters'), value: '...', icon: 'credit-card', color: HEX.warning, route: 'CashRegistersIndex' },
   ]);
   const [loadingStats, setLoadingStats] = useState(true);
 
@@ -108,10 +108,10 @@ export default function HomePage({ navigation }) {
   const [summaries, setSummaries] = useState({
     financeiro: [
       { label: global.t?.t('configs', 'summary_label', 'receivableMonth'), value: '...' },
-      { label: global.t?.t('configs', 'summary_label', 'payableMonth'),    value: '...' },
+      { label: global.t?.t('configs', 'summary_label', 'payableMonth'), value: '...' },
     ],
     operacoes: [
-      { label: global.t?.t('configs', 'summary_label', 'orders'),   value: '...' },
+      { label: global.t?.t('configs', 'summary_label', 'orders'), value: '...' },
       { label: global.t?.t('configs', 'summary_label', 'products'), value: '...' },
     ],
   });
@@ -124,11 +124,11 @@ export default function HomePage({ navigation }) {
       try {
         const [ordersRes, clientsRes, cashRes, incomeRes, productsRes] =
           await Promise.all([
-            api.fetch('/orders',            { params: { provider: currentCompany.id, itemsPerPage: 1 } }).catch(() => null),
-            api.fetch('/people',            { params: { 'link.company': `/people/${currentCompany.id}`, 'link.linkType': 'client', itemsPerPage: 1 } }).catch(() => null),
-            api.fetch('/device_configs',    { params: { people: currentCompany.id, itemsPerPage: 1 } }).catch(() => null),
+            api.fetch('/orders', { params: { provider: currentCompany.id, itemsPerPage: 1 } }).catch(() => null),
+            api.fetch('/people', { params: { 'link.company': `/people/${currentCompany.id}`, 'link.linkType': 'client', itemsPerPage: 1 } }).catch(() => null),
+            api.fetch('/device_configs', { params: { people: currentCompany.id, itemsPerPage: 1 } }).catch(() => null),
             api.fetch('/income_statements', { params: { people: currentCompany.id, year: currentYear } }).catch(() => null),
-            api.fetch('/products',          { params: { company: currentCompany.id, itemsPerPage: 1 } }).catch(() => null),
+            api.fetch('/products', { params: { company: currentCompany.id, itemsPerPage: 1 } }).catch(() => null),
           ]);
 
         const incomeData = incomeRes?.member;
@@ -142,18 +142,18 @@ export default function HomePage({ navigation }) {
           : null;
 
         setStats([
-          { label: global.t?.t('configs', 'stat_label', 'orders'),        value: String(ordersRes?.totalItems  ?? '—'), icon: 'shopping-bag', color: HEX.info,    route: 'OrderHistoryPage'   },
-          { label: global.t?.t('configs', 'stat_label', 'customers'),     value: String(clientsRes?.totalItems ?? '—'), icon: 'users',        color: HEX.success, route: 'ClientsIndex'       },
-          { label: global.t?.t('configs', 'stat_label', 'cashRegisters'), value: String(cashRes?.totalItems    ?? '—'), icon: 'credit-card',  color: HEX.warning, route: 'CashRegistersIndex' },
+          { label: global.t?.t('configs', 'stat_label', 'orders'), value: String(ordersRes?.totalItems ?? '—'), icon: 'shopping-bag', color: HEX.info, route: 'OrderHistoryPage' },
+          { label: global.t?.t('configs', 'stat_label', 'customers'), value: String(clientsRes?.totalItems ?? '—'), icon: 'users', color: HEX.success, route: 'ClientsIndex' },
+          { label: global.t?.t('configs', 'stat_label', 'cashRegisters'), value: String(cashRes?.totalItems ?? '—'), icon: 'credit-card', color: HEX.warning, route: 'CashRegistersIndex' },
         ]);
 
         setSummaries({
           financeiro: [
             { label: global.t?.t('configs', 'summary_label', 'receivableMonth'), value: receiveTotal !== null ? Formatter.formatMoney(receiveTotal) : '—' },
-            { label: global.t?.t('configs', 'summary_label', 'payableMonth'),    value: payTotal     !== null ? Formatter.formatMoney(payTotal)     : '—' },
+            { label: global.t?.t('configs', 'summary_label', 'payableMonth'), value: payTotal !== null ? Formatter.formatMoney(payTotal) : '—' },
           ],
           operacoes: [
-            { label: global.t?.t('configs', 'summary_label', 'orders'),   value: String(ordersRes?.totalItems   ?? '—') },
+            { label: global.t?.t('configs', 'summary_label', 'orders'), value: String(ordersRes?.totalItems ?? '—') },
             { label: global.t?.t('configs', 'summary_label', 'products'), value: String(productsRes?.totalItems ?? '—') },
           ],
         });
@@ -230,19 +230,19 @@ export default function HomePage({ navigation }) {
           loadingSummary={loadingStats}
         >
           <ShortcutsRow>
-            <ShortcutCard label={global.t?.t('configs', 'button_title', 'receivables')} icon="arrow-up-circle"   color={HEX.success} onPress={() => go('Receivables')}         />
-            <ShortcutCard label={global.t?.t('configs', 'button_title', 'payables')}    icon="arrow-down-circle" color={HEX.error}   onPress={() => go('Payables')}            />
+            <ShortcutCard label={global.t?.t('configs', 'button_title', 'receivables')} icon="arrow-up-circle" color={HEX.success} onPress={() => go('Receivables')} />
+            <ShortcutCard label={global.t?.t('configs', 'button_title', 'payables')} icon="arrow-down-circle" color={HEX.error} onPress={() => go('Payables')} />
           </ShortcutsRow>
           <ShortcutsRow>
-            <ShortcutCard label={global.t?.t('configs', 'button_title', 'transfers')}    icon="repeat"      color={HEX.purple}  onPress={() => go('OwnTransfers')}        />
-            <ShortcutCard label={global.t?.t('configs', 'button_title', 'cashRegisters')} icon="credit-card" color={HEX.warning} onPress={() => go('CashRegistersIndex')}  />
+            <ShortcutCard label={global.t?.t('configs', 'button_title', 'transfers')} icon="repeat" color={HEX.purple} onPress={() => go('OwnTransfers')} />
+            <ShortcutCard label={global.t?.t('configs', 'button_title', 'cashRegisters')} icon="credit-card" color={HEX.warning} onPress={() => go('CashRegistersIndex')} />
           </ShortcutsRow>
           <ShortcutsRow>
-            <ShortcutCard label="Carteiras"               icon="briefcase"  color={HEX.info}    onPress={() => go('WalletsPage')}          />
-            <ShortcutCard label="Formas de Pagamento"     icon="credit-card" color={HEX.purple}  onPress={() => go('PaymentTypesPage')}     />
+            <ShortcutCard label="Carteiras" icon="briefcase" color={HEX.info} onPress={() => go('WalletsPage')} />
+            <ShortcutCard label="Formas de Pagamento" icon="credit-card" color={HEX.purple} onPress={() => go('PaymentTypesPage')} />
           </ShortcutsRow>
           <ShortcutsRow last>
-            <ShortcutCard label="Categorias Financeiras" icon="tag"        color={HEX.warning} onPress={() => go('InvoiceCategoriesPage')} />
+            <ShortcutCard label="Categorias Financeiras" icon="tag" color={HEX.warning} onPress={() => go('InvoiceCategoriesPage')} />
             <View style={{ flex: 1 }} />
           </ShortcutsRow>
         </SectionBlock>
@@ -256,34 +256,35 @@ export default function HomePage({ navigation }) {
           loadingSummary={loadingStats}
         >
           <ShortcutsRow>
-            <ShortcutCard label="PDV"                                                           icon="shopping-bag"   color={HEX.orange}  onPress={() => go('PdvPage')}             />
-            <ShortcutCard label={global.t?.t('configs', 'button_title', 'orderHistory')}        icon="clock"          color={HEX.info}    onPress={() => go('OrderHistoryPage')}    />
+            <ShortcutCard label={global.t?.t('configs', 'button_title', 'ppc')} icon="monitor" color={HEX.purple} onPress={() => go('DisplayList')} />
+            <ShortcutCard label={global.t?.t('configs', 'button_title', 'providers')} icon="briefcase" color={HEX.warning} onPress={() => go('ProvidersIndex')} />
+            <ShortcutCard label={global.t?.t('configs', 'button_title', 'orders')} icon="clock" color={HEX.info} onPress={() => go('OrderHistoryPage')} />
           </ShortcutsRow>
           <ShortcutsRow>
-            <ShortcutCard label={global.t?.t('configs', 'button_title', 'products')}            icon="package"        color={HEX.success} onPress={() => go('CategoriesPage')}      />
-            <ShortcutCard label={global.t?.t('configs', 'button_title', 'inventory')}           icon="archive"        color={HEX.warning} onPress={() => go('InventoriesPage')}     />
+            <ShortcutCard label={global.t?.t('configs', 'button_title', 'products')} icon="package" color={HEX.success} onPress={() => go('CategoriesPage')} />
+            <ShortcutCard label={global.t?.t('configs', 'button_title', 'inventory')} icon="archive" color={HEX.warning} onPress={() => go('InventoriesPage')} />
           </ShortcutsRow>
           <ShortcutsRow>
-            <ShortcutCard label={global.t?.t('configs', 'button_title', 'purchasingSuggestion')} icon="truck"          color={HEX.purple}  onPress={() => go('PurchasingSuggestion')}/>
-            <ShortcutCard label={global.t?.t('configs', 'button_title', 'purchaseForm')}        icon="shopping-cart"  color={HEX.success} onPress={() => go('PurchaseFormPage')}    />
+            <ShortcutCard label={global.t?.t('configs', 'button_title', 'purchasingSuggestion')} icon="truck" color={HEX.purple} onPress={() => go('PurchasingSuggestion')} />
+            <ShortcutCard label={global.t?.t('configs', 'button_title', 'purchaseForm')} icon="shopping-cart" color={HEX.success} onPress={() => go('PurchaseFormPage')} />
           </ShortcutsRow>
           <ShortcutsRow last>
             <View style={{ flex: 1 }} />
           </ShortcutsRow>
         </SectionBlock>
 
-        {/* Bloco Clientes e CRM */}
+        {/* Bloco Commercial */}
         <SectionBlock
-          title={global.t?.t('configs', 'section_title', 'clientsCrm')}
+          title={global.t?.t('configs', 'section_title', 'comercial')}
           icon="users"
           color={HEX.success}
         >
           <ShortcutsRow>
-            <ShortcutCard label={global.t?.t('configs', 'button_title', 'customers')}   icon="users"    color={HEX.success} onPress={() => go('ClientsIndex')}   />
-            <ShortcutCard label={global.t?.t('configs', 'button_title', 'providers')}   icon="briefcase" color={HEX.warning} onPress={() => go('ProvidersIndex')} />
+            <ShortcutCard label={global.t?.t('configs', 'button_title', 'customers')} icon="users" color={HEX.success} onPress={() => go('ClientsIndex')} />
+            <ShortcutCard label="PDV" icon="shopping-bag" color={HEX.orange} onPress={() => go('PdvPage')} />
           </ShortcutsRow>
           <ShortcutsRow last>
-            <ShortcutCard label={global.t?.t('configs', 'button_title', 'crmSettings')} icon="settings" color={HEX.muted}   onPress={() => go('CRMSettings')}    />
+            <ShortcutCard label={global.t?.t('configs', 'button_title', 'crmSettings')} icon="settings" color={HEX.muted} onPress={() => go('CRMSettings')} />
             <View style={{ flex: 1 }} />
           </ShortcutsRow>
         </SectionBlock>
@@ -296,12 +297,8 @@ export default function HomePage({ navigation }) {
           last
         >
           <ShortcutsRow>
-            <ShortcutCard label={global.t?.t('configs', 'button_title', 'ppc')}          icon="monitor" color={HEX.purple} onPress={() => go('DisplayList')}      />
-            <ShortcutCard label={global.t?.t('configs', 'button_title', 'integrations')} icon="link"    color={HEX.info}   onPress={() => go('IntegrationsPage')} />
-          </ShortcutsRow>
-          <ShortcutsRow last>
-            <ShortcutCard label={global.t?.t('configs', 'button_title', 'connections')} icon="radio"   color={HEX.success} onPress={() => go('ConnectionsPage')} />
-            <View style={{ flex: 1 }} />
+            <ShortcutCard label={global.t?.t('configs', 'button_title', 'connections')} icon="radio" color={HEX.success} onPress={() => go('ConnectionsPage')} />
+            <ShortcutCard label={global.t?.t('configs', 'button_title', 'integrations')} icon="link" color={HEX.info} onPress={() => go('IntegrationsPage')} />
           </ShortcutsRow>
         </SectionBlock>
 
