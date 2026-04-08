@@ -283,10 +283,6 @@ export default function HomePage({ navigation }) {
             <ShortcutCard label={global.t?.t('configs', 'button_title', 'customers')} icon="users" color={HEX.success} onPress={() => go('ClientsIndex')} />
             <ShortcutCard label="PDV" icon="shopping-bag" color={HEX.orange} onPress={() => go('PdvPage')} />
           </ShortcutsRow>
-          <ShortcutsRow last>
-            <ShortcutCard label={global.t?.t('configs', 'button_title', 'crmSettings')} icon="settings" color={HEX.muted} onPress={() => go('CRMSettings')} />
-            <View style={{ flex: 1 }} />
-          </ShortcutsRow>
         </SectionBlock>
 
         {/* Bloco Configurações */}
@@ -297,8 +293,12 @@ export default function HomePage({ navigation }) {
           last
         >
           <ShortcutsRow>
+            <ShortcutCard label="Configurador" icon="settings" color={HEX.muted} onPress={() => go('GeneralSettings')} />
             <ShortcutCard label={global.t?.t('configs', 'button_title', 'connections')} icon="radio" color={HEX.success} onPress={() => go('ConnectionsPage')} />
+          </ShortcutsRow>
+          <ShortcutsRow last>
             <ShortcutCard label={global.t?.t('configs', 'button_title', 'integrations')} icon="link" color={HEX.info} onPress={() => go('IntegrationsPage')} />
+            <View style={{ flex: 1 }} />
           </ShortcutsRow>
         </SectionBlock>
 
