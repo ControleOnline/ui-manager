@@ -13,7 +13,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/Feather';
 
-import { api } from '@controleonline/ui-common/src/api';
 import useToastMessage from '@controleonline/ui-crm/src/react/hooks/useToastMessage';
 import { useStore } from '@store';
 import { colors } from '@controleonline/../../src/styles/colors';
@@ -76,8 +75,10 @@ const normalizeConnection = item => ({
 export default function ConnectionsPage({ navigation }) {
   const peopleStore = useStore('people');
   const themeStore = useStore('theme');
+  const connectionsStore = useStore('connections');
   const { currentCompany } = peopleStore.getters;
   const { colors: themeColors } = themeStore.getters;
+  const connectionsActions = connectionsStore.actions;
   const { showError } = useToastMessage();
 
   const brandColors = useMemo(
@@ -110,8 +111,8 @@ export default function ConnectionsPage({ navigation }) {
     }
 
     try {
-      const response = await api.fetch('/connections', {
-        params: { people: peopleIri },
+      const response = await connectionsActions.getItems({
+        people: peopleIri,
       });
 
       setConnections(toArray(response).map(normalizeConnection));
@@ -121,7 +122,7 @@ export default function ConnectionsPage({ navigation }) {
     } finally {
       setLoading(false);
     }
-  }, [peopleIri, showError]);
+  }, [connectionsActions, peopleIri, showError]);
 
   useFocusEffect(
     useCallback(() => {

@@ -150,7 +150,7 @@ const managerRoutes = [
     options: {
       headerShown: true,
       headerBackVisible: true,
-      title: global.t?.t("configs", "title", "cashRegisters"),
+      title: 'Dispositivos',
       showCompanyFilter: true,
       companyFilterMode: 'icon',
     },
@@ -162,7 +162,7 @@ const managerRoutes = [
     options: {
       headerShown: true,
       headerBackVisible: true,
-      title: 'Detalhes do Caixa',
+      title: 'Detalhes do Device',
       showCompanyFilter: false,
     },
     initialParams: { store: 'invoice' },

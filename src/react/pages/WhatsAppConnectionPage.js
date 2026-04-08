@@ -15,7 +15,6 @@ import { useFocusEffect } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/Feather';
 import QRCode from 'react-native-qrcode-svg';
 
-import { api } from '@controleonline/ui-common/src/api';
 import useToastMessage from '@controleonline/ui-crm/src/react/hooks/useToastMessage';
 import { useStore } from '@store';
 import { colors } from '@controleonline/../../src/styles/colors';
@@ -79,8 +78,10 @@ const sanitizePhone = value => extractDigits(value).slice(0, 9);
 export default function WhatsAppConnectionPage() {
   const peopleStore = useStore('people');
   const themeStore = useStore('theme');
+  const connectionsStore = useStore('connections');
   const { currentCompany } = peopleStore.getters;
   const { colors: themeColors } = themeStore.getters;
+  const connectionsActions = connectionsStore.actions;
   const { showError, showSuccess, showInfo } = useToastMessage();
 
   const brandColors = useMemo(
@@ -130,8 +131,8 @@ export default function WhatsAppConnectionPage() {
     }
 
     try {
-      const response = await api.fetch('/connections', {
-        params: { people: peopleIri },
+      const response = await connectionsActions.getItems({
+        people: peopleIri,
       });
       const normalized = toArray(response).map(normalizeConnection);
       setConnections(normalized);
@@ -143,7 +144,7 @@ export default function WhatsAppConnectionPage() {
     } finally {
       setLoading(false);
     }
-  }, [peopleIri, showError]);
+  }, [connectionsActions, peopleIri, showError]);
 
   const requestQrCode = useCallback(async phoneNumber => {
     const targetPhone = extractDigits(phoneNumber);
@@ -154,9 +155,8 @@ export default function WhatsAppConnectionPage() {
 
     try {
       setSubmitting(true);
-      const response = await api.fetch('/whatsapp/create-session', {
-        method: 'POST',
-        body: { phone: targetPhone },
+      const response = await connectionsActions.createWhatsappConnection({
+        phone: targetPhone,
       });
 
       const nextStatus = String(response?.status || '').trim();
@@ -184,7 +184,7 @@ export default function WhatsAppConnectionPage() {
     } finally {
       setSubmitting(false);
     }
-  }, [clearPolling, loadConnections, showError, showSuccess]);
+  }, [clearPolling, connectionsActions, loadConnections, showError, showSuccess]);
 
   const startPolling = useCallback(async selectedPhone => {
     const targetPhone = extractDigits(selectedPhone || completePhone);

@@ -21,6 +21,7 @@ import { resolveThemePalette, withOpacity } from '@controleonline/../../src/styl
 import { colors } from '@controleonline/../../src/styles/colors';
 import Icon from 'react-native-vector-icons/Feather';
 import {
+  filterDeviceConfigsByCompany,
   getCompanyPaymentDeviceOptions,
   normalizeDeviceId,
   ORDER_PAYMENT_DEVICE_CONFIG_KEY,
@@ -83,9 +84,11 @@ const CashRegisterDetailPage = () => {
   const deviceStore       = useStore('device');
   const peopleStore       = useStore('people');
   const themeStore        = useStore('theme');
+  const websocketStore    = useStore('websocket');
 
   const { currentCompany }      = peopleStore.getters;
   const { colors: themeColors } = themeStore.getters;
+  const websocketActions = websocketStore.actions;
 
   const actionsRef = useRef({});
   actionsRef.current = {
@@ -106,6 +109,7 @@ const CashRegisterDetailPage = () => {
   const [loadingData,   setLoadingData]   = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
   const [savingPaymentTarget, setSavingPaymentTarget] = useState(false);
+  const [sendingCatalogRefresh, setSendingCatalogRefresh] = useState(false);
   const [search,        setSearch]        = useState('');
   const [devicePaymentTarget, setDevicePaymentTarget] = useState(
     normalizeDeviceId(initialConfigs?.[ORDER_PAYMENT_DEVICE_CONFIG_KEY]),
@@ -121,10 +125,12 @@ const CashRegisterDetailPage = () => {
   const isOpen = useMemo(() => getIsOpen(configs), [configs]);
   const paymentDeviceOptions = useMemo(
     () =>
-      getCompanyPaymentDeviceOptions(companyDeviceConfigs).filter(
+      getCompanyPaymentDeviceOptions(
+        filterDeviceConfigsByCompany(companyDeviceConfigs, currentCompany?.id),
+      ).filter(
         option => option.deviceId !== deviceString,
       ),
-    [companyDeviceConfigs, deviceString],
+    [companyDeviceConfigs, currentCompany?.id, deviceString],
   );
   const pickerMode = Platform.OS === 'android' ? 'dropdown' : undefined;
 
@@ -161,8 +167,9 @@ const CashRegisterDetailPage = () => {
     const items = await actionsRef.current.deviceConfigActions.getItems({
       people: `/people/${currentCompany.id}`,
     });
-    setCompanyDeviceConfigs(Array.isArray(items) ? items : []);
-    const dc = (items || []).find(
+    const scopedItems = filterDeviceConfigsByCompany(items, currentCompany?.id);
+    setCompanyDeviceConfigs(Array.isArray(scopedItems) ? scopedItems : []);
+    const dc = (scopedItems || []).find(
       d => d.device?.device === deviceString,
     );
     if (dc) {
@@ -253,6 +260,28 @@ const CashRegisterDetailPage = () => {
     }
   }, [currentCompany?.id, devicePaymentTarget, deviceString, refreshConfigs]);
 
+  const sendCatalogRefreshCommand = useCallback(() => {
+    if (!currentCompany?.id || !deviceString || sendingCatalogRefresh) {
+      return;
+    }
+
+    confirm('Deseja limpar o cache de produtos deste device?', async () => {
+      setSendingCatalogRefresh(true);
+      try {
+        await websocketActions.send({
+          destination: deviceString,
+          store: 'categories',
+          command: 'clear-product-cache',
+          companyId: currentCompany.id,
+        });
+      } catch (e) {
+        // silencioso
+      } finally {
+        setSendingCatalogRefresh(false);
+      }
+    });
+  }, [currentCompany?.id, deviceString, sendingCatalogRefresh, websocketActions]);
+
   // Totais derivados
   const productTotal = useMemo(
     () => products.reduce((s, p) => s + Number(p.order_product_total || 0), 0),
@@ -301,9 +330,7 @@ const CashRegisterDetailPage = () => {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: brandColors.background }]}>
-      <StateStore store="invoice" />
-      <StateStore store="device_config" />
-      <StateStore store="device" />
+      <StateStore stores={['invoice', 'device_config', 'device', 'websocket']} />
 
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
 
@@ -450,6 +477,38 @@ const CashRegisterDetailPage = () => {
                 <>
                   <Icon name="save" size={14} color="#fff" />
                   <Text style={styles.configButtonText}>Salvar destino de pagamento</Text>
+                </>
+              )}
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>
+            <Icon name="refresh-cw" size={13} /> {'  '}Comandos Remotos
+          </Text>
+
+          <View style={styles.configCard}>
+            <Text style={styles.configTitle}>Catálogo do PDV</Text>
+            <Text style={styles.configDescription}>
+              Limpa o cache local de produtos e categorias deste device.
+              O recarregamento acontece no próximo uso do PDV.
+            </Text>
+
+            <TouchableOpacity
+              style={[
+                styles.configButton,
+                sendingCatalogRefresh && {opacity: 0.6},
+              ]}
+              activeOpacity={0.85}
+              disabled={sendingCatalogRefresh}
+              onPress={sendCatalogRefreshCommand}>
+              {sendingCatalogRefresh ? (
+                <ActivityIndicator size="small" color="#fff" />
+              ) : (
+                <>
+                  <Icon name="trash-2" size={14} color="#fff" />
+                  <Text style={styles.configButtonText}>Limpar cache de produtos</Text>
                 </>
               )}
             </TouchableOpacity>

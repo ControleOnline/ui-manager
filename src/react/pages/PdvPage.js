@@ -15,7 +15,7 @@ import {
   useWindowDimensions,
 } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
-import { useFocusEffect } from '@react-navigation/native'
+import { useFocusEffect, useNavigation } from '@react-navigation/native'
 import { MaterialCommunityIcons } from '@expo/vector-icons'
 
 import { useStore } from '@store'
@@ -64,6 +64,51 @@ const extractItems = response => {
   if (Array.isArray(response)) return response
   if (Array.isArray(response?.['hydra:member'])) return response['hydra:member']
   return []
+}
+
+const CATEGORY_CACHE_KEY = 'categories'
+const CATEGORY_CACHE_COMPANY_KEY = 'categories-company'
+
+const readCachedCategories = companyId => {
+  const normalizedCompanyId = String(companyId || '').replace(/\D/g, '')
+  const cachedCompanyId = String(localStorage.getItem(CATEGORY_CACHE_COMPANY_KEY) || '')
+
+  if (!normalizedCompanyId || cachedCompanyId !== normalizedCompanyId) {
+    return []
+  }
+
+  try {
+    const cached = JSON.parse(localStorage.getItem(CATEGORY_CACHE_KEY) || '[]')
+    return Array.isArray(cached) ? cached : []
+  } catch (e) {
+    return []
+  }
+}
+
+const writeCachedCategories = (companyId, categories) => {
+  localStorage.setItem(
+    CATEGORY_CACHE_COMPANY_KEY,
+    String(companyId || '').replace(/\D/g, ''),
+  )
+  localStorage.setItem(CATEGORY_CACHE_KEY, JSON.stringify(categories || []))
+}
+
+const updateCachedCategoryProducts = (companyId, category, products) => {
+  const cachedCategories = readCachedCategories(companyId)
+  const nextProducts = Array.isArray(products) ? products : []
+
+  if (!category?.['@id']) {
+    return cachedCategories
+  }
+
+  const nextCategories = cachedCategories.map(item =>
+    item?.['@id'] === category['@id']
+      ? {...item, products: nextProducts}
+      : item,
+  )
+
+  writeCachedCategories(companyId, nextCategories)
+  return nextCategories
 }
 
 /* ─── tela de categorias ─────────────────────────────────────────────── */
@@ -553,6 +598,7 @@ const custStyles = StyleSheet.create({
 /* ─── componente principal ──────────────────────────────────────────── */
 
 export default function PdvPage() {
+  const navigation = useNavigation()
   const { height: windowHeight } = useWindowDimensions()
   const productsStore         = useStore('products')
   const ordersStore           = useStore('orders')
@@ -599,11 +645,23 @@ export default function PdvPage() {
   useFocusEffect(
     useCallback(() => {
       if (!currentCompany?.id) return
-      categoriesStore.actions.getItems({
-        context: 'products',
-        'order[name]': 'ASC',
-        company: currentCompany.id,
-      })
+
+      const cachedCategories = readCachedCategories(currentCompany.id)
+      if (cachedCategories.length > 0) {
+        categoriesStore.actions.setItems(cachedCategories)
+      } else {
+        categoriesStore.actions
+          .getItems({
+            context: 'products',
+            'order[name]': 'ASC',
+            company: currentCompany.id,
+          })
+          .then(data => {
+            writeCachedCategories(currentCompany.id, data || [])
+            categoriesStore.actions.setItems(data || [])
+          })
+      }
+
       walletStore.actions.getItems({ 'wallet.people': '/people/' + currentCompany.id })
     }, [currentCompany?.id]),
   )
@@ -643,6 +701,29 @@ export default function PdvPage() {
     setSelectedCategory(cat)
     setScreen('products')
     setSearch('')
+
+    if (!cat) {
+      const cachedCategories = readCachedCategories(currentCompany.id)
+      const cachedProducts = cachedCategories.flatMap(category =>
+        Array.isArray(category?.products) ? category.products : [],
+      )
+
+      if (cachedProducts.length > 0) {
+        productsStore.actions.setItems(cachedProducts)
+        return
+      }
+    } else {
+      const cachedCategories = readCachedCategories(currentCompany.id)
+      const cachedCategory = cachedCategories.find(
+        category => category?.['@id'] === cat['@id'],
+      )
+
+      if (Array.isArray(cachedCategory?.products) && cachedCategory.products.length > 0) {
+        productsStore.actions.setItems(cachedCategory.products)
+        return
+      }
+    }
+
     const params = {
       active: 1,
       'order[product]': 'ASC',
@@ -651,7 +732,17 @@ export default function PdvPage() {
       itemsPerPage: 100,
     }
     if (cat) params['productCategory.category'] = cat['@id']
-    productsStore.actions.getItems(params)
+    productsStore.actions.getItems(params).then(data => {
+      const nextProducts = Array.isArray(data) ? data : []
+      if (cat?.['@id']) {
+        const nextCategories = updateCachedCategoryProducts(
+          currentCompany.id,
+          cat,
+          nextProducts,
+        )
+        categoriesStore.actions.setItems(nextCategories)
+      }
+    })
   }, [currentCompany?.id])
 
   /* ── filtro local por busca ── */
@@ -788,6 +879,69 @@ export default function PdvPage() {
   }
 
   const removePayment = (id) => setPayments(prev => prev.filter(p => p.id !== id))
+
+  const handleCreateOrder = useCallback(async () => {
+    if (cartItems.length === 0) return
+
+    const posStatus = currentCompany?.configs?.['pos-default-status']
+    if (!posStatus) {
+      setStep('error')
+      setProcessingMsg('Status padrão do PDV não configurado. Configure pos-default-status na empresa.')
+      return
+    }
+
+    setStep('processing')
+    setProcessingMsg('Criando pedido...')
+    try {
+      const orderPayload = {
+        app: 'POS',
+        provider: '/people/' + currentCompany.id,
+        status: '/statuses/' + posStatus,
+        orderType: 'sale',
+      }
+      if (selectedPeople?.['@id']) orderPayload.people = selectedPeople['@id']
+      const order = await ordersStore.actions.save(orderPayload)
+
+      setProcessingMsg('Adicionando produtos...')
+      const toId = iri => String(iri || '').replace(/\D/g, '')
+      const simpleMap = {}
+      for (const item of cartItems) {
+        if (item.subProducts?.length > 0) {
+          await ordersStore.actions.addProducts(order.id, [{
+            product: toId(item.product['@id']),
+            quantity: item.quantity,
+            sub_products: item.subProducts.map(sp => ({
+              product: toId(sp.productGroupProduct.productChild?.['@id']),
+              productGroup: sp.groupId,
+              quantity: sp.quantity,
+            })),
+          }])
+        } else {
+          const pid = toId(item.product['@id'])
+          simpleMap[pid] = (simpleMap[pid] || 0) + item.quantity
+        }
+      }
+      if (Object.keys(simpleMap).length > 0) {
+        await ordersStore.actions.addProducts(
+          order.id,
+          Object.entries(simpleMap).map(([pid, qty]) => ({
+            product: pid,
+            quantity: qty,
+          })),
+        )
+      }
+
+      setCheckoutVisible(false)
+      setProcessingMsg('')
+      setStep('cart')
+      setCart({})
+      setPayments([])
+      navigation.navigate('OrderDetails', { order })
+    } catch (e) {
+      setStep('error')
+      setProcessingMsg(e?.message || 'Erro ao criar pedido')
+    }
+  }, [cartItems, currentCompany, navigation, selectedPeople])
 
   /* ── finalizar ── */
   const handleFinalize = useCallback(async () => {
@@ -1095,8 +1249,8 @@ export default function PdvPage() {
                   <TouchableOpacity onPress={() => setCart({})} style={[gs.btnSec, { borderColor: palette.border }]}>
                     <Text style={[gs.btnSecText, { color: palette.textSecondary }]}>Limpar</Text>
                   </TouchableOpacity>
-                  <TouchableOpacity onPress={() => setStep('payment')} style={[gs.btnPri, { backgroundColor: palette.primary }]}>
-                    <Text style={gs.btnPriText}>Ir para pagamento</Text>
+                  <TouchableOpacity onPress={handleCreateOrder} style={[gs.btnPri, { backgroundColor: palette.primary }]}>
+                    <Text style={gs.btnPriText}>Conferir pedido</Text>
                   </TouchableOpacity>
                 </View>
               </>

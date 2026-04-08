@@ -59,6 +59,16 @@ const CashRegisters = () => {
     [themeColors, currentCompany?.id],
   );
 
+  const scopedDeviceConfigs = useMemo(
+    () =>
+      (deviceConfigs || []).filter(dc => {
+        const peopleId = String(dc?.people?.id || dc?.people || '').replace(/\D/g, '');
+        const companyId = String(currentCompany?.id || '').replace(/\D/g, '');
+        return !companyId || peopleId === companyId;
+      }),
+    [currentCompany?.id, deviceConfigs],
+  );
+
   useEffect(() => {
     if (currentCompany?.id) {
       actionsRef.current.deviceConfigActions.getItems({ people: `/people/${currentCompany.id}` });
@@ -74,8 +84,8 @@ const CashRegisters = () => {
   );
 
   const openCount = useMemo(
-    () => (deviceConfigs || []).filter(dc => getStatus(dc) === 'open').length,
-    [deviceConfigs],
+    () => scopedDeviceConfigs.filter(dc => getStatus(dc) === 'open').length,
+    [scopedDeviceConfigs],
   );
 
   const goToDetail = useCallback(dc => {
@@ -131,7 +141,7 @@ const CashRegisters = () => {
       <View style={styles.summaryRow}>
         <View style={styles.summaryCard}>
           <Text style={styles.summaryLabel}>Dispositivos</Text>
-          <Text style={styles.summaryValue}>{deviceConfigs?.length || 0}</Text>
+          <Text style={styles.summaryValue}>{scopedDeviceConfigs.length || 0}</Text>
         </View>
         <View style={styles.summaryCard}>
           <Text style={styles.summaryLabel}>Abertos</Text>
@@ -140,7 +150,7 @@ const CashRegisters = () => {
         <View style={styles.summaryCard}>
           <Text style={styles.summaryLabel}>Fechados</Text>
           <Text style={[styles.summaryValue, { color: hex.danger }]}>
-            {(deviceConfigs?.length || 0) - openCount}
+            (scopedDeviceConfigs.length || 0) - openCount
           </Text>
         </View>
       </View>
@@ -153,7 +163,7 @@ const CashRegisters = () => {
       )}
 
       <FlatList
-        data={deviceConfigs || []}
+        data={scopedDeviceConfigs || []}
         keyExtractor={item => String(item.id)}
         renderItem={renderItem}
         contentContainerStyle={styles.listContent}
@@ -162,7 +172,7 @@ const CashRegisters = () => {
             <View style={styles.emptyBox}>
               <Icon name="monitor" size={32} color="#CBD5E1" style={{ marginBottom: 12 }} />
               <Text style={styles.emptyTitle}>Nenhum dispositivo encontrado</Text>
-              <Text style={styles.emptySub}>Cadastre dispositivos para visualizar os caixas.</Text>
+              <Text style={styles.emptySub}>Cadastre dispositivos para visualizar os equipamentos da empresa.</Text>
             </View>
           ) : null
         }
