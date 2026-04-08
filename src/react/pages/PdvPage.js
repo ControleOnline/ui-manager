@@ -22,6 +22,7 @@ import { useStore } from '@store'
 import Formatter from '@controleonline/ui-common/src/utils/formatter'
 import { env } from '@env'
 import { resolveThemePalette, withOpacity } from '@controleonline/../../src/styles/branding'
+import status from '../../../../ui-common/src/store/status'
 
 /* ─── constantes ────────────────────────────────────────────────────── */
 
@@ -603,7 +604,7 @@ export default function PdvPage() {
         'order[name]': 'ASC',
         company: currentCompany.id,
       })
-      walletStore.actions.getItems({ people: '/people/' + currentCompany.id })
+      walletStore.actions.getItems({ 'wallet.people': '/people/' + currentCompany.id })
     }, [currentCompany?.id]),
   )
 
@@ -791,7 +792,7 @@ export default function PdvPage() {
   /* ── finalizar ── */
   const handleFinalize = useCallback(async () => {
     if (payments.length === 0 || paymentsTotal < cartTotal) return
-    const posStatus = defaultCompany?.configs?.['pos-default-status']
+    const posStatus = currentCompany?.configs?.['pos-default-status']
     if (!posStatus) {
       setStep('error')
       setProcessingMsg('Status padrão do PDV não configurado. Configure pos-default-status na empresa.')
@@ -839,6 +840,7 @@ export default function PdvPage() {
       for (const payment of payments) {
         const invoicePayload = {
           dueDate: Formatter.getCurrentDate(),
+          status: '/statuses/' + posStatus,
           destinationWallet: payment.paymentType.wallet?.['@id'],
           paymentType: payment.paymentType.paymentType?.['@id'],
           price: toFloat(payment.amount),
