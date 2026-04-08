@@ -13,12 +13,18 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useNavigation, useRoute } from '@react-navigation/native';
+import {Picker} from '@react-native-picker/picker';
 import { useStore } from '@store';
 import Formatter from '@controleonline/ui-common/src/utils/formatter';
 import StateStore from '@controleonline/ui-layout/src/react/components/StateStore';
 import { resolveThemePalette, withOpacity } from '@controleonline/../../src/styles/branding';
 import { colors } from '@controleonline/../../src/styles/colors';
 import Icon from 'react-native-vector-icons/Feather';
+import {
+  getCompanyPaymentDeviceOptions,
+  normalizeDeviceId,
+  ORDER_PAYMENT_DEVICE_CONFIG_KEY,
+} from '@controleonline/ui-common/src/react/utils/paymentDevices';
 
 const cardShadow = Platform.select({
   ios: { shadowColor: '#0F172A', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.06, shadowRadius: 12 },
@@ -94,11 +100,16 @@ const CashRegisterDetailPage = () => {
   );
 
   const [products,      setProducts]      = useState([]);
+  const [companyDeviceConfigs, setCompanyDeviceConfigs] = useState([]);
   const [inflowData,    setInflowData]    = useState(null);
   const [configs,       setConfigs]       = useState(initialConfigs || {});
   const [loadingData,   setLoadingData]   = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
+  const [savingPaymentTarget, setSavingPaymentTarget] = useState(false);
   const [search,        setSearch]        = useState('');
+  const [devicePaymentTarget, setDevicePaymentTarget] = useState(
+    normalizeDeviceId(initialConfigs?.[ORDER_PAYMENT_DEVICE_CONFIG_KEY]),
+  );
 
   // Edição inline do alias
   const [alias,        setAlias]        = useState(initialAlias || '');
@@ -108,6 +119,14 @@ const CashRegisterDetailPage = () => {
   const aliasInputRef = useRef(null);
 
   const isOpen = useMemo(() => getIsOpen(configs), [configs]);
+  const paymentDeviceOptions = useMemo(
+    () =>
+      getCompanyPaymentDeviceOptions(companyDeviceConfigs).filter(
+        option => option.deviceId !== deviceString,
+      ),
+    [companyDeviceConfigs, deviceString],
+  );
+  const pickerMode = Platform.OS === 'android' ? 'dropdown' : undefined;
 
   const loadData = useCallback(async () => {
     if (!currentCompany?.id || !deviceString) return;
@@ -142,16 +161,24 @@ const CashRegisterDetailPage = () => {
     const items = await actionsRef.current.deviceConfigActions.getItems({
       people: `/people/${currentCompany.id}`,
     });
+    setCompanyDeviceConfigs(Array.isArray(items) ? items : []);
     const dc = (items || []).find(
       d => d.device?.device === deviceString,
     );
-    if (dc) setConfigs(dc.configs || {});
+    if (dc) {
+      const nextConfigs = dc.configs || {};
+      setConfigs(nextConfigs);
+      setDevicePaymentTarget(
+        normalizeDeviceId(nextConfigs[ORDER_PAYMENT_DEVICE_CONFIG_KEY]),
+      );
+    }
   }, [currentCompany?.id, deviceString]);
 
   useFocusEffect(
     useCallback(() => {
       loadData();
-    }, [loadData]),
+      refreshConfigs();
+    }, [loadData, refreshConfigs]),
   );
 
   const handleToggle = () => {
@@ -203,6 +230,28 @@ const CashRegisterDetailPage = () => {
       setSavingAlias(false);
     }
   }, [aliasInput, alias, deviceId, cancelEditAlias, navigation]);
+
+  const saveDevicePaymentTarget = useCallback(async () => {
+    if (!currentCompany?.id || !deviceString) {
+      return;
+    }
+
+    setSavingPaymentTarget(true);
+    try {
+      await actionsRef.current.deviceConfigActions.addDeviceConfigs({
+        device: deviceString,
+        configs: JSON.stringify({
+          [ORDER_PAYMENT_DEVICE_CONFIG_KEY]: devicePaymentTarget || '',
+        }),
+        people: '/people/' + currentCompany.id,
+      });
+      await refreshConfigs();
+    } catch {
+      // silencioso
+    } finally {
+      setSavingPaymentTarget(false);
+    }
+  }, [currentCompany?.id, devicePaymentTarget, deviceString, refreshConfigs]);
 
   // Totais derivados
   const productTotal = useMemo(
@@ -356,6 +405,57 @@ const CashRegisterDetailPage = () => {
           </View>
         </View>
 
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>
+            <Icon name="credit-card" size={13} /> {'  '}Pagamento Remoto
+          </Text>
+
+          <View style={styles.configCard}>
+            <Text style={styles.configTitle}>Device preferencial para pagamento</Text>
+            <Text style={styles.configDescription}>
+              Se este device nao tiver gateway local, o sistema usa este destino.
+              Quando vazio, ele segue a ordem padrao definida na empresa.
+            </Text>
+
+            <View style={styles.pickerWrap}>
+              <Picker
+                selectedValue={devicePaymentTarget || ''}
+                mode={pickerMode}
+                onValueChange={value => setDevicePaymentTarget(value || '')}>
+                <Picker.Item
+                  label="Usar devices padrao da empresa"
+                  value=""
+                />
+                {paymentDeviceOptions.map(option => (
+                  <Picker.Item
+                    key={option.deviceId}
+                    label={`${option.alias} (${option.gatewayLabel})`}
+                    value={option.deviceId}
+                  />
+                ))}
+              </Picker>
+            </View>
+
+            <TouchableOpacity
+              style={[
+                styles.configButton,
+                savingPaymentTarget && {opacity: 0.6},
+              ]}
+              activeOpacity={0.85}
+              disabled={savingPaymentTarget}
+              onPress={saveDevicePaymentTarget}>
+              {savingPaymentTarget ? (
+                <ActivityIndicator size="small" color="#fff" />
+              ) : (
+                <>
+                  <Icon name="save" size={14} color="#fff" />
+                  <Text style={styles.configButtonText}>Salvar destino de pagamento</Text>
+                </>
+              )}
+            </TouchableOpacity>
+          </View>
+        </View>
+
         {/* Pagamentos por forma */}
         {wallets.length > 0 && (
           <View style={styles.section}>
@@ -505,6 +605,45 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 13, fontWeight: '800', color: '#334155',
     textTransform: 'uppercase', letterSpacing: 0.4,
+  },
+  configCard: {
+    backgroundColor: '#fff',
+    borderRadius: 14,
+    padding: 14,
+    gap: 12,
+    ...cardShadow,
+  },
+  configTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  configDescription: {
+    fontSize: 12,
+    lineHeight: 18,
+    color: '#64748B',
+  },
+  pickerWrap: {
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 12,
+    backgroundColor: '#F8FAFC',
+    overflow: 'hidden',
+  },
+  configButton: {
+    alignSelf: 'flex-start',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: '#0EA5E9',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 10,
+  },
+  configButtonText: {
+    color: '#fff',
+    fontSize: 13,
+    fontWeight: '700',
   },
 
   /* Carteiras / pagamentos */
