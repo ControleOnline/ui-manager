@@ -21,6 +21,12 @@ import { resolveThemePalette, withOpacity } from '@controleonline/../../src/styl
 import { colors } from '@controleonline/../../src/styles/colors';
 import Icon from 'react-native-vector-icons/Feather';
 import {
+  DEVICE_ALERT_SOUND_ENABLED_KEY,
+  DEVICE_ALERT_SOUND_URL_KEY,
+  isTruthyValue,
+  parseConfigsObject,
+} from '@controleonline/ui-common/src/react/config/deviceConfigBootstrap';
+import {
   filterDeviceConfigsByCompany,
   getCompanyPaymentDeviceOptions,
   normalizeDeviceId,
@@ -74,10 +80,14 @@ const confirm = (msg, cb) => {
   }
 };
 
-const CashRegisterDetailPage = () => {
+const DeviceDetailPage = () => {
   const route      = useRoute();
   const navigation = useNavigation();
   const { deviceId, deviceString, alias: initialAlias, configs: initialConfigs } = route.params || {};
+  const normalizedInitialConfigs = useMemo(
+    () => parseConfigsObject(initialConfigs),
+    [initialConfigs],
+  );
 
   const invoiceStore      = useStore('invoice');
   const deviceConfigStore = useStore('device_config');
@@ -105,14 +115,21 @@ const CashRegisterDetailPage = () => {
   const [products,      setProducts]      = useState([]);
   const [companyDeviceConfigs, setCompanyDeviceConfigs] = useState([]);
   const [inflowData,    setInflowData]    = useState(null);
-  const [configs,       setConfigs]       = useState(initialConfigs || {});
+  const [configs,       setConfigs]       = useState(normalizedInitialConfigs || {});
   const [loadingData,   setLoadingData]   = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
   const [savingPaymentTarget, setSavingPaymentTarget] = useState(false);
+  const [savingAlertSound, setSavingAlertSound] = useState(false);
   const [sendingCatalogRefresh, setSendingCatalogRefresh] = useState(false);
   const [search,        setSearch]        = useState('');
   const [devicePaymentTarget, setDevicePaymentTarget] = useState(
-    normalizeDeviceId(initialConfigs?.[ORDER_PAYMENT_DEVICE_CONFIG_KEY]),
+    normalizeDeviceId(normalizedInitialConfigs?.[ORDER_PAYMENT_DEVICE_CONFIG_KEY]),
+  );
+  const [deviceAlertSoundEnabled, setDeviceAlertSoundEnabled] = useState(
+    isTruthyValue(normalizedInitialConfigs?.[DEVICE_ALERT_SOUND_ENABLED_KEY]),
+  );
+  const [deviceAlertSoundUrl, setDeviceAlertSoundUrl] = useState(
+    String(normalizedInitialConfigs?.[DEVICE_ALERT_SOUND_URL_KEY] || ''),
   );
 
   // Edição inline do alias
@@ -173,10 +190,16 @@ const CashRegisterDetailPage = () => {
       d => d.device?.device === deviceString,
     );
     if (dc) {
-      const nextConfigs = dc.configs || {};
+      const nextConfigs = parseConfigsObject(dc.configs);
       setConfigs(nextConfigs);
       setDevicePaymentTarget(
         normalizeDeviceId(nextConfigs[ORDER_PAYMENT_DEVICE_CONFIG_KEY]),
+      );
+      setDeviceAlertSoundEnabled(
+        isTruthyValue(nextConfigs[DEVICE_ALERT_SOUND_ENABLED_KEY]),
+      );
+      setDeviceAlertSoundUrl(
+        String(nextConfigs[DEVICE_ALERT_SOUND_URL_KEY] || ''),
       );
     }
   }, [currentCompany?.id, deviceString]);
@@ -259,6 +282,36 @@ const CashRegisterDetailPage = () => {
       setSavingPaymentTarget(false);
     }
   }, [currentCompany?.id, devicePaymentTarget, deviceString, refreshConfigs]);
+
+  const saveDeviceAlertSoundConfig = useCallback(async () => {
+    if (!currentCompany?.id || !deviceString || savingAlertSound) {
+      return;
+    }
+
+    setSavingAlertSound(true);
+    try {
+      await actionsRef.current.deviceConfigActions.addDeviceConfigs({
+        device: deviceString,
+        configs: JSON.stringify({
+          [DEVICE_ALERT_SOUND_ENABLED_KEY]: deviceAlertSoundEnabled ? '1' : '0',
+          [DEVICE_ALERT_SOUND_URL_KEY]: deviceAlertSoundUrl.trim(),
+        }),
+        people: '/people/' + currentCompany.id,
+      });
+      await refreshConfigs();
+    } catch {
+      // silencioso
+    } finally {
+      setSavingAlertSound(false);
+    }
+  }, [
+    currentCompany?.id,
+    deviceAlertSoundEnabled,
+    deviceAlertSoundUrl,
+    deviceString,
+    refreshConfigs,
+    savingAlertSound,
+  ]);
 
   const sendCatalogRefreshCommand = useCallback(() => {
     if (!currentCompany?.id || !deviceString || sendingCatalogRefresh) {
@@ -403,7 +456,7 @@ const CashRegisterDetailPage = () => {
         {loadingData && (
           <View style={styles.loadingBox}>
             <ActivityIndicator size="small" color={brandColors.primary} />
-            <Text style={styles.loadingText}>Carregando dados do caixa...</Text>
+            <Text style={styles.loadingText}>Carregando dados do device...</Text>
           </View>
         )}
 
@@ -429,6 +482,78 @@ const CashRegisterDetailPage = () => {
             <Text style={[styles.summaryValue, { color: hex.purple }]}>
               {products.length}
             </Text>
+          </View>
+        </View>
+
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>
+            <Icon name="volume-2" size={13} /> {'  '}Aviso Sonoro
+          </Text>
+
+          <View style={styles.configCard}>
+            <Text style={styles.configTitle}>Alerta via websocket</Text>
+            <Text style={styles.configDescription}>
+              Quando habilitado, este device toca o audio configurado ao receber
+              os eventos order.created, order_product_queue.created e comandos
+              de impressao.
+            </Text>
+
+            <TouchableOpacity
+              style={[
+                styles.toggleRow,
+                deviceAlertSoundEnabled && styles.toggleRowActive,
+              ]}
+              activeOpacity={0.85}
+              onPress={() =>
+                setDeviceAlertSoundEnabled(currentValue => !currentValue)
+              }>
+              <View>
+                <Text style={styles.toggleRowLabel}>Aviso sonoro habilitado</Text>
+                <Text style={styles.toggleRowValue}>
+                  {deviceAlertSoundEnabled ? 'Ativo' : 'Inativo'}
+                </Text>
+              </View>
+              <Icon
+                name={deviceAlertSoundEnabled ? 'toggle-right' : 'toggle-left'}
+                size={28}
+                color={deviceAlertSoundEnabled ? hex.success : '#94A3B8'}
+              />
+            </TouchableOpacity>
+
+            <View style={styles.textInputWrap}>
+              <Text style={styles.textInputLabel}>URL do audio</Text>
+              <TextInput
+                style={styles.textInput}
+                value={deviceAlertSoundUrl}
+                onChangeText={setDeviceAlertSoundUrl}
+                placeholder="https://exemplo.com/alerta.mp3"
+                placeholderTextColor="#94A3B8"
+                autoCapitalize="none"
+                autoCorrect={false}
+                keyboardType="url"
+                returnKeyType="done"
+                onSubmitEditing={saveDeviceAlertSoundConfig}
+                onBlur={saveDeviceAlertSoundConfig}
+              />
+            </View>
+
+            <TouchableOpacity
+              style={[
+                styles.configButton,
+                savingAlertSound && {opacity: 0.6},
+              ]}
+              activeOpacity={0.85}
+              disabled={savingAlertSound}
+              onPress={saveDeviceAlertSoundConfig}>
+              {savingAlertSound ? (
+                <ActivityIndicator size="small" color="#fff" />
+              ) : (
+                <>
+                  <Icon name="save" size={14} color="#fff" />
+                  <Text style={styles.configButtonText}>Salvar aviso sonoro</Text>
+                </>
+              )}
+            </TouchableOpacity>
           </View>
         </View>
 
@@ -594,7 +719,7 @@ const CashRegisterDetailPage = () => {
             <View style={styles.emptyBox}>
               <Icon name="inbox" size={24} color="#CBD5E1" style={{ marginBottom: 8 }} />
               <Text style={styles.emptyText}>
-                {search ? 'Nenhum produto encontrado para esta busca' : 'Nenhum produto registrado neste caixa'}
+                {search ? 'Nenhum produto encontrado para esta busca' : 'Nenhum produto registrado neste device'}
               </Text>
             </View>
           )}
@@ -704,6 +829,53 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
   },
+  toggleRow: {
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 12,
+    backgroundColor: '#F8FAFC',
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: 12,
+  },
+  toggleRowActive: {
+    borderColor: withOpacity(hex.success, 0.4),
+    backgroundColor: withOpacity(hex.success, 0.08),
+  },
+  toggleRowLabel: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  toggleRowValue: {
+    marginTop: 4,
+    fontSize: 12,
+    color: '#64748B',
+  },
+  textInputWrap: {
+    gap: 6,
+  },
+  textInputLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#475569',
+    textTransform: 'uppercase',
+    letterSpacing: 0.3,
+  },
+  textInput: {
+    minHeight: 46,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 12,
+    backgroundColor: '#fff',
+    color: '#0F172A',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    outlineStyle: 'none',
+  },
 
   /* Carteiras / pagamentos */
   walletCard: {
@@ -758,4 +930,4 @@ const styles = StyleSheet.create({
   emptyText: { fontSize: 13, color: '#94A3B8', fontWeight: '600', textAlign: 'center' },
 });
 
-export default CashRegisterDetailPage;
+export default DeviceDetailPage;

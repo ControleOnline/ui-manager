@@ -98,7 +98,7 @@ export default function HomePage({ navigation }) {
   const [stats, setStats] = useState([
     { label: global.t?.t('configs', 'stat_label', 'orders'), value: '...', icon: 'shopping-bag', color: HEX.info, route: 'OrderHistoryPage' },
     { label: global.t?.t('configs', 'stat_label', 'customers'), value: '...', icon: 'users', color: HEX.success, route: 'ClientsIndex' },
-    { label: 'Dispositivos', value: '...', icon: 'credit-card', color: HEX.warning, route: 'CashRegistersIndex' },
+    { label: 'Dispositivos', value: '...', icon: 'credit-card', color: HEX.warning, route: 'DevicesIndex' },
   ]);
   const [loadingStats, setLoadingStats] = useState(true);
 
@@ -144,7 +144,7 @@ export default function HomePage({ navigation }) {
         setStats([
           { label: global.t?.t('configs', 'stat_label', 'orders'), value: String(ordersRes?.totalItems ?? '—'), icon: 'shopping-bag', color: HEX.info, route: 'OrderHistoryPage' },
           { label: global.t?.t('configs', 'stat_label', 'customers'), value: String(clientsRes?.totalItems ?? '—'), icon: 'users', color: HEX.success, route: 'ClientsIndex' },
-          { label: 'Dispositivos', value: String(cashRes?.totalItems ?? '—'), icon: 'credit-card', color: HEX.warning, route: 'CashRegistersIndex' },
+          { label: 'Dispositivos', value: String(cashRes?.totalItems ?? '—'), icon: 'credit-card', color: HEX.warning, route: 'DevicesIndex' },
         ]);
 
         setSummaries({
@@ -235,7 +235,7 @@ export default function HomePage({ navigation }) {
           </ShortcutsRow>
           <ShortcutsRow>
             <ShortcutCard label={global.t?.t('configs', 'button_title', 'transfers')} icon="repeat" color={HEX.purple} onPress={() => go('OwnTransfers')} />
-            <ShortcutCard label="Dispositivos" icon="credit-card" color={HEX.warning} onPress={() => go('CashRegistersIndex')} />
+            <ShortcutCard label="Dispositivos" icon="credit-card" color={HEX.warning} onPress={() => go('DevicesIndex')} />
           </ShortcutsRow>
           <ShortcutsRow>
             <ShortcutCard label="Carteiras" icon="briefcase" color={HEX.info} onPress={() => go('WalletsPage')} />

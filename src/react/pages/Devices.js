@@ -41,7 +41,7 @@ const getStatus = dc => {
     : 'closed';
 };
 
-const CashRegisters = () => {
+const Devices = () => {
   const navigation          = useNavigation();
   const peopleStore         = useStore('people');
   const deviceConfigStore   = useStore('device_config');
@@ -89,7 +89,7 @@ const CashRegisters = () => {
   );
 
   const goToDetail = useCallback(dc => {
-    navigation.navigate('CashRegisterDetail', {
+    navigation.navigate('DeviceDetail', {
       dcId:         dc.id,
       deviceId:     dc.device?.id,
       deviceString: dc.device?.device,
@@ -309,4 +309,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default CashRegisters;
+export default Devices;
