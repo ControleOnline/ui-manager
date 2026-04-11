@@ -93,6 +93,7 @@ const Devices = () => {
       dcId:         dc.id,
       deviceId:     dc.device?.id,
       deviceString: dc.device?.device,
+      deviceType:   dc.device?.type || '',
       alias:        dc.device?.alias || dc.device?.device || `Dispositivo #${dc.id}`,
       configs:      dc.configs || {},
     });

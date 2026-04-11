@@ -34,6 +34,7 @@ import {
   filterDeviceConfigsByCompany,
   getCompanyPaymentDeviceOptions,
   normalizeDeviceId,
+  normalizeEntityId,
   ORDER_PAYMENT_DEVICE_CONFIG_KEY,
 } from '@controleonline/ui-common/src/react/utils/paymentDevices';
 
@@ -68,6 +69,28 @@ const paymentIcon = label => {
   return PAYMENT_ICONS.default;
 };
 
+const DISPLAY_DEVICE_TYPE = 'DISPLAY';
+const DISPLAY_DEVICE_LINK_CONFIG_KEY = 'display-id';
+const DISPLAY_DEVICE_PRINTER_CONFIG_KEY = 'printer';
+
+const getDisplayLabel = display => {
+  const name = String(display?.display || '').trim();
+  const type = String(display?.displayType || '').trim().toUpperCase();
+
+  if (name && type) {
+    return `${name} (${type})`;
+  }
+
+  if (name) {
+    return name;
+  }
+
+  return `Display #${normalizeEntityId(display) || '--'}`;
+};
+
+const getPrinterLabel = printer =>
+  String(printer?.alias || printer?.device || '').trim() || 'Impressora sem nome';
+
 const getIsOpen = configs => {
   const closed = configs?.['cash-wallet-closed-id'];
   return closed === 0 || closed === '0' || closed === undefined || closed === null;
@@ -87,20 +110,32 @@ const confirm = (msg, cb) => {
 const DeviceDetailPage = () => {
   const route      = useRoute();
   const navigation = useNavigation();
-  const { deviceId, deviceString, alias: initialAlias, configs: initialConfigs } = route.params || {};
+  const {
+    deviceId,
+    deviceString,
+    deviceType: initialDeviceType,
+    alias: initialAlias,
+    configs: initialConfigs,
+  } = route.params || {};
   const normalizedInitialConfigs = useMemo(
     () => parseConfigsObject(initialConfigs),
     [initialConfigs],
   );
+  const deviceType = String(initialDeviceType || '').trim().toUpperCase();
+  const isDisplayDevice = deviceType === DISPLAY_DEVICE_TYPE;
 
   const invoiceStore      = useStore('invoice');
   const deviceConfigStore = useStore('device_config');
   const deviceStore       = useStore('device');
+  const displayStore      = useStore('displays');
   const peopleStore       = useStore('people');
+  const printerStore      = useStore('printer');
   const themeStore        = useStore('theme');
   const websocketStore    = useStore('websocket');
 
   const { currentCompany }      = peopleStore.getters;
+  const { items: displays = [], isLoading: isLoadingDisplays } = displayStore.getters;
+  const { items: printers = [], isLoading: isLoadingPrinters } = printerStore.getters;
   const { colors: themeColors } = themeStore.getters;
   const websocketActions = websocketStore.actions;
 
@@ -139,6 +174,13 @@ const DeviceDetailPage = () => {
   const [deviceAlertSoundUrl, setDeviceAlertSoundUrl] = useState(
     String(normalizedInitialConfigs?.[DEVICE_ALERT_SOUND_URL_KEY] || ''),
   );
+  const [linkedDisplayId, setLinkedDisplayId] = useState(
+    normalizeEntityId(normalizedInitialConfigs?.[DISPLAY_DEVICE_LINK_CONFIG_KEY]),
+  );
+  const [displayPrinterId, setDisplayPrinterId] = useState(
+    normalizeDeviceId(normalizedInitialConfigs?.[DISPLAY_DEVICE_PRINTER_CONFIG_KEY]),
+  );
+  const [savingDisplayPrintingConfig, setSavingDisplayPrintingConfig] = useState(false);
 
   // Edição inline do alias
   const [alias,        setAlias]        = useState(initialAlias || '');
@@ -156,6 +198,26 @@ const DeviceDetailPage = () => {
         option => option.deviceId !== deviceString,
       ),
     [companyDeviceConfigs, currentCompany?.id, deviceString],
+  );
+  const displayOptions = useMemo(
+    () =>
+      (Array.isArray(displays) ? displays : [])
+        .filter(option => {
+          const companyId = normalizeEntityId(option?.company?.id || option?.company);
+          const currentCompanyId = normalizeEntityId(currentCompany?.id);
+          return !currentCompanyId || !companyId || companyId === currentCompanyId;
+        })
+        .sort((left, right) =>
+          String(left?.display || '').localeCompare(String(right?.display || '')),
+        ),
+    [currentCompany?.id, displays],
+  );
+  const printerOptions = useMemo(
+    () =>
+      (Array.isArray(printers) ? printers : []).sort((left, right) =>
+        getPrinterLabel(left).localeCompare(getPrinterLabel(right)),
+      ),
+    [printers],
   );
   const pickerMode = Platform.OS === 'android' ? 'dropdown' : undefined;
 
@@ -212,7 +274,17 @@ const DeviceDetailPage = () => {
       setDeviceAlertSoundUrl(
         String(nextConfigs[DEVICE_ALERT_SOUND_URL_KEY] || ''),
       );
+      setLinkedDisplayId(
+        normalizeEntityId(nextConfigs[DISPLAY_DEVICE_LINK_CONFIG_KEY]),
+      );
+      setDisplayPrinterId(
+        normalizeDeviceId(nextConfigs[DISPLAY_DEVICE_PRINTER_CONFIG_KEY]),
+      );
+      return;
     }
+
+    setLinkedDisplayId('');
+    setDisplayPrinterId('');
   }, [currentCompany?.id, deviceString]);
 
   useFocusEffect(
@@ -220,6 +292,29 @@ const DeviceDetailPage = () => {
       loadData();
       refreshConfigs();
     }, [loadData, refreshConfigs]),
+  );
+
+  useFocusEffect(
+    useCallback(() => {
+      if (!isDisplayDevice || !currentCompany?.id) {
+        return;
+      }
+
+      displayStore.actions
+        .getItems({
+          company: currentCompany.id,
+          itemsPerPage: 200,
+        })
+        .catch(() => {});
+      printerStore.actions
+        .getPrinters({people: currentCompany.id})
+        .catch(() => {});
+    }, [
+      currentCompany?.id,
+      displayStore.actions,
+      isDisplayDevice,
+      printerStore.actions,
+    ]),
   );
 
   const handleToggle = () => {
@@ -352,6 +447,56 @@ const DeviceDetailPage = () => {
     savingOrderVisibility,
   ]);
 
+  const saveDisplayPrintingConfig = useCallback(async () => {
+    if (
+      !isDisplayDevice ||
+      !currentCompany?.id ||
+      !deviceString ||
+      savingDisplayPrintingConfig
+    ) {
+      return;
+    }
+
+    const normalizedDisplayId = String(linkedDisplayId || '').trim();
+    const normalizedPrinterId = normalizeDeviceId(displayPrinterId);
+
+    if (
+      (normalizedDisplayId && !normalizedPrinterId) ||
+      (!normalizedDisplayId && normalizedPrinterId)
+    ) {
+      Alert.alert(
+        'Impressao de preparo',
+        'Selecione juntos o display vinculado e a impressora da fila, ou limpe os dois campos.',
+      );
+      return;
+    }
+
+    setSavingDisplayPrintingConfig(true);
+    try {
+      await actionsRef.current.deviceConfigActions.addDeviceConfigs({
+        device: deviceString,
+        configs: JSON.stringify({
+          [DISPLAY_DEVICE_LINK_CONFIG_KEY]: normalizedDisplayId,
+          [DISPLAY_DEVICE_PRINTER_CONFIG_KEY]: normalizedPrinterId,
+        }),
+        people: '/people/' + currentCompany.id,
+      });
+      await refreshConfigs();
+    } catch {
+      // silencioso
+    } finally {
+      setSavingDisplayPrintingConfig(false);
+    }
+  }, [
+    currentCompany?.id,
+    deviceString,
+    displayPrinterId,
+    isDisplayDevice,
+    linkedDisplayId,
+    refreshConfigs,
+    savingDisplayPrintingConfig,
+  ]);
+
   const sendCatalogRefreshCommand = useCallback(() => {
     if (!currentCompany?.id || !deviceString || sendingCatalogRefresh) {
       return;
@@ -422,7 +567,7 @@ const DeviceDetailPage = () => {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: brandColors.background }]}>
-      <StateStore stores={['invoice', 'device_config', 'device', 'websocket']} />
+      <StateStore stores={['invoice', 'device_config', 'device', 'displays', 'printer', 'websocket']} />
 
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
 
@@ -573,6 +718,103 @@ const DeviceDetailPage = () => {
             </TouchableOpacity>
           </View>
         </View>
+
+        {isDisplayDevice && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>
+              <Icon name="printer" size={13} /> {'  '}Impressao de Preparo
+            </Text>
+
+            <View style={styles.configCard}>
+              <Text style={styles.configTitle}>Display vinculado e impressora da fila</Text>
+              <Text style={styles.configDescription}>
+                Este bloco e usado na impressao automatica do backend. O device
+                DISPLAY precisa apontar qual display/fila representa e qual
+                impressora deve receber a copia separada por fila.
+              </Text>
+
+              {(isLoadingDisplays || isLoadingPrinters) ? (
+                <View style={styles.loadingBox}>
+                  <ActivityIndicator size="small" color={brandColors.primary} />
+                  <Text style={styles.loadingText}>Carregando displays e impressoras...</Text>
+                </View>
+              ) : (
+                <>
+                  <View style={styles.pickerWrap}>
+                    <Picker
+                      selectedValue={linkedDisplayId || ''}
+                      mode={pickerMode}
+                      onValueChange={value => setLinkedDisplayId(String(value || '').trim())}>
+                      <Picker.Item
+                        label="Nenhum display vinculado"
+                        value=""
+                      />
+                      {displayOptions.map(option => {
+                        const optionId = normalizeEntityId(option);
+                        return (
+                          <Picker.Item
+                            key={`display-option-${optionId}`}
+                            label={getDisplayLabel(option)}
+                            value={optionId}
+                          />
+                        );
+                      })}
+                    </Picker>
+                  </View>
+
+                  <View style={styles.pickerWrap}>
+                    <Picker
+                      selectedValue={displayPrinterId || ''}
+                      mode={pickerMode}
+                      onValueChange={value =>
+                        setDisplayPrinterId(normalizeDeviceId(value))
+                      }>
+                      <Picker.Item
+                        label="Nenhuma impressora configurada"
+                        value=""
+                      />
+                      {printerOptions.map(option => {
+                        const printerId = normalizeDeviceId(option?.device);
+                        return (
+                          <Picker.Item
+                            key={`printer-option-${printerId}`}
+                            label={`${getPrinterLabel(option)} (${printerId})`}
+                            value={printerId}
+                          />
+                        );
+                      })}
+                    </Picker>
+                  </View>
+                </>
+              )}
+
+              <Text style={styles.configHint}>
+                Para esta rotina funcionar, os dois campos precisam estar
+                preenchidos. Ao receber um pedido, o backend imprime uma copia
+                completa na impressora padrao da empresa e outra copia por fila
+                nos DISPLAYs envolvidos.
+              </Text>
+
+              <TouchableOpacity
+                style={[
+                  styles.configButton,
+                  savingDisplayPrintingConfig && {opacity: 0.6},
+                ]}
+                activeOpacity={0.85}
+                disabled={savingDisplayPrintingConfig}
+                onPress={saveDisplayPrintingConfig}>
+                {savingDisplayPrintingConfig ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <>
+                    <Icon name="save" size={14} color="#fff" />
+                    <Text style={styles.configButtonText}>Salvar impressao de preparo</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>
@@ -895,6 +1137,11 @@ const styles = StyleSheet.create({
     fontSize: 12,
     lineHeight: 18,
     color: '#64748B',
+  },
+  configHint: {
+    fontSize: 12,
+    lineHeight: 18,
+    color: '#475569',
   },
   pickerWrap: {
     borderWidth: 1,
