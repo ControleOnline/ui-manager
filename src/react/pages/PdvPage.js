@@ -58,7 +58,10 @@ const calcGroupExtraPrice = (group, selectedInGroup) => {
 const calcCartItemTotal = item =>
   (Number(item.product?.price || 0) + (item.extraPrice || 0)) * item.quantity
 
-const toFloat = str => parseFloat(String(str || '0').replace(',', '.')) || 0
+const normalizeId = value => {
+  const normalizedId = String(value || '').replace(/\D/g, '')
+  return normalizedId || null
+}
 
 const extractItems = response => {
   if (Array.isArray(response)) return response
@@ -126,7 +129,57 @@ const buildStatusIriFromId = value => {
 }
 
 let posOpenOrderStatusIriCache = null
-let posPaidInvoiceStatusIriCache = null
+
+const isOpenPosCartOrder = order =>
+  String(order?.app || '').trim().toUpperCase() === 'POS' &&
+  normalizeStatusKey(order?.status?.realStatus) === 'open' &&
+  normalizeStatusKey(order?.status?.status) === 'open'
+
+const buildPdvDraftOrderStorageKey = (companyId, deviceId) =>
+  `pdv-active-order:${normalizeId(companyId) || '0'}:${normalizeId(deviceId) || '0'}`
+
+const getOrderPeopleValue = order =>
+  order?.people ||
+  order?.client ||
+  order?.customer ||
+  null
+
+const mapOrderProductToCartItem = orderProduct => {
+  const quantity = Number(orderProduct?.quantity || 0)
+  const baseProduct = orderProduct?.product || {}
+  const total = Number(orderProduct?.total || 0)
+  const unitBasePrice = Number(orderProduct?.price ?? baseProduct?.price ?? 0)
+  const unitDisplayPrice =
+    quantity > 0 && total > 0
+      ? total / quantity
+      : unitBasePrice
+
+  return {
+    key: String(orderProduct?.id || orderProduct?.['@id'] || Math.random()),
+    id: normalizeId(orderProduct?.id || orderProduct?.['@id']),
+    '@id':
+      orderProduct?.['@id'] ||
+      (normalizeId(orderProduct?.id) ? `/order_products/${normalizeId(orderProduct.id)}` : null),
+    orderProduct,
+    product: baseProduct,
+    quantity,
+    total: total > 0 ? total : unitDisplayPrice * quantity,
+    extraPrice: Math.max(0, unitDisplayPrice - Number(baseProduct?.price || 0)),
+    subProducts: Array.isArray(orderProduct?.orderProductComponents)
+      ? orderProduct.orderProductComponents.map(component => ({
+          quantity: Number(component?.quantity || 1),
+          groupId: component?.productGroup?.id || null,
+          groupName: component?.productGroup?.productGroup || '',
+          productGroupProduct: {
+            productChild:
+              component?.product ||
+              component?.productChild ||
+              null,
+          },
+        }))
+      : [],
+  }
+}
 
 const resolvePosOrderOpenStatusIri = async fallbackStatusId => {
   if (posOpenOrderStatusIriCache) return posOpenOrderStatusIriCache
@@ -154,40 +207,6 @@ const resolvePosOrderOpenStatusIri = async fallbackStatusId => {
 
     if (resolvedIri) {
       posOpenOrderStatusIriCache = resolvedIri
-    }
-
-    return resolvedIri
-  } catch (error) {
-    return fallbackIri
-  }
-}
-
-const resolvePosPaidInvoiceStatusIri = async fallbackStatusId => {
-  if (posPaidInvoiceStatusIriCache) return posPaidInvoiceStatusIriCache
-
-  const fallbackIri = buildStatusIriFromId(fallbackStatusId)
-
-  try {
-    const response = await api.fetch('statuses', {
-      params: {
-        context: 'invoice',
-        realStatus: 'closed',
-        status: 'paid',
-        itemsPerPage: 10,
-      },
-    })
-    const items = extractStatusItems(response)
-    const matchedStatus =
-      items.find(
-        item =>
-          normalizeStatusKey(item?.realStatus) === 'closed' &&
-          normalizeStatusKey(item?.status) === 'paid',
-      ) || items[0]
-    const resolvedIri =
-      matchedStatus?.['@id'] || buildStatusIriFromId(matchedStatus?.id) || fallbackIri
-
-    if (resolvedIri) {
-      posPaidInvoiceStatusIriCache = resolvedIri
     }
 
     return resolvedIri
@@ -687,27 +706,28 @@ export default function PdvPage() {
   const { height: windowHeight } = useWindowDimensions()
   const productsStore         = useStore('products')
   const ordersStore           = useStore('orders')
-  const invoiceStore          = useStore('invoice')
+  const orderProductsStore    = useStore('order_products')
   const peopleStore           = useStore('people')
-  const walletStore           = useStore('walletPaymentType')
   const themeStore            = useStore('theme')
   const productGroupStore     = useStore('product_group')
   const productGroupProdStore = useStore('product_group_product')
   const categoriesStore       = useStore('categories')
+  const deviceStore           = useStore('device')
 
   const palette = useMemo(() => resolveThemePalette(themeStore?.getters?.colors), [themeStore?.getters?.colors])
 
-  const { currentCompany, defaultCompany, items: peopleItems, isLoading: peopleLoading } = peopleStore.getters
+  const { currentCompany, items: peopleItems, isLoading: peopleLoading } = peopleStore.getters
   const { items: allProducts, isLoading: productsLoading } = productsStore.getters
+  const { isSaving: orderProductsSaving } = orderProductsStore.getters
   const { isSaving: orderSaving }   = ordersStore.getters
-  const { isSaving: invoiceSaving } = invoiceStore.getters
-  const { items: paymentTypes, isLoading: paymentsLoading } = walletStore.getters
   const { items: categoryItems, isLoading: categoriesLoading } = categoriesStore.getters
+  const { item: storagedDevice } = deviceStore.getters
 
   const [screen, setScreen]                   = useState('categories')
   const [selectedCategory, setSelectedCategory] = useState(null)
   const [search, setSearch]                   = useState('')
-  const [cart, setCart]                       = useState({})
+  const [activeOrder, setActiveOrder]         = useState(null)
+  const [cartSyncing, setCartSyncing]         = useState(false)
 
   const [custModal, setCustModal]             = useState({ visible: false, product: null })
   const [custGroups, setCustGroups]           = useState([])
@@ -715,16 +735,176 @@ export default function PdvPage() {
   const [custLoading, setCustLoading]         = useState(false)
 
   const [checkoutVisible, setCheckoutVisible] = useState(false)
-  const [step, setStep]                       = useState('cart')
+  const [step, setStep]                       = useState('review')
   const [processingMsg, setProcessingMsg]     = useState('')
-
-  const [payments, setPayments]               = useState([])
-  const [newPaymentType, setNewPaymentType]   = useState(null)
-  const [newPaymentAmount, setNewPaymentAmount] = useState('')
 
   const [selectedPeople, setSelectedPeople]   = useState(null)
   const [peopleQuery, setPeopleQuery]         = useState('')
-  const [finalTroco, setFinalTroco]           = useState(0)
+  const pdvDraftOrderStorageKey = useMemo(
+    () => buildPdvDraftOrderStorageKey(currentCompany?.id, storagedDevice?.id),
+    [currentCompany?.id, storagedDevice?.id],
+  )
+  const rootOrderProducts = useMemo(
+    () =>
+      (activeOrder?.orderProducts || []).filter(orderProduct => !orderProduct?.parentProduct),
+    [activeOrder?.orderProducts],
+  )
+  const cartItems = useMemo(
+    () => rootOrderProducts.map(mapOrderProductToCartItem),
+    [rootOrderProducts],
+  )
+  const isCartBusy = cartSyncing || orderSaving || orderProductsSaving
+
+  const clearStoredDraftOrderId = useCallback(() => {
+    if (typeof localStorage === 'undefined' || !pdvDraftOrderStorageKey) return
+    localStorage.removeItem(pdvDraftOrderStorageKey)
+  }, [pdvDraftOrderStorageKey])
+
+  const rememberDraftOrderId = useCallback(order => {
+    const orderId = normalizeId(order?.id || order?.['@id'])
+    if (typeof localStorage === 'undefined' || !pdvDraftOrderStorageKey || !orderId) return
+    localStorage.setItem(pdvDraftOrderStorageKey, orderId)
+  }, [pdvDraftOrderStorageKey])
+
+  const syncActiveOrderState = useCallback(order => {
+    if (order && isOpenPosCartOrder(order)) {
+      rememberDraftOrderId(order)
+      setActiveOrder(order)
+      setSelectedPeople(previousPeople => {
+        const nextPeople = getOrderPeopleValue(order)
+        if (nextPeople) return nextPeople
+
+        const sameOrder =
+          normalizeId(activeOrder?.id || activeOrder?.['@id']) ===
+          normalizeId(order?.id || order?.['@id'])
+
+        return sameOrder ? previousPeople : null
+      })
+      ordersStore.actions.setItem(order)
+      return order
+    }
+
+    clearStoredDraftOrderId()
+    setActiveOrder(null)
+    setSelectedPeople(null)
+    ordersStore.actions.setItem({})
+    return null
+  }, [activeOrder, clearStoredDraftOrderId, ordersStore.actions, rememberDraftOrderId])
+
+  const readStoredDraftOrderId = useCallback(() => {
+    if (typeof localStorage === 'undefined' || !pdvDraftOrderStorageKey) return null
+    return normalizeId(localStorage.getItem(pdvDraftOrderStorageKey))
+  }, [pdvDraftOrderStorageKey])
+
+  const refreshActiveOrder = useCallback(async orderId => {
+    const targetId = normalizeId(orderId || activeOrder?.id || activeOrder?.['@id'])
+    if (!targetId) {
+      return syncActiveOrderState(null)
+    }
+
+    try {
+      const refreshedOrder = await ordersStore.actions.get(targetId)
+      return syncActiveOrderState(refreshedOrder)
+    } catch (error) {
+      return syncActiveOrderState(null)
+    }
+  }, [activeOrder?.['@id'], activeOrder?.id, ordersStore.actions, syncActiveOrderState])
+
+  const loadStoredDraftOrder = useCallback(async () => {
+    const storedOrderId = readStoredDraftOrderId()
+    if (!storedOrderId) {
+      return syncActiveOrderState(null)
+    }
+
+    return refreshActiveOrder(storedOrderId)
+  }, [readStoredDraftOrderId, refreshActiveOrder, syncActiveOrderState])
+
+  const buildOrderPayload = useCallback((statusIri, peopleIri = null, orderId = null) => {
+    const payload = {
+      app: 'POS',
+      provider: '/people/' + currentCompany.id,
+      status: statusIri,
+      orderType: 'sale',
+    }
+
+    if (orderId) {
+      payload.id = Number(orderId)
+    }
+
+    if (peopleIri !== undefined) {
+      payload.people = peopleIri
+    }
+
+    if (storagedDevice?.id) {
+      payload['device.device'] = storagedDevice.id
+    }
+
+    return payload
+  }, [currentCompany?.id, storagedDevice?.id])
+
+  const ensureActiveOrder = useCallback(async (peopleIri = selectedPeople?.['@id'] || null) => {
+    if (isOpenPosCartOrder(activeOrder)) {
+      return activeOrder
+    }
+
+    const storedOrder = await loadStoredDraftOrder()
+    if (storedOrder) {
+      return storedOrder
+    }
+
+    const orderOpenStatusIri = await resolvePosOrderOpenStatusIri(
+      currentCompany?.configs?.['pos-default-status'],
+    )
+
+    if (!orderOpenStatusIri) {
+      throw new Error('Nao foi possivel resolver o status open/open do pedido no PDV.')
+    }
+
+    const createdOrder = await ordersStore.actions.save(
+      buildOrderPayload(orderOpenStatusIri, peopleIri),
+    )
+
+    return syncActiveOrderState(createdOrder)
+  }, [
+    activeOrder,
+    buildOrderPayload,
+    currentCompany?.configs,
+    loadStoredDraftOrder,
+    ordersStore.actions,
+    selectedPeople,
+    syncActiveOrderState,
+  ])
+
+  const syncOrderPeople = useCallback(async nextPeople => {
+    setSelectedPeople(nextPeople || null)
+
+    if (!activeOrder?.id || !currentCompany?.id) {
+      return activeOrder
+    }
+
+    const currentPeopleIri =
+      getOrderPeopleValue(activeOrder)?.['@id'] ||
+      null
+    const nextPeopleIri = nextPeople?.['@id'] || null
+
+    if (currentPeopleIri === nextPeopleIri) {
+      return activeOrder
+    }
+
+    const currentStatusIri =
+      activeOrder?.status?.['@id'] ||
+      buildStatusIriFromId(activeOrder?.status?.id)
+
+    if (!currentStatusIri) {
+      return activeOrder
+    }
+
+    const updatedOrder = await ordersStore.actions.save(
+      buildOrderPayload(currentStatusIri, nextPeopleIri, activeOrder.id),
+    )
+
+    return syncActiveOrderState(updatedOrder)
+  }, [activeOrder, buildOrderPayload, currentCompany?.id, ordersStore.actions, syncActiveOrderState])
 
   /* ── carregar categorias e pagamentos ── */
   useFocusEffect(
@@ -747,8 +927,13 @@ export default function PdvPage() {
           })
       }
 
-      walletStore.actions.getItems({ 'wallet.people': '/people/' + currentCompany.id })
-    }, [currentCompany?.id]),
+    }, [categoriesStore.actions, currentCompany?.id]),
+  )
+
+  useFocusEffect(
+    useCallback(() => {
+      void loadStoredDraftOrder()
+    }, [loadStoredDraftOrder]),
   )
 
   const searchPeople = useCallback((query) => {
@@ -767,16 +952,16 @@ export default function PdvPage() {
   /* ── reset ao sair ── */
   useFocusEffect(
     useCallback(() => () => {
-      setCart({})
+      setActiveOrder(null)
       setScreen('categories')
       setSelectedCategory(null)
       setSearch('')
       setCheckoutVisible(false)
       setCustModal({ visible: false, product: null })
-      setStep('cart')
-      setPayments([])
+      setStep('review')
       setSelectedPeople(null)
       setPeopleQuery('')
+      setCartSyncing(false)
       peopleStore.actions.setItems([])
     }, []),
   )
@@ -842,27 +1027,40 @@ export default function PdvPage() {
   }, [allProducts, search])
 
   /* ── totais carrinho ── */
-  const cartItems   = useMemo(() => Object.values(cart).filter(i => i.quantity > 0), [cart])
   const cartCount   = useMemo(() => cartItems.reduce((s, i) => s + i.quantity, 0), [cartItems])
-  const cartTotal   = useMemo(() => cartItems.reduce((s, i) => s + calcCartItemTotal(i), 0), [cartItems])
-
-  /* ── totais pagamento ── */
-  const paymentsTotal = useMemo(() => payments.reduce((s, p) => s + toFloat(p.amount), 0), [payments])
-  const remaining     = useMemo(() => Math.max(0, cartTotal - paymentsTotal), [cartTotal, paymentsTotal])
-  const troco         = useMemo(() => Math.max(0, paymentsTotal - cartTotal), [cartTotal, paymentsTotal])
-
-  const getProductQty = useCallback(
-    pid => Object.values(cart).filter(i => String(i.product.id) === String(pid)).reduce((s, i) => s + i.quantity, 0),
-    [cart],
+  const cartTotal   = useMemo(
+    () => cartItems.reduce((sum, item) => sum + Number(item.total || calcCartItemTotal(item) || 0), 0),
+    [cartItems],
   )
 
-  const addSimpleProduct = useCallback((product) => {
-    const key = `simple_${product.id}`
-    setCart(prev => ({
-      ...prev,
-      [key]: { product, quantity: (prev[key]?.quantity || 0) + 1, subProducts: [], extraPrice: 0 },
-    }))
-  }, [])
+  /* ── totais pagamento ── */
+  const getProductQty = useCallback(
+    pid =>
+      cartItems
+        .filter(item => String(item?.product?.id) === String(pid))
+        .reduce((sum, item) => sum + Number(item?.quantity || 0), 0),
+    [cartItems],
+  )
+
+  const addSimpleProduct = useCallback(async product => {
+    if (!product?.id && !product?.['@id']) return
+
+    setCartSyncing(true)
+    try {
+      const order = await ensureActiveOrder()
+      const productId = normalizeId(product?.id || product?.['@id'])
+      if (!productId) return
+
+      const updatedOrder = await ordersStore.actions.addProducts(order.id, [{
+        product: productId,
+        quantity: 1,
+      }])
+
+      syncActiveOrderState(updatedOrder)
+    } finally {
+      setCartSyncing(false)
+    }
+  }, [ensureActiveOrder, ordersStore.actions, syncActiveOrderState])
 
   /* ── abrir modal de grupos (para qualquer produto) ── */
   const openCustomize = useCallback(async (product) => {
@@ -882,7 +1080,7 @@ export default function PdvPage() {
         // sem grupos → adiciona direto ao carrinho
         setCustLoading(false)
         setCustModal({ visible: false, product: null })
-        addSimpleProduct(product)
+        void addSimpleProduct(product)
         return
       }
       setCustGroups(groups)
@@ -900,7 +1098,7 @@ export default function PdvPage() {
       setCustGroupProds(prodsMap)
     } catch {
       setCustModal({ visible: false, product: null })
-      addSimpleProduct(product)
+      void addSimpleProduct(product)
     } finally {
       setCustLoading(false)
     }
@@ -908,206 +1106,105 @@ export default function PdvPage() {
 
   /* ── todos os produtos passam por openCustomize ── */
   const handleProductPress = useCallback((product) => {
+    if (isCartBusy) return
     openCustomize(product)
-  }, [openCustomize])
+  }, [isCartBusy, openCustomize])
 
-  const handleCustomizeConfirm = useCallback((subProducts, extraPrice) => {
+  const handleCustomizeConfirm = useCallback(async (subProducts, extraPrice) => {
     const product = custModal.product
-    const key = subProducts.length > 0
-      ? `custom_${product.id}_${Date.now()}`
-      : `simple_${product.id}`
-    setCart(prev => {
-      if (subProducts.length === 0) {
-        return {
-          ...prev,
-          [key]: { product, quantity: (prev[key]?.quantity || 0) + 1, subProducts: [], extraPrice: 0 },
-        }
-      }
-      return { ...prev, [key]: { product, quantity: 1, subProducts, extraPrice } }
-    })
-    setCustModal({ visible: false, product: null })
-  }, [custModal.product])
+    const productId = normalizeId(product?.id || product?.['@id'])
+    if (!productId) {
+      setCustModal({ visible: false, product: null })
+      return
+    }
+    const normalizedSubProducts = (subProducts || [])
+      .map(item => ({
+        product: normalizeId(item?.productGroupProduct?.productChild?.id || item?.productGroupProduct?.productChild?.['@id']),
+        productGroup: item?.groupId,
+        quantity: Number(item?.quantity || 1),
+      }))
+      .filter(item => item.product && item.productGroup)
 
-  const removeCartItem = useCallback((key) => {
-    setCart(prev => {
-      const next = { ...prev }
-      if (next[key].quantity > 1) {
-        next[key] = { ...next[key], quantity: next[key].quantity - 1 }
+    setCartSyncing(true)
+    try {
+      const order = await ensureActiveOrder()
+      const updatedOrder = await ordersStore.actions.addProducts(order.id, [{
+        product: productId,
+        quantity: 1,
+        sub_products: normalizedSubProducts,
+      }])
+
+      syncActiveOrderState(updatedOrder)
+      setCustModal({ visible: false, product: null })
+    } finally {
+      setCartSyncing(false)
+    }
+  }, [custModal.product, ensureActiveOrder, ordersStore.actions, syncActiveOrderState])
+
+  const removeCartItem = useCallback(async orderProduct => {
+    const orderProductId = normalizeId(orderProduct?.id || orderProduct?.['@id'])
+    if (!orderProductId) return
+
+    setCartSyncing(true)
+    try {
+      if (Number(orderProduct?.quantity || 0) > 1) {
+        await orderProductsStore.actions.save({
+          '@id': orderProduct?.['@id'],
+          id: Number(orderProductId),
+          quantity: Number(orderProduct?.quantity || 0) - 1,
+        })
       } else {
-        delete next[key]
+        await orderProductsStore.actions.remove(orderProductId)
       }
-      return next
-    })
-  }, [])
 
-  const addCartItem = useCallback((key) => {
-    setCart(prev => ({ ...prev, [key]: { ...prev[key], quantity: prev[key].quantity + 1 } }))
-  }, [])
+      await refreshActiveOrder()
+    } finally {
+      setCartSyncing(false)
+    }
+  }, [orderProductsStore.actions, refreshActiveOrder])
+
+  const addCartItem = useCallback(async orderProduct => {
+    const orderProductId = normalizeId(orderProduct?.id || orderProduct?.['@id'])
+    if (!orderProductId) return
+
+    setCartSyncing(true)
+    try {
+      await orderProductsStore.actions.save({
+        '@id': orderProduct?.['@id'],
+        id: Number(orderProductId),
+        quantity: Number(orderProduct?.quantity || 0) + 1,
+      })
+
+      await refreshActiveOrder()
+    } finally {
+      setCartSyncing(false)
+    }
+  }, [orderProductsStore.actions, refreshActiveOrder])
 
   const openCheckout = () => {
     if (cartCount === 0) return
-    setPayments([])
-    setNewPaymentType(null)
-    setNewPaymentAmount(cartTotal.toFixed(2).replace('.', ','))
-    setStep('cart')
+    setStep('review')
     setCheckoutVisible(true)
   }
-
-  const addPayment = () => {
-    if (!newPaymentType) return
-    const amt = toFloat(newPaymentAmount)
-    if (amt <= 0) return
-    setPayments(prev => [...prev, { id: Date.now(), paymentType: newPaymentType, amount: newPaymentAmount }])
-    setNewPaymentType(null)
-    const nextRem = Math.max(0, cartTotal - paymentsTotal - amt)
-    setNewPaymentAmount(nextRem > 0 ? nextRem.toFixed(2).replace('.', ',') : '')
-  }
-
-  const removePayment = (id) => setPayments(prev => prev.filter(p => p.id !== id))
 
   const handleCreateOrder = useCallback(async () => {
     if (cartItems.length === 0) return
 
-    const orderOpenStatusIri = await resolvePosOrderOpenStatusIri(
-      currentCompany?.configs?.['pos-default-status'],
-    )
-    if (!orderOpenStatusIri) {
-      setStep('error')
-      setProcessingMsg('Nao foi possivel resolver o status open/open do pedido no PDV.')
-      return
-    }
-
     setStep('processing')
-    setProcessingMsg('Criando pedido...')
+    setProcessingMsg('Preparando checkout...')
     try {
-      const orderPayload = {
-        app: 'POS',
-        provider: '/people/' + currentCompany.id,
-        status: orderOpenStatusIri,
-        orderType: 'sale',
-      }
-      if (selectedPeople?.['@id']) orderPayload.people = selectedPeople['@id']
-      const order = await ordersStore.actions.save(orderPayload)
-
-      setProcessingMsg('Adicionando produtos...')
-      const toId = iri => String(iri || '').replace(/\D/g, '')
-      const simpleMap = {}
-      for (const item of cartItems) {
-        if (item.subProducts?.length > 0) {
-          await ordersStore.actions.addProducts(order.id, [{
-            product: toId(item.product['@id']),
-            quantity: item.quantity,
-            sub_products: item.subProducts.map(sp => ({
-              product: toId(sp.productGroupProduct.productChild?.['@id']),
-              productGroup: sp.groupId,
-              quantity: sp.quantity,
-            })),
-          }])
-        } else {
-          const pid = toId(item.product['@id'])
-          simpleMap[pid] = (simpleMap[pid] || 0) + item.quantity
-        }
-      }
-      if (Object.keys(simpleMap).length > 0) {
-        await ordersStore.actions.addProducts(
-          order.id,
-          Object.entries(simpleMap).map(([pid, qty]) => ({
-            product: pid,
-            quantity: qty,
-          })),
-        )
-      }
+      const order = await ensureActiveOrder()
+      const syncedOrder = await syncOrderPeople(selectedPeople)
 
       setCheckoutVisible(false)
       setProcessingMsg('')
-      setStep('cart')
-      setCart({})
-      setPayments([])
-      navigation.navigate('OrderDetails', { order })
+      setStep('review')
+      navigation.navigate('Checkout', { order: syncedOrder || order })
     } catch (e) {
       setStep('error')
-      setProcessingMsg(e?.message || 'Erro ao criar pedido')
+      setProcessingMsg(e?.message || 'Erro ao abrir checkout')
     }
-  }, [cartItems, currentCompany, navigation, selectedPeople])
-
-  /* ── finalizar ── */
-  const handleFinalize = useCallback(async () => {
-    if (payments.length === 0 || paymentsTotal < cartTotal) return
-    const orderOpenStatusIri = await resolvePosOrderOpenStatusIri(
-      currentCompany?.configs?.['pos-default-status'],
-    )
-    if (!orderOpenStatusIri) {
-      setStep('error')
-      setProcessingMsg('Nao foi possivel resolver o status open/open do pedido no PDV.')
-      return
-    }
-    setStep('processing')
-    setProcessingMsg('Criando pedido...')
-    try {
-      const orderPayload = {
-        app: 'POS',
-        provider: '/people/' + currentCompany.id,
-        status: orderOpenStatusIri,
-        orderType: 'sale',
-      }
-      if (selectedPeople?.['@id']) orderPayload.people = selectedPeople['@id']
-      const order = await ordersStore.actions.save(orderPayload)
-
-      setProcessingMsg('Adicionando produtos...')
-      const toId = iri => String(iri || '').replace(/\D/g, '')
-      const simpleMap = {}
-      for (const item of cartItems) {
-        if (item.subProducts?.length > 0) {
-          await ordersStore.actions.addProducts(order.id, [{
-            product: toId(item.product['@id']),
-            quantity: item.quantity,
-            sub_products: item.subProducts.map(sp => ({
-              product: toId(sp.productGroupProduct.productChild?.['@id']),
-              productGroup: sp.groupId,
-              quantity: sp.quantity,
-            })),
-          }])
-        } else {
-          const pid = toId(item.product['@id'])
-          simpleMap[pid] = (simpleMap[pid] || 0) + item.quantity
-        }
-      }
-      if (Object.keys(simpleMap).length > 0) {
-        await ordersStore.actions.addProducts(order.id,
-          Object.entries(simpleMap).map(([pid, qty]) => ({ product: pid, quantity: qty }))
-        )
-      }
-
-      setProcessingMsg('Registrando pagamento...')
-      const paidStatusIri = await resolvePosPaidInvoiceStatusIri(
-        defaultCompany?.configs?.['pos-paid-status'],
-      )
-      if (!paidStatusIri) {
-        throw new Error('Nao foi possivel resolver o status pago da invoice do PDV.')
-      }
-      for (const payment of payments) {
-        const invoicePayload = {
-          dueDate: Formatter.getCurrentDate(),
-          status: paidStatusIri,
-          destinationWallet: payment.paymentType.wallet?.['@id'],
-          paymentType: payment.paymentType.paymentType?.['@id'],
-          price: toFloat(payment.amount),
-          receiver: '/people/' + currentCompany.id,
-          order: order['@id'],
-        }
-        await invoiceStore.actions.save(invoicePayload)
-      }
-
-      setFinalTroco(Math.max(0, paymentsTotal - cartTotal))
-      setStep('done')
-      setProcessingMsg('')
-      setCart({})
-      setPayments([])
-    } catch (e) {
-      setStep('error')
-      setProcessingMsg(e?.message || 'Erro ao finalizar pedido')
-    }
-  }, [payments, paymentsTotal, cartTotal, cartItems, currentCompany, defaultCompany, selectedPeople])
+  }, [cartItems.length, ensureActiveOrder, navigation, selectedPeople, syncOrderPeople])
 
   return (
     <SafeAreaView style={[gs.root, { backgroundColor: palette.background || '#F8FAFC' }]}>
@@ -1180,7 +1277,7 @@ export default function PdvPage() {
           <ProductsGrid
             products={filteredProducts}
             isLoading={productsLoading}
-            cart={cart}
+            cart={activeOrder}
             onPress={handleProductPress}
             palette={palette}
             getProductQty={getProductQty}
@@ -1230,30 +1327,29 @@ export default function PdvPage() {
         visible={checkoutVisible}
         animationType="slide"
         transparent
-        onRequestClose={() => (step === 'done' || step === 'error') && setCheckoutVisible(false)}
+        onRequestClose={() => step !== 'processing' && setCheckoutVisible(false)}
       >
         <View style={gs.modalOverlay}>
           <View style={[gs.modalSheet, { backgroundColor: palette.modalBg || palette.surface || '#fff', maxHeight: windowHeight * 0.92 }]}>
 
             <View style={[gs.modalHeader, { borderBottomColor: palette.border }]}>
               <Text style={[gs.modalTitle, { color: palette.text }]}>
-                {step === 'cart' ? 'Carrinho' : step === 'payment' ? 'Pagamento' : step === 'done' ? 'Concluído!' : step === 'processing' ? 'Processando...' : 'Erro'}
+                {step === 'review' ? 'Revisar pedido' : step === 'processing' ? 'Abrindo checkout...' : 'Erro'}
               </Text>
-              {(step === 'cart' || step === 'payment') && (
+              {step === 'review' && (
                 <TouchableOpacity onPress={() => setCheckoutVisible(false)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
                   <MaterialCommunityIcons name="close" size={24} color={palette.textSecondary} />
                 </TouchableOpacity>
               )}
             </View>
 
-            {/* CARRINHO */}
-            {step === 'cart' && (
+            {/* REVISAO */}
+            {step === 'review' && (
               <>
                 <ScrollView style={gs.cartList} showsVerticalScrollIndicator={false}>
                   {cartItems.map((item, idx) => {
-                    const key = Object.keys(cart).find(k => cart[k] === item)
                     return (
-                      <View key={key || idx} style={[gs.cartItem, { borderBottomColor: palette.border }]}>
+                      <View key={item.key || idx} style={[gs.cartItem, { borderBottomColor: palette.border }]}>
                         <View style={{ flex: 1 }}>
                           <Text style={[gs.cartItemName, { color: palette.text }]} numberOfLines={1}>
                             {item.product.product}
@@ -1268,7 +1364,11 @@ export default function PdvPage() {
                           </Text>
                         </View>
                         <View style={gs.cartItemQty}>
-                          <TouchableOpacity onPress={() => removeCartItem(key)} style={[gs.qtyBtn, { borderColor: palette.border }]}>
+                          <TouchableOpacity
+                            onPress={() => removeCartItem(item.orderProduct || item)}
+                            disabled={isCartBusy}
+                            style={[gs.qtyBtn, { borderColor: palette.border }]}
+                          >
                             <MaterialCommunityIcons
                               name={item.quantity === 1 ? 'delete-outline' : 'minus'}
                               size={15}
@@ -1276,12 +1376,16 @@ export default function PdvPage() {
                             />
                           </TouchableOpacity>
                           <Text style={[gs.qtyNum, { color: palette.text }]}>{item.quantity}</Text>
-                          <TouchableOpacity onPress={() => addCartItem(key)} style={[gs.qtyBtn, { borderColor: palette.border }]}>
+                          <TouchableOpacity
+                            onPress={() => addCartItem(item.orderProduct || item)}
+                            disabled={isCartBusy}
+                            style={[gs.qtyBtn, { borderColor: palette.border }]}
+                          >
                             <MaterialCommunityIcons name="plus" size={15} color={palette.primary} />
                           </TouchableOpacity>
                         </View>
                         <Text style={[gs.cartItemTotal, { color: palette.primary }]}>
-                          {Formatter.formatMoney(calcCartItemTotal(item))}
+                          {Formatter.formatMoney(item.total || calcCartItemTotal(item))}
                         </Text>
                       </View>
                     )
@@ -1304,7 +1408,14 @@ export default function PdvPage() {
                       <Text style={[gs.clientSelectedName, { color: palette.primary, flex: 1 }]} numberOfLines={1}>
                         {selectedPeople.name || selectedPeople.people}
                       </Text>
-                      <TouchableOpacity onPress={() => { setSelectedPeople(null); setPeopleQuery(''); peopleStore.actions.setItems([]) }} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                      <TouchableOpacity
+                        onPress={() => {
+                          void syncOrderPeople(null)
+                          setPeopleQuery('')
+                          peopleStore.actions.setItems([])
+                        }}
+                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                      >
                         <MaterialCommunityIcons name="close-circle" size={18} color={palette.textSecondary} />
                       </TouchableOpacity>
                     </View>
@@ -1324,7 +1435,11 @@ export default function PdvPage() {
                       {peopleQuery.trim().length > 0 && (peopleItems || []).map(p => (
                         <TouchableOpacity
                           key={p['@id'] || p.id}
-                          onPress={() => { setSelectedPeople(p); setPeopleQuery(''); peopleStore.actions.setItems([]) }}
+                          onPress={() => {
+                            void syncOrderPeople(p)
+                            setPeopleQuery('')
+                            peopleStore.actions.setItems([])
+                          }}
                           style={[gs.clientResult, { borderColor: palette.border }]}
                           activeOpacity={0.7}
                         >
@@ -1339,132 +1454,32 @@ export default function PdvPage() {
                 </View>
 
                 <View style={gs.actions}>
-                  <TouchableOpacity onPress={() => setCart({})} style={[gs.btnSec, { borderColor: palette.border }]}>
+                  <TouchableOpacity
+                    onPress={async () => {
+                      if (!cartItems.length) return
+                      setCartSyncing(true)
+                      try {
+                        await Promise.all(
+                          cartItems
+                            .filter(orderItem => orderItem?.id)
+                            .map(orderItem => orderProductsStore.actions.remove(orderItem.id)),
+                        )
+                        await refreshActiveOrder()
+                      } finally {
+                        setCartSyncing(false)
+                      }
+                    }}
+                    disabled={isCartBusy}
+                    style={[gs.btnSec, { borderColor: palette.border }]}
+                  >
                     <Text style={[gs.btnSecText, { color: palette.textSecondary }]}>Limpar</Text>
                   </TouchableOpacity>
-                  <TouchableOpacity onPress={handleCreateOrder} style={[gs.btnPri, { backgroundColor: palette.primary }]}>
-                    <Text style={gs.btnPriText}>Conferir pedido</Text>
-                  </TouchableOpacity>
-                </View>
-              </>
-            )}
-
-            {/* PAGAMENTO */}
-            {step === 'payment' && (
-              <>
-                <ScrollView style={gs.payScroll} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-
-                  {/* pagamentos adicionados */}
-                  {payments.map(p => (
-                    <View key={p.id} style={[gs.payAdded, { borderBottomColor: palette.border }]}>
-                      <MaterialCommunityIcons name="check-circle" size={18} color={palette.success || '#22C55E'} />
-                      <Text style={[gs.payAddedName, { color: palette.text }]} numberOfLines={1}>
-                        {p.paymentType?.paymentType?.paymentType}
-                      </Text>
-                      <Text style={[gs.payAddedAmt, { color: palette.primary }]}>
-                        {Formatter.formatMoney(toFloat(p.amount))}
-                      </Text>
-                      <TouchableOpacity onPress={() => removePayment(p.id)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                        <MaterialCommunityIcons name="close-circle" size={18} color={palette.danger || '#EF4444'} />
-                      </TouchableOpacity>
-                    </View>
-                  ))}
-
-                  {/* seletor de nova forma */}
-                  <View style={[gs.addPayBlock, { borderColor: palette.border }]}>
-                    <Text style={[gs.addPayTitle, { color: palette.textSecondary }]}>
-                      {payments.length === 0 ? 'Forma de pagamento' : 'Adicionar outra forma'}
-                    </Text>
-
-                    {paymentsLoading ? (
-                      <ActivityIndicator color={palette.primary} style={{ marginVertical: 12 }} />
-                    ) : (
-                      (paymentTypes || []).map(pt => {
-                        const sel = newPaymentType?.paymentType?.id === pt.paymentType?.id
-                        return (
-                          <TouchableOpacity
-                            key={pt.paymentType?.id}
-                            onPress={() => setNewPaymentType(pt)}
-                            style={[gs.payOption, {
-                              borderColor: sel ? palette.primary : palette.border,
-                              backgroundColor: sel ? withOpacity(palette.primary, 0.08) : 'transparent',
-                            }]}
-                            activeOpacity={0.8}
-                          >
-                            <MaterialCommunityIcons
-                              name={sel ? 'radiobox-marked' : 'radiobox-blank'}
-                              size={20}
-                              color={sel ? palette.primary : palette.textSecondary}
-                            />
-                            <Text style={[gs.payOptionName, { color: sel ? palette.primary : palette.text }]}>
-                              {pt.paymentType?.paymentType}
-                            </Text>
-                          </TouchableOpacity>
-                        )
-                      })
-                    )}
-
-                    {newPaymentType && (
-                      <View style={[gs.payAmtRow, { borderTopColor: palette.border }]}>
-                        <Text style={[gs.payAmtLabel, { color: palette.textSecondary }]}>Valor</Text>
-                        <TextInput
-                          value={newPaymentAmount}
-                          onChangeText={setNewPaymentAmount}
-                          keyboardType="decimal-pad"
-                          style={[gs.amtInput, { borderColor: palette.primary, color: palette.text }]}
-                          selectTextOnFocus
-                          autoFocus
-                        />
-                        <TouchableOpacity onPress={addPayment} style={[gs.addPayBtn, { backgroundColor: palette.primary }]}>
-                          <MaterialCommunityIcons name="plus" size={18} color="#fff" />
-                          <Text style={gs.addPayBtnText}>OK</Text>
-                        </TouchableOpacity>
-                      </View>
-                    )}
-                  </View>
-                </ScrollView>
-
-                {/* totais */}
-                <View style={[gs.payTotals, { borderTopColor: palette.border }]}>
-                  <View style={gs.payTotalRow}>
-                    <Text style={[gs.payTotalLabel, { color: palette.textSecondary }]}>Total do pedido</Text>
-                    <Text style={[gs.payTotalVal, { color: palette.text }]}>{Formatter.formatMoney(cartTotal)}</Text>
-                  </View>
-                  <View style={gs.payTotalRow}>
-                    <Text style={[gs.payTotalLabel, { color: palette.textSecondary }]}>Total informado</Text>
-                    <Text style={[gs.payTotalVal, { color: paymentsTotal >= cartTotal ? (palette.success || '#22C55E') : palette.text }]}>
-                      {Formatter.formatMoney(paymentsTotal)}
-                    </Text>
-                  </View>
-                  {remaining > 0 && (
-                    <View style={gs.payTotalRow}>
-                      <Text style={[gs.payTotalLabel, { color: palette.danger || '#EF4444' }]}>Falta</Text>
-                      <Text style={[gs.payTotalVal, { color: palette.danger || '#EF4444', fontWeight: '900' }]}>
-                        {Formatter.formatMoney(remaining)}
-                      </Text>
-                    </View>
-                  )}
-                  {troco > 0 && (
-                    <View style={[gs.payTotalRow, gs.trocoRow, { backgroundColor: palette.success || '#22C55E', borderRadius: 10 }]}>
-                      <Text style={[gs.payTotalLabel, { color: '#fff', fontWeight: '800' }]}>Troco</Text>
-                      <Text style={[gs.payTotalVal, { color: '#fff', fontSize: 20, fontWeight: '900' }]}>
-                        {Formatter.formatMoney(troco)}
-                      </Text>
-                    </View>
-                  )}
-                </View>
-
-                <View style={gs.actions}>
-                  <TouchableOpacity onPress={() => setStep('cart')} style={[gs.btnSec, { borderColor: palette.border }]}>
-                    <Text style={[gs.btnSecText, { color: palette.textSecondary }]}>Voltar</Text>
-                  </TouchableOpacity>
                   <TouchableOpacity
-                    onPress={handleFinalize}
-                    disabled={payments.length === 0 || paymentsTotal < cartTotal || orderSaving || invoiceSaving}
-                    style={[gs.btnPri, { backgroundColor: (payments.length > 0 && paymentsTotal >= cartTotal) ? palette.primary : palette.border }]}
-                    activeOpacity={0.85}
+                    onPress={handleCreateOrder}
+                    disabled={isCartBusy}
+                    style={[gs.btnPri, { backgroundColor: palette.primary }]}
                   >
-                    <Text style={gs.btnPriText}>Finalizar venda</Text>
+                    <Text style={gs.btnPriText}>Conferir pedido</Text>
                   </TouchableOpacity>
                 </View>
               </>
@@ -1478,28 +1493,6 @@ export default function PdvPage() {
               </View>
             )}
 
-            {/* CONCLUÍDO */}
-            {step === 'done' && (
-              <View style={gs.feedbackWrap}>
-                <MaterialCommunityIcons name="check-circle" size={64} color={palette.success || '#22C55E'} />
-                <Text style={[gs.feedbackTitle, { color: palette.text }]}>Venda concluída!</Text>
-                <Text style={[gs.feedbackText, { color: palette.textSecondary }]}>Pedido registrado com sucesso.</Text>
-                {finalTroco > 0 && (
-                  <View style={{ backgroundColor: palette.success || '#22C55E', borderRadius: 12, paddingHorizontal: 24, paddingVertical: 12, marginTop: 4 }}>
-                    <Text style={{ color: '#fff', fontWeight: '800', fontSize: 16 }}>
-                      Troco: {Formatter.formatMoney(finalTroco)}
-                    </Text>
-                  </View>
-                )}
-                <TouchableOpacity
-                  onPress={() => { setCheckoutVisible(false); setScreen('categories') }}
-                  style={[gs.btnPri, { backgroundColor: palette.primary, marginTop: 24, minWidth: 160 }]}
-                >
-                  <Text style={gs.btnPriText}>Nova venda</Text>
-                </TouchableOpacity>
-              </View>
-            )}
-
             {/* ERRO */}
             {step === 'error' && (
               <View style={gs.feedbackWrap}>
@@ -1510,7 +1503,7 @@ export default function PdvPage() {
                   <TouchableOpacity onPress={() => setCheckoutVisible(false)} style={[gs.btnSec, { borderColor: palette.border }]}>
                     <Text style={[gs.btnSecText, { color: palette.textSecondary }]}>Fechar</Text>
                   </TouchableOpacity>
-                  <TouchableOpacity onPress={() => setStep('payment')} style={[gs.btnPri, { backgroundColor: palette.primary }]}>
+                  <TouchableOpacity onPress={() => setStep('review')} style={[gs.btnPri, { backgroundColor: palette.primary }]}>
                     <Text style={gs.btnPriText}>Tentar novamente</Text>
                   </TouchableOpacity>
                 </View>

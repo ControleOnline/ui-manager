@@ -18,6 +18,7 @@ import { useStore } from '@store';
 import Formatter from '@controleonline/ui-common/src/utils/formatter';
 import { getOrderChannelLabel, getOrderChannelLogo } from '@assets/ppc/channels';
 import { canDeviceViewCompanyOrders } from '@controleonline/ui-common/src/react/config/deviceConfigBootstrap';
+import { resolveDisplayedOrderStatus } from '@controleonline/ui-orders/src/react/components/OrderHeader';
 import { colors } from '@controleonline/../../src/styles/colors';
 import { resolveThemePalette, withOpacity } from '@controleonline/../../src/styles/branding';
 
@@ -71,7 +72,6 @@ const getDateRange = (dateFilter, customRange) => {
 };
 
 const normalizeApp = o => String(o?.app || '').trim();
-const getStatusColor = o => o?.status?.color || '#64748B';
 const getSearchText = o =>
   [
     o?.id,
@@ -144,26 +144,6 @@ export default function OrderHistoryPage({ navigation }) {
     { key: 'transfer', label: global.t?.t('orders', 'label', 'tab_transfer'), icon: 'repeat' },
     { key: 'loss', label: global.t?.t('orders', 'label', 'tab_loss'), icon: 'trending-down' },
   ]), []);
-
-  const getStatusLabel = useCallback((order) => {
-    const rs = String(order?.status?.realStatus || '').toLowerCase();
-    const s = String(order?.status?.status || '').toLowerCase();
-    const detailedStatusKey = s && s !== rs ? s : '';
-    const statusKey = detailedStatusKey || rs || s;
-
-    if (statusKey === 'preparing') return global.t?.t('orders', 'status', 'preparing') || 'Preparando';
-    if (statusKey === 'ready') return global.t?.t('orders', 'status', 'ready') || 'Pronto';
-    if (statusKey === 'way') return global.t?.t('orders', 'status', 'way') || 'Em entrega';
-    if (statusKey === 'open') return global.t?.t('orders', 'status', 'open');
-    if (statusKey === 'pending') return global.t?.t('orders', 'status', 'pending');
-    if (statusKey === 'closed') return global.t?.t('orders', 'status', 'closed');
-    if (statusKey === 'canceled') return global.t?.t('orders', 'status', 'canceled');
-    if (statusKey === 'paid') return global.t?.t('orders', 'status', 'paid');
-    if (statusKey === 'waiting payment') return global.t?.t('orders', 'status', 'waiting_payment');
-    if (statusKey === 'quote') return global.t?.t('orders', 'status', 'quote');
-
-    return order?.status?.status || global.t?.t('orders', 'status', 'in_progress');
-  }, []);
 
   /* ─── estado ──────────────────────────────────────────────────────── */
 
@@ -359,8 +339,9 @@ export default function OrderHistoryPage({ navigation }) {
           ? global.t?.t('orders', 'label', 'stock_loss')
           : (getOrderChannelLabel(order) || normalizeApp(order) || global.t?.t('orders', 'label', 'shop'));
 
-    const statusLabel = getStatusLabel(order);
-    const statusColor = getStatusColor(order);
+    const statusPresentation = resolveDisplayedOrderStatus(order, '#64748B');
+    const statusLabel = statusPresentation.labelUpper;
+    const statusColor = statusPresentation.color;
     const price = Number(order?.price || 0);
 
     const iconName =
@@ -436,7 +417,7 @@ export default function OrderHistoryPage({ navigation }) {
         </View>
       </TouchableOpacity>
     );
-  }, [getStatusLabel, openOrder]);
+  }, [openOrder]);
 
   /* ─── render ─────────────────────────────────────────────────────── */
 
