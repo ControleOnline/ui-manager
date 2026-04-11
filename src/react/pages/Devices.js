@@ -11,11 +11,14 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { useStore } from '@store';
-import Formatter from '@controleonline/ui-common/src/utils/formatter';
 import StateStore from '@controleonline/ui-layout/src/react/components/StateStore';
 import { resolveThemePalette, withOpacity } from '@controleonline/../../src/styles/branding';
 import { colors } from '@controleonline/../../src/styles/colors';
 import Icon from 'react-native-vector-icons/Feather';
+import {
+  getDeviceTypeLabel,
+  isPrinterDeviceType,
+} from '@controleonline/ui-common/src/react/utils/printerDevices';
 
 const cardShadow = Platform.select({
   ios: {
@@ -39,6 +42,23 @@ const getStatus = dc => {
   return closed === 0 || closed === '0' || closed === undefined || closed === null
     ? 'open'
     : 'closed';
+};
+
+const getDeviceIcon = type => {
+  const normalizedType = String(type || '').trim().toUpperCase();
+  if (isPrinterDeviceType(normalizedType)) {
+    return 'printer';
+  }
+
+  if (normalizedType === 'PDV') {
+    return 'shopping-bag';
+  }
+
+  if (normalizedType === 'DISPLAY') {
+    return 'monitor';
+  }
+
+  return 'cpu';
 };
 
 const Devices = () => {
@@ -83,26 +103,46 @@ const Devices = () => {
     }, [currentCompany?.id]),
   );
 
+  const printerCount = useMemo(
+    () =>
+      scopedDeviceConfigs.filter(dc =>
+        isPrinterDeviceType(dc?.device?.type),
+      ).length,
+    [scopedDeviceConfigs],
+  );
+
   const openCount = useMemo(
-    () => scopedDeviceConfigs.filter(dc => getStatus(dc) === 'open').length,
+    () =>
+      scopedDeviceConfigs.filter(
+        dc =>
+          !isPrinterDeviceType(dc?.device?.type) && getStatus(dc) === 'open',
+      ).length,
     [scopedDeviceConfigs],
   );
 
   const goToDetail = useCallback(dc => {
-    navigation.navigate('DeviceDetail', {
+    const targetRoute = isPrinterDeviceType(dc?.device?.type)
+      ? 'PrinterDeviceDetail'
+      : 'DeviceDetail';
+
+    navigation.navigate(targetRoute, {
       dcId:         dc.id,
       deviceId:     dc.device?.id,
       deviceString: dc.device?.device,
       deviceType:   dc.device?.type || '',
       alias:        dc.device?.alias || dc.device?.device || `Dispositivo #${dc.id}`,
       configs:      dc.configs || {},
+      metadata:     dc.device?.metadata || {},
     });
   }, [navigation]);
 
   const renderItem = ({ item: dc }) => {
+    const isPrinter = isPrinterDeviceType(dc?.device?.type);
     const isOpen  = getStatus(dc) === 'open';
     const alias   = dc.device?.alias || dc.device?.device || `Dispositivo #${dc.id}`;
-    const accent  = isOpen ? hex.success : hex.danger;
+    const accent  = isPrinter ? hex.primary : (isOpen ? hex.success : hex.danger);
+    const iconName = getDeviceIcon(dc?.device?.type);
+    const badgeText = isPrinter ? 'Rede' : (isOpen ? 'Aberto' : 'Fechado');
 
     return (
       <TouchableOpacity
@@ -112,12 +152,12 @@ const Devices = () => {
       >
         <View style={styles.cardLeft}>
           <View style={[styles.iconBox, { backgroundColor: withOpacity(accent, 0.1) }]}>
-            <Icon name="monitor" size={18} color={accent} />
+            <Icon name={iconName} size={18} color={accent} />
           </View>
           <View style={{ flex: 1 }}>
             <Text style={styles.deviceTitle} numberOfLines={1}>{alias}</Text>
             <Text style={styles.deviceSub} numberOfLines={1}>
-              {dc.device?.device || ''}
+              {`${getDeviceTypeLabel(dc.device?.type)} • ${dc.device?.device || ''}`}
             </Text>
           </View>
         </View>
@@ -126,7 +166,7 @@ const Devices = () => {
           <View style={[styles.badge, { backgroundColor: withOpacity(accent, 0.12), borderColor: withOpacity(accent, 0.4) }]}>
             <View style={[styles.dot, { backgroundColor: accent }]} />
             <Text style={[styles.badgeText, { color: accent }]}>
-              {isOpen ? 'Aberto' : 'Fechado'}
+              {badgeText}
             </Text>
           </View>
           <Icon name="chevron-right" size={16} color="#CBD5E1" style={{ marginLeft: 8 }} />
@@ -145,16 +185,30 @@ const Devices = () => {
           <Text style={styles.summaryValue}>{scopedDeviceConfigs.length || 0}</Text>
         </View>
         <View style={styles.summaryCard}>
-          <Text style={styles.summaryLabel}>Abertos</Text>
-          <Text style={[styles.summaryValue, { color: hex.success }]}>{openCount}</Text>
+          <Text style={styles.summaryLabel}>Impressoras</Text>
+          <Text style={[styles.summaryValue, { color: hex.primary }]}>{printerCount}</Text>
         </View>
         <View style={styles.summaryCard}>
-          <Text style={styles.summaryLabel}>Fechados</Text>
-          <Text style={[styles.summaryValue, { color: hex.danger }]}>
-            (scopedDeviceConfigs.length || 0) - openCount
+          <Text style={styles.summaryLabel}>PDVs/DISPLAY abertos</Text>
+          <Text style={[styles.summaryValue, { color: hex.success }]}>
+            {openCount}
           </Text>
         </View>
       </View>
+
+      <TouchableOpacity
+        style={[styles.createPrinterBtn, { backgroundColor: brandColors.primary }]}
+        activeOpacity={0.86}
+        onPress={() => navigation.navigate('PrinterDeviceForm')}
+      >
+        <Icon name="plus-circle" size={16} color="#fff" />
+        <Text style={styles.createPrinterBtnText}>Nova impressora de rede</Text>
+      </TouchableOpacity>
+
+      <Text style={styles.helperText}>
+        Cadastre impressoras por IP/hostname e vincule o device local que vai
+        gerenciar a impressao na rede.
+      </Text>
 
       {isLoading && (
         <View style={styles.loadingBox}>
@@ -214,6 +268,28 @@ const styles = StyleSheet.create({
     fontSize: 22,
     fontWeight: '800',
     color: '#0F172A',
+  },
+  createPrinterBtn: {
+    minHeight: 46,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 8,
+    ...cardShadow,
+  },
+  createPrinterBtnText: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#fff',
+  },
+  helperText: {
+    fontSize: 12,
+    color: '#64748B',
+    fontWeight: '600',
+    marginBottom: 12,
+    lineHeight: 18,
   },
 
   loadingBox: {

@@ -12,6 +12,8 @@ import InvoiceCategoriesPage from '@controleonline/ui-financial/src/react/pages/
 
 import Devices from '@controleonline/ui-manager/src/react/pages/Devices';
 import DeviceDetailPage from '@controleonline/ui-manager/src/react/pages/DeviceDetailPage';
+import PrinterDeviceDetailPage from '@controleonline/ui-manager/src/react/pages/PrinterDeviceDetailPage';
+import PrinterDeviceFormPage from '@controleonline/ui-manager/src/react/pages/PrinterDeviceFormPage';
 import ConnectionsPage from '@controleonline/ui-manager/src/react/pages/Connections';
 import Food99IntegrationPage from '@controleonline/ui-manager/src/react/pages/Food99IntegrationPage';
 import IFoodIntegrationPage from '@controleonline/ui-manager/src/react/pages/IFoodIntegrationPage';
@@ -178,6 +180,28 @@ const managerRoutes = [
       showCompanyFilter: false,
     },
     initialParams: { store: 'invoice' },
+  },
+  {
+    name: 'PrinterDeviceDetail',
+    component: PrinterDeviceDetailPage,
+    options: {
+      headerShown: true,
+      headerBackVisible: true,
+      title: 'Impressora de Rede',
+      showCompanyFilter: false,
+    },
+    initialParams: {store: 'device'},
+  },
+  {
+    name: 'PrinterDeviceForm',
+    component: PrinterDeviceFormPage,
+    options: {
+      headerShown: true,
+      headerBackVisible: true,
+      title: 'Nova Impressora de Rede',
+      showCompanyFilter: false,
+    },
+    initialParams: {store: 'device'},
   },
   {
     name: 'IncomeStatement',

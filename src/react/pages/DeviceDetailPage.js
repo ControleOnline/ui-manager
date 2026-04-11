@@ -37,6 +37,10 @@ import {
   normalizeEntityId,
   ORDER_PAYMENT_DEVICE_CONFIG_KEY,
 } from '@controleonline/ui-common/src/react/utils/paymentDevices';
+import {
+  getPrinterLabel,
+  getPrinterOptions,
+} from '@controleonline/ui-common/src/react/utils/printerDevices';
 
 const cardShadow = Platform.select({
   ios: { shadowColor: '#0F172A', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.06, shadowRadius: 12 },
@@ -87,9 +91,6 @@ const getDisplayLabel = display => {
 
   return `Display #${normalizeEntityId(display) || '--'}`;
 };
-
-const getPrinterLabel = printer =>
-  String(printer?.alias || printer?.device || '').trim() || 'Impressora sem nome';
 
 const getIsOpen = configs => {
   const closed = configs?.['cash-wallet-closed-id'];
@@ -214,10 +215,12 @@ const DeviceDetailPage = () => {
   );
   const printerOptions = useMemo(
     () =>
-      (Array.isArray(printers) ? printers : []).sort((left, right) =>
-        getPrinterLabel(left).localeCompare(getPrinterLabel(right)),
-      ),
-    [printers],
+      getPrinterOptions({
+        printers,
+        deviceConfigs: companyDeviceConfigs,
+        companyId: currentCompany?.id,
+      }),
+    [companyDeviceConfigs, currentCompany?.id, printers],
   );
   const pickerMode = Platform.OS === 'android' ? 'dropdown' : undefined;
 

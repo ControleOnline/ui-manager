@@ -377,6 +377,7 @@ export default function ModelTemplatesPage({ route }) {
   const [loading, setLoading] = useState(true);
   const [loadingFile, setLoadingFile] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [loadingMetadata, setLoadingMetadata] = useState(false);
   const [search, setSearch] = useState('');
   const [filterContext, setFilterContext] = useState(
     route?.params?.filterContext && FILTER_OPTIONS.some(option => option.value === route.params.filterContext)
@@ -389,6 +390,8 @@ export default function ModelTemplatesPage({ route }) {
   const [isCreating, setIsCreating] = useState(false);
   const [viewMode, setViewMode] = useState('editor');
   const [editorSelection, setEditorSelection] = useState({ start: 0, end: 0 });
+  const [signers, setSigners] = useState([]);
+  const [categories, setCategories] = useState([]);
 
   const filteredModels = useMemo(() => {
     const term = String(search || '').trim().toLowerCase();
@@ -463,6 +466,40 @@ export default function ModelTemplatesPage({ route }) {
       setLoading(false);
     }
   }, [filterContext, modelsActions, peopleIri, showError]);
+
+  const loadMetadata = useCallback(async context => {
+    if (!peopleIri) {
+      setSigners([]);
+      setCategories([]);
+      return;
+    }
+
+    setLoadingMetadata(true);
+    try {
+      const [signersResponse, categoriesResponse] = await Promise.all([
+        api.fetch('/people', {
+          params: {
+            'link.company': peopleIri,
+            'link.linkType': 'employee',
+            peopleType: 'F',
+            itemsPerPage: 200,
+          },
+        }).catch(() => null),
+        api.fetch('/categories', {
+          params: {
+            company: peopleIri,
+            context: `${context}-model`,
+            itemsPerPage: 200,
+          },
+        }).catch(() => null),
+      ]);
+
+      setSigners(Array.isArray(signersResponse?.member) ? signersResponse.member : []);
+      setCategories(Array.isArray(categoriesResponse?.member) ? categoriesResponse.member : []);
+    } finally {
+      setLoadingMetadata(false);
+    }
+  }, [peopleIri]);
 
   const hydrateDraftFromModel = useCallback(
     async (modelRecord, options = {}) => {
@@ -736,6 +773,10 @@ export default function ModelTemplatesPage({ route }) {
     startNewDraft,
   ]);
 
+  useEffect(() => {
+    loadMetadata(draft.context);
+  }, [draft.context, loadMetadata]);
+
   const renderSummary = () => (
     <View style={styles.summaryRow}>
       <View style={styles.summaryCard}>
@@ -921,7 +962,7 @@ export default function ModelTemplatesPage({ route }) {
       </View>
 
       <View style={styles.formGrid}>
-        <View style={styles.fieldBlock}>
+        <View style={[styles.fieldBlock, styles.formField]}>
           <Text style={styles.fieldLabel}>Nome do modelo</Text>
           <TextInput
             value={draft.model}
@@ -932,7 +973,7 @@ export default function ModelTemplatesPage({ route }) {
           />
         </View>
 
-        <View style={styles.fieldBlock}>
+        <View style={[styles.fieldBlock, styles.formField]}>
           <Text style={styles.fieldLabel}>Tipo</Text>
           <View style={styles.pickerWrap}>
             <Picker
@@ -956,6 +997,52 @@ export default function ModelTemplatesPage({ route }) {
             </Picker>
           </View>
         </View>
+
+        <View style={[styles.fieldBlock, styles.formField]}>
+          <Text style={styles.fieldLabel}>
+            Categoria {loadingMetadata ? '(carregando...)' : ''}
+          </Text>
+          <View style={styles.pickerWrap}>
+            <Picker
+              selectedValue={draft.category || ''}
+              onValueChange={value => updateDraft({ category: value || null })}
+              mode={Platform.OS === 'android' ? 'dropdown' : undefined}
+            >
+              <Picker.Item label="Sem categoria" value="" />
+              {categories.map(category => (
+                <Picker.Item
+                  key={normalizeId(category?.id || category?.['@id']) || category?.name}
+                  label={category?.name || 'Categoria'}
+                  value={toIri(category, 'categories') || ''}
+                />
+              ))}
+            </Picker>
+          </View>
+        </View>
+
+        {(draft.context === 'proposal' || draft.context === 'contract') && (
+          <View style={[styles.fieldBlock, styles.formField]}>
+            <Text style={styles.fieldLabel}>
+              Signatario responsavel {loadingMetadata ? '(carregando...)' : ''}
+            </Text>
+            <View style={styles.pickerWrap}>
+              <Picker
+                selectedValue={draft.signer || ''}
+                onValueChange={value => updateDraft({ signer: value || null })}
+                mode={Platform.OS === 'android' ? 'dropdown' : undefined}
+              >
+                <Picker.Item label="Sem signatario" value="" />
+                {signers.map(person => (
+                  <Picker.Item
+                    key={normalizeId(person?.id || person?.['@id']) || person?.name}
+                    label={person?.alias || person?.name || 'Pessoa'}
+                    value={toIri(person, 'people') || ''}
+                  />
+                ))}
+              </Picker>
+            </View>
+          </View>
+        )}
       </View>
 
       <View style={styles.snippetCard}>
@@ -1172,6 +1259,11 @@ const styles = StyleSheet.create({
   },
   fieldBlock: {
     marginBottom: 14,
+  },
+  formField: {
+    minWidth: 260,
+    flexGrow: 1,
+    flexBasis: 260,
   },
   fieldLabel: {
     fontSize: 12,
