@@ -32,6 +32,7 @@ import {
   NETWORK_PRINTER_PORT_CONFIG_KEY,
   NETWORK_PRINTER_TRANSPORT_CONFIG_KEY,
   normalizePrinterColumns,
+  normalizePrinterHost,
   normalizePrinterPort,
   PRINT_DEVICE_TYPE,
 } from '@controleonline/ui-common/src/react/utils/printerDevices';
@@ -90,6 +91,7 @@ const PrinterDeviceDetailPage = () => {
     () => parseConfigsObject(initialConfigs),
     [initialConfigs],
   );
+  const persistedDeviceHost = normalizePrinterHost(deviceString);
 
   const [loading, setLoading] = useState(false);
   const [savingDevice, setSavingDevice] = useState(false);
@@ -97,6 +99,7 @@ const PrinterDeviceDetailPage = () => {
   const [companyDeviceConfigs, setCompanyDeviceConfigs] = useState([]);
   const [deviceMetadata, setDeviceMetadata] = useState(initialMetadata || {});
   const [alias, setAlias] = useState(initialAlias || '');
+  const [deviceHost, setDeviceHost] = useState(persistedDeviceHost);
   const [manufacturer, setManufacturer] = useState(
     getPrinterMetadataField(initialMetadata, 'manufacturer'),
   );
@@ -140,9 +143,9 @@ const PrinterDeviceDetailPage = () => {
       getPrinterManagerDeviceOptions({
         deviceConfigs: scopedDeviceConfigs,
         companyId: currentCompany?.id,
-        excludeDeviceId: deviceString,
+        excludeDeviceId: deviceHost || persistedDeviceHost,
       }),
-    [currentCompany?.id, deviceString, scopedDeviceConfigs],
+    [currentCompany?.id, deviceHost, persistedDeviceHost, scopedDeviceConfigs],
   );
 
   useFocusEffect(
@@ -171,17 +174,27 @@ const PrinterDeviceDetailPage = () => {
           );
           setCompanyDeviceConfigs(scopedConfigs);
 
+          const normalizedDeviceKey = String(deviceId || '').trim();
           const currentDeviceConfig = scopedConfigs.find(deviceConfig => {
+            const currentDeviceId = String(deviceConfig?.device?.id || '').trim();
             const currentDeviceString = normalizeDeviceId(
               deviceConfig?.device?.device,
             );
-            return currentDeviceString === normalizeDeviceId(deviceString);
+
+            return (
+              (normalizedDeviceKey !== '' &&
+                currentDeviceId === normalizedDeviceKey) ||
+              currentDeviceString === normalizeDeviceId(persistedDeviceHost)
+            );
           });
           const nextConfigs = parseConfigsObject(currentDeviceConfig?.configs);
           const nextMetadata =
             deviceData?.metadata ||
             currentDeviceConfig?.device?.metadata ||
             initialMetadata;
+          const nextDeviceHost = normalizePrinterHost(
+            deviceData?.device || currentDeviceConfig?.device?.device || deviceString,
+          );
 
           setDeviceMetadata(nextMetadata || {});
           setAlias(
@@ -190,6 +203,7 @@ const PrinterDeviceDetailPage = () => {
               initialAlias ||
               '',
           );
+          setDeviceHost(nextDeviceHost);
           setManufacturer(getPrinterMetadataField(nextMetadata, 'manufacturer'));
           setModel(getPrinterMetadataField(nextMetadata, 'model'));
           setVersion(getPrinterMetadataField(nextMetadata, 'version'));
@@ -234,14 +248,21 @@ const PrinterDeviceDetailPage = () => {
       deviceString,
       initialAlias,
       initialMetadata,
+      persistedDeviceHost,
     ]),
   );
 
   const saveDeviceRegistration = useCallback(async () => {
-    const normalizedAlias = String(alias || '').trim() || deviceString;
+    const normalizedHost = normalizePrinterHost(deviceHost);
+    if (!normalizedHost) {
+      Alert.alert('Cadastro da impressora', 'Informe o IP ou hostname da impressora.');
+      return;
+    }
+
+    const normalizedAlias = String(alias || '').trim() || normalizedHost;
     const metadata = buildNetworkPrinterMetadata({
       existingMetadata: deviceMetadata,
-      host: deviceString,
+      host: normalizedHost,
       manufacturer,
       model,
       version,
@@ -254,14 +275,19 @@ const PrinterDeviceDetailPage = () => {
       const savedDevice = await deviceStore.actions.save({
         id: deviceId,
         alias: normalizedAlias,
-        device: deviceString,
+        device: normalizedHost,
         type: normalizedDeviceType,
         metadata,
       });
+      const nextDeviceHost = normalizePrinterHost(
+        savedDevice?.device || normalizedHost,
+      );
 
       setAlias(savedDevice?.alias || normalizedAlias);
+      setDeviceHost(nextDeviceHost);
       setDeviceMetadata(savedDevice?.metadata || metadata);
       navigation.setParams({
+        deviceString: nextDeviceHost,
         alias: savedDevice?.alias || normalizedAlias,
         metadata: savedDevice?.metadata || metadata,
       });
@@ -272,10 +298,10 @@ const PrinterDeviceDetailPage = () => {
     }
   }, [
     alias,
+    deviceHost,
     deviceMetadata,
     deviceId,
     deviceStore.actions,
-    deviceString,
     manufacturer,
     model,
     navigation,
@@ -301,6 +327,20 @@ const PrinterDeviceDetailPage = () => {
       return;
     }
 
+    const normalizedHost = normalizePrinterHost(deviceHost);
+    if (!normalizedHost) {
+      Alert.alert('Configuracao da impressora', 'Informe o IP ou hostname da impressora.');
+      return;
+    }
+
+    if (normalizedHost !== persistedDeviceHost) {
+      Alert.alert(
+        'Configuracao da impressora',
+        'Salve primeiro o cadastro da impressora para aplicar o novo IP antes do roteamento.',
+      );
+      return;
+    }
+
     const nextConfigs = {
       [NETWORK_PRINTER_MANAGER_DEVICE_CONFIG_KEY]: managerDeviceId,
       [NETWORK_PRINTER_PORT_CONFIG_KEY]: normalizePrinterPort(port),
@@ -313,12 +353,15 @@ const PrinterDeviceDetailPage = () => {
 
     try {
       await deviceConfigStore.actions.addDeviceConfigs({
-        device: deviceString,
+        device: normalizedHost,
         people: `/people/${currentCompany.id}`,
         configs: JSON.stringify(nextConfigs),
       });
 
-      navigation.setParams({configs: nextConfigs});
+      navigation.setParams({
+        configs: nextConfigs,
+        deviceString: normalizedHost,
+      });
     } catch (error) {
       Alert.alert('Configuracao da impressora', resolveErrorMessage(error));
     } finally {
@@ -327,11 +370,12 @@ const PrinterDeviceDetailPage = () => {
   }, [
     columns,
     currentCompany?.id,
+    deviceHost,
     deviceConfigStore.actions,
-    deviceString,
     managerDeviceId,
     navigation,
     port,
+    persistedDeviceHost,
     transport,
   ]);
 
@@ -357,7 +401,7 @@ const PrinterDeviceDetailPage = () => {
             </Text>
             <Text style={styles.heroText}>
               {getDeviceTypeLabel(normalizedDeviceType)} vinculada ao endereco{' '}
-              {deviceString}
+              {deviceHost || persistedDeviceHost}
             </Text>
           </View>
         </View>
@@ -386,10 +430,13 @@ const PrinterDeviceDetailPage = () => {
           <View style={styles.fieldBlock}>
             <Text style={styles.fieldLabel}>IP ou hostname</Text>
             <TextInput
-              style={[styles.input, styles.readonlyInput]}
-              value={deviceString || ''}
-              editable={false}
-              selectTextOnFocus
+              style={styles.input}
+              value={deviceHost}
+              onChangeText={setDeviceHost}
+              placeholder="192.168.0.120"
+              placeholderTextColor="#94A3B8"
+              autoCapitalize="none"
+              autoCorrect={false}
             />
           </View>
 
