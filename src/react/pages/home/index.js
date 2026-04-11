@@ -80,11 +80,9 @@ function ShortcutsRow({ children, last }) {
 export default function HomePage({ navigation }) {
   const themeStore = useStore('theme');
   const peopleStore = useStore('people');
-  const authStore = useStore('auth');
 
   const { colors: themeColors } = themeStore.getters;
   const { currentCompany } = peopleStore.getters;
-  const { user: authUser } = authStore.getters;
 
   const brandColors = useMemo(
     () =>
@@ -114,6 +112,12 @@ export default function HomePage({ navigation }) {
       { label: global.t?.t('configs', 'summary_label', 'orders'), value: '...' },
       { label: global.t?.t('configs', 'summary_label', 'products'), value: '...' },
     ],
+    modelos: [
+      { label: 'Propostas', value: '...' },
+      { label: 'Contratos', value: '...' },
+      { label: 'E-mails', value: '...' },
+      { label: 'Cardapios', value: '...' },
+    ],
   });
 
   useEffect(() => {
@@ -122,14 +126,29 @@ export default function HomePage({ navigation }) {
     const fetchStats = async () => {
       setLoadingStats(true);
       try {
-        const [ordersRes, clientsRes, cashRes, incomeRes, productsRes] =
+        const [ordersRes, clientsRes, cashRes, incomeRes, productsRes, modelsRes] =
           await Promise.all([
             api.fetch('/orders', { params: { provider: currentCompany.id, itemsPerPage: 1 } }).catch(() => null),
             api.fetch('/people', { params: { 'link.company': `/people/${currentCompany.id}`, 'link.linkType': 'client', itemsPerPage: 1 } }).catch(() => null),
             api.fetch('/device_configs', { params: { people: currentCompany.id, itemsPerPage: 1 } }).catch(() => null),
             api.fetch('/income_statements', { params: { people: currentCompany.id, year: currentYear } }).catch(() => null),
             api.fetch('/products', { params: { company: currentCompany.id, itemsPerPage: 1 } }).catch(() => null),
+            api.fetch('/models', { params: { people: `/people/${currentCompany.id}`, itemsPerPage: 200 } }).catch(() => null),
           ]);
+
+        const modelItems = Array.isArray(modelsRes?.member) ? modelsRes.member : [];
+        const modelSummary = {
+          proposal: 0,
+          contract: 0,
+          email: 0,
+          menu: 0,
+        };
+
+        modelItems.forEach(item => {
+          if (modelSummary[item?.context] !== undefined) {
+            modelSummary[item.context] += 1;
+          }
+        });
 
         const incomeData = incomeRes?.member;
         const monthKey = String(currentMonth);
@@ -156,6 +175,12 @@ export default function HomePage({ navigation }) {
             { label: global.t?.t('configs', 'summary_label', 'orders'), value: String(ordersRes?.totalItems ?? '—') },
             { label: global.t?.t('configs', 'summary_label', 'products'), value: String(productsRes?.totalItems ?? '—') },
           ],
+          modelos: [
+            { label: 'Propostas', value: String(modelSummary.proposal || 0) },
+            { label: 'Contratos', value: String(modelSummary.contract || 0) },
+            { label: 'E-mails', value: String(modelSummary.email || 0) },
+            { label: 'Cardapios', value: String(modelSummary.menu || 0) },
+          ],
         });
       } catch (_) {
         // mantém os valores padrão
@@ -168,6 +193,18 @@ export default function HomePage({ navigation }) {
   }, [currentCompany?.id]);
 
   const go = (route) => navigation.navigate(route);
+  const openModelEditor = (params = {}) =>
+    navigation.navigate('ModelTemplatesPage', {
+      templateAction: Date.now(),
+      ...params,
+    });
+
+  const openNewModel = context =>
+    openModelEditor({
+      filterContext: context,
+      presetContext: context,
+      startNew: true,
+    });
 
   if (!currentCompany || !themeColors) {
     return (
@@ -282,6 +319,27 @@ export default function HomePage({ navigation }) {
           <ShortcutsRow>
             <ShortcutCard label={global.t?.t('configs', 'button_title', 'customers')} icon="users" color={HEX.success} onPress={() => go('ClientsIndex')} />
             <ShortcutCard label="PDV" icon="shopping-bag" color={HEX.orange} onPress={() => go('PdvPage')} />
+          </ShortcutsRow>
+        </SectionBlock>
+
+        <SectionBlock
+          title="Modelos"
+          icon="edit-3"
+          color={HEX.orange}
+          summary={summaries.modelos}
+          loadingSummary={loadingStats}
+        >
+          <ShortcutsRow>
+            <ShortcutCard label="Editor de modelos" icon="edit-3" color={HEX.orange} onPress={() => openModelEditor()} />
+            <ShortcutCard label="Nova proposta" icon="briefcase" color={HEX.purple} onPress={() => openNewModel('proposal')} />
+          </ShortcutsRow>
+          <ShortcutsRow>
+            <ShortcutCard label="Novo contrato" icon="file-text" color={HEX.info} onPress={() => openNewModel('contract')} />
+            <ShortcutCard label="Novo cardapio" icon="book-open" color={HEX.success} onPress={() => openNewModel('menu')} />
+          </ShortcutsRow>
+          <ShortcutsRow last>
+            <ShortcutCard label="Novo e-mail" icon="mail" color={HEX.warning} onPress={() => openNewModel('email')} />
+            <View style={{ flex: 1 }} />
           </ShortcutsRow>
         </SectionBlock>
 
@@ -429,12 +487,15 @@ const styles = StyleSheet.create({
 
   sectionSummaryRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: 8,
+    rowGap: 8,
     marginBottom: 14,
   },
   sectionSummaryItem: {
     backgroundColor: '#F8FAFC',
     borderRadius: 10,
+    minWidth: 88,
     paddingHorizontal: 14,
     paddingVertical: 8,
     alignItems: 'center',

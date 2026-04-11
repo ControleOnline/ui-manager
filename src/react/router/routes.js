@@ -16,6 +16,7 @@ import ConnectionsPage from '@controleonline/ui-manager/src/react/pages/Connecti
 import Food99IntegrationPage from '@controleonline/ui-manager/src/react/pages/Food99IntegrationPage';
 import IFoodIntegrationPage from '@controleonline/ui-manager/src/react/pages/IFoodIntegrationPage';
 import IntegrationsPage from '@controleonline/ui-manager/src/react/pages/Integrations';
+import ModelTemplatesPage from '@controleonline/ui-manager/src/react/pages/ModelTemplatesPage';
 import OrderHistoryPage from '@controleonline/ui-manager/src/react/pages/OrderHistoryPage';
 import WhatsAppConnectionPage from '@controleonline/ui-manager/src/react/pages/WhatsAppConnectionPage';
 import DisplayList from '@controleonline/ui-ppc/src/react/pages/displays/displayPage';
@@ -95,6 +96,17 @@ const managerRoutes = [
       headerShown: true,
       headerBackVisible: true,
       title: global.t?.t("configs", "title", "integrations"),
+      showCompanyFilter: true,
+      companyFilterMode: 'icon',
+    },
+  },
+  {
+    name: 'ModelTemplatesPage',
+    component: ModelTemplatesPage,
+    options: {
+      headerShown: true,
+      headerBackVisible: true,
+      title: 'Modelos HTML/Twig',
       showCompanyFilter: true,
       companyFilterMode: 'icon',
     },
