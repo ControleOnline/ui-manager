@@ -23,8 +23,12 @@ import Icon from 'react-native-vector-icons/Feather';
 import {
   DEVICE_ALERT_SOUND_ENABLED_KEY,
   DEVICE_ALERT_SOUND_URL_KEY,
+  DEVICE_ORDER_VISIBILITY_COMPANY,
+  DEVICE_ORDER_VISIBILITY_DEVICE,
+  DEVICE_ORDER_VISIBILITY_KEY,
   isTruthyValue,
   parseConfigsObject,
+  resolveDeviceOrderVisibility,
 } from '@controleonline/ui-common/src/react/config/deviceConfigBootstrap';
 import {
   filterDeviceConfigsByCompany,
@@ -120,10 +124,14 @@ const DeviceDetailPage = () => {
   const [actionLoading, setActionLoading] = useState(false);
   const [savingPaymentTarget, setSavingPaymentTarget] = useState(false);
   const [savingAlertSound, setSavingAlertSound] = useState(false);
+  const [savingOrderVisibility, setSavingOrderVisibility] = useState(false);
   const [sendingCatalogRefresh, setSendingCatalogRefresh] = useState(false);
   const [search,        setSearch]        = useState('');
   const [devicePaymentTarget, setDevicePaymentTarget] = useState(
     normalizeDeviceId(normalizedInitialConfigs?.[ORDER_PAYMENT_DEVICE_CONFIG_KEY]),
+  );
+  const [deviceOrderVisibility, setDeviceOrderVisibility] = useState(
+    resolveDeviceOrderVisibility(normalizedInitialConfigs),
   );
   const [deviceAlertSoundEnabled, setDeviceAlertSoundEnabled] = useState(
     isTruthyValue(normalizedInitialConfigs?.[DEVICE_ALERT_SOUND_ENABLED_KEY]),
@@ -194,6 +202,9 @@ const DeviceDetailPage = () => {
       setConfigs(nextConfigs);
       setDevicePaymentTarget(
         normalizeDeviceId(nextConfigs[ORDER_PAYMENT_DEVICE_CONFIG_KEY]),
+      );
+      setDeviceOrderVisibility(
+        resolveDeviceOrderVisibility(nextConfigs),
       );
       setDeviceAlertSoundEnabled(
         isTruthyValue(nextConfigs[DEVICE_ALERT_SOUND_ENABLED_KEY]),
@@ -311,6 +322,34 @@ const DeviceDetailPage = () => {
     deviceString,
     refreshConfigs,
     savingAlertSound,
+  ]);
+
+  const saveDeviceOrderVisibility = useCallback(async () => {
+    if (!currentCompany?.id || !deviceString || savingOrderVisibility) {
+      return;
+    }
+
+    setSavingOrderVisibility(true);
+    try {
+      await actionsRef.current.deviceConfigActions.addDeviceConfigs({
+        device: deviceString,
+        configs: JSON.stringify({
+          [DEVICE_ORDER_VISIBILITY_KEY]: deviceOrderVisibility || DEVICE_ORDER_VISIBILITY_DEVICE,
+        }),
+        people: '/people/' + currentCompany.id,
+      });
+      await refreshConfigs();
+    } catch {
+      // silencioso
+    } finally {
+      setSavingOrderVisibility(false);
+    }
+  }, [
+    currentCompany?.id,
+    deviceOrderVisibility,
+    deviceString,
+    refreshConfigs,
+    savingOrderVisibility,
   ]);
 
   const sendCatalogRefreshCommand = useCallback(() => {
@@ -482,6 +521,56 @@ const DeviceDetailPage = () => {
             <Text style={[styles.summaryValue, { color: hex.purple }]}>
               {products.length}
             </Text>
+          </View>
+        </View>
+
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>
+            <Icon name="list" size={13} /> {'  '}Pedidos do Device
+          </Text>
+
+          <View style={styles.configCard}>
+            <Text style={styles.configTitle}>Escopo da listagem no PDV</Text>
+            <Text style={styles.configDescription}>
+              Define se este device enxerga apenas os pedidos criados nele ou
+              todos os pedidos da empresa no histórico do PDV.
+            </Text>
+
+            <View style={styles.pickerWrap}>
+              <Picker
+                selectedValue={deviceOrderVisibility}
+                mode={pickerMode}
+                onValueChange={value =>
+                  setDeviceOrderVisibility(value || DEVICE_ORDER_VISIBILITY_DEVICE)
+                }>
+                <Picker.Item
+                  label="Somente pedidos deste device"
+                  value={DEVICE_ORDER_VISIBILITY_DEVICE}
+                />
+                <Picker.Item
+                  label="Todos os pedidos da empresa"
+                  value={DEVICE_ORDER_VISIBILITY_COMPANY}
+                />
+              </Picker>
+            </View>
+
+            <TouchableOpacity
+              style={[
+                styles.configButton,
+                savingOrderVisibility && {opacity: 0.6},
+              ]}
+              activeOpacity={0.85}
+              disabled={savingOrderVisibility}
+              onPress={saveDeviceOrderVisibility}>
+              {savingOrderVisibility ? (
+                <ActivityIndicator size="small" color="#fff" />
+              ) : (
+                <>
+                  <Icon name="save" size={14} color="#fff" />
+                  <Text style={styles.configButtonText}>Salvar visibilidade dos pedidos</Text>
+                </>
+              )}
+            </TouchableOpacity>
           </View>
         </View>
 
