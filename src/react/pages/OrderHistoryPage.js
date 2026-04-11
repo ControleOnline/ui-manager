@@ -148,8 +148,12 @@ export default function OrderHistoryPage({ navigation }) {
   const getStatusLabel = useCallback((order) => {
     const rs = String(order?.status?.realStatus || '').toLowerCase();
     const s = String(order?.status?.status || '').toLowerCase();
-    const statusKey = rs || s;
+    const detailedStatusKey = s && s !== rs ? s : '';
+    const statusKey = detailedStatusKey || rs || s;
 
+    if (statusKey === 'preparing') return global.t?.t('orders', 'status', 'preparing') || 'Preparando';
+    if (statusKey === 'ready') return global.t?.t('orders', 'status', 'ready') || 'Pronto';
+    if (statusKey === 'way') return global.t?.t('orders', 'status', 'way') || 'Em entrega';
     if (statusKey === 'open') return global.t?.t('orders', 'status', 'open');
     if (statusKey === 'pending') return global.t?.t('orders', 'status', 'pending');
     if (statusKey === 'closed') return global.t?.t('orders', 'status', 'closed');

@@ -18,11 +18,11 @@ import { SafeAreaView } from 'react-native-safe-area-context'
 import { useFocusEffect, useNavigation } from '@react-navigation/native'
 import { MaterialCommunityIcons } from '@expo/vector-icons'
 
+import { api } from '@controleonline/ui-common/src/api'
 import { useStore } from '@store'
 import Formatter from '@controleonline/ui-common/src/utils/formatter'
 import { env } from '@env'
 import { resolveThemePalette, withOpacity } from '@controleonline/../../src/styles/branding'
-import status from '../../../../ui-common/src/store/status'
 
 /* ─── constantes ────────────────────────────────────────────────────── */
 
@@ -109,6 +109,91 @@ const updateCachedCategoryProducts = (companyId, category, products) => {
 
   writeCachedCategories(companyId, nextCategories)
   return nextCategories
+}
+
+const normalizeStatusKey = value => String(value || '').trim().toLowerCase()
+
+const extractStatusItems = response => {
+  if (Array.isArray(response)) return response
+  if (Array.isArray(response?.member)) return response.member
+  if (Array.isArray(response?.['hydra:member'])) return response['hydra:member']
+  return []
+}
+
+const buildStatusIriFromId = value => {
+  const normalizedId = String(value || '').replace(/\D/g, '')
+  return normalizedId ? `/statuses/${normalizedId}` : null
+}
+
+let posOpenOrderStatusIriCache = null
+let posPaidInvoiceStatusIriCache = null
+
+const resolvePosOrderOpenStatusIri = async fallbackStatusId => {
+  if (posOpenOrderStatusIriCache) return posOpenOrderStatusIriCache
+
+  const fallbackIri = buildStatusIriFromId(fallbackStatusId)
+
+  try {
+    const response = await api.fetch('statuses', {
+      params: {
+        context: 'order',
+        realStatus: 'open',
+        status: 'open',
+        itemsPerPage: 10,
+      },
+    })
+    const items = extractStatusItems(response)
+    const matchedStatus =
+      items.find(
+        item =>
+          normalizeStatusKey(item?.realStatus) === 'open' &&
+          normalizeStatusKey(item?.status) === 'open',
+      ) || items[0]
+    const resolvedIri =
+      matchedStatus?.['@id'] || buildStatusIriFromId(matchedStatus?.id) || fallbackIri
+
+    if (resolvedIri) {
+      posOpenOrderStatusIriCache = resolvedIri
+    }
+
+    return resolvedIri
+  } catch (error) {
+    return fallbackIri
+  }
+}
+
+const resolvePosPaidInvoiceStatusIri = async fallbackStatusId => {
+  if (posPaidInvoiceStatusIriCache) return posPaidInvoiceStatusIriCache
+
+  const fallbackIri = buildStatusIriFromId(fallbackStatusId)
+
+  try {
+    const response = await api.fetch('statuses', {
+      params: {
+        context: 'invoice',
+        realStatus: 'closed',
+        status: 'paid',
+        itemsPerPage: 10,
+      },
+    })
+    const items = extractStatusItems(response)
+    const matchedStatus =
+      items.find(
+        item =>
+          normalizeStatusKey(item?.realStatus) === 'closed' &&
+          normalizeStatusKey(item?.status) === 'paid',
+      ) || items[0]
+    const resolvedIri =
+      matchedStatus?.['@id'] || buildStatusIriFromId(matchedStatus?.id) || fallbackIri
+
+    if (resolvedIri) {
+      posPaidInvoiceStatusIriCache = resolvedIri
+    }
+
+    return resolvedIri
+  } catch (error) {
+    return fallbackIri
+  }
 }
 
 /* ─── tela de categorias ─────────────────────────────────────────────── */
@@ -883,10 +968,12 @@ export default function PdvPage() {
   const handleCreateOrder = useCallback(async () => {
     if (cartItems.length === 0) return
 
-    const posStatus = currentCompany?.configs?.['pos-default-status']
-    if (!posStatus) {
+    const orderOpenStatusIri = await resolvePosOrderOpenStatusIri(
+      currentCompany?.configs?.['pos-default-status'],
+    )
+    if (!orderOpenStatusIri) {
       setStep('error')
-      setProcessingMsg('Status padrão do PDV não configurado. Configure pos-default-status na empresa.')
+      setProcessingMsg('Nao foi possivel resolver o status open/open do pedido no PDV.')
       return
     }
 
@@ -896,7 +983,7 @@ export default function PdvPage() {
       const orderPayload = {
         app: 'POS',
         provider: '/people/' + currentCompany.id,
-        status: '/statuses/' + posStatus,
+        status: orderOpenStatusIri,
         orderType: 'sale',
       }
       if (selectedPeople?.['@id']) orderPayload.people = selectedPeople['@id']
@@ -946,10 +1033,12 @@ export default function PdvPage() {
   /* ── finalizar ── */
   const handleFinalize = useCallback(async () => {
     if (payments.length === 0 || paymentsTotal < cartTotal) return
-    const posStatus = currentCompany?.configs?.['pos-default-status']
-    if (!posStatus) {
+    const orderOpenStatusIri = await resolvePosOrderOpenStatusIri(
+      currentCompany?.configs?.['pos-default-status'],
+    )
+    if (!orderOpenStatusIri) {
       setStep('error')
-      setProcessingMsg('Status padrão do PDV não configurado. Configure pos-default-status na empresa.')
+      setProcessingMsg('Nao foi possivel resolver o status open/open do pedido no PDV.')
       return
     }
     setStep('processing')
@@ -958,7 +1047,7 @@ export default function PdvPage() {
       const orderPayload = {
         app: 'POS',
         provider: '/people/' + currentCompany.id,
-        status: '/statuses/' + posStatus,
+        status: orderOpenStatusIri,
         orderType: 'sale',
       }
       if (selectedPeople?.['@id']) orderPayload.people = selectedPeople['@id']
@@ -990,18 +1079,22 @@ export default function PdvPage() {
       }
 
       setProcessingMsg('Registrando pagamento...')
-      const paidStatus = defaultCompany?.configs?.['pos-paid-status']
+      const paidStatusIri = await resolvePosPaidInvoiceStatusIri(
+        defaultCompany?.configs?.['pos-paid-status'],
+      )
+      if (!paidStatusIri) {
+        throw new Error('Nao foi possivel resolver o status pago da invoice do PDV.')
+      }
       for (const payment of payments) {
         const invoicePayload = {
           dueDate: Formatter.getCurrentDate(),
-          status: '/statuses/' + posStatus,
+          status: paidStatusIri,
           destinationWallet: payment.paymentType.wallet?.['@id'],
           paymentType: payment.paymentType.paymentType?.['@id'],
           price: toFloat(payment.amount),
           receiver: '/people/' + currentCompany.id,
           order: order['@id'],
         }
-        if (paidStatus) invoicePayload.status = '/statuses/' + paidStatus
         await invoiceStore.actions.save(invoicePayload)
       }
 
