@@ -17,6 +17,7 @@ import { env } from '@env';
 import { useStore } from '@store';
 import Formatter from '@controleonline/ui-common/src/utils/formatter';
 import { getOrderChannelLabel, getOrderChannelLogo } from '@assets/ppc/channels';
+import { canDeviceViewCompanyOrders } from '@controleonline/ui-common/src/react/config/deviceConfigBootstrap';
 import { colors } from '@controleonline/../../src/styles/colors';
 import { resolveThemePalette, withOpacity } from '@controleonline/../../src/styles/branding';
 
@@ -99,9 +100,9 @@ export default function OrderHistoryPage({ navigation }) {
   const themeStore = useStore('theme');
   const deviceConfigStore = useStore('device_config');
   const isFocused = useIsFocused();
-  const deviceStore = useStore('device')
-  const deviceGetters = deviceStore.getters
-  const { item: storagedDevice } = deviceGetters
+  const deviceStore = useStore('device');
+  const deviceGetters = deviceStore.getters;
+  const { item: storagedDevice } = deviceGetters;
   const { item: deviceConfig } = deviceConfigStore.getters;
   const { currentCompany } = peopleStore.getters;
   const { colors: themeColors } = themeStore.getters;
@@ -188,6 +189,13 @@ export default function OrderHistoryPage({ navigation }) {
     );
   }, [deviceConfig?.configs]);
 
+  const canViewCompanyOrders = useMemo(
+    () => canDeviceViewCompanyOrders(deviceConfig?.configs),
+    [deviceConfig?.configs],
+  );
+
+  const showAdvancedFilters = env.APP_TYPE !== 'POS' || canViewCompanyOrders;
+
   /* ref para evitar fetch duplicado */
   const fetchingRef = useRef(false);
 
@@ -223,13 +231,15 @@ export default function OrderHistoryPage({ navigation }) {
         'order[id]': 'desc',
       };
       if (orderTypeFilter !== 'all') query.orderType = orderTypeFilter;
-      if (channelFilter !== 'all') query.app = channelFilter;
+      if (showAdvancedFilters && channelFilter !== 'all') query.app = channelFilter;
 
-      if (statusFilter !== 'all') query['status.realStatus'] = env.APP_TYPE === 'POS' ? ['open', 'pending'] : statusFilter;
+      if (showAdvancedFilters && statusFilter !== 'all') query['status.realStatus'] = statusFilter;
 
-      env.APP_TYPE === 'POS' && (query['device.device'] = storagedDevice.id);
+      if (env.APP_TYPE === 'POS' && !canViewCompanyOrders && storagedDevice?.id) {
+        query['device.device'] = storagedDevice.id;
+      }
 
-      const dateRange = getDateRange(dateFilter, customRange);
+      const dateRange = showAdvancedFilters ? getDateRange(dateFilter, customRange) : {};
       if (dateRange?.after) query['alterDate[after]'] = dateRange.after;
       if (dateRange?.before) query['alterDate[before]'] = dateRange.before;
 
@@ -254,7 +264,10 @@ export default function OrderHistoryPage({ navigation }) {
     dateFilter,
     customRange?.from,
     customRange?.to,
+    canViewCompanyOrders,
     orderActions,
+    showAdvancedFilters,
+    storagedDevice?.id,
   ]);
 
   /* dispara reset ao focar ou trocar filtro de data/empresa */
@@ -273,6 +286,7 @@ export default function OrderHistoryPage({ navigation }) {
     dateFilter,
     customRange?.from,
     customRange?.to,
+    canViewCompanyOrders,
   ]);
 
   /* pull-to-refresh */
@@ -503,7 +517,7 @@ export default function OrderHistoryPage({ navigation }) {
             style={styles.searchInput}
           />
 
-          {env.APP_TYPE !== 'POS' && orderTypeFilter === 'sale' && (
+          {showAdvancedFilters && orderTypeFilter === 'sale' && (
             <>
               <Text style={styles.filterLabel}>{global.t?.t('orders', 'label', 'channel')}</Text>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipsRow}>
@@ -514,7 +528,7 @@ export default function OrderHistoryPage({ navigation }) {
             </>
           )}
 
-          {env.APP_TYPE !== 'POS' && !SIMPLE_TAB_KEYS.has(orderTypeFilter) && (
+          {showAdvancedFilters && !SIMPLE_TAB_KEYS.has(orderTypeFilter) && (
             <>
               <Text style={styles.filterLabel}>{global.t?.t('orders', 'label', 'status')}</Text>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipsRow}>
@@ -524,7 +538,7 @@ export default function OrderHistoryPage({ navigation }) {
               </ScrollView>
             </>
           )}
-          {env.APP_TYPE !== 'POS' && (
+          {showAdvancedFilters && (
             <>
               <Text style={styles.filterLabel}>{global.t?.t('orders', 'label', 'period')}</Text>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipsRow}>
@@ -534,7 +548,7 @@ export default function OrderHistoryPage({ navigation }) {
               </ScrollView>
             </>)}
 
-          {dateFilter === 'custom' && (
+          {showAdvancedFilters && dateFilter === 'custom' && (
             <View style={styles.customDateWrap}>
               <View style={styles.customDateInputs}>
                 <TextInput value={customFromInput} onChangeText={setCustomFromInput} placeholder={global.t?.t('orders', 'placeholder', 'date_from')} placeholderTextColor="#94A3B8" style={[styles.searchInput, styles.dateInput]} />
