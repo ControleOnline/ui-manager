@@ -36,6 +36,8 @@ const hex = {
   success: '#22C55E',
   danger:  '#EF4444',
 };
+const PDV_DEVICE_TYPE = 'PDV';
+const DISPLAY_DEVICE_TYPE = 'DISPLAY';
 
 const getStatus = dc => {
   const closed = dc?.configs?.['cash-wallet-closed-id'];
@@ -50,11 +52,11 @@ const getDeviceIcon = type => {
     return 'printer';
   }
 
-  if (normalizedType === 'PDV') {
+  if (normalizedType === PDV_DEVICE_TYPE) {
     return 'shopping-bag';
   }
 
-  if (normalizedType === 'DISPLAY') {
+  if (normalizedType === DISPLAY_DEVICE_TYPE) {
     return 'monitor';
   }
 
@@ -115,7 +117,8 @@ const Devices = () => {
     () =>
       scopedDeviceConfigs.filter(
         dc =>
-          !isPrinterDeviceType(dc?.device?.type) && getStatus(dc) === 'open',
+          String(dc?.device?.type || '').trim().toUpperCase() === PDV_DEVICE_TYPE &&
+          getStatus(dc) === 'open',
       ).length,
     [scopedDeviceConfigs],
   );
@@ -138,11 +141,24 @@ const Devices = () => {
 
   const renderItem = ({ item: dc }) => {
     const isPrinter = isPrinterDeviceType(dc?.device?.type);
+    const normalizedType = String(dc?.device?.type || '').trim().toUpperCase();
+    const isPdv = normalizedType === PDV_DEVICE_TYPE;
+    const isDisplay = normalizedType === DISPLAY_DEVICE_TYPE;
     const isOpen  = getStatus(dc) === 'open';
     const alias   = dc.device?.alias || dc.device?.device || `Dispositivo #${dc.id}`;
-    const accent  = isPrinter ? hex.primary : (isOpen ? hex.success : hex.danger);
+    const accent  = isPrinter
+      ? hex.primary
+      : isDisplay
+        ? hex.primary
+        : (isOpen ? hex.success : hex.danger);
     const iconName = getDeviceIcon(dc?.device?.type);
-    const badgeText = isPrinter ? 'Rede' : (isOpen ? 'Aberto' : 'Fechado');
+    const badgeText = isPrinter
+      ? 'Rede'
+      : isDisplay
+        ? 'KDS'
+        : isPdv
+          ? (isOpen ? 'Aberto' : 'Fechado')
+          : 'Device';
 
     return (
       <TouchableOpacity
@@ -189,7 +205,7 @@ const Devices = () => {
           <Text style={[styles.summaryValue, { color: hex.primary }]}>{printerCount}</Text>
         </View>
         <View style={styles.summaryCard}>
-          <Text style={styles.summaryLabel}>PDVs/DISPLAY abertos</Text>
+          <Text style={styles.summaryLabel}>PDVs abertos</Text>
           <Text style={[styles.summaryValue, { color: hex.success }]}>
             {openCount}
           </Text>

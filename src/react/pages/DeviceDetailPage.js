@@ -74,6 +74,7 @@ const paymentIcon = label => {
 };
 
 const DISPLAY_DEVICE_TYPE = 'DISPLAY';
+const PDV_DEVICE_TYPE = 'PDV';
 const DISPLAY_DEVICE_LINK_CONFIG_KEY = 'display-id';
 const DISPLAY_DEVICE_PRINTER_CONFIG_KEY = 'printer';
 
@@ -124,6 +125,7 @@ const DeviceDetailPage = () => {
   );
   const deviceType = String(initialDeviceType || '').trim().toUpperCase();
   const isDisplayDevice = deviceType === DISPLAY_DEVICE_TYPE;
+  const isPdvDevice = deviceType === PDV_DEVICE_TYPE;
 
   const invoiceStore      = useStore('invoice');
   const deviceConfigStore = useStore('device_config');
@@ -225,6 +227,13 @@ const DeviceDetailPage = () => {
   const pickerMode = Platform.OS === 'android' ? 'dropdown' : undefined;
 
   const loadData = useCallback(async () => {
+    if (!isPdvDevice) {
+      setProducts([]);
+      setInflowData(null);
+      setLoadingData(false);
+      return;
+    }
+
     if (!currentCompany?.id || !deviceString) return;
     setLoadingData(true);
     try {
@@ -250,7 +259,7 @@ const DeviceDetailPage = () => {
     } finally {
       setLoadingData(false);
     }
-  }, [currentCompany?.id, deviceString]);
+  }, [currentCompany?.id, deviceString, isPdvDevice]);
 
   const refreshConfigs = useCallback(async () => {
     if (!currentCompany?.id) return;
@@ -321,6 +330,10 @@ const DeviceDetailPage = () => {
   );
 
   const handleToggle = () => {
+    if (!isPdvDevice) {
+      return;
+    }
+
     const msg = isOpen ? 'Deseja fechar o caixa?' : 'Deseja abrir o caixa?';
     confirm(msg, async () => {
       setActionLoading(true);
@@ -548,7 +561,9 @@ const DeviceDetailPage = () => {
     );
   }, [products, search]);
 
-  const accent = isOpen ? hex.success : hex.danger;
+  const accent = isPdvDevice
+    ? (isOpen ? hex.success : hex.danger)
+    : hex.info;
 
   const renderProduct = ({ item, index }) => (
     <View style={[styles.productRow, index % 2 === 0 && styles.productRowAlt]}>
@@ -621,106 +636,111 @@ const DeviceDetailPage = () => {
             </View>
           </View>
 
-          <View style={styles.deviceHeaderRight}>
-            <TouchableOpacity
-              style={[styles.toggleBtn, { backgroundColor: isOpen ? hex.danger : hex.success }, actionLoading && { opacity: 0.6 }]}
-              onPress={handleToggle}
-              disabled={actionLoading || loadingData}
-              activeOpacity={0.85}
-            >
-              {actionLoading ? (
-                <ActivityIndicator color="#fff" size="small" />
-              ) : (
-                <>
-                  <Icon name={isOpen ? 'lock' : 'unlock'} size={13} color="#fff" />
-                  <Text style={styles.toggleBtnText}>{isOpen ? 'Fechar' : 'Abrir'}</Text>
-                </>
-              )}
-            </TouchableOpacity>
-          </View>
+          {isPdvDevice && (
+            <View style={styles.deviceHeaderRight}>
+              <TouchableOpacity
+                style={[styles.toggleBtn, { backgroundColor: isOpen ? hex.danger : hex.success }, actionLoading && { opacity: 0.6 }]}
+                onPress={handleToggle}
+                disabled={actionLoading || loadingData}
+                activeOpacity={0.85}
+              >
+                {actionLoading ? (
+                  <ActivityIndicator color="#fff" size="small" />
+                ) : (
+                  <>
+                    <Icon name={isOpen ? 'lock' : 'unlock'} size={13} color="#fff" />
+                    <Text style={styles.toggleBtnText}>{isOpen ? 'Fechar' : 'Abrir'}</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            </View>
+          )}
         </View>
 
-        {loadingData && (
+        {isPdvDevice && loadingData && (
           <View style={styles.loadingBox}>
             <ActivityIndicator size="small" color={brandColors.primary} />
             <Text style={styles.loadingText}>Carregando dados do device...</Text>
           </View>
         )}
 
-        {/* Cards de resumo */}
-        <View style={styles.summaryRow}>
-          <View style={styles.summaryCard}>
-            <Icon name="dollar-sign" size={14} color={hex.success} style={styles.summaryIcon} />
-            <Text style={styles.summaryLabel}>Total Geral</Text>
-            <Text style={[styles.summaryValue, { color: hex.success }]}>
-              {Formatter.formatMoney(inflowTotal)}
-            </Text>
-          </View>
-          <View style={styles.summaryCard}>
-            <Icon name="shopping-bag" size={14} color={hex.info} style={styles.summaryIcon} />
-            <Text style={styles.summaryLabel}>Em Produtos</Text>
-            <Text style={[styles.summaryValue, { color: hex.info }]}>
-              {Formatter.formatMoney(productTotal)}
-            </Text>
-          </View>
-          <View style={styles.summaryCard}>
-            <Icon name="package" size={14} color={hex.purple} style={styles.summaryIcon} />
-            <Text style={styles.summaryLabel}>Itens</Text>
-            <Text style={[styles.summaryValue, { color: hex.purple }]}>
-              {products.length}
-            </Text>
-          </View>
-        </View>
-
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>
-            <Icon name="list" size={13} /> {'  '}Pedidos do Device
-          </Text>
-
-          <View style={styles.configCard}>
-            <Text style={styles.configTitle}>Escopo da listagem no PDV</Text>
-            <Text style={styles.configDescription}>
-              Define se este device enxerga apenas os pedidos criados nele ou
-              todos os pedidos da empresa no histórico do PDV.
-            </Text>
-
-            <View style={styles.pickerWrap}>
-              <Picker
-                selectedValue={deviceOrderVisibility}
-                mode={pickerMode}
-                onValueChange={value =>
-                  setDeviceOrderVisibility(value || DEVICE_ORDER_VISIBILITY_DEVICE)
-                }>
-                <Picker.Item
-                  label="Somente pedidos deste device"
-                  value={DEVICE_ORDER_VISIBILITY_DEVICE}
-                />
-                <Picker.Item
-                  label="Todos os pedidos da empresa"
-                  value={DEVICE_ORDER_VISIBILITY_COMPANY}
-                />
-              </Picker>
+        {isPdvDevice && (
+          <View style={styles.summaryRow}>
+            <View style={styles.summaryCard}>
+              <Icon name="dollar-sign" size={14} color={hex.success} style={styles.summaryIcon} />
+              <Text style={styles.summaryLabel}>Total Geral</Text>
+              <Text style={[styles.summaryValue, { color: hex.success }]}>
+                {Formatter.formatMoney(inflowTotal)}
+              </Text>
             </View>
-
-            <TouchableOpacity
-              style={[
-                styles.configButton,
-                savingOrderVisibility && {opacity: 0.6},
-              ]}
-              activeOpacity={0.85}
-              disabled={savingOrderVisibility}
-              onPress={saveDeviceOrderVisibility}>
-              {savingOrderVisibility ? (
-                <ActivityIndicator size="small" color="#fff" />
-              ) : (
-                <>
-                  <Icon name="save" size={14} color="#fff" />
-                  <Text style={styles.configButtonText}>Salvar visibilidade dos pedidos</Text>
-                </>
-              )}
-            </TouchableOpacity>
+            <View style={styles.summaryCard}>
+              <Icon name="shopping-bag" size={14} color={hex.info} style={styles.summaryIcon} />
+              <Text style={styles.summaryLabel}>Em Produtos</Text>
+              <Text style={[styles.summaryValue, { color: hex.info }]}>
+                {Formatter.formatMoney(productTotal)}
+              </Text>
+            </View>
+            <View style={styles.summaryCard}>
+              <Icon name="package" size={14} color={hex.purple} style={styles.summaryIcon} />
+              <Text style={styles.summaryLabel}>Itens</Text>
+              <Text style={[styles.summaryValue, { color: hex.purple }]}>
+                {products.length}
+              </Text>
+            </View>
           </View>
-        </View>
+        )}
+
+        {!isDisplayDevice && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>
+              <Icon name="list" size={13} /> {'  '}Pedidos do Device
+            </Text>
+
+            <View style={styles.configCard}>
+              <Text style={styles.configTitle}>Escopo da listagem no PDV</Text>
+              <Text style={styles.configDescription}>
+                Define se este device enxerga apenas os pedidos criados nele ou
+                todos os pedidos da empresa no histórico do PDV.
+              </Text>
+
+              <View style={styles.pickerWrap}>
+                <Picker
+                  selectedValue={deviceOrderVisibility}
+                  mode={pickerMode}
+                  onValueChange={value =>
+                    setDeviceOrderVisibility(value || DEVICE_ORDER_VISIBILITY_DEVICE)
+                  }>
+                  <Picker.Item
+                    label="Somente pedidos deste device"
+                    value={DEVICE_ORDER_VISIBILITY_DEVICE}
+                  />
+                  <Picker.Item
+                    label="Todos os pedidos da empresa"
+                    value={DEVICE_ORDER_VISIBILITY_COMPANY}
+                  />
+                </Picker>
+              </View>
+
+              <TouchableOpacity
+                style={[
+                  styles.configButton,
+                  savingOrderVisibility && {opacity: 0.6},
+                ]}
+                activeOpacity={0.85}
+                disabled={savingOrderVisibility}
+                onPress={saveDeviceOrderVisibility}>
+                {savingOrderVisibility ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <>
+                    <Icon name="save" size={14} color="#fff" />
+                    <Text style={styles.configButtonText}>Salvar visibilidade dos pedidos</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
 
         {isDisplayDevice && (
           <View style={styles.section}>
@@ -891,91 +911,94 @@ const DeviceDetailPage = () => {
           </View>
         </View>
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>
-            <Icon name="credit-card" size={13} /> {'  '}Pagamento Remoto
-          </Text>
-
-          <View style={styles.configCard}>
-            <Text style={styles.configTitle}>Device preferencial para pagamento</Text>
-            <Text style={styles.configDescription}>
-              Se este device nao tiver gateway local, o sistema usa este destino.
-              Quando vazio, ele segue a ordem padrao definida na empresa.
+        {!isDisplayDevice && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>
+              <Icon name="credit-card" size={13} /> {'  '}Pagamento Remoto
             </Text>
 
-            <View style={styles.pickerWrap}>
-              <Picker
-                selectedValue={devicePaymentTarget || ''}
-                mode={pickerMode}
-                onValueChange={value => setDevicePaymentTarget(value || '')}>
-                <Picker.Item
-                  label="Usar devices padrao da empresa"
-                  value=""
-                />
-                {paymentDeviceOptions.map(option => (
+            <View style={styles.configCard}>
+              <Text style={styles.configTitle}>Device preferencial para pagamento</Text>
+              <Text style={styles.configDescription}>
+                Se este device nao tiver gateway local, o sistema usa este destino.
+                Quando vazio, ele segue a ordem padrao definida na empresa.
+              </Text>
+
+              <View style={styles.pickerWrap}>
+                <Picker
+                  selectedValue={devicePaymentTarget || ''}
+                  mode={pickerMode}
+                  onValueChange={value => setDevicePaymentTarget(value || '')}>
                   <Picker.Item
-                    key={option.deviceId}
-                    label={`${option.alias} (${option.gatewayLabel})`}
-                    value={option.deviceId}
+                    label="Usar devices padrao da empresa"
+                    value=""
                   />
-                ))}
-              </Picker>
+                  {paymentDeviceOptions.map(option => (
+                    <Picker.Item
+                      key={option.deviceId}
+                      label={`${option.alias} (${option.gatewayLabel})`}
+                      value={option.deviceId}
+                    />
+                  ))}
+                </Picker>
+              </View>
+
+              <TouchableOpacity
+                style={[
+                  styles.configButton,
+                  savingPaymentTarget && {opacity: 0.6},
+                ]}
+                activeOpacity={0.85}
+                disabled={savingPaymentTarget}
+                onPress={saveDevicePaymentTarget}>
+                {savingPaymentTarget ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <>
+                    <Icon name="save" size={14} color="#fff" />
+                    <Text style={styles.configButtonText}>Salvar destino de pagamento</Text>
+                  </>
+                )}
+              </TouchableOpacity>
             </View>
-
-            <TouchableOpacity
-              style={[
-                styles.configButton,
-                savingPaymentTarget && {opacity: 0.6},
-              ]}
-              activeOpacity={0.85}
-              disabled={savingPaymentTarget}
-              onPress={saveDevicePaymentTarget}>
-              {savingPaymentTarget ? (
-                <ActivityIndicator size="small" color="#fff" />
-              ) : (
-                <>
-                  <Icon name="save" size={14} color="#fff" />
-                  <Text style={styles.configButtonText}>Salvar destino de pagamento</Text>
-                </>
-              )}
-            </TouchableOpacity>
           </View>
-        </View>
+        )}
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>
-            <Icon name="refresh-cw" size={13} /> {'  '}Comandos Remotos
-          </Text>
-
-          <View style={styles.configCard}>
-            <Text style={styles.configTitle}>Catálogo do PDV</Text>
-            <Text style={styles.configDescription}>
-              Limpa o cache local de produtos e categorias deste device.
-              O recarregamento acontece no próximo uso do PDV.
+        {!isDisplayDevice && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>
+              <Icon name="refresh-cw" size={13} /> {'  '}Comandos Remotos
             </Text>
 
-            <TouchableOpacity
-              style={[
-                styles.configButton,
-                sendingCatalogRefresh && {opacity: 0.6},
-              ]}
-              activeOpacity={0.85}
-              disabled={sendingCatalogRefresh}
-              onPress={sendCatalogRefreshCommand}>
-              {sendingCatalogRefresh ? (
-                <ActivityIndicator size="small" color="#fff" />
-              ) : (
-                <>
-                  <Icon name="trash-2" size={14} color="#fff" />
-                  <Text style={styles.configButtonText}>Limpar cache de produtos</Text>
-                </>
-              )}
-            </TouchableOpacity>
-          </View>
-        </View>
+            <View style={styles.configCard}>
+              <Text style={styles.configTitle}>Catálogo do PDV</Text>
+              <Text style={styles.configDescription}>
+                Limpa o cache local de produtos e categorias deste device.
+                O recarregamento acontece no próximo uso do PDV.
+              </Text>
 
-        {/* Pagamentos por forma */}
-        {wallets.length > 0 && (
+              <TouchableOpacity
+                style={[
+                  styles.configButton,
+                  sendingCatalogRefresh && {opacity: 0.6},
+                ]}
+                activeOpacity={0.85}
+                disabled={sendingCatalogRefresh}
+                onPress={sendCatalogRefreshCommand}>
+                {sendingCatalogRefresh ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <>
+                    <Icon name="trash-2" size={14} color="#fff" />
+                    <Text style={styles.configButtonText}>Limpar cache de produtos</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
+
+        {isPdvDevice && wallets.length > 0 && (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>
               <Icon name="credit-card" size={13} /> {'  '}Recebimentos por Forma de Pagamento
@@ -1005,59 +1028,59 @@ const DeviceDetailPage = () => {
           </View>
         )}
 
-        {/* Produtos vendidos */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>
-            <Icon name="shopping-bag" size={13} /> {'  '}Produtos Vendidos
-          </Text>
+        {isPdvDevice && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>
+              <Icon name="shopping-bag" size={13} /> {'  '}Produtos Vendidos
+            </Text>
 
-          {/* Filtro de busca */}
-          <View style={styles.searchRow}>
-            <Icon name="search" size={14} color="#94A3B8" />
-            <TextInput
-              style={styles.searchInput}
-              value={search}
-              onChangeText={setSearch}
-              placeholder="Buscar produto ou SKU..."
-              placeholderTextColor="#94A3B8"
-            />
-            {!!search && (
-              <TouchableOpacity onPress={() => setSearch('')}>
-                <Icon name="x" size={14} color="#94A3B8" />
-              </TouchableOpacity>
-            )}
-          </View>
-
-          {filteredProducts.length > 0 ? (
-            <View style={styles.tableContainer}>
-              <View style={styles.tableHeader}>
-                <Text style={[styles.tableHead, { flex: 0.5 }]}>Qtd</Text>
-                <Text style={[styles.tableHead, { flex: 3 }]}>Produto</Text>
-                <Text style={[styles.tableHead, { flex: 1.2, textAlign: 'right' }]}>Unit.</Text>
-                <Text style={[styles.tableHead, { flex: 1.3, textAlign: 'right' }]}>Total</Text>
-              </View>
-              <FlatList
-                data={filteredProducts}
-                keyExtractor={(item, i) => `${item.product_sku || i}`}
-                renderItem={renderProduct}
-                scrollEnabled={false}
+            <View style={styles.searchRow}>
+              <Icon name="search" size={14} color="#94A3B8" />
+              <TextInput
+                style={styles.searchInput}
+                value={search}
+                onChangeText={setSearch}
+                placeholder="Buscar produto ou SKU..."
+                placeholderTextColor="#94A3B8"
               />
-              <View style={styles.tableFooter}>
-                <Text style={styles.tableFooterLabel}>Total em produtos</Text>
-                <Text style={[styles.tableFooterValue, { color: brandColors.primary }]}>
-                  {Formatter.formatMoney(productTotal)}
+              {!!search && (
+                <TouchableOpacity onPress={() => setSearch('')}>
+                  <Icon name="x" size={14} color="#94A3B8" />
+                </TouchableOpacity>
+              )}
+            </View>
+
+            {filteredProducts.length > 0 ? (
+              <View style={styles.tableContainer}>
+                <View style={styles.tableHeader}>
+                  <Text style={[styles.tableHead, { flex: 0.5 }]}>Qtd</Text>
+                  <Text style={[styles.tableHead, { flex: 3 }]}>Produto</Text>
+                  <Text style={[styles.tableHead, { flex: 1.2, textAlign: 'right' }]}>Unit.</Text>
+                  <Text style={[styles.tableHead, { flex: 1.3, textAlign: 'right' }]}>Total</Text>
+                </View>
+                <FlatList
+                  data={filteredProducts}
+                  keyExtractor={(item, i) => `${item.product_sku || i}`}
+                  renderItem={renderProduct}
+                  scrollEnabled={false}
+                />
+                <View style={styles.tableFooter}>
+                  <Text style={styles.tableFooterLabel}>Total em produtos</Text>
+                  <Text style={[styles.tableFooterValue, { color: brandColors.primary }]}>
+                    {Formatter.formatMoney(productTotal)}
+                  </Text>
+                </View>
+              </View>
+            ) : (
+              <View style={styles.emptyBox}>
+                <Icon name="inbox" size={24} color="#CBD5E1" style={{ marginBottom: 8 }} />
+                <Text style={styles.emptyText}>
+                  {search ? 'Nenhum produto encontrado para esta busca' : 'Nenhum produto registrado neste device'}
                 </Text>
               </View>
-            </View>
-          ) : (
-            <View style={styles.emptyBox}>
-              <Icon name="inbox" size={24} color="#CBD5E1" style={{ marginBottom: 8 }} />
-              <Text style={styles.emptyText}>
-                {search ? 'Nenhum produto encontrado para esta busca' : 'Nenhum produto registrado neste device'}
-              </Text>
-            </View>
-          )}
-        </View>
+            )}
+          </View>
+        )}
 
       </ScrollView>
     </SafeAreaView>
