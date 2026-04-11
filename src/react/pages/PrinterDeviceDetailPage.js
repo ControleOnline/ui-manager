@@ -95,6 +95,7 @@ const PrinterDeviceDetailPage = () => {
   const [savingDevice, setSavingDevice] = useState(false);
   const [savingConfig, setSavingConfig] = useState(false);
   const [companyDeviceConfigs, setCompanyDeviceConfigs] = useState([]);
+  const [deviceMetadata, setDeviceMetadata] = useState(initialMetadata || {});
   const [alias, setAlias] = useState(initialAlias || '');
   const [manufacturer, setManufacturer] = useState(
     getPrinterMetadataField(initialMetadata, 'manufacturer'),
@@ -182,6 +183,7 @@ const PrinterDeviceDetailPage = () => {
             currentDeviceConfig?.device?.metadata ||
             initialMetadata;
 
+          setDeviceMetadata(nextMetadata || {});
           setAlias(
             deviceData?.alias ||
               currentDeviceConfig?.device?.alias ||
@@ -238,7 +240,7 @@ const PrinterDeviceDetailPage = () => {
   const saveDeviceRegistration = useCallback(async () => {
     const normalizedAlias = String(alias || '').trim() || deviceString;
     const metadata = buildNetworkPrinterMetadata({
-      existingMetadata: initialMetadata,
+      existingMetadata: deviceMetadata,
       host: deviceString,
       manufacturer,
       model,
@@ -258,6 +260,7 @@ const PrinterDeviceDetailPage = () => {
       });
 
       setAlias(savedDevice?.alias || normalizedAlias);
+      setDeviceMetadata(savedDevice?.metadata || metadata);
       navigation.setParams({
         alias: savedDevice?.alias || normalizedAlias,
         metadata: savedDevice?.metadata || metadata,
@@ -269,10 +272,10 @@ const PrinterDeviceDetailPage = () => {
     }
   }, [
     alias,
+    deviceMetadata,
     deviceId,
     deviceStore.actions,
     deviceString,
-    initialMetadata,
     manufacturer,
     model,
     navigation,
