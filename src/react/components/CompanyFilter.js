@@ -16,23 +16,39 @@ import md5 from 'md5';
 import { env } from '@env';
 import { colors } from '@controleonline/../../src/styles/colors';
 import {
-  buildAssetUrl,
   resolveThemePalette,
 } from '@controleonline/../../src/styles/branding';
+
+const safeTrim = value => String(value || '').trim();
+
+const resolveStoredDevice = () => {
+  if (typeof globalThis?.localStorage?.getItem !== 'function') {
+    return null;
+  }
+
+  try {
+    return JSON.parse(globalThis.localStorage.getItem('device') || '{}');
+  } catch (e) {
+    return null;
+  }
+};
 
 const CompanyFilter = ({ navigation, mode }) => {
   const peopleStore = useStore('people');
   const authStore = useStore('auth');
   const themeStore = useStore('theme');
+  const deviceStore = useStore('device');
 
   const peopleGetters = peopleStore.getters;
   const peopleActions = peopleStore.actions;
   const authGetters = authStore.getters;
   const themeGetters = themeStore.getters;
+  const deviceGetters = deviceStore.getters;
 
   const { currentCompany, companies } = peopleGetters;
   const { user: authUser } = authGetters;
   const { colors: themeColors } = themeGetters;
+  const { item: currentDevice } = deviceGetters;
 
   const [selectedCompany, setSelectedCompany] = useState(currentCompany);
   const [modalVisible, setModalVisible] = useState(false);
@@ -54,6 +70,19 @@ const CompanyFilter = ({ navigation, mode }) => {
     env.DOMAIN ||
     (typeof location !== 'undefined' && location?.host ? location.host : '');
   const firstName = currentUser?.name?.split(' ')[0] || 'Usuário';
+  const canSwitchCompany = Array.isArray(companies) && companies.length > 1;
+  const deviceReference = useMemo(() => {
+    const storedDevice = resolveStoredDevice();
+
+    return safeTrim(
+      currentDevice?.alias ||
+      storedDevice?.alias ||
+      currentDevice?.device ||
+      storedDevice?.device ||
+      currentDevice?.id ||
+      storedDevice?.id,
+    );
+  }, [currentDevice?.alias, currentDevice?.device, currentDevice?.id]);
 
   const brandColors = useMemo(
     () =>
@@ -180,20 +209,158 @@ const CompanyFilter = ({ navigation, mode }) => {
     [selectedCompany, handleSelectCompany, brandColors.primary],
   );
 
-  if (!companies || companies.length <= 1) {
+  if (!canSwitchCompany && !deviceReference) {
     return null;
   }
 
   if (mode === 'icon') {
     return (
       <>
-        <TouchableOpacity
-          onPress={openModal}
-          style={styles.iconButton}
-          activeOpacity={0.8}>
-          <Icon name="briefcase" size={18} color={brandColors.primary} />
-        </TouchableOpacity>
+        <View style={styles.iconHeaderWrap}>
+          {!!deviceReference && (
+            <View style={styles.deviceReferenceBadge}>
+              <Icon
+                name="monitor"
+                size={10}
+                color={brandColors.textSecondary || '#94A3B8'}
+              />
+              <Text
+                numberOfLines={1}
+                style={[
+                  styles.deviceReferenceText,
+                  { color: brandColors.textSecondary || '#94A3B8' },
+                ]}>
+                {deviceReference}
+              </Text>
+            </View>
+          )}
 
+          {canSwitchCompany && (
+            <TouchableOpacity
+              onPress={openModal}
+              style={styles.iconButton}
+              activeOpacity={0.8}>
+              <Icon name="briefcase" size={18} color={brandColors.primary} />
+            </TouchableOpacity>
+          )}
+        </View>
+
+        {canSwitchCompany && (
+          <Modal visible={modalVisible} transparent animationType="none">
+            <TouchableOpacity
+              style={styles.modalOverlay}
+              activeOpacity={1}
+              onPress={closeModal}>
+              <Animated.View
+                style={[
+                  styles.modalBackground,
+                  { opacity: fadeAnim },
+                ]}
+              />
+            </TouchableOpacity>
+
+            <Animated.View
+              style={[
+                styles.modalContent,
+                {
+                  opacity: fadeAnim,
+                  transform: [{ translateY: slideAnim }],
+                },
+              ]}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Selecionar Empresa</Text>
+
+                <TouchableOpacity onPress={closeModal}>
+                  <Icon name="x" size={22} color="#64748B" />
+                </TouchableOpacity>
+              </View>
+
+              <ScrollView showsVerticalScrollIndicator={false}>
+                {companies.map(renderCompanyItem)}
+              </ScrollView>
+            </Animated.View>
+          </Modal>
+        )}
+      </>
+    );
+  }
+
+  return (
+    <>
+      <View style={[styles.container, { backgroundColor: brandColors.background }]}>
+        {mode === 'icon' ? (
+          <TouchableOpacity
+            onPress={openModal}
+            style={styles.iconButton}
+            activeOpacity={0.8}>
+            <Icon name="briefcase" size={22} color={brandColors.primary} />
+          </TouchableOpacity>
+        ) : (
+          <View style={styles.header}>
+            <View>
+              <Text style={styles.greeting}>Olá, {firstName}</Text>
+
+              <TouchableOpacity
+                style={styles.companyRow}
+                onPress={canSwitchCompany ? openModal : undefined}
+                disabled={!canSwitchCompany}
+                activeOpacity={0.8}>
+                {companyLogoUrl ? (
+                  <Image
+                    source={{ uri: companyLogoUrl }}
+                    style={styles.companyLogo}
+                  />
+                ) : null}
+
+                <Text
+                  style={[
+                    styles.companyName,
+                    { color: brandColors.textSecondary },
+                  ]}>
+                  {selectedCompany?.alias ||
+                    selectedCompany?.name ||
+                    'Selecionar empresa'}
+                </Text>
+
+                {canSwitchCompany && (
+                  <Icon
+                    name="chevron-down"
+                    size={14}
+                    color={brandColors.textSecondary}
+                    style={{ marginLeft: 4, marginTop: 4 }}
+                  />
+                )}
+              </TouchableOpacity>
+
+              {!!deviceReference && (
+                <View style={styles.inlineDeviceReference}>
+                  <Icon
+                    name="monitor"
+                    size={10}
+                    color={brandColors.textSecondary || '#94A3B8'}
+                  />
+                  <Text
+                    numberOfLines={1}
+                    style={[
+                      styles.deviceReferenceText,
+                      { color: brandColors.textSecondary || '#94A3B8' },
+                    ]}>
+                    {deviceReference}
+                  </Text>
+                </View>
+              )}
+            </View>
+
+            <TouchableOpacity
+              style={styles.avatarWrap}
+              onPress={() => navigation?.navigate?.('ProfilePage')}>
+              <Image source={{ uri: getAvatarUrl() }} style={styles.avatar} />
+            </TouchableOpacity>
+          </View>
+        )}
+      </View>
+
+      {canSwitchCompany && (
         <Modal visible={modalVisible} transparent animationType="none">
           <TouchableOpacity
             style={styles.modalOverlay}
@@ -228,98 +395,7 @@ const CompanyFilter = ({ navigation, mode }) => {
             </ScrollView>
           </Animated.View>
         </Modal>
-      </>
-    );
-  }
-
-  return (
-    <>
-      <View style={[styles.container, { backgroundColor: brandColors.background }]}>
-        {mode === 'icon' ? (
-          <TouchableOpacity
-            onPress={openModal}
-            style={styles.iconButton}
-            activeOpacity={0.8}>
-            <Icon name="briefcase" size={22} color={brandColors.primary} />
-          </TouchableOpacity>
-        ) : (
-          <View style={styles.header}>
-            <View>
-              <Text style={styles.greeting}>Olá, {firstName}</Text>
-
-              <TouchableOpacity
-                style={styles.companyRow}
-                onPress={openModal}
-                activeOpacity={0.8}>
-                {companyLogoUrl ? (
-                  <Image
-                    source={{ uri: companyLogoUrl }}
-                    style={styles.companyLogo}
-                  />
-                ) : null}
-
-                <Text
-                  style={[
-                    styles.companyName,
-                    { color: brandColors.textSecondary },
-                  ]}>
-                  {selectedCompany?.alias ||
-                    selectedCompany?.name ||
-                    'Selecionar empresa'}
-                </Text>
-
-                <Icon
-                  name="chevron-down"
-                  size={14}
-                  color={brandColors.textSecondary}
-                  style={{ marginLeft: 4, marginTop: 4 }}
-                />
-              </TouchableOpacity>
-            </View>
-
-            <TouchableOpacity
-              style={styles.avatarWrap}
-              onPress={() => navigation?.navigate?.('ProfilePage')}>
-              <Image source={{ uri: getAvatarUrl() }} style={styles.avatar} />
-            </TouchableOpacity>
-          </View>
-        )}
-      </View>
-
-      <Modal visible={modalVisible} transparent animationType="none">
-        <TouchableOpacity
-          style={styles.modalOverlay}
-          activeOpacity={1}
-          onPress={closeModal}>
-          <Animated.View
-            style={[
-              styles.modalBackground,
-              { opacity: fadeAnim },
-            ]}
-          />
-        </TouchableOpacity>
-
-        <Animated.View
-          style={[
-            styles.modalContent,
-            {
-              opacity: fadeAnim,
-              transform: [{ translateY: slideAnim }],
-            },
-          ]}>
-          <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>Selecionar Empresa</Text>
-
-            <TouchableOpacity onPress={closeModal}>
-              <Icon name="x" size={22} color="#64748B" />
-            </TouchableOpacity>
-          </View>
-
-          <ScrollView showsVerticalScrollIndicator={false}>
-            {companies.map(renderCompanyItem)}
-          </ScrollView>
-        </Animated.View>
-      </Modal>
+      )}
     </>
   );
 };
@@ -337,6 +413,13 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+
+  iconHeaderWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    maxWidth: 156,
   },
 
   header: {
@@ -367,6 +450,27 @@ const styles = StyleSheet.create({
   companyName: {
     fontSize: 14,
     fontWeight: '500',
+  },
+
+  deviceReferenceBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    maxWidth: 108,
+  },
+
+  inlineDeviceReference: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 4,
+    maxWidth: 180,
+  },
+
+  deviceReferenceText: {
+    fontSize: 10,
+    fontWeight: '500',
+    lineHeight: 12,
   },
 
   avatarWrap: {
