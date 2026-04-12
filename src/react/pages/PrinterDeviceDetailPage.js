@@ -20,6 +20,10 @@ import {resolveThemePalette, withOpacity} from '@controleonline/../../src/styles
 import {colors} from '@controleonline/../../src/styles/colors';
 import {parseConfigsObject} from '@controleonline/ui-common/src/react/config/deviceConfigBootstrap';
 import {
+  checkNetworkPrinterConnection,
+  isNetworkPrinterRuntimeSupported,
+} from '@controleonline/ui-common/src/react/services/NetworkPrinterService';
+import {
   buildNetworkPrinterMetadata,
   DEFAULT_NETWORK_PRINTER_COLUMNS,
   DEFAULT_NETWORK_PRINTER_PORT,
@@ -57,6 +61,46 @@ const resolveErrorMessage = error =>
   error?.response?.data?.message ||
   error?.message ||
   'Nao foi possivel salvar as alteracoes.';
+
+const getConnectionStatusMeta = status => {
+  if (status === 'online') {
+    return {
+      label: 'Online',
+      color: '#22C55E',
+      icon: 'wifi',
+    };
+  }
+
+  if (status === 'offline') {
+    return {
+      label: 'Offline',
+      color: '#EF4444',
+      icon: 'wifi-off',
+    };
+  }
+
+  if (status === 'checking') {
+    return {
+      label: 'Testando',
+      color: '#0EA5E9',
+      icon: 'loader',
+    };
+  }
+
+  if (status === 'unsupported') {
+    return {
+      label: 'Sem teste',
+      color: '#F59E0B',
+      icon: 'slash',
+    };
+  }
+
+  return {
+    label: 'Pendente',
+    color: '#64748B',
+    icon: 'clock',
+  };
+};
 
 const PrinterDeviceDetailPage = () => {
   const navigation = useNavigation();
@@ -100,6 +144,15 @@ const PrinterDeviceDetailPage = () => {
   const [deviceMetadata, setDeviceMetadata] = useState(initialMetadata || {});
   const [alias, setAlias] = useState(initialAlias || '');
   const [deviceHost, setDeviceHost] = useState(persistedDeviceHost);
+  const [connectionStatus, setConnectionStatus] = useState(
+    isNetworkPrinterRuntimeSupported ? 'idle' : 'unsupported',
+  );
+  const [connectionMessage, setConnectionMessage] = useState(
+    isNetworkPrinterRuntimeSupported
+      ? 'Aguardando teste do socket da impressora.'
+      : 'Teste de socket disponivel apenas no app nativo.',
+  );
+  const [checkingConnection, setCheckingConnection] = useState(false);
   const [manufacturer, setManufacturer] = useState(
     getPrinterMetadataField(initialMetadata, 'manufacturer'),
   );
@@ -146,6 +199,64 @@ const PrinterDeviceDetailPage = () => {
         excludeDeviceId: deviceHost || persistedDeviceHost,
       }),
     [currentCompany?.id, deviceHost, persistedDeviceHost, scopedDeviceConfigs],
+  );
+  const connectionStatusMeta = useMemo(
+    () => getConnectionStatusMeta(connectionStatus),
+    [connectionStatus],
+  );
+
+  const runConnectionCheck = useCallback(
+    async ({hostOverride = null, portOverride = null} = {}) => {
+      const normalizedHost = normalizePrinterHost(
+        hostOverride ?? deviceHost ?? persistedDeviceHost,
+      );
+      const normalizedPort = normalizePrinterPort(
+        portOverride ?? port ?? DEFAULT_NETWORK_PRINTER_PORT,
+      );
+
+      if (!isNetworkPrinterRuntimeSupported) {
+        setConnectionStatus('unsupported');
+        setConnectionMessage(
+          'Teste de socket disponivel apenas no app nativo.',
+        );
+        return false;
+      }
+
+      if (!normalizedHost) {
+        setConnectionStatus('offline');
+        setConnectionMessage('IP ou hostname nao configurado.');
+        return false;
+      }
+
+      setCheckingConnection(true);
+      setConnectionStatus('checking');
+      setConnectionMessage(
+        `Testando socket ${normalizedHost}:${normalizedPort}...`,
+      );
+
+      try {
+        await checkNetworkPrinterConnection({
+          host: normalizedHost,
+          port: normalizedPort,
+        });
+
+        setConnectionStatus('online');
+        setConnectionMessage(
+          `Socket conectado em ${normalizedHost}:${normalizedPort}.`,
+        );
+        return true;
+      } catch (error) {
+        setConnectionStatus('offline');
+        setConnectionMessage(
+          error?.message ||
+            `Falha ao conectar em ${normalizedHost}:${normalizedPort}.`,
+        );
+        return false;
+      } finally {
+        setCheckingConnection(false);
+      }
+    },
+    [deviceHost, persistedDeviceHost, port],
   );
 
   useFocusEffect(
@@ -252,6 +363,12 @@ const PrinterDeviceDetailPage = () => {
     ]),
   );
 
+  useFocusEffect(
+    useCallback(() => {
+      runConnectionCheck();
+    }, [runConnectionCheck]),
+  );
+
   const saveDeviceRegistration = useCallback(async () => {
     const normalizedHost = normalizePrinterHost(deviceHost);
     if (!normalizedHost) {
@@ -291,6 +408,10 @@ const PrinterDeviceDetailPage = () => {
         alias: savedDevice?.alias || normalizedAlias,
         metadata: savedDevice?.metadata || metadata,
       });
+      runConnectionCheck({
+        hostOverride: nextDeviceHost,
+        portOverride: port,
+      });
     } catch (error) {
       Alert.alert('Cadastro da impressora', resolveErrorMessage(error));
     } finally {
@@ -308,6 +429,8 @@ const PrinterDeviceDetailPage = () => {
     normalizedDeviceType,
     transport,
     version,
+    port,
+    runConnectionCheck,
   ]);
 
   const savePrinterConfig = useCallback(async () => {
@@ -362,6 +485,10 @@ const PrinterDeviceDetailPage = () => {
         configs: nextConfigs,
         deviceString: normalizedHost,
       });
+      runConnectionCheck({
+        hostOverride: normalizedHost,
+        portOverride: nextConfigs[NETWORK_PRINTER_PORT_CONFIG_KEY],
+      });
     } catch (error) {
       Alert.alert('Configuracao da impressora', resolveErrorMessage(error));
     } finally {
@@ -377,6 +504,7 @@ const PrinterDeviceDetailPage = () => {
     port,
     persistedDeviceHost,
     transport,
+    runConnectionCheck,
   ]);
 
   return (
@@ -412,6 +540,69 @@ const PrinterDeviceDetailPage = () => {
             <Text style={styles.loadingText}>Atualizando dados da impressora...</Text>
           </View>
         )}
+
+        <View style={styles.sectionCard}>
+          <Text style={styles.sectionTitle}>Status do socket</Text>
+          <Text style={styles.sectionDescription}>
+            O app tenta abrir uma conexao TCP direta com a impressora IP para
+            indicar se ela esta acessivel na rede deste device.
+          </Text>
+
+          <View
+            style={[
+              styles.statusCard,
+              {
+                backgroundColor: withOpacity(connectionStatusMeta.color, 0.08),
+                borderColor: withOpacity(connectionStatusMeta.color, 0.28),
+              },
+            ]}>
+            <View style={styles.statusCopy}>
+              <View style={styles.statusTitleRow}>
+                <Icon
+                  name={connectionStatusMeta.icon}
+                  size={15}
+                  color={connectionStatusMeta.color}
+                />
+                <Text
+                  style={[
+                    styles.statusTitle,
+                    {color: connectionStatusMeta.color},
+                  ]}>
+                  {connectionStatusMeta.label}
+                </Text>
+              </View>
+              <Text style={styles.statusDescription}>{connectionMessage}</Text>
+            </View>
+
+            <TouchableOpacity
+              style={[
+                styles.secondaryButton,
+                checkingConnection && styles.secondaryButtonDisabled,
+              ]}
+              activeOpacity={0.85}
+              disabled={checkingConnection}
+              onPress={() => runConnectionCheck()}>
+              {checkingConnection ? (
+                <ActivityIndicator size="small" color={connectionStatusMeta.color} />
+              ) : (
+                <>
+                  <Icon
+                    name="refresh-cw"
+                    size={14}
+                    color={connectionStatusMeta.color}
+                  />
+                  <Text
+                    style={[
+                      styles.secondaryButtonText,
+                      {color: connectionStatusMeta.color},
+                    ]}>
+                    Testar
+                  </Text>
+                </>
+              )}
+            </TouchableOpacity>
+          </View>
+        </View>
 
         <View style={styles.sectionCard}>
           <Text style={styles.sectionTitle}>Cadastro da impressora</Text>
@@ -653,6 +844,33 @@ const styles = StyleSheet.create({
     lineHeight: 18,
     color: '#64748B',
   },
+  statusCard: {
+    borderWidth: 1,
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 13,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  statusCopy: {
+    flex: 1,
+    gap: 4,
+  },
+  statusTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  statusTitle: {
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  statusDescription: {
+    fontSize: 12,
+    lineHeight: 18,
+    color: '#475569',
+  },
   fieldBlock: {
     gap: 6,
   },
@@ -705,6 +923,25 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '800',
     color: '#fff',
+  },
+  secondaryButton: {
+    minHeight: 40,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+    backgroundColor: '#fff',
+    paddingHorizontal: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+    gap: 6,
+  },
+  secondaryButtonDisabled: {
+    opacity: 0.65,
+  },
+  secondaryButtonText: {
+    fontSize: 13,
+    fontWeight: '800',
   },
 });
 
