@@ -21,6 +21,7 @@ import { resolveThemePalette, withOpacity } from '@controleonline/../../src/styl
 import { colors } from '@controleonline/../../src/styles/colors';
 import Icon from 'react-native-vector-icons/Feather';
 import {
+  DISPLAY_AUTO_PRINT_PRODUCT_CONFIG_KEY,
   DEVICE_ALERT_SOUND_ENABLED_KEY,
   DEVICE_ALERT_SOUND_URL_KEY,
   DEVICE_ORDER_VISIBILITY_COMPANY,
@@ -38,6 +39,7 @@ import {
   ORDER_PAYMENT_DEVICE_CONFIG_KEY,
 } from '@controleonline/ui-common/src/react/utils/paymentDevices';
 import {
+  getDeviceTypeLabel,
   getPrinterLabel,
   getPrinterOptions,
 } from '@controleonline/ui-common/src/react/utils/printerDevices';
@@ -183,6 +185,12 @@ const DeviceDetailPage = () => {
   const [displayPrinterId, setDisplayPrinterId] = useState(
     normalizeDeviceId(normalizedInitialConfigs?.[DISPLAY_DEVICE_PRINTER_CONFIG_KEY]),
   );
+  const [displayAutoPrintProductEnabled, setDisplayAutoPrintProductEnabled] =
+    useState(
+      isTruthyValue(
+        normalizedInitialConfigs?.[DISPLAY_AUTO_PRINT_PRODUCT_CONFIG_KEY],
+      ),
+    );
   const [savingDisplayPrintingConfig, setSavingDisplayPrintingConfig] = useState(false);
 
   // Edição inline do alias
@@ -292,11 +300,15 @@ const DeviceDetailPage = () => {
       setDisplayPrinterId(
         normalizeDeviceId(nextConfigs[DISPLAY_DEVICE_PRINTER_CONFIG_KEY]),
       );
+      setDisplayAutoPrintProductEnabled(
+        isTruthyValue(nextConfigs[DISPLAY_AUTO_PRINT_PRODUCT_CONFIG_KEY]),
+      );
       return;
     }
 
     setLinkedDisplayId('');
     setDisplayPrinterId('');
+    setDisplayAutoPrintProductEnabled(false);
   }, [currentCompany?.id, deviceString]);
 
   useFocusEffect(
@@ -487,6 +499,17 @@ const DeviceDetailPage = () => {
       return;
     }
 
+    if (
+      displayAutoPrintProductEnabled &&
+      (!normalizedDisplayId || !normalizedPrinterId)
+    ) {
+      Alert.alert(
+        'Impressao automatica',
+        'Para imprimir produtos automaticamente, selecione o display vinculado e a impressora deste KDS.',
+      );
+      return;
+    }
+
     setSavingDisplayPrintingConfig(true);
     try {
       await actionsRef.current.deviceConfigActions.addDeviceConfigs({
@@ -494,6 +517,8 @@ const DeviceDetailPage = () => {
         configs: JSON.stringify({
           [DISPLAY_DEVICE_LINK_CONFIG_KEY]: normalizedDisplayId,
           [DISPLAY_DEVICE_PRINTER_CONFIG_KEY]: normalizedPrinterId,
+          [DISPLAY_AUTO_PRINT_PRODUCT_CONFIG_KEY]:
+            displayAutoPrintProductEnabled ? '1' : '0',
         }),
         people: '/people/' + currentCompany.id,
       });
@@ -506,6 +531,7 @@ const DeviceDetailPage = () => {
   }, [
     currentCompany?.id,
     deviceString,
+    displayAutoPrintProductEnabled,
     displayPrinterId,
     isDisplayDevice,
     linkedDisplayId,
@@ -798,24 +824,59 @@ const DeviceDetailPage = () => {
                       />
                       {printerOptions.map(option => {
                         const printerId = normalizeDeviceId(option?.device);
+                        const printerTypeLabel = getDeviceTypeLabel(
+                          option?.type,
+                        );
                         return (
                           <Picker.Item
                             key={`printer-option-${printerId}`}
-                            label={`${getPrinterLabel(option)} (${printerId})`}
+                            label={`${getPrinterLabel(option)} (${printerTypeLabel} • ${printerId})`}
                             value={printerId}
                           />
                         );
                       })}
                     </Picker>
                   </View>
+
+                  <TouchableOpacity
+                    style={[
+                      styles.toggleRow,
+                      displayAutoPrintProductEnabled && styles.toggleRowActive,
+                    ]}
+                    activeOpacity={0.85}
+                    onPress={() =>
+                      setDisplayAutoPrintProductEnabled(currentValue => !currentValue)
+                    }>
+                    <View>
+                      <Text style={styles.toggleRowLabel}>
+                        Imprimir produtos automaticamente
+                      </Text>
+                      <Text style={styles.toggleRowValue}>
+                        {displayAutoPrintProductEnabled ? 'Ativo' : 'Inativo'}
+                      </Text>
+                    </View>
+                    <Icon
+                      name={
+                        displayAutoPrintProductEnabled
+                          ? 'toggle-right'
+                          : 'toggle-left'
+                      }
+                      size={28}
+                      color={
+                        displayAutoPrintProductEnabled
+                          ? hex.success
+                          : '#94A3B8'
+                      }
+                    />
+                  </TouchableOpacity>
                 </>
               )}
 
               <Text style={styles.configHint}>
                 Para esta rotina funcionar, os dois campos precisam estar
-                preenchidos. Ao receber um pedido, o backend imprime uma copia
-                completa na impressora padrao da empresa e outra copia por fila
-                nos DISPLAYs envolvidos.
+                preenchidos. Quando a opcao automatica estiver ativa, cada
+                produto enviado para a fila deste display gera sua propria
+                impressao na impressora vinculada.
               </Text>
 
               <TouchableOpacity
