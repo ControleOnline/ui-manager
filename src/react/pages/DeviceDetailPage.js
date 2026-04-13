@@ -40,6 +40,7 @@ import {
   ORDER_PAYMENT_DEVICE_CONFIG_KEY,
 } from '@controleonline/ui-common/src/react/utils/paymentDevices';
 import {
+  getPrinterOptionValue,
   getDeviceTypeLabel,
   getPrinterLabel,
   getPrinterOptions,
@@ -891,14 +892,15 @@ const DeviceDetailPage = () => {
                       />
                       {printerOptions.map(option => {
                         const printerId = normalizeDeviceId(option?.device);
+                        const printerValue = getPrinterOptionValue(option);
                         const printerTypeLabel = getDeviceTypeLabel(
                           option?.type,
                         );
                         return (
                           <Picker.Item
-                            key={`printer-option-${printerId}`}
+                            key={`printer-option-${printerValue || printerId}`}
                             label={`${getPrinterLabel(option)} (${printerTypeLabel} • ${printerId})`}
-                            value={printerId}
+                            value={printerValue || printerId}
                           />
                         );
                       })}
