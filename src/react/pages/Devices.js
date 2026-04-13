@@ -50,6 +50,11 @@ const hex = {
 const PDV_DEVICE_TYPE = 'PDV';
 const DISPLAY_DEVICE_TYPE = 'DISPLAY';
 
+const getDeviceConfigType = deviceConfig =>
+  String(deviceConfig?.type || deviceConfig?.device?.type || '')
+    .trim()
+    .toUpperCase();
+
 const getStatus = dc => {
   const closed = dc?.configs?.['cash-wallet-closed-id'];
   return closed === 0 || closed === '0' || closed === undefined || closed === null
@@ -141,7 +146,7 @@ const Devices = () => {
   useFocusEffect(
     useCallback(() => {
       const printerConfigs = scopedDeviceConfigs.filter(dc =>
-        isPrinterDeviceType(dc?.device?.type),
+        isPrinterDeviceType(getDeviceConfigType(dc)),
       );
 
       if (printerConfigs.length === 0) {
@@ -264,7 +269,7 @@ const Devices = () => {
   const printerCount = useMemo(
     () =>
       scopedDeviceConfigs.filter(dc =>
-        isPrinterDeviceType(dc?.device?.type),
+        isPrinterDeviceType(getDeviceConfigType(dc)),
       ).length,
     [scopedDeviceConfigs],
   );
@@ -273,14 +278,15 @@ const Devices = () => {
     () =>
       scopedDeviceConfigs.filter(
         dc =>
-          String(dc?.device?.type || '').trim().toUpperCase() === PDV_DEVICE_TYPE &&
+          getDeviceConfigType(dc) === PDV_DEVICE_TYPE &&
           getStatus(dc) === 'open',
       ).length,
     [scopedDeviceConfigs],
   );
 
   const goToDetail = useCallback(dc => {
-    const targetRoute = isPrinterDeviceType(dc?.device?.type)
+    const deviceType = getDeviceConfigType(dc);
+    const targetRoute = isPrinterDeviceType(deviceType)
       ? 'PrinterDeviceDetail'
       : 'DeviceDetail';
 
@@ -288,7 +294,7 @@ const Devices = () => {
       dcId:         dc.id,
       deviceId:     dc.device?.id,
       deviceString: dc.device?.device,
-      deviceType:   dc.device?.type || '',
+      deviceType:   deviceType,
       alias:        dc.device?.alias || dc.device?.device || `Dispositivo #${dc.id}`,
       configs:      dc.configs || {},
       metadata:     dc.device?.metadata || {},
@@ -296,8 +302,8 @@ const Devices = () => {
   }, [navigation]);
 
   const renderItem = ({ item: dc }) => {
-    const isPrinter = isPrinterDeviceType(dc?.device?.type);
-    const normalizedType = String(dc?.device?.type || '').trim().toUpperCase();
+    const normalizedType = getDeviceConfigType(dc);
+    const isPrinter = isPrinterDeviceType(normalizedType);
     const isPdv = normalizedType === PDV_DEVICE_TYPE;
     const isDisplay = normalizedType === DISPLAY_DEVICE_TYPE;
     const isOpen  = getStatus(dc) === 'open';
@@ -313,7 +319,7 @@ const Devices = () => {
       : isDisplay
         ? hex.primary
         : (isOpen ? hex.success : hex.danger);
-    const iconName = getDeviceIcon(dc?.device?.type);
+    const iconName = getDeviceIcon(normalizedType);
     const badgeText = isPrinter
       ? printerConnectivityMeta.label
       : isDisplay
@@ -335,7 +341,7 @@ const Devices = () => {
           <View style={{ flex: 1 }}>
             <Text style={styles.deviceTitle} numberOfLines={1}>{alias}</Text>
             <Text style={styles.deviceSub} numberOfLines={1}>
-              {`${getDeviceTypeLabel(dc.device?.type)} • ${dc.device?.device || ''}`}
+              {`${getDeviceTypeLabel(normalizedType)} • ${dc.device?.device || ''}`}
             </Text>
           </View>
         </View>

@@ -27,6 +27,7 @@ import {
   DEVICE_ORDER_VISIBILITY_COMPANY,
   DEVICE_ORDER_VISIBILITY_DEVICE,
   DEVICE_ORDER_VISIBILITY_KEY,
+  DEVICE_RUNTIME_DEBUG_INFO_ENABLED_KEY,
   isTruthyValue,
   parseConfigsObject,
   resolveDeviceOrderVisibility,
@@ -115,6 +116,7 @@ const DeviceDetailPage = () => {
   const route      = useRoute();
   const navigation = useNavigation();
   const {
+    dcId,
     deviceId,
     deviceString,
     deviceType: initialDeviceType,
@@ -165,6 +167,7 @@ const DeviceDetailPage = () => {
   const [savingPaymentTarget, setSavingPaymentTarget] = useState(false);
   const [savingAlertSound, setSavingAlertSound] = useState(false);
   const [savingOrderVisibility, setSavingOrderVisibility] = useState(false);
+  const [savingRuntimeDebugInfo, setSavingRuntimeDebugInfo] = useState(false);
   const [sendingCatalogRefresh, setSendingCatalogRefresh] = useState(false);
   const [search,        setSearch]        = useState('');
   const [devicePaymentTarget, setDevicePaymentTarget] = useState(
@@ -179,6 +182,12 @@ const DeviceDetailPage = () => {
   const [deviceAlertSoundUrl, setDeviceAlertSoundUrl] = useState(
     String(normalizedInitialConfigs?.[DEVICE_ALERT_SOUND_URL_KEY] || ''),
   );
+  const [deviceRuntimeDebugInfoEnabled, setDeviceRuntimeDebugInfoEnabled] =
+    useState(
+      isTruthyValue(
+        normalizedInitialConfigs?.[DEVICE_RUNTIME_DEBUG_INFO_ENABLED_KEY],
+      ),
+    );
   const [linkedDisplayId, setLinkedDisplayId] = useState(
     normalizeEntityId(normalizedInitialConfigs?.[DISPLAY_DEVICE_LINK_CONFIG_KEY]),
   );
@@ -276,9 +285,20 @@ const DeviceDetailPage = () => {
     });
     const scopedItems = filterDeviceConfigsByCompany(items, currentCompany?.id);
     setCompanyDeviceConfigs(Array.isArray(scopedItems) ? scopedItems : []);
-    const dc = (scopedItems || []).find(
-      d => d.device?.device === deviceString,
-    );
+    const dc = (scopedItems || []).find(d => {
+      const currentConfigType = String(d?.type || d?.device?.type || '')
+        .trim()
+        .toUpperCase();
+
+      if (String(d?.id || '') === String(dcId || '')) {
+        return true;
+      }
+
+      return (
+        d?.device?.device === deviceString &&
+        currentConfigType === deviceType
+      );
+    });
     if (dc) {
       const nextConfigs = parseConfigsObject(dc.configs);
       setConfigs(nextConfigs);
@@ -294,6 +314,9 @@ const DeviceDetailPage = () => {
       setDeviceAlertSoundUrl(
         String(nextConfigs[DEVICE_ALERT_SOUND_URL_KEY] || ''),
       );
+      setDeviceRuntimeDebugInfoEnabled(
+        isTruthyValue(nextConfigs[DEVICE_RUNTIME_DEBUG_INFO_ENABLED_KEY]),
+      );
       setLinkedDisplayId(
         normalizeEntityId(nextConfigs[DISPLAY_DEVICE_LINK_CONFIG_KEY]),
       );
@@ -306,10 +329,16 @@ const DeviceDetailPage = () => {
       return;
     }
 
+    setConfigs({});
+    setDevicePaymentTarget('');
+    setDeviceOrderVisibility(DEVICE_ORDER_VISIBILITY_DEVICE);
+    setDeviceAlertSoundEnabled(false);
+    setDeviceAlertSoundUrl('');
+    setDeviceRuntimeDebugInfoEnabled(false);
     setLinkedDisplayId('');
     setDisplayPrinterId('');
     setDisplayAutoPrintProductEnabled(false);
-  }, [currentCompany?.id, deviceString]);
+  }, [currentCompany?.id, dcId, deviceString, deviceType]);
 
   useFocusEffect(
     useCallback(() => {
@@ -408,6 +437,7 @@ const DeviceDetailPage = () => {
           [ORDER_PAYMENT_DEVICE_CONFIG_KEY]: devicePaymentTarget || '',
         }),
         people: '/people/' + currentCompany.id,
+        type: deviceType,
       });
       await refreshConfigs();
     } catch {
@@ -415,7 +445,7 @@ const DeviceDetailPage = () => {
     } finally {
       setSavingPaymentTarget(false);
     }
-  }, [currentCompany?.id, devicePaymentTarget, deviceString, refreshConfigs]);
+  }, [currentCompany?.id, devicePaymentTarget, deviceString, deviceType, refreshConfigs]);
 
   const saveDeviceAlertSoundConfig = useCallback(async () => {
     if (!currentCompany?.id || !deviceString || savingAlertSound) {
@@ -431,6 +461,7 @@ const DeviceDetailPage = () => {
           [DEVICE_ALERT_SOUND_URL_KEY]: deviceAlertSoundUrl.trim(),
         }),
         people: '/people/' + currentCompany.id,
+        type: deviceType,
       });
       await refreshConfigs();
     } catch {
@@ -443,6 +474,7 @@ const DeviceDetailPage = () => {
     deviceAlertSoundEnabled,
     deviceAlertSoundUrl,
     deviceString,
+    deviceType,
     refreshConfigs,
     savingAlertSound,
   ]);
@@ -460,6 +492,7 @@ const DeviceDetailPage = () => {
           [DEVICE_ORDER_VISIBILITY_KEY]: deviceOrderVisibility || DEVICE_ORDER_VISIBILITY_DEVICE,
         }),
         people: '/people/' + currentCompany.id,
+        type: deviceType,
       });
       await refreshConfigs();
     } catch {
@@ -471,8 +504,40 @@ const DeviceDetailPage = () => {
     currentCompany?.id,
     deviceOrderVisibility,
     deviceString,
+    deviceType,
     refreshConfigs,
     savingOrderVisibility,
+  ]);
+
+  const saveDeviceRuntimeDebugInfo = useCallback(async () => {
+    if (!currentCompany?.id || !deviceString || savingRuntimeDebugInfo) {
+      return;
+    }
+
+    setSavingRuntimeDebugInfo(true);
+    try {
+      await actionsRef.current.deviceConfigActions.addDeviceConfigs({
+        device: deviceString,
+        configs: JSON.stringify({
+          [DEVICE_RUNTIME_DEBUG_INFO_ENABLED_KEY]:
+            deviceRuntimeDebugInfoEnabled ? '1' : '0',
+        }),
+        people: '/people/' + currentCompany.id,
+        type: deviceType,
+      });
+      await refreshConfigs();
+    } catch {
+      // silencioso
+    } finally {
+      setSavingRuntimeDebugInfo(false);
+    }
+  }, [
+    currentCompany?.id,
+    deviceRuntimeDebugInfoEnabled,
+    deviceString,
+    deviceType,
+    refreshConfigs,
+    savingRuntimeDebugInfo,
   ]);
 
   const saveDisplayPrintingConfig = useCallback(async () => {
@@ -521,6 +586,7 @@ const DeviceDetailPage = () => {
             displayAutoPrintProductEnabled ? '1' : '0',
         }),
         people: '/people/' + currentCompany.id,
+        type: deviceType,
       });
       await refreshConfigs();
     } catch {
@@ -531,6 +597,7 @@ const DeviceDetailPage = () => {
   }, [
     currentCompany?.id,
     deviceString,
+    deviceType,
     displayAutoPrintProductEnabled,
     displayPrinterId,
     isDisplayDevice,
@@ -966,6 +1033,67 @@ const DeviceDetailPage = () => {
                 <>
                   <Icon name="save" size={14} color="#fff" />
                   <Text style={styles.configButtonText}>Salvar aviso sonoro</Text>
+                </>
+              )}
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>
+            <Icon name="activity" size={13} /> {'  '}Rodape do Sistema
+          </Text>
+
+          <View style={styles.configCard}>
+            <Text style={styles.configTitle}>Debug do socket no rodape</Text>
+            <Text style={styles.configDescription}>
+              Quando habilitado, este device troca a bolinha discreta do socket
+              pelos detalhes de debug publicados pelos servicos do runtime no
+              rodape global do sistema.
+            </Text>
+
+            <TouchableOpacity
+              style={[
+                styles.toggleRow,
+                deviceRuntimeDebugInfoEnabled && styles.toggleRowActive,
+              ]}
+              activeOpacity={0.85}
+              onPress={() =>
+                setDeviceRuntimeDebugInfoEnabled(currentValue => !currentValue)
+              }>
+              <View>
+                <Text style={styles.toggleRowLabel}>Exibir debug detalhado</Text>
+                <Text style={styles.toggleRowValue}>
+                  {deviceRuntimeDebugInfoEnabled ? 'Ativo' : 'Inativo'}
+                </Text>
+              </View>
+              <Icon
+                name={
+                  deviceRuntimeDebugInfoEnabled
+                    ? 'toggle-right'
+                    : 'toggle-left'
+                }
+                size={28}
+                color={
+                  deviceRuntimeDebugInfoEnabled ? hex.success : '#94A3B8'
+                }
+              />
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[
+                styles.configButton,
+                savingRuntimeDebugInfo && {opacity: 0.6},
+              ]}
+              activeOpacity={0.85}
+              disabled={savingRuntimeDebugInfo}
+              onPress={saveDeviceRuntimeDebugInfo}>
+              {savingRuntimeDebugInfo ? (
+                <ActivityIndicator size="small" color="#fff" />
+              ) : (
+                <>
+                  <Icon name="save" size={14} color="#fff" />
+                  <Text style={styles.configButtonText}>Salvar debug do rodape</Text>
                 </>
               )}
             </TouchableOpacity>

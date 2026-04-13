@@ -18,7 +18,11 @@ import {useStore} from '@store';
 import StateStore from '@controleonline/ui-layout/src/react/components/StateStore';
 import {resolveThemePalette, withOpacity} from '@controleonline/../../src/styles/branding';
 import {colors} from '@controleonline/../../src/styles/colors';
-import {parseConfigsObject} from '@controleonline/ui-common/src/react/config/deviceConfigBootstrap';
+import {
+  DEVICE_RUNTIME_DEBUG_INFO_ENABLED_KEY,
+  isTruthyValue,
+  parseConfigsObject,
+} from '@controleonline/ui-common/src/react/config/deviceConfigBootstrap';
 import {
   checkNetworkPrinterConnection,
   isNetworkPrinterRuntimeSupported,
@@ -140,6 +144,7 @@ const PrinterDeviceDetailPage = () => {
   const [loading, setLoading] = useState(false);
   const [savingDevice, setSavingDevice] = useState(false);
   const [savingConfig, setSavingConfig] = useState(false);
+  const [savingRuntimeDebugInfo, setSavingRuntimeDebugInfo] = useState(false);
   const [companyDeviceConfigs, setCompanyDeviceConfigs] = useState([]);
   const [deviceMetadata, setDeviceMetadata] = useState(initialMetadata || {});
   const [alias, setAlias] = useState(initialAlias || '');
@@ -183,6 +188,12 @@ const PrinterDeviceDetailPage = () => {
         DEFAULT_NETWORK_PRINTER_TRANSPORT,
     ),
   );
+  const [deviceRuntimeDebugInfoEnabled, setDeviceRuntimeDebugInfoEnabled] =
+    useState(
+      isTruthyValue(
+        initialParsedConfigs[DEVICE_RUNTIME_DEBUG_INFO_ENABLED_KEY],
+      ),
+    );
 
   const pickerMode = Platform.OS === 'android' ? 'dropdown' : undefined;
   const normalizedDeviceType =
@@ -291,11 +302,19 @@ const PrinterDeviceDetailPage = () => {
             const currentDeviceString = normalizeDeviceId(
               deviceConfig?.device?.device,
             );
+            const currentDeviceType = String(
+              deviceConfig?.type || deviceConfig?.device?.type || '',
+            )
+              .trim()
+              .toUpperCase();
 
             return (
-              (normalizedDeviceKey !== '' &&
-                currentDeviceId === normalizedDeviceKey) ||
-              currentDeviceString === normalizeDeviceId(persistedDeviceHost)
+              currentDeviceType === normalizedDeviceType &&
+              (
+                (normalizedDeviceKey !== '' &&
+                  currentDeviceId === normalizedDeviceKey) ||
+                currentDeviceString === normalizeDeviceId(persistedDeviceHost)
+              )
             );
           });
           const nextConfigs = parseConfigsObject(currentDeviceConfig?.configs);
@@ -339,6 +358,11 @@ const PrinterDeviceDetailPage = () => {
             String(
               nextConfigs[NETWORK_PRINTER_TRANSPORT_CONFIG_KEY] ||
                 DEFAULT_NETWORK_PRINTER_TRANSPORT,
+            ),
+          );
+          setDeviceRuntimeDebugInfoEnabled(
+            isTruthyValue(
+              nextConfigs[DEVICE_RUNTIME_DEBUG_INFO_ENABLED_KEY],
             ),
           );
         })
@@ -393,7 +417,6 @@ const PrinterDeviceDetailPage = () => {
         id: deviceId,
         alias: normalizedAlias,
         device: normalizedHost,
-        type: normalizedDeviceType,
         metadata,
       });
       const nextDeviceHost = normalizePrinterHost(
@@ -431,6 +454,53 @@ const PrinterDeviceDetailPage = () => {
     version,
     port,
     runConnectionCheck,
+  ]);
+
+  const saveRuntimeDebugInfoConfig = useCallback(async () => {
+    if (!currentCompany?.id) {
+      Alert.alert(
+        'Empresa nao selecionada',
+        'Selecione uma empresa antes de salvar as configuracoes.',
+      );
+      return;
+    }
+
+    const normalizedHost = normalizePrinterHost(deviceHost);
+    if (!normalizedHost) {
+      Alert.alert(
+        'Rodape do sistema',
+        'Informe o IP ou hostname da impressora antes de salvar.',
+      );
+      return;
+    }
+
+    setSavingRuntimeDebugInfo(true);
+
+    try {
+      await deviceConfigStore.actions.addDeviceConfigs({
+        device: normalizedHost,
+        people: `/people/${currentCompany.id}`,
+        type: normalizedDeviceType,
+        configs: JSON.stringify({
+          [DEVICE_RUNTIME_DEBUG_INFO_ENABLED_KEY]:
+            deviceRuntimeDebugInfoEnabled ? '1' : '0',
+        }),
+      });
+
+      navigation.setParams({
+        deviceString: normalizedHost,
+      });
+    } catch (error) {
+      Alert.alert('Rodape do sistema', resolveErrorMessage(error));
+    } finally {
+      setSavingRuntimeDebugInfo(false);
+    }
+  }, [
+    currentCompany?.id,
+    deviceConfigStore.actions,
+    deviceHost,
+    deviceRuntimeDebugInfoEnabled,
+    navigation,
   ]);
 
   const savePrinterConfig = useCallback(async () => {
@@ -478,6 +548,7 @@ const PrinterDeviceDetailPage = () => {
       await deviceConfigStore.actions.addDeviceConfigs({
         device: normalizedHost,
         people: `/people/${currentCompany.id}`,
+        type: normalizedDeviceType,
         configs: JSON.stringify(nextConfigs),
       });
 
@@ -772,6 +843,59 @@ const PrinterDeviceDetailPage = () => {
             )}
           </TouchableOpacity>
         </View>
+
+        <View style={styles.sectionCard}>
+          <Text style={styles.sectionTitle}>Rodape do sistema</Text>
+          <Text style={styles.sectionDescription}>
+            Controla se esta impressora mostra apenas a bolinha discreta do
+            socket no rodape global ou se abre as linhas detalhadas de debug.
+          </Text>
+
+          <TouchableOpacity
+            style={[
+              styles.toggleRow,
+              deviceRuntimeDebugInfoEnabled && styles.toggleRowActive,
+            ]}
+            activeOpacity={0.85}
+            onPress={() =>
+              setDeviceRuntimeDebugInfoEnabled(currentValue => !currentValue)
+            }>
+            <View>
+              <Text style={styles.toggleRowLabel}>Exibir debug detalhado</Text>
+              <Text style={styles.toggleRowValue}>
+                {deviceRuntimeDebugInfoEnabled ? 'Ativo' : 'Inativo'}
+              </Text>
+            </View>
+            <Icon
+              name={
+                deviceRuntimeDebugInfoEnabled ? 'toggle-right' : 'toggle-left'
+              }
+              size={28}
+              color={deviceRuntimeDebugInfoEnabled ? '#22C55E' : '#94A3B8'}
+            />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[
+              styles.primaryButton,
+              {backgroundColor: brandColors.primary},
+              savingRuntimeDebugInfo && styles.primaryButtonDisabled,
+            ]}
+            activeOpacity={0.85}
+            disabled={savingRuntimeDebugInfo}
+            onPress={saveRuntimeDebugInfoConfig}>
+            {savingRuntimeDebugInfo ? (
+              <ActivityIndicator size="small" color="#fff" />
+            ) : (
+              <>
+                <Icon name="save" size={15} color="#fff" />
+                <Text style={styles.primaryButtonText}>
+                  Salvar debug do rodape
+                </Text>
+              </>
+            )}
+          </TouchableOpacity>
+        </View>
       </ScrollView>
     </SafeAreaView>
   );
@@ -906,6 +1030,32 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     overflow: 'hidden',
     backgroundColor: '#F8FAFC',
+  },
+  toggleRow: {
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 12,
+    backgroundColor: '#F8FAFC',
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: 12,
+  },
+  toggleRowActive: {
+    borderColor: 'rgba(34,197,94,0.4)',
+    backgroundColor: 'rgba(34,197,94,0.08)',
+  },
+  toggleRowLabel: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  toggleRowValue: {
+    marginTop: 4,
+    fontSize: 12,
+    color: '#64748B',
   },
   primaryButton: {
     minHeight: 46,

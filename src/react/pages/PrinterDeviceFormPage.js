@@ -147,7 +147,6 @@ const PrinterDeviceFormPage = () => {
       const savedDevice = await deviceStore.actions.save({
         alias: normalizedAlias,
         device: normalizedHost,
-        type: PRINT_DEVICE_TYPE,
         metadata,
       });
 
@@ -162,13 +161,14 @@ const PrinterDeviceFormPage = () => {
       await deviceConfigStore.actions.addDeviceConfigs({
         device: savedDevice?.device || normalizedHost,
         people: `/people/${currentCompany.id}`,
+        type: PRINT_DEVICE_TYPE,
         configs: JSON.stringify(configs),
       });
 
       navigation.replace('PrinterDeviceDetail', {
         deviceId: savedDevice?.id,
         deviceString: savedDevice?.device || normalizedHost,
-        deviceType: savedDevice?.type || PRINT_DEVICE_TYPE,
+        deviceType: PRINT_DEVICE_TYPE,
         alias: savedDevice?.alias || normalizedAlias,
         configs,
         metadata: savedDevice?.metadata || metadata,
