@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Image,
@@ -108,6 +108,7 @@ export default function IFoodIntegrationPage() {
   const [optStatusLoading, setOptStatusLoading] = useState(new Set());
   const [optPriceEditing,  setOptPriceEditing]  = useState({});
   const [optPriceLoading,  setOptPriceLoading]  = useState(new Set());
+  const ignoreNextProductCardPressRef = useRef(false);
 
   /* ------------------------------------------------------------------ */
   /* produtos                                                             */
@@ -276,6 +277,32 @@ export default function IFoodIntegrationPage() {
       return next;
     });
   }, []);
+
+  const blockNextProductCardPress = useCallback((event) => {
+    event?.preventDefault?.();
+    event?.stopPropagation?.();
+
+    ignoreNextProductCardPressRef.current = true;
+    const release = () => {
+      ignoreNextProductCardPressRef.current = false;
+    };
+
+    if (typeof requestAnimationFrame === 'function') {
+      requestAnimationFrame(release);
+      return;
+    }
+
+    setTimeout(release, 0);
+  }, []);
+
+  const handleProductCardPress = useCallback((id) => {
+    if (ignoreNextProductCardPressRef.current) {
+      ignoreNextProductCardPressRef.current = false;
+      return;
+    }
+
+    toggleProduct(id);
+  }, [toggleProduct]);
 
   const selectedEligible = useMemo(
     () => products.filter(p => p.eligible && selectedIds.has(String(p.id))),
@@ -1210,7 +1237,7 @@ export default function IFoodIntegrationPage() {
                       styles.productCard,
                       isSelected && { borderColor: brandColors.primary, backgroundColor: withOpacity(brandColors.primary, 0.04) },
                     ]}
-                    onPress={() => toggleProduct(product.id)}>
+                    onPress={() => handleProductCardPress(product.id)}>
                     <View style={styles.productMain}>
                       {product.cover_image_url ? (
                         <Image
@@ -1233,7 +1260,8 @@ export default function IFoodIntegrationPage() {
                           {published && itemId ? (
                             <TouchableOpacity
                               activeOpacity={0.8}
-                              onPress={(e) => { e.stopPropagation?.(); handleItemStatusToggle(product); }}
+                              onPressIn={blockNextProductCardPress}
+                              onPress={(e) => { blockNextProductCardPress(e); handleItemStatusToggle(product); }}
                               disabled={statusBusy}
                               style={[
                                 styles.itemStatusBadge,
@@ -1264,6 +1292,7 @@ export default function IFoodIntegrationPage() {
                                 <TextInput
                                   value={String(draftPrice)}
                                   onChangeText={v => setItemPriceEditing(prev => ({ ...prev, [itemId]: v }))}
+                                  onFocus={blockNextProductCardPress}
                                   keyboardType="decimal-pad"
                                   style={styles.priceInput}
                                   placeholder="0.00"
@@ -1271,7 +1300,8 @@ export default function IFoodIntegrationPage() {
                                   onSubmitEditing={() => handleItemPriceSave(product)}
                                 />
                                 <TouchableOpacity
-                                  onPress={(e) => { e.stopPropagation?.(); handleItemPriceSave(product); }}
+                                  onPressIn={blockNextProductCardPress}
+                                  onPress={(e) => { blockNextProductCardPress(e); handleItemPriceSave(product); }}
                                   disabled={priceBusy}
                                   style={styles.priceSaveButton}>
                                   {priceBusy
@@ -1279,7 +1309,8 @@ export default function IFoodIntegrationPage() {
                                     : <Icon name="check" size={13} color="#fff" />}
                                 </TouchableOpacity>
                                 <TouchableOpacity
-                                  onPress={(e) => { e.stopPropagation?.(); setItemPriceEditing(prev => { const n = { ...prev }; delete n[itemId]; return n; }); }}
+                                  onPressIn={blockNextProductCardPress}
+                                  onPress={(e) => { blockNextProductCardPress(e); setItemPriceEditing(prev => { const n = { ...prev }; delete n[itemId]; return n; }); }}
                                   style={styles.priceCancelButton}>
                                   <Icon name="x" size={13} color="#64748B" />
                                 </TouchableOpacity>
@@ -1287,9 +1318,10 @@ export default function IFoodIntegrationPage() {
                             ) : (
                               <TouchableOpacity
                                 onPress={(e) => {
-                                  e.stopPropagation?.();
+                                  blockNextProductCardPress(e);
                                   setItemPriceEditing(prev => ({ ...prev, [itemId]: String(product.price ?? '') }));
                                 }}
+                                onPressIn={blockNextProductCardPress}
                                 style={styles.priceEditTrigger}>
                                 <Text style={styles.priceEditText}>R$ {Number(product.price || 0).toFixed(2)}</Text>
                                 <Icon name="edit-2" size={11} color="#64748B" />
@@ -1335,6 +1367,7 @@ export default function IFoodIntegrationPage() {
                                           <TextInput
                                             value={String(oDraftPrice)}
                                             onChangeText={v => setOptPriceEditing(prev => ({ ...prev, [oId]: v }))}
+                                            onFocus={blockNextProductCardPress}
                                             keyboardType="decimal-pad"
                                             style={styles.priceInput}
                                             placeholder="0.00"
@@ -1342,7 +1375,8 @@ export default function IFoodIntegrationPage() {
                                             onSubmitEditing={(e) => { e.stopPropagation?.(); handleOptionPriceSave(product, opt); }}
                                           />
                                           <TouchableOpacity
-                                            onPress={(e) => { e.stopPropagation?.(); handleOptionPriceSave(product, opt); }}
+                                            onPressIn={blockNextProductCardPress}
+                                            onPress={(e) => { blockNextProductCardPress(e); handleOptionPriceSave(product, opt); }}
                                             disabled={oPriceBusy}
                                             style={styles.priceSaveButton}>
                                             {oPriceBusy
@@ -1350,21 +1384,24 @@ export default function IFoodIntegrationPage() {
                                               : <Icon name="check" size={13} color="#fff" />}
                                           </TouchableOpacity>
                                           <TouchableOpacity
-                                            onPress={(e) => { e.stopPropagation?.(); setOptPriceEditing(prev => { const n = { ...prev }; delete n[oId]; return n; }); }}
+                                            onPressIn={blockNextProductCardPress}
+                                            onPress={(e) => { blockNextProductCardPress(e); setOptPriceEditing(prev => { const n = { ...prev }; delete n[oId]; return n; }); }}
                                             style={styles.priceCancelButton}>
                                             <Icon name="x" size={13} color="#64748B" />
                                           </TouchableOpacity>
                                         </>
                                       ) : (
                                         <TouchableOpacity
-                                          onPress={(e) => { e.stopPropagation?.(); setOptPriceEditing(prev => ({ ...prev, [oId]: String(opt.price ?? '') })); }}
+                                          onPressIn={blockNextProductCardPress}
+                                          onPress={(e) => { blockNextProductCardPress(e); setOptPriceEditing(prev => ({ ...prev, [oId]: String(opt.price ?? '') })); }}
                                           style={styles.priceEditTrigger}>
                                           <Text style={styles.priceEditText}>R$ {Number(opt.price || 0).toFixed(2)}</Text>
                                           <Icon name="edit-2" size={11} color="#64748B" />
                                         </TouchableOpacity>
                                       )}
                                       <TouchableOpacity
-                                        onPress={(e) => { e.stopPropagation?.(); handleOptionStatusToggle(product, opt); }}
+                                        onPressIn={blockNextProductCardPress}
+                                        onPress={(e) => { blockNextProductCardPress(e); handleOptionStatusToggle(product, opt); }}
                                         disabled={oBusy}
                                         style={[styles.optStatusBadge, { backgroundColor: oAvail ? '#DCFCE7' : '#FEE2E2' }]}>
                                         {oBusy
