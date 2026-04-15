@@ -38,6 +38,8 @@ const pad2 = v => String(v).padStart(2, '0');
 const formatDateToApi = d =>
   `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())} ${pad2(d.getHours())}:${pad2(d.getMinutes())}:${pad2(d.getSeconds())}`;
 
+const normalizeText = value => String(value || '').trim();
+
 const parseDateInput = value => {
   const s = String(value || '').trim();
   if (!DATE_INPUT_PATTERN.test(s)) return null;
@@ -71,7 +73,35 @@ const getDateRange = (dateFilter, customRange) => {
   return {};
 };
 
-const normalizeApp = o => String(o?.app || '').trim();
+const getEntityId = entity => {
+  if (!entity) return null;
+
+  if (typeof entity === 'number' || typeof entity === 'string') {
+    const matches = String(entity).match(/\d+/g);
+    return matches ? Number(matches[matches.length - 1]) : null;
+  }
+
+  if (typeof entity === 'object') {
+    if (entity.id) return Number(entity.id);
+    if (entity['@id']) {
+      const matches = String(entity['@id']).match(/\d+/g);
+      return matches ? Number(matches[matches.length - 1]) : null;
+    }
+  }
+
+  return null;
+};
+
+const getPeopleLabel = entity =>
+  normalizeText(
+    entity?.alias ||
+    entity?.name ||
+    entity?.fantasy_name ||
+    entity?.company ||
+    entity?.document
+  );
+
+const normalizeApp = o => normalizeText(o?.app);
 const getSearchText = o =>
   [
     o?.id,
@@ -104,7 +134,8 @@ export default function OrderHistoryPage({ navigation }) {
   const deviceGetters = deviceStore.getters;
   const { item: storagedDevice } = deviceGetters;
   const { item: deviceConfig } = deviceConfigStore.getters;
-  const { currentCompany } = peopleStore.getters;
+  const { actions: peopleActions, getters: peopleGetters } = peopleStore;
+  const { currentCompany } = peopleGetters;
   const { colors: themeColors } = themeStore.getters;
   const { actions: orderActions, getters: ordersGetters } = ordersStore;
   const { isLoading: storeLoading } = ordersGetters;
@@ -163,6 +194,7 @@ export default function OrderHistoryPage({ navigation }) {
   const [customToInput, setCustomToInput] = useState('');
   const [customRange, setCustomRange] = useState({ from: '', to: '' });
   const [dateValidationMessage, setDateValidationMessage] = useState('');
+  const [purchaseSuppliersById, setPurchaseSuppliersById] = useState({});
 
   const isCashRegisterClosed = useMemo(() => {
     const closedId = Number(deviceConfig?.configs?.['cash-wallet-closed-id']);
@@ -182,6 +214,7 @@ export default function OrderHistoryPage({ navigation }) {
 
   /* ref para evitar fetch duplicado */
   const fetchingRef = useRef(false);
+  const loadingPurchaseSuppliersRef = useRef(new Set());
 
   const goToAddProduct = useCallback(() => {
     if (env.APP_TYPE === 'POS' && isCashRegisterClosed) {
@@ -319,6 +352,68 @@ export default function OrderHistoryPage({ navigation }) {
     setDateValidationMessage(''); setCustomRange({ from: '', to: '' });
   }, []);
 
+  useEffect(() => {
+    const missingSupplierIds = [...new Set(
+      orders
+        .filter(order => order?.orderType === 'purchase')
+        .map(order => {
+          const supplierId = getEntityId(order?.client);
+          const supplierLabel = getPeopleLabel(order?.client);
+          const alreadyResolved = supplierId
+            ? Object.prototype.hasOwnProperty.call(purchaseSuppliersById, supplierId)
+            : false;
+
+          if (!supplierId || supplierLabel || alreadyResolved || loadingPurchaseSuppliersRef.current.has(supplierId)) {
+            return null;
+          }
+
+          return supplierId;
+        })
+        .filter(Boolean)
+    )];
+
+    if (!missingSupplierIds.length) return undefined;
+
+    missingSupplierIds.forEach(id => loadingPurchaseSuppliersRef.current.add(id));
+
+    let cancelled = false;
+
+    (async () => {
+      const resolvedSuppliers = await Promise.all(
+        missingSupplierIds.map(async id => {
+          try {
+            const supplier = await peopleActions.get(id);
+            return [id, getPeopleLabel(supplier)];
+          } catch {
+            return [id, ''];
+          } finally {
+            loadingPurchaseSuppliersRef.current.delete(id);
+          }
+        }),
+      );
+
+      if (cancelled) return;
+
+      setPurchaseSuppliersById(prev => {
+        let changed = false;
+        const next = { ...prev };
+
+        resolvedSuppliers.forEach(([id, label]) => {
+          if (next[id] !== label) {
+            next[id] = label;
+            changed = true;
+          }
+        });
+
+        return changed ? next : prev;
+      });
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [orders, peopleActions, purchaseSuppliersById]);
+
   const openOrder = useCallback(order => {
     navigation.navigate('OrderDetails', { order, kds: true });
   }, [navigation]);
@@ -330,9 +425,13 @@ export default function OrderHistoryPage({ navigation }) {
     const isTransfer = order.orderType === 'transfer';
     const isLoss = order.orderType === 'loss';
     const channelLogo = (isPurchase || isTransfer || isLoss) ? null : getOrderChannelLogo(order);
+    const purchaseSupplierId = getEntityId(order?.client);
+    const purchaseSupplierLabel =
+      getPeopleLabel(order?.client) ||
+      (purchaseSupplierId ? purchaseSuppliersById[purchaseSupplierId] : '');
 
     const channelLabel = isPurchase
-      ? (order.client?.alias || order.client?.name || global.t?.t('orders', 'label', 'supplier'))
+      ? (purchaseSupplierLabel || global.t?.t('orders', 'label', 'supplier'))
       : isTransfer
         ? global.t?.t('orders', 'label', 'stock_transfer')
         : isLoss
@@ -417,7 +516,7 @@ export default function OrderHistoryPage({ navigation }) {
         </View>
       </TouchableOpacity>
     );
-  }, [openOrder]);
+  }, [openOrder, purchaseSuppliersById]);
 
   /* ─── render ─────────────────────────────────────────────────────── */
 
