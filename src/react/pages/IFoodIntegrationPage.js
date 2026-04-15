@@ -278,10 +278,7 @@ export default function IFoodIntegrationPage() {
     });
   }, []);
 
-  const blockNextProductCardPress = useCallback((event) => {
-    event?.preventDefault?.();
-    event?.stopPropagation?.();
-
+  const markNextProductCardPressAsHandled = useCallback(() => {
     ignoreNextProductCardPressRef.current = true;
     const release = () => {
       ignoreNextProductCardPressRef.current = false;
@@ -294,6 +291,12 @@ export default function IFoodIntegrationPage() {
 
     setTimeout(release, 0);
   }, []);
+
+  const blockNextProductCardPress = useCallback((event) => {
+    event?.preventDefault?.();
+    event?.stopPropagation?.();
+    markNextProductCardPressAsHandled();
+  }, [markNextProductCardPressAsHandled]);
 
   const handleProductCardPress = useCallback((id) => {
     if (ignoreNextProductCardPressRef.current) {
@@ -1260,7 +1263,7 @@ export default function IFoodIntegrationPage() {
                           {published && itemId ? (
                             <TouchableOpacity
                               activeOpacity={0.8}
-                              onPressIn={blockNextProductCardPress}
+                              onPressIn={markNextProductCardPressAsHandled}
                               onPress={(e) => { blockNextProductCardPress(e); handleItemStatusToggle(product); }}
                               disabled={statusBusy}
                               style={[
@@ -1292,7 +1295,7 @@ export default function IFoodIntegrationPage() {
                                 <TextInput
                                   value={String(draftPrice)}
                                   onChangeText={v => setItemPriceEditing(prev => ({ ...prev, [itemId]: v }))}
-                                  onFocus={blockNextProductCardPress}
+                                  onFocus={markNextProductCardPressAsHandled}
                                   keyboardType="decimal-pad"
                                   style={styles.priceInput}
                                   placeholder="0.00"
@@ -1300,7 +1303,7 @@ export default function IFoodIntegrationPage() {
                                   onSubmitEditing={() => handleItemPriceSave(product)}
                                 />
                                 <TouchableOpacity
-                                  onPressIn={blockNextProductCardPress}
+                                  onPressIn={markNextProductCardPressAsHandled}
                                   onPress={(e) => { blockNextProductCardPress(e); handleItemPriceSave(product); }}
                                   disabled={priceBusy}
                                   style={styles.priceSaveButton}>
@@ -1309,7 +1312,7 @@ export default function IFoodIntegrationPage() {
                                     : <Icon name="check" size={13} color="#fff" />}
                                 </TouchableOpacity>
                                 <TouchableOpacity
-                                  onPressIn={blockNextProductCardPress}
+                                  onPressIn={markNextProductCardPressAsHandled}
                                   onPress={(e) => { blockNextProductCardPress(e); setItemPriceEditing(prev => { const n = { ...prev }; delete n[itemId]; return n; }); }}
                                   style={styles.priceCancelButton}>
                                   <Icon name="x" size={13} color="#64748B" />
@@ -1321,7 +1324,7 @@ export default function IFoodIntegrationPage() {
                                   blockNextProductCardPress(e);
                                   setItemPriceEditing(prev => ({ ...prev, [itemId]: String(product.price ?? '') }));
                                 }}
-                                onPressIn={blockNextProductCardPress}
+                                onPressIn={markNextProductCardPressAsHandled}
                                 style={styles.priceEditTrigger}>
                                 <Text style={styles.priceEditText}>R$ {Number(product.price || 0).toFixed(2)}</Text>
                                 <Icon name="edit-2" size={11} color="#64748B" />
@@ -1367,7 +1370,7 @@ export default function IFoodIntegrationPage() {
                                           <TextInput
                                             value={String(oDraftPrice)}
                                             onChangeText={v => setOptPriceEditing(prev => ({ ...prev, [oId]: v }))}
-                                            onFocus={blockNextProductCardPress}
+                                            onFocus={markNextProductCardPressAsHandled}
                                             keyboardType="decimal-pad"
                                             style={styles.priceInput}
                                             placeholder="0.00"
@@ -1375,7 +1378,7 @@ export default function IFoodIntegrationPage() {
                                             onSubmitEditing={(e) => { e.stopPropagation?.(); handleOptionPriceSave(product, opt); }}
                                           />
                                           <TouchableOpacity
-                                            onPressIn={blockNextProductCardPress}
+                                            onPressIn={markNextProductCardPressAsHandled}
                                             onPress={(e) => { blockNextProductCardPress(e); handleOptionPriceSave(product, opt); }}
                                             disabled={oPriceBusy}
                                             style={styles.priceSaveButton}>
@@ -1384,7 +1387,7 @@ export default function IFoodIntegrationPage() {
                                               : <Icon name="check" size={13} color="#fff" />}
                                           </TouchableOpacity>
                                           <TouchableOpacity
-                                            onPressIn={blockNextProductCardPress}
+                                            onPressIn={markNextProductCardPressAsHandled}
                                             onPress={(e) => { blockNextProductCardPress(e); setOptPriceEditing(prev => { const n = { ...prev }; delete n[oId]; return n; }); }}
                                             style={styles.priceCancelButton}>
                                             <Icon name="x" size={13} color="#64748B" />
@@ -1392,7 +1395,7 @@ export default function IFoodIntegrationPage() {
                                         </>
                                       ) : (
                                         <TouchableOpacity
-                                          onPressIn={blockNextProductCardPress}
+                                          onPressIn={markNextProductCardPressAsHandled}
                                           onPress={(e) => { blockNextProductCardPress(e); setOptPriceEditing(prev => ({ ...prev, [oId]: String(opt.price ?? '') })); }}
                                           style={styles.priceEditTrigger}>
                                           <Text style={styles.priceEditText}>R$ {Number(opt.price || 0).toFixed(2)}</Text>
@@ -1400,7 +1403,7 @@ export default function IFoodIntegrationPage() {
                                         </TouchableOpacity>
                                       )}
                                       <TouchableOpacity
-                                        onPressIn={blockNextProductCardPress}
+                                        onPressIn={markNextProductCardPressAsHandled}
                                         onPress={(e) => { blockNextProductCardPress(e); handleOptionStatusToggle(product, opt); }}
                                         disabled={oBusy}
                                         style={[styles.optStatusBadge, { backgroundColor: oAvail ? '#DCFCE7' : '#FEE2E2' }]}>
