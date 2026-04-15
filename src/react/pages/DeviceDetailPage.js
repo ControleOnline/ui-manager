@@ -21,7 +21,9 @@ import { resolveThemePalette, withOpacity } from '@controleonline/../../src/styl
 import { colors } from '@controleonline/../../src/styles/colors';
 import Icon from 'react-native-vector-icons/Feather';
 import {
+  canDisplayChangePrinter,
   DISPLAY_AUTO_PRINT_PRODUCT_CONFIG_KEY,
+  DISPLAY_ALLOW_PRINTER_CHANGE_CONFIG_KEY,
   DEVICE_ALERT_SOUND_ENABLED_KEY,
   DEVICE_ALERT_SOUND_URL_KEY,
   DEVICE_ORDER_VISIBILITY_COMPANY,
@@ -195,6 +197,9 @@ const DeviceDetailPage = () => {
   const [displayPrinterId, setDisplayPrinterId] = useState(
     normalizeDeviceId(normalizedInitialConfigs?.[DISPLAY_DEVICE_PRINTER_CONFIG_KEY]),
   );
+  const [displayAllowPrinterChange, setDisplayAllowPrinterChange] = useState(
+    canDisplayChangePrinter(normalizedInitialConfigs),
+  );
   const [displayAutoPrintProductEnabled, setDisplayAutoPrintProductEnabled] =
     useState(
       isTruthyValue(
@@ -324,6 +329,9 @@ const DeviceDetailPage = () => {
       setDisplayPrinterId(
         normalizeDeviceId(nextConfigs[DISPLAY_DEVICE_PRINTER_CONFIG_KEY]),
       );
+      setDisplayAllowPrinterChange(
+        canDisplayChangePrinter(nextConfigs),
+      );
       setDisplayAutoPrintProductEnabled(
         isTruthyValue(nextConfigs[DISPLAY_AUTO_PRINT_PRODUCT_CONFIG_KEY]),
       );
@@ -338,6 +346,7 @@ const DeviceDetailPage = () => {
     setDeviceRuntimeDebugInfoEnabled(false);
     setLinkedDisplayId('');
     setDisplayPrinterId('');
+    setDisplayAllowPrinterChange(false);
     setDisplayAutoPrintProductEnabled(false);
   }, [currentCompany?.id, dcId, deviceString, deviceType]);
 
@@ -583,6 +592,8 @@ const DeviceDetailPage = () => {
         configs: JSON.stringify({
           [DISPLAY_DEVICE_LINK_CONFIG_KEY]: normalizedDisplayId,
           [DISPLAY_DEVICE_PRINTER_CONFIG_KEY]: normalizedPrinterId,
+          [DISPLAY_ALLOW_PRINTER_CHANGE_CONFIG_KEY]:
+            displayAllowPrinterChange ? '1' : '0',
           [DISPLAY_AUTO_PRINT_PRODUCT_CONFIG_KEY]:
             displayAutoPrintProductEnabled ? '1' : '0',
         }),
@@ -599,6 +610,7 @@ const DeviceDetailPage = () => {
     currentCompany?.id,
     deviceString,
     deviceType,
+    displayAllowPrinterChange,
     displayAutoPrintProductEnabled,
     displayPrinterId,
     isDisplayDevice,
@@ -910,6 +922,38 @@ const DeviceDetailPage = () => {
                   <TouchableOpacity
                     style={[
                       styles.toggleRow,
+                      displayAllowPrinterChange && styles.toggleRowActive,
+                    ]}
+                    activeOpacity={0.85}
+                    onPress={() =>
+                      setDisplayAllowPrinterChange(currentValue => !currentValue)
+                    }>
+                    <View>
+                      <Text style={styles.toggleRowLabel}>
+                        Pode trocar de impressora?
+                      </Text>
+                      <Text style={styles.toggleRowValue}>
+                        {displayAllowPrinterChange ? 'Sim' : 'Nao'}
+                      </Text>
+                    </View>
+                    <Icon
+                      name={
+                        displayAllowPrinterChange
+                          ? 'toggle-right'
+                          : 'toggle-left'
+                      }
+                      size={28}
+                      color={
+                        displayAllowPrinterChange
+                          ? hex.success
+                          : '#94A3B8'
+                      }
+                    />
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[
+                      styles.toggleRow,
                       displayAutoPrintProductEnabled && styles.toggleRowActive,
                     ]}
                     activeOpacity={0.85}
@@ -945,7 +989,8 @@ const DeviceDetailPage = () => {
                 Para esta rotina funcionar, os dois campos precisam estar
                 preenchidos. Quando a opcao automatica estiver ativa, cada
                 produto enviado para a fila deste display gera sua propria
-                impressao na impressora vinculada.
+                impressao na impressora vinculada. Quando a troca estiver
+                desativada, o app usa sempre a impressora padrao acima.
               </Text>
 
               <TouchableOpacity
