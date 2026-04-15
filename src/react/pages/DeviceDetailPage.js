@@ -978,8 +978,7 @@ const DeviceDetailPage = () => {
             <Text style={styles.configTitle}>Alerta via websocket</Text>
             <Text style={styles.configDescription}>
               Quando habilitado, este device toca o audio configurado ao receber
-              os eventos order.created, order_product_queue.created e comandos
-              de impressao.
+              o evento `order.created` de um novo pedido em preparo.
             </Text>
 
             <TouchableOpacity
