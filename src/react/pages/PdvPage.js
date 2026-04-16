@@ -690,6 +690,7 @@ export default function PdvPage() {
     flushAllChanges: flushPendingCartQuantityChanges,
     scheduleQuantityChange: scheduleCartQuantityChange,
   } = useDebouncedOrderProductQuantitySync({
+    delay: 1000,
     onOptimisticUpdate: (orderProduct, nextQuantity) => {
       const nextOrderProducts =
         nextQuantity <= 0
@@ -972,53 +973,15 @@ export default function PdvPage() {
     const orderProductId = normalizeId(orderProduct?.id || orderProduct?.['@id'])
     if (!orderProductId) return
 
-    setCartSyncing(true)
-    try {
-      const currentOrderProducts = Array.isArray(activeOrder?.orderProducts)
-        ? activeOrder.orderProducts
-        : []
-
-      if (Number(orderProduct?.quantity || 0) > 1) {
-        const savedOrderProduct = await orderProductsStore.actions.save({
-          '@id': orderProduct?.['@id'],
-          id: Number(orderProductId),
-          quantity: Number(orderProduct?.quantity || 0) - 1,
-        })
-        syncCartOrderProducts(
-          mergeOrderProductIntoList(currentOrderProducts, savedOrderProduct),
-        )
-      } else {
-        await orderProductsStore.actions.remove(orderProductId)
-        syncCartOrderProducts(
-          removeOrderProductFromList(currentOrderProducts, orderProduct),
-        )
-      }
-    } finally {
-      setCartSyncing(false)
-    }
-  }, [activeOrder?.orderProducts, orderProductsStore.actions, syncCartOrderProducts])
+    scheduleCartQuantityChange(orderProduct, currentQuantity => Math.max(0, currentQuantity - 1))
+  }, [scheduleCartQuantityChange])
 
   const addCartItem = useCallback(async orderProduct => {
     const orderProductId = normalizeId(orderProduct?.id || orderProduct?.['@id'])
     if (!orderProductId) return
 
-    setCartSyncing(true)
-    try {
-      const savedOrderProduct = await orderProductsStore.actions.save({
-        '@id': orderProduct?.['@id'],
-        id: Number(orderProductId),
-        quantity: Number(orderProduct?.quantity || 0) + 1,
-      })
-      syncCartOrderProducts(
-        mergeOrderProductIntoList(
-          Array.isArray(activeOrder?.orderProducts) ? activeOrder.orderProducts : [],
-          savedOrderProduct,
-        ),
-      )
-    } finally {
-      setCartSyncing(false)
-    }
-  }, [activeOrder?.orderProducts, orderProductsStore.actions, syncCartOrderProducts])
+    scheduleCartQuantityChange(orderProduct, currentQuantity => currentQuantity + 1)
+  }, [scheduleCartQuantityChange])
 
   const openCheckout = () => {
     if (cartCount === 0) return
@@ -1032,6 +995,7 @@ export default function PdvPage() {
     setStep('processing')
     setProcessingMsg('Preparando checkout...')
     try {
+      await flushPendingCartQuantityChanges()
       const order = await ensureActiveOrder()
       const syncedOrder = await syncOrderPeople(selectedPeople)
 
@@ -1043,7 +1007,7 @@ export default function PdvPage() {
       setStep('error')
       setProcessingMsg(e?.message || 'Erro ao abrir checkout')
     }
-  }, [cartItems.length, ensureActiveOrder, navigation, selectedPeople, syncOrderPeople])
+  }, [cartItems.length, ensureActiveOrder, flushPendingCartQuantityChanges, navigation, selectedPeople, syncOrderPeople])
 
   return (
     <SafeAreaView style={[gs.root, { backgroundColor: palette.background || '#F8FAFC' }]}>
@@ -1296,6 +1260,7 @@ export default function PdvPage() {
                   <TouchableOpacity
                     onPress={async () => {
                       if (!cartItems.length) return
+                      cancelPendingCartQuantityChanges()
                       setCartSyncing(true)
                       try {
                         let nextOrderProducts = Array.isArray(activeOrder?.orderProducts)
