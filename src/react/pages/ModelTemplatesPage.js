@@ -20,6 +20,9 @@ import Icon from 'react-native-vector-icons/Feather';
 import { useStore } from '@store';
 import { api } from '@controleonline/ui-common/src/api';
 import useToastMessage from '@controleonline/ui-crm/src/react/hooks/useToastMessage';
+import {
+  getCategoryContextForDocument,
+} from '@controleonline/ui-manager/src/react/utils/categoryContexts';
 import { resolveThemePalette, withOpacity } from '@controleonline/../../src/styles/branding';
 import { colors } from '@controleonline/../../src/styles/colors';
 
@@ -82,6 +85,13 @@ const CONTEXT_SNIPPETS = {
     { label: 'Loop categorias', value: '{% for column in columns %}\n  {% for category in column %}\n    <h2>{{ category.name }}</h2>\n  {% endfor %}\n{% endfor %}' },
     { label: 'Loop produtos', value: '{% for product in category.products %}\n  <p>{{ product.name }} - {{ product.priceLabel }}</p>\n{% endfor %}' },
   ],
+};
+
+const DEFAULT_CATEGORY_NAMES = {
+  proposal: 'Propostas',
+  contract: 'Contratos',
+  email: 'E-mails',
+  menu: 'Cardapios',
 };
 
 const formatApiError = error => {
@@ -157,6 +167,58 @@ const decodeBase64Text = value => {
 
   return String(value);
 };
+
+const getStoredSession = () => {
+  try {
+    if (typeof localStorage === 'undefined') {
+      return {};
+    }
+    return JSON.parse(localStorage.getItem('session') || '{}');
+  } catch (_) {
+    return {};
+  }
+};
+
+const toPeopleIri = value => {
+  if (!value) return null;
+
+  if (typeof value === 'string' || typeof value === 'number') {
+    return toIri(value, 'people');
+  }
+
+  return (
+    toIri(value?.people, 'people') ||
+    toIri(value?.person, 'people') ||
+    toIri(value?.peopleId, 'people') ||
+    toIri(value?.people_id, 'people') ||
+    toIri(value?.personId, 'people') ||
+    toIri(value?.person_id, 'people') ||
+    (typeof value?.['@id'] === 'string' && value['@id'].includes('/people/') ? value['@id'] : null) ||
+    (value?.peopleType ? toIri(value?.id, 'people') : null)
+  );
+};
+
+const resolveDefaultSignerIri = (signers, preferredSignerIri) => {
+  const safeSigners = Array.isArray(signers) ? signers : [];
+  if (safeSigners.length === 0) return null;
+
+  if (preferredSignerIri) {
+    const preferredMatch = safeSigners.find(person => toIri(person, 'people') === preferredSignerIri);
+    if (preferredMatch) {
+      return toIri(preferredMatch, 'people');
+    }
+  }
+
+  return toIri(safeSigners[0], 'people');
+};
+
+const FieldLabel = ({ label, required = false, suffix = '' }) => (
+  <Text style={styles.fieldLabel}>
+    {label}
+    {suffix ? ` ${suffix}` : ''}
+    {required ? <Text style={styles.fieldRequiredMark}> *</Text> : null}
+  </Text>
+);
 
 const buildStarterTemplate = context => {
   if (context === 'contract') {
@@ -335,11 +397,13 @@ const countByContext = items =>
     {},
   );
 
-export default function ModelTemplatesPage({ route }) {
+export default function ModelTemplatesPage({ route, navigation }) {
+  const authStore = useStore('auth');
   const peopleStore = useStore('people');
   const themeStore = useStore('theme');
   const modelsStore = useStore('models');
   const fileStore = useStore('file');
+  const { user: authUser } = authStore.getters;
   const { currentCompany } = peopleStore.getters;
   const { colors: themeColors } = themeStore.getters;
   const modelsActions = modelsStore.actions;
@@ -347,6 +411,7 @@ export default function ModelTemplatesPage({ route }) {
   const { items: modelItems = [] } = modelsStore.getters;
   const { showError, showSuccess } = useToastMessage();
   const editorRef = useRef(null);
+  const metadataRequestRef = useRef(0);
   const { width } = useWindowDimensions();
 
   const brandColors = useMemo(
@@ -366,6 +431,10 @@ export default function ModelTemplatesPage({ route }) {
     () => (currentCompany?.id ? `/people/${normalizeId(currentCompany.id)}` : ''),
     [currentCompany?.id],
   );
+  const preferredSignerIri = useMemo(() => {
+    const session = getStoredSession();
+    return toPeopleIri(authUser) || toPeopleIri(session) || null;
+  }, [authUser]);
 
   const initialContext = useMemo(() => {
     const requested = route?.params?.presetContext || route?.params?.filterContext;
@@ -471,11 +540,16 @@ export default function ModelTemplatesPage({ route }) {
     if (!peopleIri) {
       setSigners([]);
       setCategories([]);
-      return;
+      return { signers: [], categories: [] };
     }
 
+    const requestId = metadataRequestRef.current + 1;
+    metadataRequestRef.current = requestId;
+    setSigners([]);
+    setCategories([]);
     setLoadingMetadata(true);
     try {
+      const categoryContext = getCategoryContextForDocument(context);
       const [signersResponse, categoriesResponse] = await Promise.all([
         api.fetch('/people', {
           params: {
@@ -488,18 +562,65 @@ export default function ModelTemplatesPage({ route }) {
         api.fetch('/categories', {
           params: {
             company: peopleIri,
-            context: `${context}-model`,
+            context: categoryContext,
             itemsPerPage: 200,
           },
         }).catch(() => null),
       ]);
 
-      setSigners(Array.isArray(signersResponse?.member) ? signersResponse.member : []);
-      setCategories(Array.isArray(categoriesResponse?.member) ? categoriesResponse.member : []);
+      const nextSigners = Array.isArray(signersResponse?.member) ? signersResponse.member : [];
+      const nextCategories = Array.isArray(categoriesResponse?.member)
+        ? categoriesResponse.member
+        : [];
+
+      if (metadataRequestRef.current === requestId) {
+        setSigners(nextSigners);
+        setCategories(nextCategories);
+      }
+      return { signers: nextSigners, categories: nextCategories };
     } finally {
-      setLoadingMetadata(false);
+      if (metadataRequestRef.current === requestId) {
+        setLoadingMetadata(false);
+      }
     }
   }, [peopleIri]);
+
+  const ensureContextCategory = useCallback(
+    async (context, preferredCategoryIri, availableCategories = []) => {
+      if (preferredCategoryIri) return preferredCategoryIri;
+
+      const safeCategories = Array.isArray(availableCategories) ? availableCategories : [];
+      const firstCategoryIri = toIri(safeCategories[0], 'categories');
+      if (firstCategoryIri) return firstCategoryIri;
+
+      if (!peopleIri) return null;
+
+      const contextMeta = getContextMeta(context);
+      const categoryContext = getCategoryContextForDocument(context);
+      const createdCategory = await api.post('/categories', {
+        name: DEFAULT_CATEGORY_NAMES[context] || `Modelos de ${contextMeta.label.toLowerCase()}`,
+        context: categoryContext,
+        company: peopleIri,
+        color: contextMeta.color,
+        icon: contextMeta.icon,
+      });
+
+      if (createdCategory) {
+        setCategories(prev => {
+          const safePrev = Array.isArray(prev) ? prev : [];
+          const createdId = normalizeId(createdCategory?.id || createdCategory?.['@id']);
+          if (!createdId) return [createdCategory, ...safePrev];
+          if (safePrev.some(item => normalizeId(item?.id || item?.['@id']) === createdId)) {
+            return safePrev;
+          }
+          return [createdCategory, ...safePrev];
+        });
+      }
+
+      return toIri(createdCategory, 'categories');
+    },
+    [peopleIri],
+  );
 
   const hydrateDraftFromModel = useCallback(
     async (modelRecord, options = {}) => {
@@ -639,6 +760,26 @@ export default function ModelTemplatesPage({ route }) {
       return;
     }
 
+    const metadata =
+      loadingMetadata || categories.length === 0 || signers.length === 0
+        ? await loadMetadata(context)
+        : { categories, signers };
+
+    const availableCategories = Array.isArray(metadata?.categories) ? metadata.categories : categories;
+    const availableSigners = Array.isArray(metadata?.signers) ? metadata.signers : signers;
+    const signerIri = draft.signer || resolveDefaultSignerIri(availableSigners, preferredSignerIri);
+    const categoryIri = await ensureContextCategory(context, draft.category, availableCategories);
+
+    if (!categoryIri) {
+      showError('Nao foi possivel definir a categoria do modelo. Verifique as categorias deste contexto.');
+      return;
+    }
+
+    if (!signerIri) {
+      showError('Cadastre ao menos um responsavel da empresa para assinar este modelo antes de salvar.');
+      return;
+    }
+
     setSaving(true);
     try {
       const savedFile = await fileActions.save({
@@ -657,8 +798,8 @@ export default function ModelTemplatesPage({ route }) {
         model: name,
         context,
         people: peopleIri,
-        signer: draft.signer || null,
-        category: draft.category || null,
+        signer: signerIri,
+        category: categoryIri,
         file: fileIri,
       });
 
@@ -667,8 +808,8 @@ export default function ModelTemplatesPage({ route }) {
         model: name,
         fileId: normalizeId(savedFile?.id || savedFile?.['@id']),
         html,
-        category: draft.category || null,
-        signer: draft.signer || null,
+        category: categoryIri,
+        signer: signerIri,
         people: peopleIri,
         fileName: savedFile?.fileName || buildFileName(name, context),
         fileContext: savedFile?.context || context,
@@ -692,7 +833,22 @@ export default function ModelTemplatesPage({ route }) {
     } finally {
       setSaving(false);
     }
-  }, [draft, fileActions, filterContext, loadModels, modelsActions, peopleIri, showError, showSuccess]);
+  }, [
+    categories,
+    draft,
+    ensureContextCategory,
+    fileActions,
+    filterContext,
+    loadMetadata,
+    loadModels,
+    loadingMetadata,
+    modelsActions,
+    peopleIri,
+    preferredSignerIri,
+    showError,
+    showSuccess,
+    signers,
+  ]);
 
   const handleFilterChange = useCallback(
     async nextContext => {
@@ -711,7 +867,8 @@ export default function ModelTemplatesPage({ route }) {
   useFocusEffect(
     useCallback(() => {
       loadModels();
-    }, [loadModels]),
+      loadMetadata(draft.context);
+    }, [draft.context, loadMetadata, loadModels]),
   );
 
   useEffect(() => {
@@ -776,6 +933,21 @@ export default function ModelTemplatesPage({ route }) {
   useEffect(() => {
     loadMetadata(draft.context);
   }, [draft.context, loadMetadata]);
+
+  useEffect(() => {
+    const defaultCategoryIri = draft.category || toIri(categories[0], 'categories') || null;
+    const defaultSignerIri = draft.signer || resolveDefaultSignerIri(signers, preferredSignerIri);
+
+    if (defaultCategoryIri === draft.category && defaultSignerIri === draft.signer) {
+      return;
+    }
+
+    setDraft(prev => ({
+      ...prev,
+      category: prev.category || defaultCategoryIri,
+      signer: prev.signer || defaultSignerIri,
+    }));
+  }, [categories, draft.category, draft.signer, preferredSignerIri, signers]);
 
   const renderSummary = () => (
     <View style={styles.summaryRow}>
@@ -910,6 +1082,7 @@ export default function ModelTemplatesPage({ route }) {
           <Text style={styles.panelSub}>
             {CONTEXT_HELP[draft.context]}
           </Text>
+          <Text style={styles.requiredHint}>* Campos obrigatorios</Text>
         </View>
 
         <TouchableOpacity
@@ -963,7 +1136,7 @@ export default function ModelTemplatesPage({ route }) {
 
       <View style={styles.formGrid}>
         <View style={[styles.fieldBlock, styles.formField]}>
-          <Text style={styles.fieldLabel}>Nome do modelo</Text>
+          <FieldLabel label="Nome do modelo" required />
           <TextInput
             value={draft.model}
             onChangeText={value => updateDraft({ model: value })}
@@ -974,7 +1147,7 @@ export default function ModelTemplatesPage({ route }) {
         </View>
 
         <View style={[styles.fieldBlock, styles.formField]}>
-          <Text style={styles.fieldLabel}>Tipo</Text>
+          <FieldLabel label="Tipo" required />
           <View style={styles.pickerWrap}>
             <Picker
               selectedValue={draft.context}
@@ -986,6 +1159,7 @@ export default function ModelTemplatesPage({ route }) {
                 return {
                   ...prev,
                   context: value,
+                  category: null,
                   html: shouldReplaceTemplate ? buildStarterTemplate(value) : prev.html,
                 };
               })}
@@ -999,16 +1173,28 @@ export default function ModelTemplatesPage({ route }) {
         </View>
 
         <View style={[styles.fieldBlock, styles.formField]}>
-          <Text style={styles.fieldLabel}>
-            Categoria {loadingMetadata ? '(carregando...)' : ''}
-          </Text>
+          <View style={styles.fieldLabelRow}>
+            <FieldLabel label="Categoria" suffix={loadingMetadata ? '(carregando...)' : ''} required />
+            <TouchableOpacity
+              style={styles.inlineAddButton}
+              activeOpacity={0.88}
+              onPress={() =>
+                navigation.navigate('ManagerCategoriesPage', {
+                  categoryAction: Date.now(),
+                  startNew: true,
+                  presetContext: getCategoryContextForDocument(draft.context),
+                })
+              }>
+              <Icon name="plus" size={14} color="#FFFFFF" />
+            </TouchableOpacity>
+          </View>
           <View style={styles.pickerWrap}>
             <Picker
               selectedValue={draft.category || ''}
               onValueChange={value => updateDraft({ category: value || null })}
               mode={Platform.OS === 'android' ? 'dropdown' : undefined}
             >
-              <Picker.Item label="Sem categoria" value="" />
+              <Picker.Item label="Selecionar automaticamente" value="" />
               {categories.map(category => (
                 <Picker.Item
                   key={normalizeId(category?.id || category?.['@id']) || category?.name}
@@ -1020,29 +1206,29 @@ export default function ModelTemplatesPage({ route }) {
           </View>
         </View>
 
-        {(draft.context === 'proposal' || draft.context === 'contract') && (
-          <View style={[styles.fieldBlock, styles.formField]}>
-            <Text style={styles.fieldLabel}>
-              Signatario responsavel {loadingMetadata ? '(carregando...)' : ''}
-            </Text>
-            <View style={styles.pickerWrap}>
-              <Picker
-                selectedValue={draft.signer || ''}
-                onValueChange={value => updateDraft({ signer: value || null })}
-                mode={Platform.OS === 'android' ? 'dropdown' : undefined}
-              >
-                <Picker.Item label="Sem signatario" value="" />
-                {signers.map(person => (
-                  <Picker.Item
-                    key={normalizeId(person?.id || person?.['@id']) || person?.name}
-                    label={person?.alias || person?.name || 'Pessoa'}
-                    value={toIri(person, 'people') || ''}
-                  />
-                ))}
-              </Picker>
-            </View>
+        <View style={[styles.fieldBlock, styles.formField]}>
+          <FieldLabel
+            label="Responsavel / signatario"
+            suffix={loadingMetadata ? '(carregando...)' : ''}
+            required
+          />
+          <View style={styles.pickerWrap}>
+            <Picker
+              selectedValue={draft.signer || ''}
+              onValueChange={value => updateDraft({ signer: value || null })}
+              mode={Platform.OS === 'android' ? 'dropdown' : undefined}
+            >
+              <Picker.Item label="Selecionar automaticamente" value="" />
+              {signers.map(person => (
+                <Picker.Item
+                  key={normalizeId(person?.id || person?.['@id']) || person?.name}
+                  label={person?.alias || person?.name || 'Pessoa'}
+                  value={toIri(person, 'people') || ''}
+                />
+              ))}
+            </Picker>
           </View>
-        )}
+        </View>
       </View>
 
       <View style={styles.snippetCard}>
@@ -1094,20 +1280,23 @@ export default function ModelTemplatesPage({ route }) {
           <Text style={styles.editorLoadingText}>Carregando HTML/Twig do arquivo vinculado...</Text>
         </View>
       ) : viewMode === 'editor' ? (
-        <TextInput
-          ref={editorRef}
-          multiline
-          value={draft.html}
-          onChangeText={value => updateDraft({ html: value })}
-          onSelectionChange={event => setEditorSelection(event?.nativeEvent?.selection || { start: 0, end: 0 })}
-          selection={editorSelection}
-          textAlignVertical="top"
-          autoCapitalize="none"
-          autoCorrect={false}
-          placeholder="Digite aqui o HTML/Twig do modelo"
-          placeholderTextColor="#94A3B8"
-          style={styles.editorInput}
-        />
+        <View style={styles.editorFieldBlock}>
+          <FieldLabel label="HTML / Twig do modelo" required />
+          <TextInput
+            ref={editorRef}
+            multiline
+            value={draft.html}
+            onChangeText={value => updateDraft({ html: value })}
+            onSelectionChange={event => setEditorSelection(event?.nativeEvent?.selection || { start: 0, end: 0 })}
+            selection={editorSelection}
+            textAlignVertical="top"
+            autoCapitalize="none"
+            autoCorrect={false}
+            placeholder="Digite aqui o HTML/Twig do modelo"
+            placeholderTextColor="#94A3B8"
+            style={styles.editorInput}
+          />
+        </View>
       ) : (
         <View style={styles.previewBox}>
           {draft.html.trim() ? (
@@ -1218,6 +1407,13 @@ const styles = StyleSheet.create({
     color: '#64748B',
     marginBottom: 18,
   },
+  requiredHint: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#B91C1C',
+    marginTop: -8,
+    marginBottom: 6,
+  },
   summaryRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -1272,6 +1468,24 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     textTransform: 'uppercase',
     letterSpacing: 0.3,
+  },
+  fieldRequiredMark: {
+    color: '#DC2626',
+    fontWeight: '900',
+  },
+  fieldLabelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 10,
+  },
+  inlineAddButton: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#2563EB',
   },
   pickerWrap: {
     borderWidth: 1,
@@ -1436,6 +1650,9 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     fontSize: 15,
     color: '#0F172A',
+  },
+  editorFieldBlock: {
+    marginTop: 2,
   },
   snippetCard: {
     backgroundColor: '#F8FAFC',

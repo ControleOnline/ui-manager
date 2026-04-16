@@ -18,6 +18,7 @@ import ConnectionsPage from '@controleonline/ui-manager/src/react/pages/Connecti
 import Food99IntegrationPage from '@controleonline/ui-manager/src/react/pages/Food99IntegrationPage';
 import IFoodIntegrationPage from '@controleonline/ui-manager/src/react/pages/IFoodIntegrationPage';
 import IntegrationsPage from '@controleonline/ui-manager/src/react/pages/Integrations';
+import ManagerCategoriesPage from '@controleonline/ui-manager/src/react/pages/ManagerCategoriesPage';
 import ModelTemplatesPage from '@controleonline/ui-manager/src/react/pages/ModelTemplatesPage';
 import OrderHistoryPage from '@controleonline/ui-manager/src/react/pages/OrderHistoryPage';
 import WhatsAppConnectionPage from '@controleonline/ui-manager/src/react/pages/WhatsAppConnectionPage';
@@ -98,6 +99,17 @@ const managerRoutes = [
       headerShown: true,
       headerBackVisible: true,
       title: global.t?.t("configs", "title", "integrations"),
+      showCompanyFilter: true,
+      companyFilterMode: 'icon',
+    },
+  },
+  {
+    name: 'ManagerCategoriesPage',
+    component: ManagerCategoriesPage,
+    options: {
+      headerShown: true,
+      headerBackVisible: true,
+      title: 'Categorias',
       showCompanyFilter: true,
       companyFilterMode: 'icon',
     },

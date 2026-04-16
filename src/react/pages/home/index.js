@@ -356,7 +356,7 @@ export default function HomePage({ navigation }) {
           </ShortcutsRow>
           <ShortcutsRow last>
             <ShortcutCard label={global.t?.t('configs', 'button_title', 'integrations')} icon="link" color={HEX.info} onPress={() => go('IntegrationsPage')} />
-            <View style={{ flex: 1 }} />
+            <ShortcutCard label="Categorias" icon="tag" color={HEX.warning} onPress={() => go('ManagerCategoriesPage')} />
           </ShortcutsRow>
         </SectionBlock>
 
