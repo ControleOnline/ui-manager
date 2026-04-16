@@ -70,6 +70,19 @@ const formatApiError = error => {
 
 const countCollection = collection => (Array.isArray(collection) ? collection.length : 0);
 
+const formatDateTimeLabel = value => {
+  if (!value) return '--';
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return String(value);
+  return parsed.toLocaleString('pt-BR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+};
+
 export default function IFoodIntegrationPage() {
   const peopleStore = useStore('people');
   const themeStore  = useStore('theme');
@@ -737,6 +750,7 @@ export default function IFoodIntegrationPage() {
   const selectedStore  = detail?.selected_store || stores.find(
     s => String(s?.merchant_id || '') === ifoodCode,
   );
+  const selectedStoreDetail = detail?.selected_store_detail || null;
   const connected      = Boolean(integration?.connected);
   const authAvailable  = Boolean(integration?.auth_available);
   const remoteConnected = Boolean(integration?.remote_connected);
@@ -744,6 +758,7 @@ export default function IFoodIntegrationPage() {
   const statusText     = connected ? 'Conectada' : 'Pendente';
   const logo           = getOrderChannelLogo({ app: 'iFood' });
   const eligibleCount  = productsResponse?.eligible_product_count || 0;
+  const activeInterruptions = Array.isArray(storeStatus?.data?.interruptions) ? storeStatus.data.interruptions : [];
 
   const tabCounts = {
     all:      products.length,
@@ -822,6 +837,55 @@ export default function IFoodIntegrationPage() {
               <Text style={styles.errorText}>{integration.last_error_message}</Text>
             </View>
           )}
+
+          {!!selectedStoreDetail && (
+            <View style={styles.selectedStoreBox}>
+              <Text style={styles.selectedStoreTitle}>Detalhes da loja</Text>
+
+              <View style={styles.metaGrid}>
+                <View style={styles.metaBox}>
+                  <Text style={styles.metaLabel}>Nome fantasia</Text>
+                  <Text style={styles.metaValue}>{selectedStoreDetail?.name || '--'}</Text>
+                </View>
+                <View style={styles.metaBox}>
+                  <Text style={styles.metaLabel}>Status</Text>
+                  <Text style={styles.metaValue}>{selectedStoreDetail?.status_label || '--'}</Text>
+                </View>
+              </View>
+
+              <View style={styles.metaGrid}>
+                <View style={styles.metaBox}>
+                  <Text style={styles.metaLabel}>Razao social</Text>
+                  <Text style={styles.metaValue}>{selectedStoreDetail?.corporate_name || '--'}</Text>
+                </View>
+                <View style={styles.metaBox}>
+                  <Text style={styles.metaLabel}>Tipo</Text>
+                  <Text style={styles.metaValue}>{selectedStoreDetail?.type || '--'}</Text>
+                </View>
+              </View>
+
+              <View style={styles.metaBox}>
+                <Text style={styles.metaLabel}>Endereco</Text>
+                <Text style={styles.metaValue}>
+                  {selectedStoreDetail?.address?.formatted || 'Endereco nao informado'}
+                </Text>
+              </View>
+
+              {Array.isArray(selectedStoreDetail?.operations) && selectedStoreDetail.operations.length > 0 && (
+                <View style={styles.storeOperationsBox}>
+                  <Text style={styles.metaLabel}>Operacoes configuradas</Text>
+                  {selectedStoreDetail.operations.map((operation, index) => (
+                    <Text key={`${operation?.name || 'op'}-${index}`} style={styles.operationText}>
+                      {operation?.name || 'Operacao'}
+                      {Array.isArray(operation?.sales_channels) && operation.sales_channels.length > 0
+                        ? ` - ${operation.sales_channels.join(', ')}`
+                        : ''}
+                    </Text>
+                  ))}
+                </View>
+              )}
+            </View>
+          )}
         </View>
 
         {/* disponibilidade */}
@@ -850,6 +914,25 @@ export default function IFoodIntegrationPage() {
             </Text>
 
             {/* operacoes — oculta chips ERROR quando a loja ja esta offline (redundante com o badge) */}
+            {activeInterruptions.length > 0 && (
+              <View style={styles.interruptionsBox}>
+                <Text style={styles.interruptionsTitle}>Pausas ativas</Text>
+                {activeInterruptions.map((interruption, index) => (
+                  <View key={String(interruption?.id || index)} style={styles.interruptionItem}>
+                    <Text style={styles.interruptionText}>
+                      {interruption?.description || 'Interrupcao ativa'}
+                    </Text>
+                    <Text style={styles.interruptionMeta}>
+                      Inicio: {formatDateTimeLabel(interruption?.start)}
+                    </Text>
+                    <Text style={styles.interruptionMeta}>
+                      Fim: {formatDateTimeLabel(interruption?.end)}
+                    </Text>
+                  </View>
+                ))}
+              </View>
+            )}
+
             {Array.isArray(storeStatus?.data?.operations) && (() => {
               const storeOnline = storeStatus.data.online === true;
               const visibleOps  = storeStatus.data.operations.filter(op => storeOnline || op.state !== 'ERROR');
@@ -1588,6 +1671,13 @@ const styles = StyleSheet.create({
   selectedStoreBox: { borderRadius: 12, borderWidth: 1, borderColor: '#E2E8F0', backgroundColor: '#F8FAFC', paddingHorizontal: 12, paddingVertical: 10, gap: 4 },
   selectedStoreTitle: { color: '#334155', fontSize: 12, fontWeight: '700', textTransform: 'uppercase' },
   selectedStoreText: { color: '#0F172A', fontSize: 13, fontWeight: '600' },
+  storeOperationsBox: { gap: 6, marginTop: 4 },
+  operationText: { color: '#334155', fontSize: 12, lineHeight: 17, fontWeight: '600' },
+  interruptionsBox: { borderRadius: 12, borderWidth: 1, borderColor: '#FDE68A', backgroundColor: '#FFFBEB', paddingHorizontal: 12, paddingVertical: 10, gap: 8 },
+  interruptionsTitle: { color: '#92400E', fontSize: 12, fontWeight: '800', textTransform: 'uppercase' },
+  interruptionItem: { borderRadius: 10, backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#FDE68A', paddingHorizontal: 10, paddingVertical: 8, gap: 2 },
+  interruptionText: { color: '#78350F', fontSize: 12, fontWeight: '700' },
+  interruptionMeta: { color: '#92400E', fontSize: 11, lineHeight: 15 },
   sectionHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
   selectionBadge: { borderRadius: 999, paddingHorizontal: 12, paddingVertical: 6 },
   selectionBadgeText: { fontSize: 12, fontWeight: '700' },
