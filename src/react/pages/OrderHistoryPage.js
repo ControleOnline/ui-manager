@@ -18,6 +18,11 @@ import { useStore } from '@store';
 import Formatter from '@controleonline/ui-common/src/utils/formatter';
 import { getOrderChannelLabel, getOrderChannelLogo } from '@assets/ppc/channels';
 import { canDeviceViewCompanyOrders } from '@controleonline/ui-common/src/react/config/deviceConfigBootstrap';
+import {
+  buildDateFilterOptions,
+  getDateRange,
+  validateCustomDateRange,
+} from '@controleonline/ui-common/src/react/utils/dateRangeFilter';
 import { resolveDisplayedOrderStatus } from '@controleonline/ui-orders/src/react/components/OrderHeader';
 import { buildOrderDetailsRouteParams } from '@controleonline/ui-orders/src/react/utils/orderRoute';
 import { colors } from '@controleonline/../../src/styles/colors';
@@ -27,52 +32,12 @@ import { resolveThemePalette, withOpacity } from '@controleonline/../../src/styl
 
 const PAGE_SIZE = 50;
 
-const DATE_INPUT_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
-
 /* tabs sem filtro de canal/status */
 const SIMPLE_TAB_KEYS = new Set(['transfer', 'loss']);
 
 /* ─── helpers ───────────────────────────────────────────────────────── */
 
-const pad2 = v => String(v).padStart(2, '0');
-
-const formatDateToApi = d =>
-  `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())} ${pad2(d.getHours())}:${pad2(d.getMinutes())}:${pad2(d.getSeconds())}`;
-
 const normalizeText = value => String(value || '').trim();
-
-const parseDateInput = value => {
-  const s = String(value || '').trim();
-  if (!DATE_INPUT_PATTERN.test(s)) return null;
-  const [y, m, day] = s.split('-').map(Number);
-  const d = new Date(y, m - 1, day, 0, 0, 0, 0);
-  return isNaN(d.getTime()) ? null : d;
-};
-
-const getDateRange = (dateFilter, customRange) => {
-  const now = new Date();
-  if (dateFilter === 'today') {
-    const start = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
-    return { after: formatDateToApi(start), before: formatDateToApi(now) };
-  }
-  if (dateFilter === '7d') {
-    const start = new Date(now); start.setDate(now.getDate() - 7);
-    return { after: formatDateToApi(start), before: formatDateToApi(now) };
-  }
-  if (dateFilter === '30d') {
-    const start = new Date(now); start.setDate(now.getDate() - 30);
-    return { after: formatDateToApi(start), before: formatDateToApi(now) };
-  }
-  if (dateFilter === 'custom') {
-    const from = parseDateInput(customRange?.from);
-    const to = parseDateInput(customRange?.to);
-    if (!from && !to) return {};
-    if (from) from.setHours(0, 0, 0, 0);
-    if (to) to.setHours(23, 59, 59, 999);
-    return { after: from ? formatDateToApi(from) : null, before: to ? formatDateToApi(to) : null };
-  }
-  return {};
-};
 
 const getEntityId = entity => {
   if (!entity) return null;
@@ -151,13 +116,10 @@ export default function OrderHistoryPage({ navigation }) {
     [themeColors, currentCompany?.id],
   );
 
-  const dateFilterOptions = useMemo(() => ([
-    { key: 'all', label: global.t?.t('orders', 'label', 'period_all') },
-    { key: 'today', label: global.t?.t('orders', 'label', 'period_today') },
-    { key: '7d', label: global.t?.t('orders', 'label', 'period_7d') },
-    { key: '30d', label: global.t?.t('orders', 'label', 'period_30d') },
-    { key: 'custom', label: global.t?.t('orders', 'label', 'period_custom') },
-  ]), []);
+  const dateFilterOptions = useMemo(
+    () => buildDateFilterOptions(['all', 'today', '7d', '30d', 'custom']),
+    [],
+  );
 
   const channelOptions = useMemo(() => ([
     { key: 'all', label: global.t?.t('orders', 'label', 'all') },
@@ -257,7 +219,12 @@ export default function OrderHistoryPage({ navigation }) {
       query['device.device'] = storagedDevice.id;
     }
 
-    const dateRange = showAdvancedFilters ? getDateRange(dateFilter, customRange) : {};
+    const dateRange = showAdvancedFilters
+      ? getDateRange(dateFilter, customRange, {
+        relativeMode: 'rolling',
+        useCurrentMoment: true,
+      })
+      : {};
     if (dateRange?.after) query['alterDate[after]'] = dateRange.after;
     if (dateRange?.before) query['alterDate[before]'] = dateRange.before;
 
@@ -382,10 +349,8 @@ export default function OrderHistoryPage({ navigation }) {
     const fromVal = String(customFromInput || '').trim();
     const toVal = String(customToInput || '').trim();
     if (!fromVal && !toVal) { setDateValidationMessage(''); setCustomRange({ from: '', to: '' }); return; }
-    const fromDate = fromVal ? parseDateInput(fromVal) : null;
-    const toDate = toVal ? parseDateInput(toVal) : null;
-    if ((fromVal && !fromDate) || (toVal && !toDate)) { setDateValidationMessage(global.t?.t('orders', 'validation', 'invalid_date_format')); return; }
-    if (fromDate && toDate && fromDate > toDate) { setDateValidationMessage(global.t?.t('orders', 'validation', 'invalid_date_range')); return; }
+    const validationMessage = validateCustomDateRange(fromVal, toVal);
+    if (validationMessage) { setDateValidationMessage(validationMessage); return; }
     setDateValidationMessage('');
     setCustomRange({ from: fromVal, to: toVal });
   }, [customFromInput, customToInput, dateFilter]);
