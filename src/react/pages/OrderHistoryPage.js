@@ -19,6 +19,7 @@ import Formatter from '@controleonline/ui-common/src/utils/formatter';
 import { getOrderChannelLabel, getOrderChannelLogo } from '@assets/ppc/channels';
 import { canDeviceViewCompanyOrders } from '@controleonline/ui-common/src/react/config/deviceConfigBootstrap';
 import { resolveDisplayedOrderStatus } from '@controleonline/ui-orders/src/react/components/OrderHeader';
+import { buildOrderDetailsRouteParams } from '@controleonline/ui-orders/src/react/utils/orderRoute';
 import { colors } from '@controleonline/../../src/styles/colors';
 import { resolveThemePalette, withOpacity } from '@controleonline/../../src/styles/branding';
 
@@ -138,7 +139,12 @@ export default function OrderHistoryPage({ navigation }) {
   const { currentCompany } = peopleGetters;
   const { colors: themeColors } = themeStore.getters;
   const { actions: orderActions, getters: ordersGetters } = ordersStore;
-  const { isLoading: storeLoading } = ordersGetters;
+  const {
+    items: storedOrders,
+    totalItems: storedTotalItems,
+    isLoadingList,
+    loadedKey,
+  } = ordersGetters;
 
   const brandColors = useMemo(
     () => resolveThemePalette({ ...themeColors, ...(currentCompany?.theme?.colors || {}) }, colors),
@@ -178,9 +184,6 @@ export default function OrderHistoryPage({ navigation }) {
 
   /* ─── estado ──────────────────────────────────────────────────────── */
 
-  const [orders, setOrders] = useState([]);
-  const [page, setPage] = useState(1);
-  const [hasMore, setHasMore] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
@@ -211,6 +214,11 @@ export default function OrderHistoryPage({ navigation }) {
   );
 
   const showAdvancedFilters = env.APP_TYPE !== 'POS' || canViewCompanyOrders;
+  const orders = useMemo(
+    () => (Array.isArray(storedOrders) ? storedOrders : []),
+    [storedOrders],
+  );
+  const totalOrders = Number(storedTotalItems || 0);
 
   /* ref para evitar fetch duplicado */
   const fetchingRef = useRef(false);
@@ -222,8 +230,8 @@ export default function OrderHistoryPage({ navigation }) {
       return;
     }
 
-    navigation.navigate('PdvPage', { orderType: orderTypeFilter });
-  }, [navigation, orderTypeFilter, isCashRegisterClosed]);
+    navigation.navigate('AddProductScreen');
+  }, [navigation, isCashRegisterClosed]);
 
   useEffect(() => {
     if (!isFocused || env.APP_TYPE !== 'POS') return;
@@ -232,40 +240,72 @@ export default function OrderHistoryPage({ navigation }) {
     navigation.navigate('CloseCashRegister');
   }, [isFocused, isCashRegisterClosed, navigation]);
 
+  const historyQuery = useMemo(() => {
+    if (!currentCompany?.id) return null;
+
+    const query = {
+      provider: `/people/${currentCompany.id}`,
+      itemsPerPage: PAGE_SIZE,
+      'order[id]': 'desc',
+    };
+
+    if (orderTypeFilter !== 'all') query.orderType = orderTypeFilter;
+    if (showAdvancedFilters && channelFilter !== 'all') query.app = channelFilter;
+    if (showAdvancedFilters && statusFilter !== 'all') query['status.realStatus'] = statusFilter;
+
+    if (env.APP_TYPE === 'POS' && !canViewCompanyOrders && storagedDevice?.id) {
+      query['device.device'] = storagedDevice.id;
+    }
+
+    const dateRange = showAdvancedFilters ? getDateRange(dateFilter, customRange) : {};
+    if (dateRange?.after) query['alterDate[after]'] = dateRange.after;
+    if (dateRange?.before) query['alterDate[before]'] = dateRange.before;
+
+    return query;
+  }, [
+    currentCompany?.id,
+    orderTypeFilter,
+    showAdvancedFilters,
+    channelFilter,
+    statusFilter,
+    canViewCompanyOrders,
+    storagedDevice?.id,
+    dateFilter,
+    customRange,
+  ]);
+
+  const historyLoadedKey = useMemo(
+    () => JSON.stringify(historyQuery || {}),
+    [historyQuery],
+  );
+  const hasMore = useMemo(() => {
+    if (!orders.length) return false;
+    if (totalOrders > 0) return orders.length < totalOrders;
+    return orders.length % PAGE_SIZE === 0;
+  }, [orders.length, totalOrders]);
+
   /* ─── fetch (aceita página, acumula ou substitui) ────────────────── */
 
   const fetchPage = useCallback(async (targetPage, replace = false) => {
-    if (!currentCompany?.id) { setOrders([]); return; }
+    if (!historyQuery) {
+      orderActions.setItems([]);
+      orderActions.setTotalItems(0);
+      setError('');
+      return;
+    }
     if (fetchingRef.current) return;
     fetchingRef.current = true;
 
     try {
       setError('');
-      const query = {
-        provider: `/people/${currentCompany.id}`,
-        itemsPerPage: PAGE_SIZE,
-        page: targetPage,
-        'order[id]': 'desc',
-      };
-      if (orderTypeFilter !== 'all') query.orderType = orderTypeFilter;
-      if (showAdvancedFilters && channelFilter !== 'all') query.app = channelFilter;
-
-      if (showAdvancedFilters && statusFilter !== 'all') query['status.realStatus'] = statusFilter;
-
-      if (env.APP_TYPE === 'POS' && !canViewCompanyOrders && storagedDevice?.id) {
-        query['device.device'] = storagedDevice.id;
-      }
-
-      const dateRange = showAdvancedFilters ? getDateRange(dateFilter, customRange) : {};
-      if (dateRange?.after) query['alterDate[after]'] = dateRange.after;
-      if (dateRange?.before) query['alterDate[before]'] = dateRange.before;
-
-      const response = await orderActions.getItems(query);
-      const items = Array.isArray(response) ? response : [];
-
-      setOrders(prev => replace ? items : [...prev, ...items]);
-      setPage(targetPage);
-      setHasMore(items.length === PAGE_SIZE);
+      await orderActions.fetchHistoryPage({
+        query: {
+          ...historyQuery,
+          page: targetPage,
+        },
+        append: !replace,
+        loadedKey: historyLoadedKey,
+      });
     } catch (err) {
       setError(err?.message || 'Não foi possível carregar o histórico.');
     } finally {
@@ -274,42 +314,45 @@ export default function OrderHistoryPage({ navigation }) {
       setRefreshing(false);
     }
   }, [
-    currentCompany?.id,
-    orderTypeFilter,
-    channelFilter,
-    statusFilter,
-    dateFilter,
-    customRange?.from,
-    customRange?.to,
-    canViewCompanyOrders,
     orderActions,
-    showAdvancedFilters,
-    storagedDevice?.id,
+    historyLoadedKey,
+    historyQuery,
   ]);
 
-  /* dispara reset ao focar ou trocar filtro de data/empresa */
+  /* carrega somente quando o snapshot atual da store não atende ao filtro atual */
   useEffect(() => {
     if (!isFocused) return;
-    setOrders([]);
-    setPage(1);
-    setHasMore(false);
-    fetchPage(1, true);
+
+    if (!currentCompany?.id) {
+      orderActions.setItems([]);
+      orderActions.setTotalItems(0);
+      setError('');
+      return;
+    }
+
+    const hasLoadedSnapshot =
+      loadedKey === historyLoadedKey &&
+      Array.isArray(storedOrders);
+
+    if (!hasLoadedSnapshot) {
+      fetchPage(1, true);
+      return;
+    }
+
+    setError('');
   }, [
     isFocused,
     currentCompany?.id,
-    orderTypeFilter,
-    channelFilter,
-    statusFilter,
-    dateFilter,
-    customRange?.from,
-    customRange?.to,
-    canViewCompanyOrders,
+    fetchPage,
+    historyLoadedKey,
+    loadedKey,
+    orderActions,
+    storedOrders,
   ]);
 
   /* pull-to-refresh */
   const onRefresh = useCallback(() => {
     setRefreshing(true);
-    setOrders([]);
     fetchPage(1, true);
   }, [fetchPage]);
 
@@ -317,8 +360,8 @@ export default function OrderHistoryPage({ navigation }) {
   const loadMore = useCallback(() => {
     if (loadingMore || !hasMore || fetchingRef.current) return;
     setLoadingMore(true);
-    fetchPage(page + 1, false);
-  }, [loadingMore, hasMore, page, fetchPage]);
+    fetchPage(Math.floor(orders.length / PAGE_SIZE) + 1, false);
+  }, [loadingMore, hasMore, fetchPage, orders.length]);
 
   const handleScroll = useCallback(({ nativeEvent: { layoutMeasurement, contentOffset, contentSize } }) => {
     if (layoutMeasurement.height + contentOffset.y >= contentSize.height - 60) loadMore();
@@ -415,8 +458,9 @@ export default function OrderHistoryPage({ navigation }) {
   }, [orders, peopleActions, purchaseSuppliersById]);
 
   const openOrder = useCallback(order => {
-    navigation.navigate('OrderDetails', { order, kds: true });
-  }, [navigation]);
+    orderActions.syncOrder?.(order);
+    navigation.navigate('OrderDetails', buildOrderDetailsRouteParams(order, { kds: true }));
+  }, [navigation, orderActions]);
 
   /* ─── card de pedido ─────────────────────────────────────────────── */
 
@@ -652,7 +696,7 @@ export default function OrderHistoryPage({ navigation }) {
         </View>
 
         {/* loading inicial */}
-        {storeLoading && (
+        {isLoadingList && (
           <View style={styles.centerState}>
             <ActivityIndicator size="large" color={brandColors.primary} />
             <Text style={styles.centerStateTitle}>{global.t?.t('orders', 'state', 'loading_orders')}</Text>
@@ -660,7 +704,7 @@ export default function OrderHistoryPage({ navigation }) {
         )}
 
         {/* erro */}
-        {!storeLoading && !!error && (
+        {!isLoadingList && !!error && (
           <View style={styles.centerState}>
             <Icon name="alert-circle" size={28} color="#DC2626" />
             <Text style={styles.centerStateTitle}>{global.t?.t('orders', 'state', 'load_error')}</Text>
@@ -669,7 +713,7 @@ export default function OrderHistoryPage({ navigation }) {
         )}
 
         {/* vazio */}
-        {!storeLoading && !error && filteredOrders.length === 0 && (
+        {!isLoadingList && !error && filteredOrders.length === 0 && (
           <View style={styles.centerState}>
             <Icon name="inbox" size={28} color="#94A3B8" />
             <Text style={styles.centerStateTitle}>{global.t?.t('orders', 'state', 'empty')}</Text>
@@ -678,7 +722,7 @@ export default function OrderHistoryPage({ navigation }) {
         )}
 
         {/* lista */}
-        {!storeLoading && !error && (
+        {!isLoadingList && !error && (
           <View style={styles.list}>
             {filteredOrders.map(order => renderCard(order))}
           </View>
@@ -692,7 +736,7 @@ export default function OrderHistoryPage({ navigation }) {
         )}
 
         {/* fim da lista */}
-        {!storeLoading && !hasMore && filteredOrders.length > 0 && (
+        {!isLoadingList && !hasMore && filteredOrders.length > 0 && (
           <Text style={styles.endText}>{global.t?.t('orders', 'state', 'all_loaded')}</Text>
         )}
 

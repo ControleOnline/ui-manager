@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   ActivityIndicator,
   FlatList,
@@ -18,10 +18,24 @@ import { SafeAreaView } from 'react-native-safe-area-context'
 import { useFocusEffect, useNavigation } from '@react-navigation/native'
 import { MaterialCommunityIcons } from '@expo/vector-icons'
 
-import { api } from '@controleonline/ui-common/src/api'
 import { useStore } from '@store'
 import Formatter from '@controleonline/ui-common/src/utils/formatter'
 import { env } from '@env'
+import usePosCartSession, {
+  getOrderPeopleValue,
+} from '@controleonline/ui-orders/src/react/hooks/usePosCartSession'
+import useDebouncedOrderProductQuantitySync from '@controleonline/ui-orders/src/react/hooks/useDebouncedOrderProductQuantitySync'
+import {
+  readCachedCategories as readSharedCachedCategories,
+  updateCachedCategoryProducts as updateSharedCachedCategoryProducts,
+  writeCachedCategories as writeSharedCachedCategories,
+} from '@controleonline/ui-products/src/react/utils/categoryCache'
+import {
+  mergeOrderProductIntoList,
+  mergeOrderWithOrderProducts,
+  removeOrderProductFromList,
+  withOrderProductQuantity,
+} from '@controleonline/ui-orders/src/utils/orderState'
 import { resolveThemePalette, withOpacity } from '@controleonline/../../src/styles/branding'
 
 /* ─── constantes ────────────────────────────────────────────────────── */
@@ -69,81 +83,6 @@ const extractItems = response => {
   return []
 }
 
-const CATEGORY_CACHE_KEY = 'categories'
-const CATEGORY_CACHE_COMPANY_KEY = 'categories-company'
-
-const readCachedCategories = companyId => {
-  const normalizedCompanyId = String(companyId || '').replace(/\D/g, '')
-  const cachedCompanyId = String(localStorage.getItem(CATEGORY_CACHE_COMPANY_KEY) || '')
-
-  if (!normalizedCompanyId || cachedCompanyId !== normalizedCompanyId) {
-    return []
-  }
-
-  try {
-    const cached = JSON.parse(localStorage.getItem(CATEGORY_CACHE_KEY) || '[]')
-    return Array.isArray(cached) ? cached : []
-  } catch (e) {
-    return []
-  }
-}
-
-const writeCachedCategories = (companyId, categories) => {
-  localStorage.setItem(
-    CATEGORY_CACHE_COMPANY_KEY,
-    String(companyId || '').replace(/\D/g, ''),
-  )
-  localStorage.setItem(CATEGORY_CACHE_KEY, JSON.stringify(categories || []))
-}
-
-const updateCachedCategoryProducts = (companyId, category, products) => {
-  const cachedCategories = readCachedCategories(companyId)
-  const nextProducts = Array.isArray(products) ? products : []
-
-  if (!category?.['@id']) {
-    return cachedCategories
-  }
-
-  const nextCategories = cachedCategories.map(item =>
-    item?.['@id'] === category['@id']
-      ? {...item, products: nextProducts}
-      : item,
-  )
-
-  writeCachedCategories(companyId, nextCategories)
-  return nextCategories
-}
-
-const normalizeStatusKey = value => String(value || '').trim().toLowerCase()
-
-const extractStatusItems = response => {
-  if (Array.isArray(response)) return response
-  if (Array.isArray(response?.member)) return response.member
-  if (Array.isArray(response?.['hydra:member'])) return response['hydra:member']
-  return []
-}
-
-const buildStatusIriFromId = value => {
-  const normalizedId = String(value || '').replace(/\D/g, '')
-  return normalizedId ? `/statuses/${normalizedId}` : null
-}
-
-let posOpenOrderStatusIriCache = null
-
-const isOpenPosCartOrder = order =>
-  String(order?.app || '').trim().toUpperCase() === 'POS' &&
-  normalizeStatusKey(order?.status?.realStatus) === 'open' &&
-  normalizeStatusKey(order?.status?.status) === 'open'
-
-const buildPdvDraftOrderStorageKey = (companyId, deviceId) =>
-  `pdv-active-order:${normalizeId(companyId) || '0'}:${normalizeId(deviceId) || '0'}`
-
-const getOrderPeopleValue = order =>
-  order?.people ||
-  order?.client ||
-  order?.customer ||
-  null
-
 const mapOrderProductToCartItem = orderProduct => {
   const quantity = Number(orderProduct?.quantity || 0)
   const baseProduct = orderProduct?.product || {}
@@ -178,40 +117,6 @@ const mapOrderProductToCartItem = orderProduct => {
           },
         }))
       : [],
-  }
-}
-
-const resolvePosOrderOpenStatusIri = async fallbackStatusId => {
-  if (posOpenOrderStatusIriCache) return posOpenOrderStatusIriCache
-
-  const fallbackIri = buildStatusIriFromId(fallbackStatusId)
-
-  try {
-    const response = await api.fetch('statuses', {
-      params: {
-        context: 'order',
-        realStatus: 'open',
-        status: 'open',
-        itemsPerPage: 10,
-      },
-    })
-    const items = extractStatusItems(response)
-    const matchedStatus =
-      items.find(
-        item =>
-          normalizeStatusKey(item?.realStatus) === 'open' &&
-          normalizeStatusKey(item?.status) === 'open',
-      ) || items[0]
-    const resolvedIri =
-      matchedStatus?.['@id'] || buildStatusIriFromId(matchedStatus?.id) || fallbackIri
-
-    if (resolvedIri) {
-      posOpenOrderStatusIriCache = resolvedIri
-    }
-
-    return resolvedIri
-  } catch (error) {
-    return fallbackIri
   }
 }
 
@@ -726,7 +631,6 @@ export default function PdvPage() {
   const [screen, setScreen]                   = useState('categories')
   const [selectedCategory, setSelectedCategory] = useState(null)
   const [search, setSearch]                   = useState('')
-  const [activeOrder, setActiveOrder]         = useState(null)
   const [cartSyncing, setCartSyncing]         = useState(false)
 
   const [custModal, setCustModal]             = useState({ visible: false, product: null })
@@ -740,10 +644,18 @@ export default function PdvPage() {
 
   const [selectedPeople, setSelectedPeople]   = useState(null)
   const [peopleQuery, setPeopleQuery]         = useState('')
-  const pdvDraftOrderStorageKey = useMemo(
-    () => buildPdvDraftOrderStorageKey(currentCompany?.id, storagedDevice?.id),
-    [currentCompany?.id, storagedDevice?.id],
-  )
+  const activeOrderProductsRef                = useRef([])
+  const {
+    activeOrder,
+    ensureActiveOrder,
+    loadStoredDraftOrder,
+    syncActiveOrderState,
+    syncOrderPeople,
+  } = usePosCartSession({
+    companyId: currentCompany?.id,
+    deviceId: storagedDevice?.id,
+    defaultStatusId: currentCompany?.configs?.['pos-default-status'],
+  })
   const rootOrderProducts = useMemo(
     () =>
       (activeOrder?.orderProducts || []).filter(orderProduct => !orderProduct?.parentProduct),
@@ -753,165 +665,81 @@ export default function PdvPage() {
     () => rootOrderProducts.map(mapOrderProductToCartItem),
     [rootOrderProducts],
   )
-  const isCartBusy = cartSyncing || orderSaving || orderProductsSaving
+  const isCartBusy = cartSyncing || orderSaving
 
-  const clearStoredDraftOrderId = useCallback(() => {
-    if (typeof localStorage === 'undefined' || !pdvDraftOrderStorageKey) return
-    localStorage.removeItem(pdvDraftOrderStorageKey)
-  }, [pdvDraftOrderStorageKey])
+  useEffect(() => {
+    activeOrderProductsRef.current = Array.isArray(activeOrder?.orderProducts)
+      ? activeOrder.orderProducts
+      : []
+  }, [activeOrder?.orderProducts])
 
-  const rememberDraftOrderId = useCallback(order => {
-    const orderId = normalizeId(order?.id || order?.['@id'])
-    if (typeof localStorage === 'undefined' || !pdvDraftOrderStorageKey || !orderId) return
-    localStorage.setItem(pdvDraftOrderStorageKey, orderId)
-  }, [pdvDraftOrderStorageKey])
+  const syncCartOrderProducts = useCallback(nextOrderProducts => {
+    if (!activeOrder) return null
 
-  const syncActiveOrderState = useCallback(order => {
-    if (order && isOpenPosCartOrder(order)) {
-      rememberDraftOrderId(order)
-      setActiveOrder(order)
-      setSelectedPeople(previousPeople => {
-        const nextPeople = getOrderPeopleValue(order)
-        if (nextPeople) return nextPeople
+    const normalizedOrderProducts = Array.isArray(nextOrderProducts) ? nextOrderProducts : []
+    activeOrderProductsRef.current = normalizedOrderProducts
+    orderProductsStore.actions.setItems(normalizedOrderProducts)
 
-        const sameOrder =
-          normalizeId(activeOrder?.id || activeOrder?.['@id']) ===
-          normalizeId(order?.id || order?.['@id'])
+    return syncActiveOrderState(
+      mergeOrderWithOrderProducts(activeOrder, normalizedOrderProducts),
+    )
+  }, [activeOrder, orderProductsStore.actions, syncActiveOrderState])
 
-        return sameOrder ? previousPeople : null
+  const {
+    cancelAllChanges: cancelPendingCartQuantityChanges,
+    flushAllChanges: flushPendingCartQuantityChanges,
+    scheduleQuantityChange: scheduleCartQuantityChange,
+  } = useDebouncedOrderProductQuantitySync({
+    onOptimisticUpdate: (orderProduct, nextQuantity) => {
+      const nextOrderProducts =
+        nextQuantity <= 0
+          ? removeOrderProductFromList(activeOrderProductsRef.current, orderProduct)
+          : mergeOrderProductIntoList(
+              activeOrderProductsRef.current,
+              withOrderProductQuantity(orderProduct, nextQuantity),
+            )
+
+      syncCartOrderProducts(nextOrderProducts)
+    },
+    onCommit: async (orderProduct, targetQuantity) => {
+      const orderProductId = normalizeId(orderProduct?.id || orderProduct?.['@id'])
+      if (!orderProductId) return
+
+      if (targetQuantity <= 0) {
+        await orderProductsStore.actions.remove(orderProductId)
+        return
+      }
+
+      const savedOrderProduct = await orderProductsStore.actions.save({
+        '@id': orderProduct?.['@id'],
+        id: Number(orderProductId),
+        quantity: targetQuantity,
       })
-      ordersStore.actions.setItem(order)
-      return order
+
+      syncCartOrderProducts(
+        mergeOrderProductIntoList(activeOrderProductsRef.current, savedOrderProduct),
+      )
+    },
+  })
+
+  useEffect(() => {
+    const nextPeople = getOrderPeopleValue(activeOrder)
+    if (nextPeople) {
+      setSelectedPeople(nextPeople)
+      return
     }
 
-    clearStoredDraftOrderId()
-    setActiveOrder(null)
-    setSelectedPeople(null)
-    ordersStore.actions.setItem({})
-    return null
-  }, [activeOrder, clearStoredDraftOrderId, ordersStore.actions, rememberDraftOrderId])
-
-  const readStoredDraftOrderId = useCallback(() => {
-    if (typeof localStorage === 'undefined' || !pdvDraftOrderStorageKey) return null
-    return normalizeId(localStorage.getItem(pdvDraftOrderStorageKey))
-  }, [pdvDraftOrderStorageKey])
-
-  const refreshActiveOrder = useCallback(async orderId => {
-    const targetId = normalizeId(orderId || activeOrder?.id || activeOrder?.['@id'])
-    if (!targetId) {
-      return syncActiveOrderState(null)
+    if (!activeOrder) {
+      setSelectedPeople(null)
     }
-
-    try {
-      const refreshedOrder = await ordersStore.actions.get(targetId)
-      return syncActiveOrderState(refreshedOrder)
-    } catch (error) {
-      return syncActiveOrderState(null)
-    }
-  }, [activeOrder?.['@id'], activeOrder?.id, ordersStore.actions, syncActiveOrderState])
-
-  const loadStoredDraftOrder = useCallback(async () => {
-    const storedOrderId = readStoredDraftOrderId()
-    if (!storedOrderId) {
-      return syncActiveOrderState(null)
-    }
-
-    return refreshActiveOrder(storedOrderId)
-  }, [readStoredDraftOrderId, refreshActiveOrder, syncActiveOrderState])
-
-  const buildOrderPayload = useCallback((statusIri, peopleIri = null, orderId = null) => {
-    const payload = {
-      app: 'POS',
-      provider: '/people/' + currentCompany.id,
-      status: statusIri,
-      orderType: 'sale',
-    }
-
-    if (orderId) {
-      payload.id = Number(orderId)
-    }
-
-    if (peopleIri !== undefined) {
-      payload.people = peopleIri
-    }
-
-    if (storagedDevice?.id) {
-      payload['device.device'] = storagedDevice.id
-    }
-
-    return payload
-  }, [currentCompany?.id, storagedDevice?.id])
-
-  const ensureActiveOrder = useCallback(async (peopleIri = selectedPeople?.['@id'] || null) => {
-    if (isOpenPosCartOrder(activeOrder)) {
-      return activeOrder
-    }
-
-    const storedOrder = await loadStoredDraftOrder()
-    if (storedOrder) {
-      return storedOrder
-    }
-
-    const orderOpenStatusIri = await resolvePosOrderOpenStatusIri(
-      currentCompany?.configs?.['pos-default-status'],
-    )
-
-    if (!orderOpenStatusIri) {
-      throw new Error('Nao foi possivel resolver o status open/open do pedido no PDV.')
-    }
-
-    const createdOrder = await ordersStore.actions.save(
-      buildOrderPayload(orderOpenStatusIri, peopleIri),
-    )
-
-    return syncActiveOrderState(createdOrder)
-  }, [
-    activeOrder,
-    buildOrderPayload,
-    currentCompany?.configs,
-    loadStoredDraftOrder,
-    ordersStore.actions,
-    selectedPeople,
-    syncActiveOrderState,
-  ])
-
-  const syncOrderPeople = useCallback(async nextPeople => {
-    setSelectedPeople(nextPeople || null)
-
-    if (!activeOrder?.id || !currentCompany?.id) {
-      return activeOrder
-    }
-
-    const currentPeopleIri =
-      getOrderPeopleValue(activeOrder)?.['@id'] ||
-      null
-    const nextPeopleIri = nextPeople?.['@id'] || null
-
-    if (currentPeopleIri === nextPeopleIri) {
-      return activeOrder
-    }
-
-    const currentStatusIri =
-      activeOrder?.status?.['@id'] ||
-      buildStatusIriFromId(activeOrder?.status?.id)
-
-    if (!currentStatusIri) {
-      return activeOrder
-    }
-
-    const updatedOrder = await ordersStore.actions.save(
-      buildOrderPayload(currentStatusIri, nextPeopleIri, activeOrder.id),
-    )
-
-    return syncActiveOrderState(updatedOrder)
-  }, [activeOrder, buildOrderPayload, currentCompany?.id, ordersStore.actions, syncActiveOrderState])
+  }, [activeOrder])
 
   /* ── carregar categorias e pagamentos ── */
   useFocusEffect(
     useCallback(() => {
       if (!currentCompany?.id) return
 
-      const cachedCategories = readCachedCategories(currentCompany.id)
+      const cachedCategories = readSharedCachedCategories(currentCompany.id)
       if (cachedCategories.length > 0) {
         categoriesStore.actions.setItems(cachedCategories)
       } else {
@@ -922,7 +750,7 @@ export default function PdvPage() {
             company: currentCompany.id,
           })
           .then(data => {
-            writeCachedCategories(currentCompany.id, data || [])
+            writeSharedCachedCategories(currentCompany.id, data || [])
             categoriesStore.actions.setItems(data || [])
           })
       }
@@ -952,7 +780,6 @@ export default function PdvPage() {
   /* ── reset ao sair ── */
   useFocusEffect(
     useCallback(() => () => {
-      setActiveOrder(null)
       setScreen('categories')
       setSelectedCategory(null)
       setSearch('')
@@ -973,7 +800,7 @@ export default function PdvPage() {
     setSearch('')
 
     if (!cat) {
-      const cachedCategories = readCachedCategories(currentCompany.id)
+      const cachedCategories = readSharedCachedCategories(currentCompany.id)
       const cachedProducts = cachedCategories.flatMap(category =>
         Array.isArray(category?.products) ? category.products : [],
       )
@@ -983,7 +810,7 @@ export default function PdvPage() {
         return
       }
     } else {
-      const cachedCategories = readCachedCategories(currentCompany.id)
+      const cachedCategories = readSharedCachedCategories(currentCompany.id)
       const cachedCategory = cachedCategories.find(
         category => category?.['@id'] === cat['@id'],
       )
@@ -1005,7 +832,7 @@ export default function PdvPage() {
     productsStore.actions.getItems(params).then(data => {
       const nextProducts = Array.isArray(data) ? data : []
       if (cat?.['@id']) {
-        const nextCategories = updateCachedCategoryProducts(
+        const nextCategories = updateSharedCachedCategoryProducts(
           currentCompany.id,
           cat,
           nextProducts,
@@ -1147,21 +974,29 @@ export default function PdvPage() {
 
     setCartSyncing(true)
     try {
+      const currentOrderProducts = Array.isArray(activeOrder?.orderProducts)
+        ? activeOrder.orderProducts
+        : []
+
       if (Number(orderProduct?.quantity || 0) > 1) {
-        await orderProductsStore.actions.save({
+        const savedOrderProduct = await orderProductsStore.actions.save({
           '@id': orderProduct?.['@id'],
           id: Number(orderProductId),
           quantity: Number(orderProduct?.quantity || 0) - 1,
         })
+        syncCartOrderProducts(
+          mergeOrderProductIntoList(currentOrderProducts, savedOrderProduct),
+        )
       } else {
         await orderProductsStore.actions.remove(orderProductId)
+        syncCartOrderProducts(
+          removeOrderProductFromList(currentOrderProducts, orderProduct),
+        )
       }
-
-      await refreshActiveOrder()
     } finally {
       setCartSyncing(false)
     }
-  }, [orderProductsStore.actions, refreshActiveOrder])
+  }, [activeOrder?.orderProducts, orderProductsStore.actions, syncCartOrderProducts])
 
   const addCartItem = useCallback(async orderProduct => {
     const orderProductId = normalizeId(orderProduct?.id || orderProduct?.['@id'])
@@ -1169,17 +1004,21 @@ export default function PdvPage() {
 
     setCartSyncing(true)
     try {
-      await orderProductsStore.actions.save({
+      const savedOrderProduct = await orderProductsStore.actions.save({
         '@id': orderProduct?.['@id'],
         id: Number(orderProductId),
         quantity: Number(orderProduct?.quantity || 0) + 1,
       })
-
-      await refreshActiveOrder()
+      syncCartOrderProducts(
+        mergeOrderProductIntoList(
+          Array.isArray(activeOrder?.orderProducts) ? activeOrder.orderProducts : [],
+          savedOrderProduct,
+        ),
+      )
     } finally {
       setCartSyncing(false)
     }
-  }, [orderProductsStore.actions, refreshActiveOrder])
+  }, [activeOrder?.orderProducts, orderProductsStore.actions, syncCartOrderProducts])
 
   const openCheckout = () => {
     if (cartCount === 0) return
@@ -1459,12 +1298,22 @@ export default function PdvPage() {
                       if (!cartItems.length) return
                       setCartSyncing(true)
                       try {
+                        let nextOrderProducts = Array.isArray(activeOrder?.orderProducts)
+                          ? activeOrder.orderProducts
+                          : []
+
                         await Promise.all(
                           cartItems
                             .filter(orderItem => orderItem?.id)
                             .map(orderItem => orderProductsStore.actions.remove(orderItem.id)),
                         )
-                        await refreshActiveOrder()
+                        cartItems.forEach(orderItem => {
+                          nextOrderProducts = removeOrderProductFromList(
+                            nextOrderProducts,
+                            orderItem?.orderProduct || orderItem,
+                          )
+                        })
+                        syncCartOrderProducts(nextOrderProducts)
                       } finally {
                         setCartSyncing(false)
                       }
