@@ -212,6 +212,7 @@ export default function ManagerCategoriesPage({ navigation, route }) {
   const [editingCategory, setEditingCategory] = useState(null);
   const [formName, setFormName] = useState('');
   const [formContext, setFormContext] = useState('');
+  const [isFormContextLocked, setIsFormContextLocked] = useState(false);
   const [formColor, setFormColor] = useState(COLOR_PRESETS[5]);
   const [formIcon, setFormIcon] = useState('');
   const [formParentId, setFormParentId] = useState(null);
@@ -348,7 +349,7 @@ export default function ManagerCategoriesPage({ navigation, route }) {
   );
 
   const openCreateModal = useCallback(
-    presetContext => {
+    (presetContext, options = {}) => {
       const normalizedPresetContext =
         normalizeCategoryContext(presetContext) ||
         (selectedContext !== 'all' ? selectedContext : '');
@@ -356,6 +357,7 @@ export default function ManagerCategoriesPage({ navigation, route }) {
       setEditingCategory(null);
       setFormName('');
       setFormContext(normalizedPresetContext);
+      setIsFormContextLocked(Boolean(options.lockContext && normalizedPresetContext));
       setFormColor(COLOR_PRESETS[5]);
       setFormIcon('');
       setFormParentId(null);
@@ -368,6 +370,7 @@ export default function ManagerCategoriesPage({ navigation, route }) {
     setEditingCategory(category);
     setFormName(String(category?.name || ''));
     setFormContext(normalizeCategoryContext(category?.context));
+    setIsFormContextLocked(false);
     setFormColor(category?.color || COLOR_PRESETS[5]);
     setFormIcon(String(category?.icon || ''));
     setFormParentId(normalizeEntityId(category?.parent?.id || category?.parent?.['@id']));
@@ -379,6 +382,7 @@ export default function ManagerCategoriesPage({ navigation, route }) {
     setEditingCategory(null);
     setFormName('');
     setFormContext('');
+    setIsFormContextLocked(false);
     setFormColor(COLOR_PRESETS[5]);
     setFormIcon('');
     setFormParentId(null);
@@ -396,14 +400,18 @@ export default function ManagerCategoriesPage({ navigation, route }) {
     }
 
     if (route?.params?.startNew) {
-      openCreateModal(presetContext);
+      openCreateModal(presetContext, {
+        lockContext: Boolean(route?.params?.lockContext && presetContext),
+      });
     }
     navigation?.setParams?.({
       categoryAction: undefined,
       presetContext,
+      lockContext: undefined,
       startNew: false,
     });
   }, [
+    route?.params?.lockContext,
     navigation,
     openCreateModal,
     route?.params?.categoryAction,
@@ -675,14 +683,19 @@ export default function ManagerCategoriesPage({ navigation, route }) {
                   <View style={styles.formField}>
                     <Text style={styles.formLabel}>Contexto *</Text>
                     <TextInput
-                      style={styles.textInput}
+                      style={[styles.textInput, isFormContextLocked && styles.textInputDisabled]}
                       value={formContext}
                       onChangeText={setFormContext}
                       placeholder="Ex: proposal-category"
                       placeholderTextColor="#94A3B8"
                       autoCapitalize="none"
+                      editable={!isFormContextLocked}
                     />
-                    {allContexts.length > 0 ? (
+                    {isFormContextLocked ? (
+                      <Text style={styles.lockedContextHint}>
+                        Contexto fixo para esta origem.
+                      </Text>
+                    ) : allContexts.length > 0 ? (
                       <View style={styles.suggestionRow}>
                         {allContexts.map(contextValue => {
                           const isActive = normalizeCategoryContext(formContext) === contextValue;
@@ -1082,6 +1095,15 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#0F172A',
     backgroundColor: '#FFFFFF',
+  },
+  textInputDisabled: {
+    color: '#64748B',
+    backgroundColor: '#F8FAFC',
+  },
+  lockedContextHint: {
+    marginTop: 8,
+    fontSize: 12,
+    color: '#64748B',
   },
   suggestionRow: {
     flexDirection: 'row',

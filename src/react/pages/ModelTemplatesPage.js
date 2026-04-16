@@ -1182,6 +1182,7 @@ export default function ModelTemplatesPage({ route, navigation }) {
                 navigation.navigate('ManagerCategoriesPage', {
                   categoryAction: Date.now(),
                   startNew: true,
+                  lockContext: true,
                   presetContext: getCategoryContextForDocument(draft.context),
                 })
               }>
