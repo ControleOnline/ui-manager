@@ -255,3 +255,136 @@ export const gs = StyleSheet.create({
   feedbackTitle: { fontSize: 22, fontWeight: '900', marginTop: 12 },
   feedbackText: { fontSize: 14, textAlign: 'center', lineHeight: 20 },
 });
+
+export const inlineStyle_136_12 = {
+  flex: 1,
+  justifyContent: 'center',
+  alignItems: 'center',
+  gap: 12,
+};
+
+export const inlineStyle_138_14 = (
+  {
+    palette: palette,
+  },
+) => ({
+  color: palette.textSecondary,
+  fontSize: 14,
+});
+
+export const inlineStyle_156_12 = (
+  {
+    cardWidth: cardWidth,
+  },
+) => ({
+  width: cardWidth,
+});
+
+export const inlineStyle_160_10 = {
+  width: '100%',
+};
+
+export const inlineStyle_174_43 = (
+  {
+    cardWidth: cardWidth,
+  },
+) => ({
+  width: cardWidth,
+});
+
+export const inlineStyle_178_14 = {
+  width: '100%',
+};
+
+export const inlineStyle_205_14 = {
+  flex: 1,
+  alignItems: 'center',
+  padding: 32,
+  gap: 8,
+};
+
+export const inlineStyle_207_16 = (
+  {
+    palette: palette,
+  },
+) => ({
+  color: palette.textSecondary,
+  fontSize: 14,
+});
+
+export const inlineStyle_279_12 = {
+  flex: 1,
+  justifyContent: 'center',
+  alignItems: 'center',
+};
+
+export const inlineStyle_287_12 = {
+  flex: 1,
+  justifyContent: 'center',
+  alignItems: 'center',
+  gap: 12,
+  padding: 32,
+};
+
+export const inlineStyle_289_14 = (
+  {
+    palette: palette,
+  },
+) => ({
+  color: palette.textSecondary,
+  fontSize: 14,
+  textAlign: 'center',
+});
+
+export const inlineStyle_391_18 = {
+  flex: 1,
+};
+
+export const inlineStyle_414_26 = {
+  flex: 1,
+};
+
+export const inlineStyle_943_93 = {
+  marginRight: 6,
+};
+
+export const inlineStyle_1048_30 = {
+  flex: 1,
+};
+
+export const inlineStyle_1208_22 = {
+  flexDirection: 'row',
+  gap: 12,
+  marginTop: 24,
+};
+
+export const inlineStyle_172_6 = (
+  {
+    gap: gap,
+    maxWidth: maxWidth,
+  },
+) => ({
+  flexDirection: 'row',
+  flexWrap: 'wrap',
+  gap,
+  padding: gap,
+  alignSelf: 'center',
+  width: maxWidth,
+});
+
+export const inlineStyle_331_6 = (
+  {
+    gap: gap,
+    maxWidth: maxWidth,
+  },
+) => ({
+  flexDirection: 'row',
+  flexWrap: 'wrap',
+  gap,
+  padding: gap,
+  paddingBottom: 100,
+  alignSelf: 'center',
+  width: maxWidth,
+});
+
+

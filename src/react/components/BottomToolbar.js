@@ -1,55 +1,20 @@
 import { useNavigationState } from '@react-navigation/native';
 import {useStore} from '@store';
-import React, { useState } from 'react';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import React from 'react';
+import { Text, TouchableOpacity, View } from 'react-native';
 import Icon from 'react-native-vector-icons/Feather';
+import createStyles from './BottomToolbar.styles';
 
 const BottomToolbar = ({navigation}) => {
   const state = useNavigationState(state => state);
   const activeTab = state.routes[state.index]?.name || 'HomePage';
-  const currentPageName =
-    navigation.getState().routes[navigation.getState().index].name;
-  const device_configStore = useStore('device_config');
-  const deviceConfigGetters = device_configStore.getters;
-  const {item: device} = deviceConfigGetters;
-  const authStore = useStore('auth');
-  const authGetters = authStore.getters;
-  const authActions = authStore.actions;
   const peopleStore = useStore('people');
   const peopleGetters = peopleStore.getters;
   const themeStore = useStore('theme');
   const getters = themeStore.getters;
-  const {isLogged} = authGetters;
   const {colors} = getters;
   const {currentCompany} = peopleGetters;
-  const [posType, setPosType] = useState(null);
-  const localDevice = JSON.parse(localStorage.getItem('device') || '{}');
-
-  const styles = StyleSheet.create({
-    toolbar: {
-      flexDirection: 'row',
-      justifyContent: 'space-around',
-      alignItems: 'center',
-      height: 60,
-      backgroundColor: '#f8f8f8',
-      borderTopWidth: 1,
-      borderTopColor: '#ddd',
-    },
-    button: {
-      flex: 1,
-      justifyContent: 'center',
-      alignItems: 'center',
-    },
-    buttonText: {
-      fontSize: 12,
-      color: '#666',
-      marginTop: 6,
-    },
-    activeText: {
-      color: colors['primary'],
-      fontWeight: 'bold',
-    },
-  });
+  const styles = createStyles(colors);
 
   return (
     <View style={styles.toolbar}>

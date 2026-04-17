@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+
 import {
   ActivityIndicator,
   Image,
@@ -11,30 +12,56 @@ import {
   View,
   useWindowDimensions,
 } from 'react-native'
+
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { useFocusEffect, useNavigation } from '@react-navigation/native'
 import { MaterialCommunityIcons } from '@expo/vector-icons'
-
 import { useStore } from '@store'
 import Formatter from '@controleonline/ui-common/src/utils/formatter'
 import { env } from '@env'
+
 import usePosCartSession, {
   getOrderPeopleValue,
 } from '@controleonline/ui-orders/src/react/hooks/usePosCartSession'
+
 import useDebouncedOrderProductQuantitySync from '@controleonline/ui-orders/src/react/hooks/useDebouncedOrderProductQuantitySync'
+
 import {
   readCachedCategories as readSharedCachedCategories,
   updateCachedCategoryProducts as updateSharedCachedCategoryProducts,
   writeCachedCategories as writeSharedCachedCategories,
 } from '@controleonline/ui-products/src/react/utils/categoryCache'
+
 import {
   mergeOrderProductIntoList,
   mergeOrderWithOrderProducts,
   removeOrderProductFromList,
   withOrderProductQuantity,
 } from '@controleonline/ui-orders/src/utils/orderState'
+
 import { resolveThemePalette, withOpacity } from '@controleonline/../../src/styles/branding'
 import { catStyles, custStyles, gs, prodStyles } from './PdvPage.styles'
+
+import {
+  inlineStyle_136_12,
+  inlineStyle_138_14,
+  inlineStyle_156_12,
+  inlineStyle_160_10,
+  inlineStyle_174_43,
+  inlineStyle_178_14,
+  inlineStyle_205_14,
+  inlineStyle_207_16,
+  inlineStyle_279_12,
+  inlineStyle_287_12,
+  inlineStyle_289_14,
+  inlineStyle_391_18,
+  inlineStyle_414_26,
+  inlineStyle_943_93,
+  inlineStyle_1048_30,
+  inlineStyle_1208_22,
+} from './PdvPage.styles';
+
+import { inlineStyle_172_6, inlineStyle_331_6 } from './PdvPage.styles';
 
 /* ─── constantes ────────────────────────────────────────────────────── */
 
@@ -133,31 +160,31 @@ const CategoryGrid = ({ categories, categoriesLoading, onSelect, palette }) => {
 
   if (categoriesLoading) {
     return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', gap: 12 }}>
+      <View style={inlineStyle_136_12}>
         <ActivityIndicator size="large" color={palette.primary} />
-        <Text style={{ color: palette.textSecondary, fontSize: 14 }}>Carregando categorias...</Text>
+        <Text style={inlineStyle_138_14({
+          palette: palette,
+        })}>Carregando categorias...</Text>
       </View>
-    )
+    );
   }
 
   return (
     <ScrollView
-      contentContainerStyle={{
-        flexDirection: 'row',
-        flexWrap: 'wrap',
-        gap,
-        padding: gap,
-        alignSelf: 'center',
-        width: maxWidth,
-      }}
+      contentContainerStyle={inlineStyle_172_6({
+        gap: gap,
+        maxWidth: maxWidth,
+      })}
       showsVerticalScrollIndicator={false}
     >
       {/* card "Todos" */}
-      <View style={{ width: cardWidth }}>
+      <View style={inlineStyle_156_12({
+        cardWidth: cardWidth,
+      })}>
         <TouchableOpacity
           onPress={() => onSelect(null)}
           activeOpacity={0.88}
-          style={{ width: '100%' }}
+          style={inlineStyle_160_10}
         >
           <View style={[catStyles.card, { aspectRatio: 3 / 4, backgroundColor: withOpacity(palette.primary, 0.12) }]}>
             <View style={catStyles.overlay}>
@@ -167,15 +194,16 @@ const CategoryGrid = ({ categories, categoriesLoading, onSelect, palette }) => {
           </View>
         </TouchableOpacity>
       </View>
-
       {(categories || []).map(cat => {
         const coverUrl = buildCoverUrl(cat.categoryFiles, cat?.extraData?.imageCoverRelationId)
         return (
-          <View key={cat.id || cat['@id']} style={{ width: cardWidth }}>
+          <View key={cat.id || cat['@id']} style={inlineStyle_174_43({
+            cardWidth: cardWidth,
+          })}>
             <TouchableOpacity
               onPress={() => onSelect(cat)}
               activeOpacity={0.88}
-              style={{ width: '100%' }}
+              style={inlineStyle_178_14}
             >
               <View
                 style={[
@@ -198,17 +226,18 @@ const CategoryGrid = ({ categories, categoriesLoading, onSelect, palette }) => {
               </View>
             </TouchableOpacity>
           </View>
-        )
+        );
       })}
-
       {(!categories || categories.length === 0) && (
-        <View style={{ flex: 1, alignItems: 'center', padding: 32, gap: 8 }}>
+        <View style={inlineStyle_205_14}>
           <MaterialCommunityIcons name="tag-off-outline" size={48} color={palette.border} />
-          <Text style={{ color: palette.textSecondary, fontSize: 14 }}>Nenhuma categoria cadastrada</Text>
+          <Text style={inlineStyle_207_16({
+            palette: palette,
+          })}>Nenhuma categoria cadastrada</Text>
         </View>
       )}
     </ScrollView>
-  )
+  );
 }
 
 /* ─── card de produto ─────────────────────────────────────────────────── */
@@ -276,34 +305,31 @@ const ProductsGrid = ({ products, isLoading, onPress, palette, getProductQty }) 
 
   if (isLoading) {
     return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+      <View style={inlineStyle_279_12}>
         <ActivityIndicator size="large" color={palette.primary} />
       </View>
-    )
+    );
   }
 
   if (!products || products.length === 0) {
     return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', gap: 12, padding: 32 }}>
+      <View style={inlineStyle_287_12}>
         <MaterialCommunityIcons name="cart-off" size={48} color={palette.border} />
-        <Text style={{ color: palette.textSecondary, fontSize: 14, textAlign: 'center' }}>
+        <Text style={inlineStyle_289_14({
+          palette: palette,
+        })}>
           Nenhum produto encontrado
         </Text>
       </View>
-    )
+    );
   }
 
   return (
     <ScrollView
-      contentContainerStyle={{
-        flexDirection: 'row',
-        flexWrap: 'wrap',
-        gap,
-        padding: gap,
-        paddingBottom: 100,
-        alignSelf: 'center',
-        width: maxWidth,
-      }}
+      contentContainerStyle={inlineStyle_331_6({
+        gap: gap,
+        maxWidth: maxWidth,
+      })}
       showsVerticalScrollIndicator={false}
       keyboardShouldPersistTaps="handled"
     >
@@ -318,7 +344,7 @@ const ProductsGrid = ({ products, isLoading, onPress, palette, getProductQty }) 
         />
       ))}
     </ScrollView>
-  )
+  );
 }
 
 /* ─── modal de customização ──────────────────────────────────────────── */
@@ -388,7 +414,7 @@ const CustomizeModal = ({ visible, product, groups, groupProducts, onConfirm, on
         <View style={[custStyles.sheet, { backgroundColor: palette.modalBg || palette.surface || '#fff', maxHeight: screenHeight * 0.92 }]}>
 
           <View style={[custStyles.header, { borderBottomColor: palette.border }]}>
-            <View style={{ flex: 1 }}>
+            <View style={inlineStyle_391_18}>
               <Text style={[custStyles.title, { color: palette.text }]} numberOfLines={1}>
                 {product.product}
               </Text>
@@ -411,7 +437,7 @@ const CustomizeModal = ({ visible, product, groups, groupProducts, onConfirm, on
               return (
                 <View key={group.id} style={[custStyles.groupBlock, { borderColor: palette.border }]}>
                   <View style={custStyles.groupHeader}>
-                    <View style={{ flex: 1 }}>
+                    <View style={inlineStyle_414_26}>
                       <Text style={[custStyles.groupName, { color: palette.text }]}>{group.productGroup}</Text>
                       <Text style={[custStyles.groupMeta, { color: groupValid ? palette.textSecondary : (palette.danger || '#EF4444') }]}>
                         {group.required ? '● Obrigatório · ' : '○ Opcional · '}
@@ -428,7 +454,6 @@ const CustomizeModal = ({ visible, product, groups, groupProducts, onConfirm, on
                       </Text>
                     </View>
                   </View>
-
                   {items.map((item, idx) => {
                     const selected = isSelected(group.id, item)
                     const atMax = group.maximum && (selections[group.id] || []).length >= group.maximum && !selected
@@ -467,12 +492,11 @@ const CustomizeModal = ({ visible, product, groups, groupProducts, onConfirm, on
                       </TouchableOpacity>
                     )
                   })}
-
                   {items.length === 0 && (
                     <Text style={[custStyles.emptyGroup, { color: palette.textSecondary }]}>Nenhuma opção disponível</Text>
                   )}
                 </View>
-              )
+              );
             })}
           </ScrollView>
 
@@ -495,7 +519,7 @@ const CustomizeModal = ({ visible, product, groups, groupProducts, onConfirm, on
         </View>
       </View>
     </Modal>
-  )
+  );
 }
 
 /* ─── componente principal ──────────────────────────────────────────── */
@@ -904,7 +928,6 @@ export default function PdvPage() {
 
   return (
     <SafeAreaView style={[gs.root, { backgroundColor: palette.background || '#F8FAFC' }]}>
-
       {/* ── tela de categorias ── */}
       {screen === 'categories' && !search && (
         <View style={gs.flex}>
@@ -926,7 +949,6 @@ export default function PdvPage() {
           />
         </View>
       )}
-
       {/* ── tela de produtos ── */}
       {(screen === 'products' || !!search) && (
         <View style={gs.flex}>
@@ -940,7 +962,7 @@ export default function PdvPage() {
             </TouchableOpacity>
 
             <View style={[gs.searchInput, { flex: 1, backgroundColor: palette.surface || '#fff', borderColor: palette.border }]}>
-              <MaterialCommunityIcons name="magnify" size={16} color={palette.textSecondary} style={{ marginRight: 6 }} />
+              <MaterialCommunityIcons name="magnify" size={16} color={palette.textSecondary} style={inlineStyle_943_93} />
               <TextInput
                 value={search}
                 onChangeText={setSearch}
@@ -979,7 +1001,6 @@ export default function PdvPage() {
           />
         </View>
       )}
-
       {/* ── FAB carrinho ── */}
       {cartCount > 0 && (
         <TouchableOpacity
@@ -995,7 +1016,6 @@ export default function PdvPage() {
           <Text style={gs.cartFabLabel}>Ver carrinho</Text>
         </TouchableOpacity>
       )}
-
       {/* ── loading de grupos ── */}
       {custLoading && (
         <View style={gs.loadOverlay}>
@@ -1005,7 +1025,6 @@ export default function PdvPage() {
           </View>
         </View>
       )}
-
       {/* ── modal de customização ── */}
       <CustomizeModal
         visible={custModal.visible && !custLoading}
@@ -1016,7 +1035,6 @@ export default function PdvPage() {
         onClose={() => setCustModal({ visible: false, product: null })}
         palette={palette}
       />
-
       {/* ── modal de checkout ── */}
       <Modal
         visible={checkoutVisible}
@@ -1045,7 +1063,7 @@ export default function PdvPage() {
                   {cartItems.map((item, idx) => {
                     return (
                       <View key={item.key || idx} style={[gs.cartItem, { borderBottomColor: palette.border }]}>
-                        <View style={{ flex: 1 }}>
+                        <View style={inlineStyle_1048_30}>
                           <Text style={[gs.cartItemName, { color: palette.text }]} numberOfLines={1}>
                             {item.product.product}
                           </Text>
@@ -1083,7 +1101,7 @@ export default function PdvPage() {
                           {Formatter.formatMoney(item.total || calcCartItemTotal(item))}
                         </Text>
                       </View>
-                    )
+                    );
                   })}
                 </ScrollView>
 
@@ -1205,7 +1223,7 @@ export default function PdvPage() {
                 <MaterialCommunityIcons name="alert-circle" size={64} color={palette.danger || '#EF4444'} />
                 <Text style={[gs.feedbackTitle, { color: palette.text }]}>Erro ao finalizar</Text>
                 <Text style={[gs.feedbackText, { color: palette.textSecondary }]}>{processingMsg}</Text>
-                <View style={{ flexDirection: 'row', gap: 12, marginTop: 24 }}>
+                <View style={inlineStyle_1208_22}>
                   <TouchableOpacity onPress={() => setCheckoutVisible(false)} style={[gs.btnSec, { borderColor: palette.border }]}>
                     <Text style={[gs.btnSecText, { color: palette.textSecondary }]}>Fechar</Text>
                   </TouchableOpacity>
@@ -1220,6 +1238,6 @@ export default function PdvPage() {
         </View>
       </Modal>
     </SafeAreaView>
-  )
+  );
 }
 
