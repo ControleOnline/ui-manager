@@ -25,7 +25,6 @@ import usePosCartSession, {
 } from '@controleonline/ui-orders/src/react/hooks/usePosCartSession'
 
 import useDebouncedOrderProductQuantitySync from '@controleonline/ui-orders/src/react/hooks/useDebouncedOrderProductQuantitySync'
-
 import {
   readCachedCategories as readSharedCachedCategories,
   updateCachedCategoryProducts as updateSharedCachedCategoryProducts,
@@ -1240,4 +1239,3 @@ export default function PdvPage() {
     </SafeAreaView>
   );
 }
-

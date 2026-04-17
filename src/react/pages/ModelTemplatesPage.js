@@ -46,7 +46,7 @@ const CONTEXT_HELP = {
   email:
     'Use para e-mails HTML. As variaveis finais dependem do fluxo que renderiza este template.',
   menu:
-    'Use para cardapios. O backend disponibiliza `company`, `companyName`, `columns`, `generatedAt`, `catalog` e `service`. Para PDF, prefira tabelas, bordas simples e imagens por URL; evite gradientes, flex e miniaturas em massa.',
+    'Use para cardapios. O backend disponibiliza `company`, `companyName`, `columns`, `generatedAt`, `catalog` e `service`. Para PDF, prefira tabelas, cores solidas, espacamentos simples e poucas imagens; evite gradientes, flex, pills, sombras e miniaturas em massa.',
 };
 
 const COMMON_SNIPPETS = [
@@ -283,64 +283,78 @@ const buildStarterTemplate = context => {
   <head>
     <meta charset="UTF-8" />
     <style>
-      @page { margin: 22px 18px; }
-      * { box-sizing: border-box; }
-      body { margin: 0; font-family: DejaVu Sans, Arial, sans-serif; font-size: 11px; color: #1f2937; }
-      .header-table, .columns-table, .product-table { width: 100%; border-collapse: collapse; }
-      .header-box, .category-box, .empty-box { border: 1px solid #d1d5db; padding: 10px; background: #ffffff; }
-      .header-box { margin-bottom: 12px; }
-      .title { font-size: 18px; font-weight: 700; color: #111827; }
-      .subtitle { margin-top: 4px; font-size: 10px; color: #6b7280; line-height: 1.45; }
-      .meta { margin-top: 6px; font-size: 9px; color: #4b5563; }
-      .hero-cell { width: 34%; vertical-align: top; }
-      .hero-copy { width: 66%; vertical-align: top; padding-right: 10px; }
-      .hero-image { border: 1px solid #d1d5db; padding: 6px; text-align: center; }
-      .hero-image img { width: 100%; height: auto; }
-      .hero-placeholder { border: 1px solid #d1d5db; padding: 18px 10px; text-align: center; font-size: 12px; font-weight: 700; color: #6b7280; }
-      .column { width: 50%; vertical-align: top; }
-      .column-left { padding-right: 6px; }
-      .column-right { padding-left: 6px; }
-      .category-box { margin-bottom: 10px; page-break-inside: avoid; }
-      .category-title { font-size: 14px; font-weight: 700; color: #111827; margin-bottom: 4px; }
-      .category-description { font-size: 10px; color: #6b7280; margin-bottom: 8px; line-height: 1.45; }
-      .category-image { margin-bottom: 8px; text-align: center; }
-      .category-image img { width: 100%; height: auto; }
-      .product-box { border: 1px solid #e5e7eb; padding: 8px; margin-bottom: 8px; background: #ffffff; page-break-inside: avoid; }
-      .product-name { font-size: 11px; font-weight: 700; color: #111827; }
-      .product-price { width: 74px; text-align: right; white-space: nowrap; font-size: 10px; font-weight: 700; color: #111827; }
-      .product-description { margin-top: 4px; font-size: 9px; color: #4b5563; line-height: 1.45; }
-      .group-block { border-top: 1px solid #e5e7eb; margin-top: 6px; padding-top: 6px; }
-      .group-name { font-size: 9px; font-weight: 700; text-transform: uppercase; color: #1f2937; }
-      .group-meta { margin-top: 2px; font-size: 9px; color: #6b7280; }
-      .group-item { margin-top: 3px; font-size: 9px; color: #374151; }
-      .footer { margin-top: 8px; text-align: center; font-size: 9px; color: #9ca3af; }
+      @page { margin: 20px 16px; }
+      body { margin: 0; font-family: DejaVu Sans, Arial, sans-serif; font-size: 11px; color: #1f2937; background-color: #ffffff; }
+      table { border-collapse: collapse; }
+      .full { width: 100%; }
+      .header-box { width: 100%; border: 1px solid #d7dde5; margin-bottom: 12px; }
+      .header-copy { width: 66%; vertical-align: top; padding: 12px; }
+      .header-media { width: 34%; vertical-align: top; padding: 12px 12px 12px 0; }
+      .eyebrow { font-size: 9px; font-weight: bold; color: #9a3412; text-transform: uppercase; }
+      .title { font-size: 20px; font-weight: bold; color: #111827; padding-top: 4px; }
+      .subtitle { font-size: 10px; color: #6b7280; line-height: 1.5; padding-top: 6px; }
+      .meta-table { width: 100%; padding-top: 8px; }
+      .meta-cell { width: 33.33%; border: 1px solid #e5e7eb; background-color: #f8fafc; padding: 6px; text-align: center; font-size: 9px; color: #475569; }
+      .hero-frame { border: 1px solid #d7dde5; text-align: center; }
+      .hero-frame img { width: 100%; }
+      .hero-placeholder { padding: 28px 10px; font-size: 12px; font-weight: bold; color: #64748b; }
+      .columns-table { width: 100%; }
+      .column-left { width: 50%; vertical-align: top; padding-right: 6px; }
+      .column-right { width: 50%; vertical-align: top; padding-left: 6px; }
+      .category-box { width: 100%; border: 1px solid #d7dde5; margin-bottom: 10px; page-break-inside: avoid; }
+      .category-head { background-color: #f8fafc; border-bottom: 1px solid #e5e7eb; }
+      .category-head td { padding: 8px 10px; }
+      .category-index { width: 36px; font-size: 9px; font-weight: bold; color: #9a3412; text-align: center; }
+      .category-title { font-size: 14px; font-weight: bold; color: #111827; }
+      .category-description { padding: 8px 10px 0; font-size: 10px; color: #6b7280; line-height: 1.45; }
+      .category-image { padding: 8px 10px 0; text-align: center; }
+      .category-image img { width: 100%; }
+      .product-wrap { padding: 8px 10px 2px; }
+      .product-box { width: 100%; border: 1px solid #e5e7eb; margin-bottom: 8px; page-break-inside: avoid; }
+      .product-head td { padding: 7px 8px; background-color: #ffffff; }
+      .product-name { font-size: 11px; font-weight: bold; color: #111827; }
+      .product-price { width: 80px; text-align: right; font-size: 10px; font-weight: bold; color: #9a3412; }
+      .product-description-row td { padding: 0 8px 7px; font-size: 9px; color: #4b5563; line-height: 1.45; }
+      .group-row td { border-top: 1px solid #e5e7eb; padding: 6px 8px; }
+      .group-name { font-size: 9px; font-weight: bold; color: #1f2937; text-transform: uppercase; }
+      .group-meta { font-size: 9px; color: #6b7280; padding-top: 2px; }
+      .group-items { font-size: 9px; color: #334155; line-height: 1.5; padding-top: 4px; }
+      .footer { padding-top: 6px; text-align: center; font-size: 9px; color: #94a3b8; }
+      .empty-box { border: 1px solid #d7dde5; padding: 16px; font-size: 11px; color: #64748b; text-align: center; }
     </style>
   </head>
   <body>
-    <div class="header-box">
-      <table class="header-table">
-        <tr>
-          <td class="hero-copy">
-            <div class="title">{{ companyName|default(menuModelName|default('Cardapio')) }}</div>
-            <div class="subtitle">
-              Cardapio em formato leve para PDF. Esta versao prioriza leitura limpa e compatibilidade com o renderizador.
-            </div>
-            <div class="meta">
-              {{ categoryCount }} categoria(s) | {{ productCount }} item(ns) | Gerado em {{ generatedAt|date('d/m/Y H:i') }}
-            </div>
-          </td>
-          <td class="hero-cell">
-            {% if heroImage %}
-              <div class="hero-image">
-                <img src="{{ heroImage }}" alt="{{ companyName|default('Cardapio') }}">
-              </div>
-            {% else %}
-              <div class="hero-placeholder">{{ companyName|default('Cardapio') }}</div>
-            {% endif %}
-          </td>
-        </tr>
-      </table>
-    </div>
+    <table class="header-box">
+      <tr>
+        <td class="header-copy">
+          <div class="eyebrow">{{ menuModelName|default('Cardapio') }}</div>
+          <div class="title">{{ companyName|default(menuModelName|default('Cardapio')) }}</div>
+          <div class="subtitle">
+            Cardapio em PDF com layout simplificado para manter consistencia no renderizador.
+          </div>
+          <table class="meta-table">
+            <tr>
+              <td class="meta-cell">{{ categoryCount }} categoria(s)</td>
+              <td class="meta-cell">{{ productCount }} item(ns)</td>
+              <td class="meta-cell">{{ generatedAt|date('d/m/Y H:i') }}</td>
+            </tr>
+          </table>
+        </td>
+        <td class="header-media">
+          <table class="hero-frame full">
+            <tr>
+              <td>
+                {% if heroImage %}
+                  <img src="{{ heroImage }}" alt="{{ companyName|default('Cardapio') }}">
+                {% else %}
+                  <div class="hero-placeholder">{{ companyName|default('Cardapio') }}</div>
+                {% endif %}
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
 
     {% if categoryCount == 0 %}
       <div class="empty-box">Nenhum produto ativo e visivel foi encontrado para gerar o cardapio.</div>
@@ -348,58 +362,64 @@ const buildStarterTemplate = context => {
       <table class="columns-table">
         <tr>
           {% for column in columns %}
-            <td class="column {{ loop.first ? 'column-left' : 'column-right' }}">
+            <td class="{{ loop.first ? 'column-left' : 'column-right' }}">
               {% for category in column %}
-                <div class="category-box">
-                  <div class="category-title">{{ category.name }}</div>
-
-                  {% if category.description %}
-                    <div class="category-description">{{ category.description }}</div>
-                  {% endif %}
-
-                  {% if category.image %}
-                    <div class="category-image">
-                      <img src="{{ category.image }}" alt="{{ category.name }}">
-                    </div>
-                  {% endif %}
-
-                  {% for product in category.products %}
-                    <div class="product-box">
-                      <table class="product-table">
-                        <tr>
-                          <td>
-                            <div class="product-name">{{ product.name }}</div>
-                          </td>
-                          <td class="product-price">
-                            {% if product.priceLabel %}
-                              {{ product.priceLabel }}
-                            {% endif %}
-                          </td>
-                        </tr>
-                      </table>
-
-                      {% if product.description %}
-                        <div class="product-description">{{ product.description }}</div>
+                <table class="category-box">
+                  <tr class="category-head">
+                    <td class="category-index">{{ category.position }}</td>
+                    <td class="category-title">{{ category.name }}</td>
+                  </tr>
+                  <tr>
+                    <td colspan="2">
+                      {% if category.description %}
+                        <div class="category-description">{{ category.description }}</div>
                       {% endif %}
 
-                      {% for group in product.groups %}
-                        <div class="group-block">
-                          <div class="group-name">{{ group.name }}</div>
-
-                          {% if group.meta %}
-                            <div class="group-meta">{{ group.meta }}</div>
-                          {% endif %}
-
-                          {% for item in group.items %}
-                            <div class="group-item">
-                              {{ item.name }}{% if item.priceLabel %} {{ item.priceLabel }}{% endif %}
-                            </div>
-                          {% endfor %}
+                      {% if category.image %}
+                        <div class="category-image">
+                          <img src="{{ category.image }}" alt="{{ category.name }}">
                         </div>
-                      {% endfor %}
-                    </div>
-                  {% endfor %}
-                </div>
+                      {% endif %}
+
+                      <div class="product-wrap">
+                        {% for product in category.products %}
+                          <table class="product-box">
+                            <tr class="product-head">
+                              <td class="product-name">{{ product.name }}</td>
+                              <td class="product-price">
+                                {% if product.priceLabel %}
+                                  {{ product.priceLabel }}
+                                {% endif %}
+                              </td>
+                            </tr>
+
+                            {% if product.description %}
+                              <tr class="product-description-row">
+                                <td colspan="2">{{ product.description }}</td>
+                              </tr>
+                            {% endif %}
+
+                            {% for group in product.groups %}
+                              <tr class="group-row">
+                                <td colspan="2">
+                                  <div class="group-name">{{ group.name }}</div>
+                                  {% if group.meta %}
+                                    <div class="group-meta">{{ group.meta }}</div>
+                                  {% endif %}
+                                  <div class="group-items">
+                                    {% for item in group.items %}
+                                      {{ item.name }}{% if item.priceLabel %} {{ item.priceLabel }}{% endif %}{% if not loop.last %}<br>{% endif %}
+                                    {% endfor %}
+                                  </div>
+                                </td>
+                              </tr>
+                            {% endfor %}
+                          </table>
+                        {% endfor %}
+                      </div>
+                    </td>
+                  </tr>
+                </table>
               {% endfor %}
             </td>
           {% endfor %}
