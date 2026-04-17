@@ -46,7 +46,7 @@ const CONTEXT_HELP = {
   email:
     'Use para e-mails HTML. As variaveis finais dependem do fluxo que renderiza este template.',
   menu:
-    'Use para cardapios. O backend disponibiliza `company`, `companyName`, `columns`, `generatedAt`, `catalog` e `service`.',
+    'Use para cardapios. O backend disponibiliza `company`, `companyName`, `columns`, `generatedAt`, `catalog` e `service`. Para PDF, prefira tabelas, bordas simples e imagens por URL; evite gradientes, flex e miniaturas em massa.',
 };
 
 const COMMON_SNIPPETS = [
@@ -283,40 +283,131 @@ const buildStarterTemplate = context => {
   <head>
     <meta charset="UTF-8" />
     <style>
-      body { font-family: Arial, sans-serif; color: #0f172a; margin: 0; padding: 32px; }
-      header { margin-bottom: 28px; }
-      .muted { color: #64748b; }
-      .category { margin-bottom: 28px; }
-      .item { display: flex; justify-content: space-between; gap: 24px; padding: 12px 0; border-bottom: 1px solid #e2e8f0; }
-      .item h3 { margin: 0 0 6px; font-size: 18px; }
-      .item p { margin: 0; color: #475569; }
+      @page { margin: 22px 18px; }
+      * { box-sizing: border-box; }
+      body { margin: 0; font-family: DejaVu Sans, Arial, sans-serif; font-size: 11px; color: #1f2937; }
+      .header-table, .columns-table, .product-table { width: 100%; border-collapse: collapse; }
+      .header-box, .category-box, .empty-box { border: 1px solid #d1d5db; padding: 10px; background: #ffffff; }
+      .header-box { margin-bottom: 12px; }
+      .title { font-size: 18px; font-weight: 700; color: #111827; }
+      .subtitle { margin-top: 4px; font-size: 10px; color: #6b7280; line-height: 1.45; }
+      .meta { margin-top: 6px; font-size: 9px; color: #4b5563; }
+      .hero-cell { width: 34%; vertical-align: top; }
+      .hero-copy { width: 66%; vertical-align: top; padding-right: 10px; }
+      .hero-image { border: 1px solid #d1d5db; padding: 6px; text-align: center; }
+      .hero-image img { width: 100%; height: auto; }
+      .hero-placeholder { border: 1px solid #d1d5db; padding: 18px 10px; text-align: center; font-size: 12px; font-weight: 700; color: #6b7280; }
+      .column { width: 50%; vertical-align: top; }
+      .column-left { padding-right: 6px; }
+      .column-right { padding-left: 6px; }
+      .category-box { margin-bottom: 10px; page-break-inside: avoid; }
+      .category-title { font-size: 14px; font-weight: 700; color: #111827; margin-bottom: 4px; }
+      .category-description { font-size: 10px; color: #6b7280; margin-bottom: 8px; line-height: 1.45; }
+      .category-image { margin-bottom: 8px; text-align: center; }
+      .category-image img { width: 100%; height: auto; }
+      .product-box { border: 1px solid #e5e7eb; padding: 8px; margin-bottom: 8px; background: #ffffff; page-break-inside: avoid; }
+      .product-name { font-size: 11px; font-weight: 700; color: #111827; }
+      .product-price { width: 74px; text-align: right; white-space: nowrap; font-size: 10px; font-weight: 700; color: #111827; }
+      .product-description { margin-top: 4px; font-size: 9px; color: #4b5563; line-height: 1.45; }
+      .group-block { border-top: 1px solid #e5e7eb; margin-top: 6px; padding-top: 6px; }
+      .group-name { font-size: 9px; font-weight: 700; text-transform: uppercase; color: #1f2937; }
+      .group-meta { margin-top: 2px; font-size: 9px; color: #6b7280; }
+      .group-item { margin-top: 3px; font-size: 9px; color: #374151; }
+      .footer { margin-top: 8px; text-align: center; font-size: 9px; color: #9ca3af; }
     </style>
   </head>
   <body>
-    <header>
-      <h1>{{ companyName|default(menuModelName|default('Cardapio')) }}</h1>
-      <p class="muted">Gerado em {{ generatedAt|date('d/m/Y H:i') }}</p>
-    </header>
-
-    {% for column in columns %}
-      {% for category in column %}
-        <section class="category">
-          <h2>{{ category.name }}</h2>
-
-          {% for product in category.products %}
-            <article class="item">
-              <div>
-                <h3>{{ product.name }}</h3>
-                {% if product.description %}
-                  <p>{{ product.description }}</p>
-                {% endif %}
+    <div class="header-box">
+      <table class="header-table">
+        <tr>
+          <td class="hero-copy">
+            <div class="title">{{ companyName|default(menuModelName|default('Cardapio')) }}</div>
+            <div class="subtitle">
+              Cardapio em formato leve para PDF. Esta versao prioriza leitura limpa e compatibilidade com o renderizador.
+            </div>
+            <div class="meta">
+              {{ categoryCount }} categoria(s) | {{ productCount }} item(ns) | Gerado em {{ generatedAt|date('d/m/Y H:i') }}
+            </div>
+          </td>
+          <td class="hero-cell">
+            {% if heroImage %}
+              <div class="hero-image">
+                <img src="{{ heroImage }}" alt="{{ companyName|default('Cardapio') }}">
               </div>
-              <strong>{{ product.priceLabel }}</strong>
-            </article>
+            {% else %}
+              <div class="hero-placeholder">{{ companyName|default('Cardapio') }}</div>
+            {% endif %}
+          </td>
+        </tr>
+      </table>
+    </div>
+
+    {% if categoryCount == 0 %}
+      <div class="empty-box">Nenhum produto ativo e visivel foi encontrado para gerar o cardapio.</div>
+    {% else %}
+      <table class="columns-table">
+        <tr>
+          {% for column in columns %}
+            <td class="column {{ loop.first ? 'column-left' : 'column-right' }}">
+              {% for category in column %}
+                <div class="category-box">
+                  <div class="category-title">{{ category.name }}</div>
+
+                  {% if category.description %}
+                    <div class="category-description">{{ category.description }}</div>
+                  {% endif %}
+
+                  {% if category.image %}
+                    <div class="category-image">
+                      <img src="{{ category.image }}" alt="{{ category.name }}">
+                    </div>
+                  {% endif %}
+
+                  {% for product in category.products %}
+                    <div class="product-box">
+                      <table class="product-table">
+                        <tr>
+                          <td>
+                            <div class="product-name">{{ product.name }}</div>
+                          </td>
+                          <td class="product-price">
+                            {% if product.priceLabel %}
+                              {{ product.priceLabel }}
+                            {% endif %}
+                          </td>
+                        </tr>
+                      </table>
+
+                      {% if product.description %}
+                        <div class="product-description">{{ product.description }}</div>
+                      {% endif %}
+
+                      {% for group in product.groups %}
+                        <div class="group-block">
+                          <div class="group-name">{{ group.name }}</div>
+
+                          {% if group.meta %}
+                            <div class="group-meta">{{ group.meta }}</div>
+                          {% endif %}
+
+                          {% for item in group.items %}
+                            <div class="group-item">
+                              {{ item.name }}{% if item.priceLabel %} {{ item.priceLabel }}{% endif %}
+                            </div>
+                          {% endfor %}
+                        </div>
+                      {% endfor %}
+                    </div>
+                  {% endfor %}
+                </div>
+              {% endfor %}
+            </td>
           {% endfor %}
-        </section>
-      {% endfor %}
-    {% endfor %}
+        </tr>
+      </table>
+    {% endif %}
+
+    <div class="footer">Arquivo gerado automaticamente pelo modulo de produtos.</div>
   </body>
 </html>`;
   }
