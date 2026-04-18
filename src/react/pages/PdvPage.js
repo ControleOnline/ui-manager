@@ -18,7 +18,7 @@ import { useFocusEffect, useNavigation } from '@react-navigation/native'
 import { MaterialCommunityIcons } from '@expo/vector-icons'
 import { useStore } from '@store'
 import Formatter from '@controleonline/ui-common/src/utils/formatter'
-import { env } from '@env'
+import { resolveFileImageUrl } from '@controleonline/ui-common/src/react/utils/fileUrl'
 
 import usePosCartSession, {
   getOrderPeopleValue,
@@ -74,12 +74,7 @@ const buildCoverUrl = (files, coverId) => {
   let f = coverId ? arr.find(i => String(i?.id) === String(coverId) && i?.file?.id) : null
   if (!f) f = arr.find(i => i?.file?.id)
   if (!f) return null
-  const host = env.DOMAIN || (
-    typeof globalThis !== 'undefined' && globalThis.location
-      ? globalThis.location.host
-      : ''
-  )
-  return `${env.API_ENTRYPOINT}/files/${f.file.id}/download?app-domain=${encodeURIComponent(host)}`
+  return resolveFileImageUrl(f.file)
 }
 
 const normalizeStr = v =>
