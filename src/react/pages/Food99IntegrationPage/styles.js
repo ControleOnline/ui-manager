@@ -339,6 +339,8 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
   },
   filterTabsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
     paddingBottom: 6,
     gap: 8,
   },

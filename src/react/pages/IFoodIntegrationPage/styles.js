@@ -67,7 +67,7 @@ const styles = StyleSheet.create({
   selectionBadgeText: { fontSize: 12, fontWeight: '700' },
   searchBox:    { flexDirection: 'row', alignItems: 'center', gap: 10, borderWidth: 1, borderColor: '#E2E8F0', borderRadius: 16, paddingHorizontal: 14, paddingVertical: Platform.OS === 'web' ? 12 : 4, marginBottom: 14, backgroundColor: '#F8FAFC' },
   searchInput:  { flex: 1, fontSize: 14, color: '#0F172A', paddingVertical: 10 },
-  filterTabsRow: { paddingBottom: 6, gap: 8 },
+  filterTabsRow: { flexDirection: 'row', flexWrap: 'wrap', paddingBottom: 6, gap: 8 },
   filterChip:   { borderRadius: 999, borderWidth: 1, borderColor: '#E2E8F0', backgroundColor: '#fff', paddingHorizontal: 12, paddingVertical: 8 },
   filterChipText: { fontSize: 12, fontWeight: '700', color: '#475569' },
   selectionSummaryRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginTop: 8, marginBottom: 16 },

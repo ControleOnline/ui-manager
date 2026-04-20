@@ -23,7 +23,6 @@ import styles from './styles';
 import {
   calcDuration,
   DAY_ORDER,
-  filterTabs,
   formatIFoodApiError,
 } from './utils';
 
@@ -114,7 +113,7 @@ export default function IFoodIntegrationPage() {
 
         setHours(grouped);
       }
-    } catch (_) {
+    } catch {
       // Horário é complementar. A tela continua funcionando sem esse dado.
     } finally {
       setHoursLoading(false);
@@ -190,7 +189,7 @@ export default function IFoodIntegrationPage() {
         params: { provider_id: providerId },
       });
       if (response?.result) setStoreStatus(response.result);
-    } catch (_) {
+    } catch {
       // Status remoto não deve bloquear a navegação da tela.
     }
   }, [providerId]);

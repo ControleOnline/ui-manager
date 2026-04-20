@@ -5,7 +5,6 @@ import { useFocusEffect } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/Feather';
 
 import { api } from '@controleonline/ui-common/src/api';
-import AnimatedModal from '@controleonline/ui-crm/src/react/components/AnimatedModal';
 import useToastMessage from '@controleonline/ui-crm/src/react/hooks/useToastMessage';
 import { useStore } from '@store';
 import { colors } from '@controleonline/../../src/styles/colors';
@@ -23,7 +22,6 @@ import Food99StoreTab from './components/Food99StoreTab';
 import styles from './styles';
 import {
   createEmptyStoreSettingsDraft,
-  filterTabs,
   formatDeliveryMethodLabel,
   formatFood99ApiError,
   getPublishStateLabel,
@@ -34,7 +32,6 @@ import {
   normalizeTaskId,
   publishStateToneMap,
   sanitizeConfirmMethodInput,
-  sanitizeRadiusInput,
   sanitizeTimeInput,
   statusLabelMap,
   subStatusLabelMap,
