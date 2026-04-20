@@ -29,9 +29,16 @@ import {
 import {
   filterDeviceConfigsByCompany,
   getCompanyPaymentDeviceOptions,
+  getPaymentGatewayFromConfigs,
+  getPaymentGatewayLabel,
+  isPaymentCapableDeviceConfig,
+  isPdvPrinterEnabled,
   normalizeDeviceId,
   normalizeEntityId,
+  PAYMENT_GATEWAY_CIELO,
+  PDV_PRINTER_ENABLED_CONFIG_KEY,
   ORDER_PAYMENT_DEVICE_CONFIG_KEY,
+  POS_GATEWAY_CONFIG_KEY,
 } from '@controleonline/ui-common/src/react/utils/paymentDevices';
 
 import {
@@ -42,12 +49,6 @@ import {
 } from '@controleonline/ui-common/src/react/utils/printerDevices';
 
 import { inlineStyle_667_12, inlineStyle_1301_61 } from './DeviceDetailPage.styles';
-
-const cardShadow = Platform.select({
-  ios: { shadowColor: '#0F172A', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.06, shadowRadius: 12 },
-  android: { elevation: 2 },
-  web: { boxShadow: '0 4px 12px rgba(15,23,42,0.06)' },
-});
 
 const hex = {
   success: '#22C55E',
@@ -163,6 +164,7 @@ const DeviceDetailPage = () => {
   const [loadingData,   setLoadingData]   = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
   const [savingPaymentTarget, setSavingPaymentTarget] = useState(false);
+  const [savingPdvSettings, setSavingPdvSettings] = useState(false);
   const [savingAlertSound, setSavingAlertSound] = useState(false);
   const [savingOrderVisibility, setSavingOrderVisibility] = useState(false);
   const [savingRuntimeDebugInfo, setSavingRuntimeDebugInfo] = useState(false);
@@ -170,6 +172,12 @@ const DeviceDetailPage = () => {
   const [search,        setSearch]        = useState('');
   const [devicePaymentTarget, setDevicePaymentTarget] = useState(
     normalizeDeviceId(normalizedInitialConfigs?.[ORDER_PAYMENT_DEVICE_CONFIG_KEY]),
+  );
+  const [pdvGateway, setPdvGateway] = useState(
+    getPaymentGatewayFromConfigs(normalizedInitialConfigs),
+  );
+  const [pdvPrinterEnabled, setPdvPrinterEnabled] = useState(
+    isPdvPrinterEnabled(normalizedInitialConfigs),
   );
   const [deviceOrderVisibility, setDeviceOrderVisibility] = useState(
     resolveDeviceOrderVisibility(normalizedInitialConfigs),
@@ -211,6 +219,15 @@ const DeviceDetailPage = () => {
   const aliasInputRef = useRef(null);
 
   const isOpen = useMemo(() => getIsOpen(configs), [configs]);
+  const hasLocalPaymentGateway = useMemo(
+    () =>
+      isPaymentCapableDeviceConfig({
+        configs,
+        type: deviceType,
+        device: {type: deviceType},
+      }),
+    [configs, deviceType],
+  );
   const paymentDeviceOptions = useMemo(
     () =>
       getCompanyPaymentDeviceOptions(
@@ -306,6 +323,8 @@ const DeviceDetailPage = () => {
       setDevicePaymentTarget(
         normalizeDeviceId(nextConfigs[ORDER_PAYMENT_DEVICE_CONFIG_KEY]),
       );
+      setPdvGateway(getPaymentGatewayFromConfigs(nextConfigs));
+      setPdvPrinterEnabled(isPdvPrinterEnabled(nextConfigs));
       setDeviceOrderVisibility(
         resolveDeviceOrderVisibility(nextConfigs),
       );
@@ -335,6 +354,8 @@ const DeviceDetailPage = () => {
 
     setConfigs({});
     setDevicePaymentTarget('');
+    setPdvGateway('');
+    setPdvPrinterEnabled(true);
     setDeviceOrderVisibility(DEVICE_ORDER_VISIBILITY_DEVICE);
     setDeviceAlertSoundEnabled(false);
     setDeviceAlertSoundUrl('');
@@ -451,6 +472,44 @@ const DeviceDetailPage = () => {
       setSavingPaymentTarget(false);
     }
   }, [currentCompany?.id, devicePaymentTarget, deviceString, deviceType, refreshConfigs]);
+
+  const savePdvSettings = useCallback(async () => {
+    if (
+      !isPdvDevice ||
+      !currentCompany?.id ||
+      !deviceString ||
+      savingPdvSettings
+    ) {
+      return;
+    }
+
+    setSavingPdvSettings(true);
+    try {
+      await actionsRef.current.deviceConfigActions.addDeviceConfigs({
+        device: deviceString,
+        configs: JSON.stringify({
+          [POS_GATEWAY_CONFIG_KEY]: pdvGateway || '',
+          [PDV_PRINTER_ENABLED_CONFIG_KEY]: pdvPrinterEnabled ? '1' : '0',
+        }),
+        people: '/people/' + currentCompany.id,
+        type: deviceType,
+      });
+      await refreshConfigs();
+    } catch {
+      // silencioso
+    } finally {
+      setSavingPdvSettings(false);
+    }
+  }, [
+    currentCompany?.id,
+    deviceString,
+    deviceType,
+    isPdvDevice,
+    pdvGateway,
+    pdvPrinterEnabled,
+    refreshConfigs,
+    savingPdvSettings,
+  ]);
 
   const saveDeviceAlertSoundConfig = useCallback(async () => {
     if (!currentCompany?.id || !deviceString || savingAlertSound) {
@@ -628,7 +687,7 @@ const DeviceDetailPage = () => {
           command: 'clear-product-cache',
           companyId: currentCompany.id,
         });
-      } catch (e) {
+      } catch {
         // silencioso
       } finally {
         setSendingCatalogRefresh(false);
@@ -786,6 +845,88 @@ const DeviceDetailPage = () => {
               <Text style={[styles.summaryValue, { color: hex.purple }]}>
                 {products.length}
               </Text>
+            </View>
+          </View>
+        )}
+
+        {isPdvDevice && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>
+              <Icon name="credit-card" size={13} /> {'  '}Configuracao do PDV
+            </Text>
+
+            <View style={styles.configCard}>
+              <Text style={styles.configTitle}>Gateway e impressora</Text>
+              <Text style={styles.configDescription}>
+                O tipo do PDV define qual carteira da empresa sera usada no
+                caixa e no pagamento remoto. Ative a opcao de impressora apenas
+                quando este PDV puder receber impressoes.
+              </Text>
+
+              <View style={styles.textInputWrap}>
+                <Text style={styles.textInputLabel}>Tipo do PDV</Text>
+                <View style={styles.pickerWrap}>
+                  <Picker
+                    selectedValue={pdvGateway || ''}
+                    mode={pickerMode}
+                    onValueChange={value => setPdvGateway(String(value || ''))}>
+                    <Picker.Item
+                      label="Selecione o tipo do PDV"
+                      value=""
+                    />
+                    <Picker.Item label="Infinite Pay" value="infinite-pay" />
+                    <Picker.Item label="Cielo" value="cielo" />
+                  </Picker>
+                </View>
+              </View>
+
+              <TouchableOpacity
+                style={[
+                  styles.toggleRow,
+                  pdvPrinterEnabled && styles.toggleRowActive,
+                ]}
+                activeOpacity={0.85}
+                onPress={() =>
+                  setPdvPrinterEnabled(currentValue => !currentValue)
+                }>
+                <View>
+                  <Text style={styles.toggleRowLabel}>Impressora</Text>
+                  <Text style={styles.toggleRowValue}>
+                    {pdvPrinterEnabled ? 'Sim' : 'Nao'}
+                  </Text>
+                </View>
+                <Icon
+                  name={pdvPrinterEnabled ? 'toggle-right' : 'toggle-left'}
+                  size={28}
+                  color={pdvPrinterEnabled ? hex.success : '#94A3B8'}
+                />
+              </TouchableOpacity>
+
+              <Text style={styles.configHint}>
+                {pdvGateway
+                  ? `Gateway atual: ${getPaymentGatewayLabel(pdvGateway)}.`
+                  : 'Escolha Cielo ou Infinite Pay para que o PDV use a carteira correta da empresa.'}{' '}
+                Quando a impressora estiver desativada, este PDV deixa de ser
+                oferecido como destino padrao de impressao.
+              </Text>
+
+              <TouchableOpacity
+                style={[
+                  styles.configButton,
+                  savingPdvSettings && {opacity: 0.6},
+                ]}
+                activeOpacity={0.85}
+                disabled={savingPdvSettings}
+                onPress={savePdvSettings}>
+                {savingPdvSettings ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <>
+                    <Icon name="save" size={14} color="#fff" />
+                    <Text style={styles.configButtonText}>Salvar configuracao do PDV</Text>
+                  </>
+                )}
+              </TouchableOpacity>
             </View>
           </View>
         )}
@@ -1140,7 +1281,8 @@ const DeviceDetailPage = () => {
           </View>
         </View>
 
-        {!isDisplayDevice && (
+        {!isDisplayDevice &&
+          (!hasLocalPaymentGateway || pdvGateway !== PAYMENT_GATEWAY_CIELO) && (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>
               <Icon name="credit-card" size={13} /> {'  '}Pagamento Remoto
@@ -1149,8 +1291,10 @@ const DeviceDetailPage = () => {
             <View style={styles.configCard}>
               <Text style={styles.configTitle}>Device preferencial para pagamento</Text>
               <Text style={styles.configDescription}>
-                Se este device nao tiver gateway local, o sistema usa este destino.
-                Quando vazio, ele segue a ordem padrao definida na empresa.
+                Esse destino pode ser usado por origens sem gateway local, como
+                manager web ou celulares, e tambem pelos PDVs Android quando o
+                operador escolher o modo remoto na barra unica. Quando vazio, o
+                sistema segue a ordem padrao definida na empresa.
               </Text>
 
               <View style={styles.pickerWrap}>

@@ -28,7 +28,12 @@ import {
   normalizeDeviceType,
   normalizePrinterPort,
 } from '@controleonline/ui-common/src/react/utils/printerDevices';
-import {normalizeDeviceId} from '@controleonline/ui-common/src/react/utils/paymentDevices';
+import {
+  getPaymentGateway,
+  getPaymentGatewayLabel,
+  isPdvPrinterEnabled,
+  normalizeDeviceId,
+} from '@controleonline/ui-common/src/react/utils/paymentDevices';
 import {resolveThemePalette, withOpacity} from '@controleonline/../../src/styles/branding';
 import {colors} from '@controleonline/../../src/styles/colors';
 import Icon from 'react-native-vector-icons/Feather';
@@ -64,7 +69,8 @@ const mergeDeviceConfigs = (currentItems = [], nextItems = []) => {
 };
 
 const getStatus = deviceConfig => {
-  const closed = deviceConfig?.configs?.['cash-wallet-closed-id'];
+  const configs = parseConfigsObject(deviceConfig?.configs);
+  const closed = configs?.['cash-wallet-closed-id'];
 
   return closed === 0 || closed === '0' || closed === undefined || closed === null
     ? 'open'
@@ -153,10 +159,15 @@ const getDeviceDetailRoute = type => {
   return 'DeviceDetail';
 };
 
-const buildDeviceListParams = ({companyId, page, queryTypes = []}) => {
+const buildDeviceListParams = ({
+  companyId,
+  page,
+  pageSize = PAGE_SIZE,
+  queryTypes = [],
+}) => {
   const params = {
     people: `/people/${companyId}`,
-    itemsPerPage: PAGE_SIZE,
+    itemsPerPage: pageSize,
     page,
     'order[id]': 'DESC',
   };
@@ -174,8 +185,10 @@ const buildDeviceListParams = ({companyId, page, queryTypes = []}) => {
 
 export const createDeviceTypeTab = ({
   label,
+  pageSize = PAGE_SIZE,
   queryTypes = [],
   emptyState,
+  clientFilter = null,
 }) => {
   const DeviceTypeTab = () => {
     const navigation = useNavigation();
@@ -212,8 +225,17 @@ export const createDeviceTypeTab = ({
         return deviceConfigs.length < totalItems;
       }
 
-      return lastBatchSize === PAGE_SIZE;
-    }, [deviceConfigs.length, lastBatchSize, totalItems]);
+      return lastBatchSize === pageSize;
+    }, [deviceConfigs.length, lastBatchSize, pageSize, totalItems]);
+    const visibleDeviceConfigs = useMemo(() => {
+      if (typeof clientFilter !== 'function') {
+        return deviceConfigs;
+      }
+
+      return (Array.isArray(deviceConfigs) ? deviceConfigs : []).filter(
+        deviceConfig => clientFilter(deviceConfig),
+      );
+    }, [clientFilter, deviceConfigs]);
 
     const fetchPage = useCallback(
       async (targetPage, mode = 'loading') => {
@@ -249,6 +271,7 @@ export const createDeviceTypeTab = ({
             params: buildDeviceListParams({
               companyId,
               page: targetPage,
+              pageSize,
               queryTypes,
             }),
           });
@@ -281,7 +304,7 @@ export const createDeviceTypeTab = ({
           setLoadingMore(false);
         }
       },
-      [companyId, queryTypes],
+      [companyId, pageSize, queryTypes],
     );
 
     useFocusEffect(
@@ -443,8 +466,16 @@ export const createDeviceTypeTab = ({
         return;
       }
 
-      fetchPage(Math.floor(deviceConfigs.length / PAGE_SIZE) + 1, 'append');
-    }, [deviceConfigs.length, fetchPage, hasMore, loading, loadingMore, refreshing]);
+      fetchPage(Math.floor(deviceConfigs.length / pageSize) + 1, 'append');
+    }, [
+      deviceConfigs.length,
+      fetchPage,
+      hasMore,
+      loading,
+      loadingMore,
+      pageSize,
+      refreshing,
+    ]);
 
     const renderItem = useCallback(
       ({item: deviceConfig}) => {
@@ -453,6 +484,11 @@ export const createDeviceTypeTab = ({
         const isPdv = normalizedType === PDV_DEVICE_TYPE;
         const isDisplay = normalizedType === DISPLAY_DEVICE_TYPE;
         const isOpen = getStatus(deviceConfig) === 'open';
+        const pdvGateway = getPaymentGateway(deviceConfig);
+        const pdvGatewayLabel = pdvGateway
+          ? getPaymentGatewayLabel(pdvGateway)
+          : 'Sem gateway';
+        const pdvPrinterEnabled = isPdvPrinterEnabled(deviceConfig);
         const alias =
           deviceConfig.device?.alias ||
           deviceConfig.device?.device ||
@@ -504,6 +540,20 @@ export const createDeviceTypeTab = ({
                 <Text style={styles.deviceSub} numberOfLines={1}>
                   {`${getDeviceItemTypeLabel(normalizedType)} • ${deviceConfig.device?.device || ''}`}
                 </Text>
+                {isPdv ? (
+                  <View style={styles.deviceMetaRow}>
+                    <View style={styles.deviceMetaChip}>
+                      <Text style={styles.deviceMetaChipText}>
+                        {pdvGatewayLabel}
+                      </Text>
+                    </View>
+                    <View style={styles.deviceMetaChip}>
+                      <Text style={styles.deviceMetaChipText}>
+                        {`Impressora ${pdvPrinterEnabled ? 'Sim' : 'Nao'}`}
+                      </Text>
+                    </View>
+                  </View>
+                ) : null}
               </View>
             </View>
 
@@ -539,9 +589,11 @@ export const createDeviceTypeTab = ({
         <View style={styles.listMetaRow}>
           <Text style={styles.listMetaTitle}>{label}</Text>
           <Text style={styles.listMetaText}>
-            {totalItems > 0
-              ? `${deviceConfigs.length} de ${totalItems}`
-              : `${deviceConfigs.length} carregado(s)`}
+            {typeof clientFilter === 'function'
+              ? `${visibleDeviceConfigs.length} exibido(s)`
+              : totalItems > 0
+                ? `${deviceConfigs.length} de ${totalItems}`
+                : `${deviceConfigs.length} carregado(s)`}
           </Text>
         </View>
 
@@ -560,7 +612,7 @@ export const createDeviceTypeTab = ({
 
         <FlatList
           style={styles.tabList}
-          data={deviceConfigs}
+          data={visibleDeviceConfigs}
           keyExtractor={item => String(item.id)}
           renderItem={renderItem}
           refreshing={refreshing}
@@ -569,7 +621,7 @@ export const createDeviceTypeTab = ({
           onEndReachedThreshold={0.35}
           contentContainerStyle={[
             styles.listContent,
-            deviceConfigs.length === 0 && styles.listContentEmpty,
+            visibleDeviceConfigs.length === 0 && styles.listContentEmpty,
           ]}
           ListEmptyComponent={
             !loading && !error ? (

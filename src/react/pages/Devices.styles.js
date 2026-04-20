@@ -218,6 +218,23 @@ const styles = StyleSheet.create({
     color: '#94A3B8',
     marginTop: 2,
   },
+  deviceMetaRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginTop: 8,
+  },
+  deviceMetaChip: {
+    borderRadius: 999,
+    backgroundColor: '#F1F5F9',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  deviceMetaChipText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#475569',
+  },
   cardRight: {
     flexDirection: 'row',
     alignItems: 'center',

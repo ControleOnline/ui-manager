@@ -4,13 +4,18 @@ import allDeviceType from './all';
 import deviceDeviceType from './device';
 import displayDeviceType from './display';
 import ipCameraDeviceType from './ipCamera';
-import pdvDeviceType from './pdv';
+import pdvDeviceType, {
+  pdvCieloDeviceType,
+  pdvInfinitePayDeviceType,
+} from './pdv';
 import printerDeviceType from './printer';
 import {createDeviceTypeTab} from './shared';
 
 const registeredDeviceTypes = [
   allDeviceType,
   pdvDeviceType,
+  pdvCieloDeviceType,
+  pdvInfinitePayDeviceType,
   displayDeviceType,
   printerDeviceType,
   ipCameraDeviceType,
