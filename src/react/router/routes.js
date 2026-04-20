@@ -7,7 +7,6 @@ import Payables from '@controleonline/ui-financial/src/react/pages/Payables';
 import Receivables from '@controleonline/ui-financial/src/react/pages/Receivables';
 import OwnTransfers from '@controleonline/ui-financial/src/react/pages/OwnTransfers';
 import WalletsPage from '@controleonline/ui-financial/src/react/pages/WalletsPage';
-import PaymentTypesPage from '@controleonline/ui-financial/src/react/pages/PaymentTypesPage';
 import InvoiceCategoriesPage from '@controleonline/ui-financial/src/react/pages/InvoiceCategoriesPage';
 
 import Devices from '@controleonline/ui-manager/src/react/pages/Devices';
@@ -322,18 +321,6 @@ const managerRoutes = [
       companyFilterMode: 'icon',
     },
     initialParams: { store: 'wallet' },
-  },
-  {
-    name: 'PaymentTypesPage',
-    component: PaymentTypesPage,
-    options: {
-      headerShown: true,
-      headerBackVisible: true,
-      title: 'Formas de Pagamento',
-      showCompanyFilter: true,
-      companyFilterMode: 'icon',
-    },
-    initialParams: { store: 'paymentType' },
   },
   {
     name: 'InvoiceCategoriesPage',

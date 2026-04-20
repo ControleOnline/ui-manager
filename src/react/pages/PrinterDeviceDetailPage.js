@@ -19,6 +19,15 @@ import {resolveThemePalette, withOpacity} from '@controleonline/../../src/styles
 import {colors} from '@controleonline/../../src/styles/colors';
 import {getNetworkDeviceProfile} from '@controleonline/ui-common/src/react/utils/networkDeviceProfiles';
 import {
+  buildNetworkCameraConfigs,
+  buildNetworkCameraMetadata,
+  DEFAULT_NETWORK_CAMERA_PROTOCOL,
+  getCameraMetadataField,
+  getNetworkCameraConfigValues,
+  NETWORK_CAMERA_PORT_CONFIG_KEY,
+  NETWORK_CAMERA_PROTOCOL_OPTIONS,
+} from '@controleonline/ui-common/src/react/utils/networkCameraDevices';
+import {
   DEVICE_RUNTIME_DEBUG_INFO_ENABLED_KEY,
   isTruthyValue,
   parseConfigsObject,
@@ -35,6 +44,7 @@ import {
   getDeviceTypeLabel,
   getPrinterManagerDeviceOptions,
   getPrinterMetadataField,
+  IP_CAMERA_DEVICE_TYPE,
   NETWORK_PRINTER_COLUMNS_CONFIG_KEY,
   NETWORK_PRINTER_MANAGER_DEVICE_CONFIG_KEY,
   NETWORK_PRINTER_PORT_CONFIG_KEY,
@@ -110,6 +120,7 @@ const PrinterDeviceDetailPage = () => {
   } = route.params || {};
   const normalizedDeviceType =
     String(initialDeviceType || '').trim().toUpperCase() || PRINT_DEVICE_TYPE;
+  const isIpCamera = normalizedDeviceType === IP_CAMERA_DEVICE_TYPE;
   const deviceProfile = useMemo(
     () => getNetworkDeviceProfile(normalizedDeviceType),
     [normalizedDeviceType],
@@ -136,6 +147,10 @@ const PrinterDeviceDetailPage = () => {
     () => parseConfigsObject(initialConfigs),
     [initialConfigs],
   );
+  const initialCameraConfigValues = useMemo(
+    () => getNetworkCameraConfigValues(initialParsedConfigs),
+    [initialParsedConfigs],
+  );
   const persistedDeviceHost = normalizePrinterHost(deviceString);
 
   const [loading, setLoading] = useState(false);
@@ -160,17 +175,27 @@ const PrinterDeviceDetailPage = () => {
   );
   const [checkingConnection, setCheckingConnection] = useState(false);
   const [manufacturer, setManufacturer] = useState(
-    getPrinterMetadataField(initialMetadata, 'manufacturer'),
+    isIpCamera
+      ? getCameraMetadataField(initialMetadata, 'manufacturer')
+      : getPrinterMetadataField(initialMetadata, 'manufacturer'),
   );
-  const [model, setModel] = useState(getPrinterMetadataField(initialMetadata, 'model'));
+  const [model, setModel] = useState(
+    isIpCamera
+      ? getCameraMetadataField(initialMetadata, 'model')
+      : getPrinterMetadataField(initialMetadata, 'model'),
+  );
   const [version, setVersion] = useState(
-    getPrinterMetadataField(initialMetadata, 'version'),
+    isIpCamera
+      ? getCameraMetadataField(initialMetadata, 'version')
+      : getPrinterMetadataField(initialMetadata, 'version'),
   );
   const [port, setPort] = useState(
-    normalizePrinterPort(
-      initialParsedConfigs[NETWORK_PRINTER_PORT_CONFIG_KEY] ||
-        DEFAULT_NETWORK_PRINTER_PORT,
-    ),
+    isIpCamera
+      ? initialCameraConfigValues.port
+      : normalizePrinterPort(
+          initialParsedConfigs[NETWORK_PRINTER_PORT_CONFIG_KEY] ||
+            DEFAULT_NETWORK_PRINTER_PORT,
+        ),
   );
   const [columns, setColumns] = useState(
     normalizePrinterColumns(
@@ -179,9 +204,11 @@ const PrinterDeviceDetailPage = () => {
     ),
   );
   const [managerDeviceId, setManagerDeviceId] = useState(
-    normalizeDeviceId(
-      initialParsedConfigs[NETWORK_PRINTER_MANAGER_DEVICE_CONFIG_KEY],
-    ),
+    isIpCamera
+      ? initialCameraConfigValues.managerDeviceId
+      : normalizeDeviceId(
+          initialParsedConfigs[NETWORK_PRINTER_MANAGER_DEVICE_CONFIG_KEY],
+        ),
   );
   const [transport, setTransport] = useState(
     String(
@@ -189,6 +216,12 @@ const PrinterDeviceDetailPage = () => {
         DEFAULT_NETWORK_PRINTER_TRANSPORT,
     ),
   );
+  const [protocol, setProtocol] = useState(initialCameraConfigValues.protocol);
+  const [streamPath, setStreamPath] = useState(
+    initialCameraConfigValues.streamPath,
+  );
+  const [username, setUsername] = useState(initialCameraConfigValues.username);
+  const [password, setPassword] = useState(initialCameraConfigValues.password);
   const [deviceRuntimeDebugInfoEnabled, setDeviceRuntimeDebugInfoEnabled] =
     useState(
       isTruthyValue(
@@ -317,6 +350,8 @@ const PrinterDeviceDetailPage = () => {
             );
           });
           const nextConfigs = parseConfigsObject(currentDeviceConfig?.configs);
+          const nextCameraConfigValues =
+            getNetworkCameraConfigValues(nextConfigs);
           const nextMetadata =
             deviceData?.metadata ||
             currentDeviceConfig?.device?.metadata ||
@@ -336,14 +371,28 @@ const PrinterDeviceDetailPage = () => {
               '',
           );
           setDeviceHost(nextDeviceHost);
-          setManufacturer(getPrinterMetadataField(nextMetadata, 'manufacturer'));
-          setModel(getPrinterMetadataField(nextMetadata, 'model'));
-          setVersion(getPrinterMetadataField(nextMetadata, 'version'));
+          setManufacturer(
+            isIpCamera
+              ? getCameraMetadataField(nextMetadata, 'manufacturer')
+              : getPrinterMetadataField(nextMetadata, 'manufacturer'),
+          );
+          setModel(
+            isIpCamera
+              ? getCameraMetadataField(nextMetadata, 'model')
+              : getPrinterMetadataField(nextMetadata, 'model'),
+          );
+          setVersion(
+            isIpCamera
+              ? getCameraMetadataField(nextMetadata, 'version')
+              : getPrinterMetadataField(nextMetadata, 'version'),
+          );
           setPort(
-            normalizePrinterPort(
-              nextConfigs[NETWORK_PRINTER_PORT_CONFIG_KEY] ||
-                DEFAULT_NETWORK_PRINTER_PORT,
-            ),
+            isIpCamera
+              ? nextCameraConfigValues.port
+              : normalizePrinterPort(
+                  nextConfigs[NETWORK_PRINTER_PORT_CONFIG_KEY] ||
+                    DEFAULT_NETWORK_PRINTER_PORT,
+                ),
           );
           setColumns(
             normalizePrinterColumns(
@@ -352,9 +401,11 @@ const PrinterDeviceDetailPage = () => {
             ),
           );
           setManagerDeviceId(
-            normalizeDeviceId(
-              nextConfigs[NETWORK_PRINTER_MANAGER_DEVICE_CONFIG_KEY],
-            ),
+            isIpCamera
+              ? nextCameraConfigValues.managerDeviceId
+              : normalizeDeviceId(
+                  nextConfigs[NETWORK_PRINTER_MANAGER_DEVICE_CONFIG_KEY],
+                ),
           );
           setTransport(
             String(
@@ -362,6 +413,10 @@ const PrinterDeviceDetailPage = () => {
                 DEFAULT_NETWORK_PRINTER_TRANSPORT,
             ),
           );
+          setProtocol(nextCameraConfigValues.protocol);
+          setStreamPath(nextCameraConfigValues.streamPath);
+          setUsername(nextCameraConfigValues.username);
+          setPassword(nextCameraConfigValues.password);
           setDeviceRuntimeDebugInfoEnabled(
             isTruthyValue(
               nextConfigs[DEVICE_RUNTIME_DEBUG_INFO_ENABLED_KEY],
@@ -386,6 +441,7 @@ const PrinterDeviceDetailPage = () => {
       initialAlias,
       initialDeviceConfigId,
       initialMetadata,
+      isIpCamera,
       persistedDeviceHost,
     ]),
   );
@@ -407,14 +463,22 @@ const PrinterDeviceDetailPage = () => {
     }
 
     const normalizedAlias = String(alias || '').trim() || normalizedHost;
-    const metadata = buildNetworkPrinterMetadata({
-      existingMetadata: deviceMetadata,
-      host: normalizedHost,
-      manufacturer,
-      model,
-      version,
-      transport,
-    });
+    const metadata = isIpCamera
+      ? buildNetworkCameraMetadata({
+          existingMetadata: deviceMetadata,
+          host: normalizedHost,
+          manufacturer,
+          model,
+          version,
+        })
+      : buildNetworkPrinterMetadata({
+          existingMetadata: deviceMetadata,
+          host: normalizedHost,
+          manufacturer,
+          model,
+          version,
+          transport,
+        });
 
     setSavingDevice(true);
 
@@ -458,7 +522,7 @@ const PrinterDeviceDetailPage = () => {
     manufacturer,
     model,
     navigation,
-    normalizedDeviceType,
+    isIpCamera,
     transport,
     version,
     port,
@@ -551,13 +615,22 @@ const PrinterDeviceDetailPage = () => {
       return;
     }
 
-    const nextConfigs = {
-      [NETWORK_PRINTER_MANAGER_DEVICE_CONFIG_KEY]: managerDeviceId,
-      [NETWORK_PRINTER_PORT_CONFIG_KEY]: normalizePrinterPort(port),
-      [NETWORK_PRINTER_COLUMNS_CONFIG_KEY]: normalizePrinterColumns(columns),
-      [NETWORK_PRINTER_TRANSPORT_CONFIG_KEY]:
-        String(transport || '').trim() || DEFAULT_NETWORK_PRINTER_TRANSPORT,
-    };
+    const nextConfigs = isIpCamera
+      ? buildNetworkCameraConfigs({
+          managerDeviceId,
+          port,
+          protocol,
+          streamPath,
+          username,
+          password,
+        })
+      : {
+          [NETWORK_PRINTER_MANAGER_DEVICE_CONFIG_KEY]: managerDeviceId,
+          [NETWORK_PRINTER_PORT_CONFIG_KEY]: normalizePrinterPort(port),
+          [NETWORK_PRINTER_COLUMNS_CONFIG_KEY]: normalizePrinterColumns(columns),
+          [NETWORK_PRINTER_TRANSPORT_CONFIG_KEY]:
+            String(transport || '').trim() || DEFAULT_NETWORK_PRINTER_TRANSPORT,
+        };
 
     setSavingConfig(true);
 
@@ -577,7 +650,9 @@ const PrinterDeviceDetailPage = () => {
       });
       runConnectionCheck({
         hostOverride: normalizedHost,
-        portOverride: nextConfigs[NETWORK_PRINTER_PORT_CONFIG_KEY],
+        portOverride: isIpCamera
+          ? nextConfigs[NETWORK_CAMERA_PORT_CONFIG_KEY]
+          : nextConfigs[NETWORK_PRINTER_PORT_CONFIG_KEY],
       });
     } catch (error) {
       Alert.alert(
@@ -593,12 +668,17 @@ const PrinterDeviceDetailPage = () => {
     deviceHost,
     deviceConfigStore.actions,
     deviceConfigId,
+    isIpCamera,
     managerDeviceId,
     navigation,
+    password,
     port,
     persistedDeviceHost,
+    protocol,
+    streamPath,
     transport,
     runConnectionCheck,
+    username,
     deviceProfile,
   ]);
 
@@ -834,38 +914,110 @@ const PrinterDeviceDetailPage = () => {
 
           <View style={styles.inlineFields}>
             <View style={[styles.fieldBlock, styles.inlineField]}>
-              <Text style={styles.fieldLabel}>Porta TCP</Text>
+              <Text style={styles.fieldLabel}>
+                {isIpCamera ? 'Porta' : 'Porta TCP'}
+              </Text>
               <TextInput
                 style={styles.input}
                 value={port}
                 onChangeText={setPort}
-                placeholder={DEFAULT_NETWORK_PRINTER_PORT}
+                placeholder={
+                  isIpCamera ? '554' : DEFAULT_NETWORK_PRINTER_PORT
+                }
                 placeholderTextColor="#94A3B8"
                 keyboardType="numeric"
               />
             </View>
 
-            <View style={[styles.fieldBlock, styles.inlineField]}>
-              <Text style={styles.fieldLabel}>Colunas</Text>
+            {isIpCamera ? (
+              <View style={[styles.fieldBlock, styles.inlineField]}>
+                <Text style={styles.fieldLabel}>Protocolo</Text>
+                <View style={styles.pickerWrap}>
+                  <Picker
+                    selectedValue={protocol || DEFAULT_NETWORK_CAMERA_PROTOCOL}
+                    mode={pickerMode}
+                    onValueChange={value =>
+                      setProtocol(String(value || DEFAULT_NETWORK_CAMERA_PROTOCOL))
+                    }>
+                    {NETWORK_CAMERA_PROTOCOL_OPTIONS.map(option => (
+                      <Picker.Item
+                        key={option.value}
+                        label={option.label}
+                        value={option.value}
+                      />
+                    ))}
+                  </Picker>
+                </View>
+              </View>
+            ) : (
+              <View style={[styles.fieldBlock, styles.inlineField]}>
+                <Text style={styles.fieldLabel}>Colunas</Text>
+                <TextInput
+                  style={styles.input}
+                  value={columns}
+                  onChangeText={setColumns}
+                  placeholder={DEFAULT_NETWORK_PRINTER_COLUMNS}
+                  placeholderTextColor="#94A3B8"
+                  keyboardType="numeric"
+                />
+              </View>
+            )}
+          </View>
+
+          {isIpCamera ? (
+            <>
+              <View style={styles.fieldBlock}>
+                <Text style={styles.fieldLabel}>Caminho do stream</Text>
+                <TextInput
+                  style={styles.input}
+                  value={streamPath}
+                  onChangeText={setStreamPath}
+                  placeholder="Ex.: /Streaming/Channels/101"
+                  placeholderTextColor="#94A3B8"
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                />
+              </View>
+
+              <View style={styles.inlineFields}>
+                <View style={[styles.fieldBlock, styles.inlineField]}>
+                  <Text style={styles.fieldLabel}>Usuario</Text>
+                  <TextInput
+                    style={styles.input}
+                    value={username}
+                    onChangeText={setUsername}
+                    placeholder="Ex.: admin"
+                    placeholderTextColor="#94A3B8"
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                  />
+                </View>
+
+                <View style={[styles.fieldBlock, styles.inlineField]}>
+                  <Text style={styles.fieldLabel}>Senha</Text>
+                  <TextInput
+                    style={styles.input}
+                    value={password}
+                    onChangeText={setPassword}
+                    placeholder="Senha da camera"
+                    placeholderTextColor="#94A3B8"
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    secureTextEntry
+                  />
+                </View>
+              </View>
+            </>
+          ) : (
+            <View style={styles.fieldBlock}>
+              <Text style={styles.fieldLabel}>Transporte</Text>
               <TextInput
-                style={styles.input}
-                value={columns}
-                onChangeText={setColumns}
-                placeholder={DEFAULT_NETWORK_PRINTER_COLUMNS}
-                placeholderTextColor="#94A3B8"
-                keyboardType="numeric"
+                style={[styles.input, styles.readonlyInput]}
+                value={transport || DEFAULT_NETWORK_PRINTER_TRANSPORT}
+                editable={false}
               />
             </View>
-          </View>
-
-          <View style={styles.fieldBlock}>
-            <Text style={styles.fieldLabel}>Transporte</Text>
-            <TextInput
-              style={[styles.input, styles.readonlyInput]}
-              value={transport || DEFAULT_NETWORK_PRINTER_TRANSPORT}
-              editable={false}
-            />
-          </View>
+          )}
 
           <View style={styles.fieldBlock}>
             <Text style={styles.fieldLabel}>Device responsavel</Text>
@@ -906,7 +1058,9 @@ const PrinterDeviceDetailPage = () => {
               <>
                 <Icon name="save" size={15} color="#fff" />
                 <Text style={styles.primaryButtonText}>
-                  Salvar roteamento
+                  {isIpCamera
+                    ? 'Salvar acesso da camera'
+                    : 'Salvar roteamento'}
                 </Text>
               </>
             )}
