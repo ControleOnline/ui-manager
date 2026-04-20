@@ -10,13 +10,14 @@ import {
   View,
 } from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
-import {useFocusEffect, useNavigation} from '@react-navigation/native';
+import {useFocusEffect, useNavigation, useRoute} from '@react-navigation/native';
 import {Picker} from '@react-native-picker/picker';
 import Icon from 'react-native-vector-icons/Feather';
 import {useStore} from '@store';
 import StateStore from '@controleonline/ui-layout/src/react/components/StateStore';
 import {resolveThemePalette, withOpacity} from '@controleonline/../../src/styles/branding';
 import {colors} from '@controleonline/../../src/styles/colors';
+import {getNetworkDeviceProfile} from '@controleonline/ui-common/src/react/utils/networkDeviceProfiles';
 import {
   buildNetworkPrinterMetadata,
   DEFAULT_NETWORK_PRINTER_COLUMNS,
@@ -38,6 +39,14 @@ import styles from './PrinterDeviceFormPage.styles';
 
 const PrinterDeviceFormPage = () => {
   const navigation = useNavigation();
+  const route = useRoute();
+  const normalizedDeviceType =
+    String(route.params?.deviceType || '').trim().toUpperCase() ||
+    PRINT_DEVICE_TYPE;
+  const deviceProfile = useMemo(
+    () => getNetworkDeviceProfile(normalizedDeviceType),
+    [normalizedDeviceType],
+  );
 
   const peopleStore = useStore('people');
   const deviceStore = useStore('device');
@@ -97,21 +106,24 @@ const PrinterDeviceFormPage = () => {
     if (!currentCompany?.id) {
       Alert.alert(
         'Empresa nao selecionada',
-        'Selecione uma empresa antes de cadastrar a impressora.',
+        deviceProfile.companyMissingMessage,
       );
       return;
     }
 
     const normalizedHost = normalizePrinterHost(host);
     if (!normalizedHost) {
-      Alert.alert('IP da impressora', 'Informe o IP ou hostname da impressora.');
+      Alert.alert(
+        deviceProfile.hostAlertTitle,
+        deviceProfile.hostMissingMessage,
+      );
       return;
     }
 
     if (!managerDeviceId) {
       Alert.alert(
         'Device responsavel',
-        'Selecione o PDV ou DISPLAY responsavel por receber e encaminhar as impressoes.',
+        deviceProfile.managerMissingMessage,
       );
       return;
     }
@@ -147,17 +159,18 @@ const PrinterDeviceFormPage = () => {
           DEFAULT_NETWORK_PRINTER_TRANSPORT,
       };
 
-      await deviceConfigStore.actions.addDeviceConfigs({
+      const savedDeviceConfig = await deviceConfigStore.actions.addDeviceConfigs({
         device: savedDevice?.device || normalizedHost,
         people: `/people/${currentCompany.id}`,
-        type: PRINT_DEVICE_TYPE,
+        type: normalizedDeviceType,
         configs: JSON.stringify(configs),
       });
 
-      navigation.replace('PrinterDeviceDetail', {
+      navigation.replace(deviceProfile.detailRouteName, {
+        dcId: savedDeviceConfig?.id,
         deviceId: savedDevice?.id,
         deviceString: savedDevice?.device || normalizedHost,
-        deviceType: PRINT_DEVICE_TYPE,
+        deviceType: normalizedDeviceType,
         alias: savedDevice?.alias || normalizedAlias,
         configs,
         metadata: savedDevice?.metadata || metadata,
@@ -167,9 +180,9 @@ const PrinterDeviceFormPage = () => {
         error?.response?.data?.['hydra:description'] ||
         error?.response?.data?.message ||
         error?.message ||
-        'Nao foi possivel cadastrar a impressora.';
+        deviceProfile.registerErrorMessage;
 
-      Alert.alert('Erro ao cadastrar impressora', message);
+      Alert.alert(deviceProfile.registerErrorTitle, message);
     } finally {
       setSaving(false);
     }
@@ -184,8 +197,10 @@ const PrinterDeviceFormPage = () => {
     manufacturer,
     model,
     navigation,
+    normalizedDeviceType,
     port,
     version,
+    deviceProfile,
   ]);
 
   return (
@@ -202,13 +217,12 @@ const PrinterDeviceFormPage = () => {
               styles.heroIcon,
               {backgroundColor: withOpacity(brandColors.primary, 0.12)},
             ]}>
-            <Icon name="printer" size={20} color={brandColors.primary} />
+            <Icon name={deviceProfile.icon} size={20} color={brandColors.primary} />
           </View>
           <View style={styles.heroCopy}>
-            <Text style={styles.heroTitle}>Nova impressora de rede</Text>
+            <Text style={styles.heroTitle}>{deviceProfile.heroTitle}</Text>
             <Text style={styles.heroText}>
-              Cadastre a impressora pelo IP/hostname e vincule qual device
-              local vai executar a impressao na rede.
+              {deviceProfile.heroText}
             </Text>
           </View>
         </View>
@@ -230,7 +244,7 @@ const PrinterDeviceFormPage = () => {
               style={styles.input}
               value={alias}
               onChangeText={setAlias}
-              placeholder="Ex.: Impressora Caixa 1"
+              placeholder={deviceProfile.aliasPlaceholder}
               placeholderTextColor="#94A3B8"
             />
           </View>
@@ -252,8 +266,7 @@ const PrinterDeviceFormPage = () => {
         <View style={styles.sectionCard}>
           <Text style={styles.sectionTitle}>Device responsavel</Text>
           <Text style={styles.sectionDescription}>
-            Este PDV ou DISPLAY sera o gateway local que acompanha as impressoes
-            desta impressora de rede.
+            {deviceProfile.managerSectionDescription}
           </Text>
 
           {isLoadingDeviceConfigs ? (
@@ -367,7 +380,9 @@ const PrinterDeviceFormPage = () => {
           ) : (
             <>
               <Icon name="save" size={15} color="#fff" />
-              <Text style={styles.primaryButtonText}>Cadastrar impressora</Text>
+              <Text style={styles.primaryButtonText}>
+                {deviceProfile.createButtonLabel}
+              </Text>
             </>
           )}
         </TouchableOpacity>

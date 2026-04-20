@@ -17,6 +17,7 @@ import {useStore} from '@store';
 import StateStore from '@controleonline/ui-layout/src/react/components/StateStore';
 import {resolveThemePalette, withOpacity} from '@controleonline/../../src/styles/branding';
 import {colors} from '@controleonline/../../src/styles/colors';
+import {getNetworkDeviceProfile} from '@controleonline/ui-common/src/react/utils/networkDeviceProfiles';
 import {
   DEVICE_RUNTIME_DEBUG_INFO_ENABLED_KEY,
   isTruthyValue,
@@ -99,6 +100,7 @@ const PrinterDeviceDetailPage = () => {
   const navigation = useNavigation();
   const route = useRoute();
   const {
+    dcId: initialDeviceConfigId,
     deviceId,
     deviceString,
     deviceType: initialDeviceType,
@@ -106,6 +108,12 @@ const PrinterDeviceDetailPage = () => {
     configs: initialConfigs,
     metadata: initialMetadata,
   } = route.params || {};
+  const normalizedDeviceType =
+    String(initialDeviceType || '').trim().toUpperCase() || PRINT_DEVICE_TYPE;
+  const deviceProfile = useMemo(
+    () => getNetworkDeviceProfile(normalizedDeviceType),
+    [normalizedDeviceType],
+  );
 
   const peopleStore = useStore('people');
   const deviceStore = useStore('device');
@@ -134,7 +142,11 @@ const PrinterDeviceDetailPage = () => {
   const [savingDevice, setSavingDevice] = useState(false);
   const [savingConfig, setSavingConfig] = useState(false);
   const [savingRuntimeDebugInfo, setSavingRuntimeDebugInfo] = useState(false);
+  const [removingConfig, setRemovingConfig] = useState(false);
   const [companyDeviceConfigs, setCompanyDeviceConfigs] = useState([]);
+  const [deviceConfigId, setDeviceConfigId] = useState(
+    String(initialDeviceConfigId || '').trim(),
+  );
   const [deviceMetadata, setDeviceMetadata] = useState(initialMetadata || {});
   const [alias, setAlias] = useState(initialAlias || '');
   const [deviceHost, setDeviceHost] = useState(persistedDeviceHost);
@@ -143,7 +155,7 @@ const PrinterDeviceDetailPage = () => {
   );
   const [connectionMessage, setConnectionMessage] = useState(
     isNetworkPrinterRuntimeSupported
-      ? 'Aguardando teste do socket da impressora.'
+      ? `Aguardando teste do socket da ${deviceProfile.itemLabel.toLowerCase()}.`
       : 'Teste de socket disponivel apenas no app nativo.',
   );
   const [checkingConnection, setCheckingConnection] = useState(false);
@@ -185,8 +197,6 @@ const PrinterDeviceDetailPage = () => {
     );
 
   const pickerMode = Platform.OS === 'android' ? 'dropdown' : undefined;
-  const normalizedDeviceType =
-    String(initialDeviceType || '').trim().toUpperCase() || PRINT_DEVICE_TYPE;
   const scopedDeviceConfigs = useMemo(
     () => filterDeviceConfigsByCompany(companyDeviceConfigs, currentCompany?.id),
     [companyDeviceConfigs, currentCompany?.id],
@@ -315,6 +325,9 @@ const PrinterDeviceDetailPage = () => {
             deviceData?.device || currentDeviceConfig?.device?.device || deviceString,
           );
 
+          setDeviceConfigId(
+            String(currentDeviceConfig?.id || initialDeviceConfigId || '').trim(),
+          );
           setDeviceMetadata(nextMetadata || {});
           setAlias(
             deviceData?.alias ||
@@ -371,6 +384,7 @@ const PrinterDeviceDetailPage = () => {
       deviceStore.actions,
       deviceString,
       initialAlias,
+      initialDeviceConfigId,
       initialMetadata,
       persistedDeviceHost,
     ]),
@@ -385,7 +399,10 @@ const PrinterDeviceDetailPage = () => {
   const saveDeviceRegistration = useCallback(async () => {
     const normalizedHost = normalizePrinterHost(deviceHost);
     if (!normalizedHost) {
-      Alert.alert('Cadastro da impressora', 'Informe o IP ou hostname da impressora.');
+      Alert.alert(
+        deviceProfile.registrationAlertTitle,
+        deviceProfile.hostMissingMessage,
+      );
       return;
     }
 
@@ -425,7 +442,10 @@ const PrinterDeviceDetailPage = () => {
         portOverride: port,
       });
     } catch (error) {
-      Alert.alert('Cadastro da impressora', resolveErrorMessage(error));
+      Alert.alert(
+        deviceProfile.registrationAlertTitle,
+        resolveErrorMessage(error),
+      );
     } finally {
       setSavingDevice(false);
     }
@@ -443,6 +463,7 @@ const PrinterDeviceDetailPage = () => {
     version,
     port,
     runConnectionCheck,
+    deviceProfile,
   ]);
 
   const saveRuntimeDebugInfoConfig = useCallback(async () => {
@@ -458,7 +479,7 @@ const PrinterDeviceDetailPage = () => {
     if (!normalizedHost) {
       Alert.alert(
         'Rodape do sistema',
-        'Informe o IP ou hostname da impressora antes de salvar.',
+        deviceProfile.hostMissingBeforeSaveMessage,
       );
       return;
     }
@@ -466,7 +487,7 @@ const PrinterDeviceDetailPage = () => {
     setSavingRuntimeDebugInfo(true);
 
     try {
-      await deviceConfigStore.actions.addDeviceConfigs({
+      const savedDeviceConfig = await deviceConfigStore.actions.addDeviceConfigs({
         device: normalizedHost,
         people: `/people/${currentCompany.id}`,
         type: normalizedDeviceType,
@@ -476,7 +497,9 @@ const PrinterDeviceDetailPage = () => {
         }),
       });
 
+      setDeviceConfigId(String(savedDeviceConfig?.id || deviceConfigId || '').trim());
       navigation.setParams({
+        dcId: savedDeviceConfig?.id || deviceConfigId,
         deviceString: normalizedHost,
       });
     } catch (error) {
@@ -487,9 +510,11 @@ const PrinterDeviceDetailPage = () => {
   }, [
     currentCompany?.id,
     deviceConfigStore.actions,
+    deviceConfigId,
     deviceHost,
     deviceRuntimeDebugInfoEnabled,
     navigation,
+    deviceProfile,
   ]);
 
   const savePrinterConfig = useCallback(async () => {
@@ -504,21 +529,24 @@ const PrinterDeviceDetailPage = () => {
     if (!managerDeviceId) {
       Alert.alert(
         'Device responsavel',
-        'Selecione qual PDV ou DISPLAY executa a impressao desta impressora.',
+        deviceProfile.managerRoutingMessage,
       );
       return;
     }
 
     const normalizedHost = normalizePrinterHost(deviceHost);
     if (!normalizedHost) {
-      Alert.alert('Configuracao da impressora', 'Informe o IP ou hostname da impressora.');
+      Alert.alert(
+        deviceProfile.routingAlertTitle,
+        deviceProfile.hostMissingMessage,
+      );
       return;
     }
 
     if (normalizedHost !== persistedDeviceHost) {
       Alert.alert(
-        'Configuracao da impressora',
-        'Salve primeiro o cadastro da impressora para aplicar o novo IP antes do roteamento.',
+        deviceProfile.routingAlertTitle,
+        deviceProfile.saveBeforeRoutingMessage,
       );
       return;
     }
@@ -534,15 +562,17 @@ const PrinterDeviceDetailPage = () => {
     setSavingConfig(true);
 
     try {
-      await deviceConfigStore.actions.addDeviceConfigs({
+      const savedDeviceConfig = await deviceConfigStore.actions.addDeviceConfigs({
         device: normalizedHost,
         people: `/people/${currentCompany.id}`,
         type: normalizedDeviceType,
         configs: JSON.stringify(nextConfigs),
       });
 
+      setDeviceConfigId(String(savedDeviceConfig?.id || deviceConfigId || '').trim());
       navigation.setParams({
         configs: nextConfigs,
+        dcId: savedDeviceConfig?.id || deviceConfigId,
         deviceString: normalizedHost,
       });
       runConnectionCheck({
@@ -550,7 +580,10 @@ const PrinterDeviceDetailPage = () => {
         portOverride: nextConfigs[NETWORK_PRINTER_PORT_CONFIG_KEY],
       });
     } catch (error) {
-      Alert.alert('Configuracao da impressora', resolveErrorMessage(error));
+      Alert.alert(
+        deviceProfile.routingAlertTitle,
+        resolveErrorMessage(error),
+      );
     } finally {
       setSavingConfig(false);
     }
@@ -559,12 +592,58 @@ const PrinterDeviceDetailPage = () => {
     currentCompany?.id,
     deviceHost,
     deviceConfigStore.actions,
+    deviceConfigId,
     managerDeviceId,
     navigation,
     port,
     persistedDeviceHost,
     transport,
     runConnectionCheck,
+    deviceProfile,
+  ]);
+
+  const handleRemoveConfig = useCallback(() => {
+    const normalizedCurrentConfigId = String(deviceConfigId || '').trim();
+    if (!normalizedCurrentConfigId || removingConfig) {
+      return;
+    }
+
+    Alert.alert(
+      deviceProfile.removeConfirmTitle,
+      deviceProfile.removeConfirmMessage,
+      [
+        {
+          text: 'Cancelar',
+          style: 'cancel',
+        },
+        {
+          text: 'Remover',
+          style: 'destructive',
+          onPress: async () => {
+            setRemovingConfig(true);
+
+            try {
+              await deviceConfigStore.actions.remove(normalizedCurrentConfigId);
+              setDeviceConfigId('');
+              navigation.navigate('DevicesIndex');
+            } catch (error) {
+              Alert.alert(
+                deviceProfile.removeConfirmTitle,
+                error?.message || deviceProfile.removeErrorMessage,
+              );
+            } finally {
+              setRemovingConfig(false);
+            }
+          },
+        },
+      ],
+    );
+  }, [
+    deviceConfigId,
+    deviceConfigStore.actions,
+    deviceProfile,
+    navigation,
+    removingConfig,
   ]);
 
   return (
@@ -581,11 +660,11 @@ const PrinterDeviceDetailPage = () => {
               styles.heroIcon,
               {backgroundColor: withOpacity(brandColors.primary, 0.12)},
             ]}>
-            <Icon name="printer" size={20} color={brandColors.primary} />
+            <Icon name={deviceProfile.icon} size={20} color={brandColors.primary} />
           </View>
           <View style={styles.heroCopy}>
             <Text style={styles.heroTitle}>
-              {alias || 'Impressora de rede'}
+              {alias || deviceProfile.detailHeroFallback}
             </Text>
             <Text style={styles.heroText}>
               {getDeviceTypeLabel(normalizedDeviceType)} vinculada ao endereco{' '}
@@ -597,15 +676,14 @@ const PrinterDeviceDetailPage = () => {
         {loading && (
           <View style={styles.loadingRow}>
             <ActivityIndicator size="small" color={brandColors.primary} />
-            <Text style={styles.loadingText}>Atualizando dados da impressora...</Text>
+            <Text style={styles.loadingText}>{deviceProfile.detailLoadingText}</Text>
           </View>
         )}
 
         <View style={styles.sectionCard}>
           <Text style={styles.sectionTitle}>Status do socket</Text>
           <Text style={styles.sectionDescription}>
-            O app tenta abrir uma conexao TCP direta com a impressora IP para
-            indicar se ela esta acessivel na rede deste device.
+            {deviceProfile.statusSectionDescription}
           </Text>
 
           <View
@@ -665,7 +743,9 @@ const PrinterDeviceDetailPage = () => {
         </View>
 
         <View style={styles.sectionCard}>
-          <Text style={styles.sectionTitle}>Cadastro da impressora</Text>
+          <Text style={styles.sectionTitle}>
+            {deviceProfile.registrationSectionTitle}
+          </Text>
 
           <View style={styles.fieldBlock}>
             <Text style={styles.fieldLabel}>Nome exibido</Text>
@@ -673,7 +753,7 @@ const PrinterDeviceDetailPage = () => {
               style={styles.input}
               value={alias}
               onChangeText={setAlias}
-              placeholder="Nome da impressora"
+              placeholder={deviceProfile.detailAliasPlaceholder}
               placeholderTextColor="#94A3B8"
             />
           </View>
@@ -745,11 +825,11 @@ const PrinterDeviceDetailPage = () => {
         </View>
 
         <View style={styles.sectionCard}>
-          <Text style={styles.sectionTitle}>Roteamento de impressao</Text>
+          <Text style={styles.sectionTitle}>
+            {deviceProfile.routingSectionTitle}
+          </Text>
           <Text style={styles.sectionDescription}>
-            O backend continua gerando a impressao para o device da impressora.
-            Aqui voce define qual PDV ou DISPLAY local fica responsavel por
-            consumir essa fila e falar com a impressora na rede.
+            {deviceProfile.routingSectionDescription}
           </Text>
 
           <View style={styles.inlineFields}>
@@ -836,8 +916,7 @@ const PrinterDeviceDetailPage = () => {
         <View style={styles.sectionCard}>
           <Text style={styles.sectionTitle}>Rodape do sistema</Text>
           <Text style={styles.sectionDescription}>
-            Controla se esta impressora mostra apenas a bolinha discreta do
-            socket no rodape global ou se abre as linhas detalhadas de debug.
+            {deviceProfile.footerDebugDescription}
           </Text>
 
           <TouchableOpacity
@@ -885,6 +964,38 @@ const PrinterDeviceDetailPage = () => {
             )}
           </TouchableOpacity>
         </View>
+
+        {deviceConfigId ? (
+          <View style={styles.sectionCard}>
+            <Text style={styles.sectionTitle}>
+              {deviceProfile.removeSectionTitle}
+            </Text>
+            <Text style={styles.sectionDescription}>
+              {deviceProfile.removeSectionDescription}
+            </Text>
+
+            <TouchableOpacity
+              style={[
+                styles.primaryButton,
+                {backgroundColor: '#DC2626'},
+                removingConfig && styles.primaryButtonDisabled,
+              ]}
+              activeOpacity={0.85}
+              disabled={removingConfig}
+              onPress={handleRemoveConfig}>
+              {removingConfig ? (
+                <ActivityIndicator size="small" color="#fff" />
+              ) : (
+                <>
+                  <Icon name="trash-2" size={15} color="#fff" />
+                  <Text style={styles.primaryButtonText}>
+                    {deviceProfile.removeButtonLabel}
+                  </Text>
+                </>
+              )}
+            </TouchableOpacity>
+          </View>
+        ) : null}
       </ScrollView>
     </SafeAreaView>
   );

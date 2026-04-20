@@ -59,12 +59,62 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: '#fff',
   },
+  printerActionBlock: {
+    marginBottom: 12,
+  },
   helperText: {
     fontSize: 12,
     color: '#64748B',
     fontWeight: '600',
-    marginBottom: 12,
     lineHeight: 18,
+  },
+  filtersBlock: {
+    marginBottom: 14,
+  },
+  filtersLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#64748B',
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
+    marginBottom: 8,
+  },
+  filtersContent: {
+    flexDirection: 'row',
+    gap: 8,
+    paddingVertical: 2,
+    paddingRight: 4,
+  },
+  filterChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+    backgroundColor: '#fff',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    ...cardShadow,
+  },
+  filterChipText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#475569',
+  },
+  filterChipCount: {
+    minWidth: 22,
+    height: 22,
+    borderRadius: 999,
+    paddingHorizontal: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#F1F5F9',
+  },
+  filterChipCountText: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#64748B',
   },
 
   loadingBox: {
@@ -78,10 +128,59 @@ const styles = StyleSheet.create({
     color: '#64748B',
     fontWeight: '600',
   },
+  tabContent: {
+    flex: 1,
+  },
+  tabList: {
+    flex: 1,
+  },
+  listMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 10,
+  },
+  listMetaTitle: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#0F172A',
+  },
+  listMetaText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#64748B',
+  },
+  inlineMessageBox: {
+    marginBottom: 10,
+    borderRadius: 14,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    backgroundColor: '#FEF2F2',
+    borderWidth: 1,
+    borderColor: '#FECACA',
+  },
+  inlineMessageText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#B91C1C',
+    lineHeight: 18,
+  },
 
   listContent: {
     gap: 10,
+    flexGrow: 1,
     paddingBottom: 24,
+  },
+  listContentEmpty: {
+    justifyContent: 'center',
+  },
+  listFooterLoader: {
+    flexDirection: 'row',
+    gap: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingTop: 6,
+    paddingBottom: 18,
   },
 
   deviceCard: {

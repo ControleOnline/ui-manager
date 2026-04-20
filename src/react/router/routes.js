@@ -14,7 +14,13 @@ import Devices from '@controleonline/ui-manager/src/react/pages/Devices';
 import DeviceDetailPage from '@controleonline/ui-manager/src/react/pages/DeviceDetailPage';
 import PrinterDeviceDetailPage from '@controleonline/ui-manager/src/react/pages/PrinterDeviceDetailPage';
 import PrinterDeviceFormPage from '@controleonline/ui-manager/src/react/pages/PrinterDeviceFormPage';
+import ConfiguratorPage from '@controleonline/ui-manager/src/react/pages/ConfiguratorPage';
+import {
+  IP_CAMERA_DEVICE_TYPE,
+  PRINT_DEVICE_TYPE,
+} from '@controleonline/ui-common/src/react/utils/printerDevices';
 import ConnectionsPage from '@controleonline/ui-manager/src/react/pages/Connections';
+import FinancialHubPage from '@controleonline/ui-manager/src/react/pages/FinancialHubPage';
 import Food99IntegrationPage from '@controleonline/ui-manager/src/react/pages/Food99IntegrationPage';
 import IFoodIntegrationPage from '@controleonline/ui-manager/src/react/pages/IFoodIntegrationPage';
 import IntegrationsPage from '@controleonline/ui-manager/src/react/pages/Integrations';
@@ -68,6 +74,28 @@ const managerRoutes = [
       headerShown: true,
       headerBackVisible: false,
       title: global.t?.t("configs", "title", "queueAddProducts"),
+    },
+  },
+  {
+    name: 'FinancialHubPage',
+    component: FinancialHubPage,
+    options: {
+      headerShown: true,
+      headerBackVisible: true,
+      title: 'Financeiro',
+      showCompanyFilter: true,
+      companyFilterMode: 'icon',
+    },
+  },
+  {
+    name: 'ConfiguratorPage',
+    component: ConfiguratorPage,
+    options: {
+      headerShown: true,
+      headerBackVisible: true,
+      title: 'Configurador',
+      showCompanyFilter: true,
+      companyFilterMode: 'icon',
     },
   },
   {
@@ -202,7 +230,7 @@ const managerRoutes = [
       title: 'Impressora de Rede',
       showCompanyFilter: false,
     },
-    initialParams: {store: 'device'},
+    initialParams: {store: 'device', deviceType: PRINT_DEVICE_TYPE},
   },
   {
     name: 'PrinterDeviceForm',
@@ -213,7 +241,29 @@ const managerRoutes = [
       title: 'Nova Impressora de Rede',
       showCompanyFilter: false,
     },
-    initialParams: {store: 'device'},
+    initialParams: {store: 'device', deviceType: PRINT_DEVICE_TYPE},
+  },
+  {
+    name: 'IpCameraDetail',
+    component: PrinterDeviceDetailPage,
+    options: {
+      headerShown: true,
+      headerBackVisible: true,
+      title: 'Camera IP',
+      showCompanyFilter: false,
+    },
+    initialParams: {store: 'device', deviceType: IP_CAMERA_DEVICE_TYPE},
+  },
+  {
+    name: 'IpCameraForm',
+    component: PrinterDeviceFormPage,
+    options: {
+      headerShown: true,
+      headerBackVisible: true,
+      title: 'Nova Camera IP',
+      showCompanyFilter: false,
+    },
+    initialParams: {store: 'device', deviceType: IP_CAMERA_DEVICE_TYPE},
   },
   {
     name: 'IncomeStatement',

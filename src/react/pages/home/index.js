@@ -95,7 +95,6 @@ export default function HomePage({ navigation }) {
   const [stats, setStats] = useState([
     { label: global.t?.t('configs', 'stat_label', 'orders'), value: '...', icon: 'shopping-bag', color: HEX.info, route: 'OrderHistoryPage' },
     { label: global.t?.t('configs', 'stat_label', 'customers'), value: '...', icon: 'users', color: HEX.success, route: 'ClientsIndex' },
-    { label: 'Dispositivos', value: '...', icon: 'credit-card', color: HEX.warning, route: 'DevicesIndex' },
   ]);
   const [loadingStats, setLoadingStats] = useState(true);
 
@@ -125,11 +124,10 @@ export default function HomePage({ navigation }) {
     const fetchStats = async () => {
       setLoadingStats(true);
       try {
-        const [ordersRes, clientsRes, cashRes, incomeRes, productsRes, modelsRes] =
+        const [ordersRes, clientsRes, incomeRes, productsRes, modelsRes] =
           await Promise.all([
             api.fetch('/orders', { params: { provider: currentCompany.id, itemsPerPage: 1 } }).catch(() => null),
             api.fetch('/people', { params: { 'link.company': `/people/${currentCompany.id}`, 'link.linkType': 'client', itemsPerPage: 1 } }).catch(() => null),
-            api.fetch('/device_configs', { params: { people: currentCompany.id, itemsPerPage: 1 } }).catch(() => null),
             api.fetch('/income_statements', { params: { people: currentCompany.id, year: currentYear } }).catch(() => null),
             api.fetch('/products', { params: { company: currentCompany.id, itemsPerPage: 1 } }).catch(() => null),
             api.fetch('/models', { params: { people: `/people/${currentCompany.id}`, itemsPerPage: 200 } }).catch(() => null),
@@ -162,7 +160,6 @@ export default function HomePage({ navigation }) {
         setStats([
           { label: global.t?.t('configs', 'stat_label', 'orders'), value: String(ordersRes?.totalItems ?? '—'), icon: 'shopping-bag', color: HEX.info, route: 'OrderHistoryPage' },
           { label: global.t?.t('configs', 'stat_label', 'customers'), value: String(clientsRes?.totalItems ?? '—'), icon: 'users', color: HEX.success, route: 'ClientsIndex' },
-          { label: 'Dispositivos', value: String(cashRes?.totalItems ?? '—'), icon: 'credit-card', color: HEX.warning, route: 'DevicesIndex' },
         ]);
 
         setSummaries({
@@ -196,13 +193,6 @@ export default function HomePage({ navigation }) {
     navigation.navigate('ModelTemplatesPage', {
       templateAction: Date.now(),
       ...params,
-    });
-
-  const openNewModel = context =>
-    openModelEditor({
-      filterContext: context,
-      presetContext: context,
-      startNew: true,
     });
 
   if (!currentCompany || !themeColors) {
@@ -266,19 +256,7 @@ export default function HomePage({ navigation }) {
           loadingSummary={loadingStats}
         >
           <ShortcutsRow>
-            <ShortcutCard label={global.t?.t('configs', 'button_title', 'receivables')} icon="arrow-up-circle" color={HEX.success} onPress={() => go('Receivables')} />
-            <ShortcutCard label={global.t?.t('configs', 'button_title', 'payables')} icon="arrow-down-circle" color={HEX.error} onPress={() => go('Payables')} />
-          </ShortcutsRow>
-          <ShortcutsRow>
-            <ShortcutCard label={global.t?.t('configs', 'button_title', 'transfers')} icon="repeat" color={HEX.purple} onPress={() => go('OwnTransfers')} />
-            <ShortcutCard label="Dispositivos" icon="credit-card" color={HEX.warning} onPress={() => go('DevicesIndex')} />
-          </ShortcutsRow>
-          <ShortcutsRow>
-            <ShortcutCard label="Carteiras" icon="briefcase" color={HEX.info} onPress={() => go('WalletsPage')} />
-            <ShortcutCard label="Formas de Pagamento" icon="credit-card" color={HEX.purple} onPress={() => go('PaymentTypesPage')} />
-          </ShortcutsRow>
-          <ShortcutsRow last>
-            <ShortcutCard label="Categorias Financeiras" icon="tag" color={HEX.warning} onPress={() => go('InvoiceCategoriesPage')} />
+            <ShortcutCard label="Financeiro" icon="dollar-sign" color={HEX.info} onPress={() => go('FinancialHubPage')} />
             <View style={styles.shortcutSpacer} />
           </ShortcutsRow>
         </SectionBlock>
@@ -328,16 +306,8 @@ export default function HomePage({ navigation }) {
           summary={summaries.modelos}
           loadingSummary={loadingStats}
         >
-          <ShortcutsRow>
-            <ShortcutCard label="Editor de modelos" icon="edit-3" color={HEX.orange} onPress={() => openModelEditor()} />
-            <ShortcutCard label="Nova proposta" icon="briefcase" color={HEX.purple} onPress={() => openNewModel('proposal')} />
-          </ShortcutsRow>
-          <ShortcutsRow>
-            <ShortcutCard label="Novo contrato" icon="file-text" color={HEX.info} onPress={() => openNewModel('contract')} />
-            <ShortcutCard label="Novo cardapio" icon="book-open" color={HEX.success} onPress={() => openNewModel('menu')} />
-          </ShortcutsRow>
           <ShortcutsRow last>
-            <ShortcutCard label="Novo e-mail" icon="mail" color={HEX.warning} onPress={() => openNewModel('email')} />
+            <ShortcutCard label="Editor de modelos" icon="edit-3" color={HEX.orange} onPress={() => openModelEditor()} />
             <View style={styles.shortcutSpacer} />
           </ShortcutsRow>
         </SectionBlock>
@@ -350,12 +320,8 @@ export default function HomePage({ navigation }) {
           last
         >
           <ShortcutsRow>
-            <ShortcutCard label="Configurador" icon="settings" color={HEX.muted} onPress={() => go('GeneralSettings')} />
-            <ShortcutCard label={global.t?.t('configs', 'button_title', 'connections')} icon="radio" color={HEX.success} onPress={() => go('ConnectionsPage')} />
-          </ShortcutsRow>
-          <ShortcutsRow last>
-            <ShortcutCard label={global.t?.t('configs', 'button_title', 'integrations')} icon="link" color={HEX.info} onPress={() => go('IntegrationsPage')} />
-            <ShortcutCard label="Categorias" icon="tag" color={HEX.warning} onPress={() => go('ManagerCategoriesPage')} />
+            <ShortcutCard label="Configurador" icon="settings" color={HEX.muted} onPress={() => go('ConfiguratorPage')} />
+            <ShortcutCard label="Dispositivos" icon="credit-card" color={HEX.warning} onPress={() => go('DevicesIndex')} />
           </ShortcutsRow>
         </SectionBlock>
 
