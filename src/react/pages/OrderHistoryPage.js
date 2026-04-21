@@ -196,7 +196,7 @@ export default function OrderHistoryPage({ navigation }) {
       return;
     }
 
-    navigation.navigate('AddProductScreen');
+    navigation.navigate('PdvPage');
   }, [navigation, isCashRegisterClosed]);
 
   useEffect(() => {
