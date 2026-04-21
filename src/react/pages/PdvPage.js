@@ -9,6 +9,8 @@ export default function PdvPage({navigation, route}) {
       params: {
         ...(route?.params || {}),
         interactionMode: 'pdv',
+        showBottomCart: true,
+        showBottomToolBar: true,
       },
     }),
     [route],
