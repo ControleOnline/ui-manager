@@ -12,6 +12,13 @@ const emptyState = {
   description: 'A empresa ativa ainda nao possui devices cadastrados neste filtro.',
 };
 
+export const PDV_CIELO_FILTER = 'PDV_CIELO';
+export const PDV_INFINITE_PAY_FILTER = 'PDV_INFINITE_PAY';
+export const PDV_SUBFILTER_KEYS = [
+  PDV_CIELO_FILTER,
+  PDV_INFINITE_PAY_FILTER,
+];
+
 const pdvDeviceType = {
   key: PDV_DEVICE_TYPE,
   label: 'PDVs',
@@ -62,15 +69,15 @@ const createPdvGatewayDeviceType = ({
 };
 
 export const pdvCieloDeviceType = createPdvGatewayDeviceType({
-  key: 'PDV_CIELO',
+  key: PDV_CIELO_FILTER,
   label: 'Cielo',
   gateway: PAYMENT_GATEWAY_CIELO,
   title: 'Nenhum pdv Cielo encontrado',
-  accentResolver: ({hex}) => hex.info,
+  accentResolver: ({hex, brandColors}) => brandColors?.primary || hex.primary,
 });
 
 export const pdvInfinitePayDeviceType = createPdvGatewayDeviceType({
-  key: 'PDV_INFINITE_PAY',
+  key: PDV_INFINITE_PAY_FILTER,
   label: 'Infinite Pay',
   gateway: PAYMENT_GATEWAY_INFINITE_PAY,
   title: 'Nenhum pdv Infinite Pay encontrado',

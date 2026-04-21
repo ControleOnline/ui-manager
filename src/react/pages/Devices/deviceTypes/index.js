@@ -5,6 +5,7 @@ import deviceDeviceType from './device';
 import displayDeviceType from './display';
 import ipCameraDeviceType from './ipCamera';
 import pdvDeviceType, {
+  PDV_SUBFILTER_KEYS,
   pdvCieloDeviceType,
   pdvInfinitePayDeviceType,
 } from './pdv';
@@ -21,6 +22,12 @@ const registeredDeviceTypes = [
   ipCameraDeviceType,
   deviceDeviceType,
 ];
+const visibleDeviceTypes = registeredDeviceTypes.filter(
+  deviceType => !PDV_SUBFILTER_KEYS.includes(deviceType.key),
+);
+const pdvSubfilterDeviceTypes = registeredDeviceTypes.filter(deviceType =>
+  PDV_SUBFILTER_KEYS.includes(deviceType.key),
+);
 
 const deviceTypesByKey = registeredDeviceTypes.reduce((acc, deviceType) => {
   acc[deviceType.key] = deviceType;
@@ -82,6 +89,10 @@ export const resolveDeviceFilterKey = type =>
 export const getDeviceFilterDefinition = filterKey =>
   deviceTypesByKey[filterKey] || createRuntimeDeviceType(filterKey);
 
+export const hasRegisteredDeviceFilter = filterKey => Boolean(deviceTypesByKey[filterKey]);
+
+export const isPdvSubfilter = filterKey => PDV_SUBFILTER_KEYS.includes(filterKey);
+
 export const getDeviceFilterIcon = filterKey =>
   getDeviceFilterDefinition(filterKey).icon;
 
@@ -113,7 +124,16 @@ export const getDeviceItemTypeLabel = type => {
 };
 
 export const getDeviceFilterOptions = () =>
-  registeredDeviceTypes
+  visibleDeviceTypes
+    .filter(deviceType => deviceType.shouldDisplay())
+    .map(deviceType => ({
+      key: deviceType.key,
+      label: deviceType.label,
+      icon: deviceType.icon,
+    }));
+
+export const getPdvSubfilterOptions = () =>
+  pdvSubfilterDeviceTypes
     .filter(deviceType => deviceType.shouldDisplay())
     .map(deviceType => ({
       key: deviceType.key,
