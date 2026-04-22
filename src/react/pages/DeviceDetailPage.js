@@ -1291,10 +1291,11 @@ const DeviceDetailPage = () => {
             <View style={styles.configCard}>
               <Text style={styles.configTitle}>Device preferencial para pagamento</Text>
               <Text style={styles.configDescription}>
-                Esse destino pode ser usado por origens sem gateway local, como
-                manager web ou celulares, e tambem pelos PDVs Android quando o
-                operador escolher o modo remoto na barra unica. Quando vazio, o
-                sistema segue a ordem padrao definida na empresa.
+                Esse destino funciona como fallback desta origem quando a
+                empresa nao definiu uma ordem padrao no configurador geral.
+                Quando a empresa tiver devices padrao para pagamento remoto,
+                essa ordem global tem prioridade. Quando vazio, o sistema usa a
+                regra da empresa ou cai para os PDVs remotos disponiveis.
               </Text>
 
               <View style={styles.pickerWrap}>
