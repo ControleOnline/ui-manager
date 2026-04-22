@@ -298,9 +298,19 @@ export default function OrderHistoryPage({ navigation }) {
     if (!isFocused) return;
 
     if (!currentCompany?.id) {
-      orderActions.setItems([]);
-      orderActions.setTotalItems(0);
-      setError('');
+      const shouldClearHistorySnapshot =
+        (Array.isArray(storedOrders) && storedOrders.length > 0) ||
+        Number(storedTotalItems || 0) > 0;
+
+      if (shouldClearHistorySnapshot) {
+        orderActions.setItems([]);
+        orderActions.setTotalItems(0);
+      }
+
+      if (error) {
+        setError('');
+      }
+
       return;
     }
 
@@ -321,7 +331,9 @@ export default function OrderHistoryPage({ navigation }) {
     historyLoadedKey,
     loadedKey,
     orderActions,
+    error,
     storedOrders,
+    storedTotalItems,
   ]);
 
   /* pull-to-refresh */

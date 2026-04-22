@@ -12,3 +12,6 @@
 ## Limites
 - Fluxo operacional de venda e checkout pertence a `ui-orders`.
 - Fluxo cliente-facing da loja online pertence a `ui-shop`.
+
+## Regras
+- Telas administrativas que limpam listas por ausencia de empresa selecionada devem fazer essa limpeza de forma idempotente, sem entrar em loop de efeito com o store.
