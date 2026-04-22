@@ -16,8 +16,8 @@ const CONFIG_ACTIONS = [
     route: 'GeneralSettings',
   },
   {
-    label: 'Logs gerais',
-    description: 'Consulte eventos operacionais que ficaram sem entidade vinculada e continuam auditados na mesma tabela.',
+    label: 'Logs',
+    description: 'Consulte a timeline completa de logs, incluindo registros por entidade e outros tipos tecnicos.',
     icon: 'activity',
     accent: '#F97316',
     route: 'GenericLogPage',
