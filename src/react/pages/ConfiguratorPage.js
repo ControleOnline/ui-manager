@@ -16,6 +16,13 @@ const CONFIG_ACTIONS = [
     route: 'GeneralSettings',
   },
   {
+    label: 'Logs gerais',
+    description: 'Consulte eventos operacionais que ficaram sem entidade vinculada e continuam auditados na mesma tabela.',
+    icon: 'activity',
+    accent: '#F97316',
+    route: 'GenericLogPage',
+  },
+  {
     label: 'Conexoes',
     description: 'Centralize canais de comunicacao e configuracoes operacionais ligadas a empresa ativa.',
     icon: 'radio',
