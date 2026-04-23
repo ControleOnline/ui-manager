@@ -14,6 +14,7 @@ import DeviceDetailPage from '@controleonline/ui-manager/src/react/pages/DeviceD
 import PrinterDeviceDetailPage from '@controleonline/ui-manager/src/react/pages/PrinterDeviceDetailPage';
 import PrinterDeviceFormPage from '@controleonline/ui-manager/src/react/pages/PrinterDeviceFormPage';
 import ConfiguratorPage from '@controleonline/ui-manager/src/react/pages/ConfiguratorPage';
+import TranslationsReviewPage from '@controleonline/ui-manager/src/react/pages/TranslationsReviewPage';
 import {
   IP_CAMERA_DEVICE_TYPE,
   PRINT_DEVICE_TYPE,
@@ -93,6 +94,17 @@ const managerRoutes = [
       headerShown: true,
       headerBackVisible: true,
       title: 'Configurador',
+      showCompanyFilter: true,
+      companyFilterMode: 'icon',
+    },
+  },
+  {
+    name: 'TranslationsReviewPage',
+    component: TranslationsReviewPage,
+    options: {
+      headerShown: true,
+      headerBackVisible: true,
+      title: 'Revisao de traducoes',
       showCompanyFilter: true,
       companyFilterMode: 'icon',
     },

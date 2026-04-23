@@ -36,6 +36,13 @@ const CONFIG_ACTIONS = [
     accent: '#0EA5E9',
     route: 'IntegrationsPage',
   },
+  {
+    label: 'Traducoes',
+    description: 'Revise textos inseridos automaticamente, compare com o fallback principal e grave sobrescritas por empresa.',
+    icon: 'type',
+    accent: '#DC2626',
+    route: 'TranslationsReviewPage',
+  },
 ];
 
 function ActionCard({ label, description, icon, color, onPress }) {
