@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, FlatList, Platform, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useNavigation, useRoute } from '@react-navigation/native';
@@ -178,7 +178,10 @@ const DeviceDetailPage = () => {
   const [companyDeviceConfigs, setCompanyDeviceConfigs] = useState([]);
   const [inflowData,    setInflowData]    = useState(null);
   const [configs,       setConfigs]       = useState(normalizedInitialConfigs || {});
-  const [loadingData,   setLoadingData]   = useState(false);
+  const [loadingConfigData, setLoadingConfigData] = useState(false);
+  const [loadingCompanyDeviceConfigs, setLoadingCompanyDeviceConfigs] =
+    useState(false);
+  const [loadingMovementData, setLoadingMovementData] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
   const [activePdvTab, setActivePdvTab] = useState(PDV_TAB_OPERATION);
   const [savingPaymentTarget, setSavingPaymentTarget] = useState(false);
@@ -232,6 +235,9 @@ const DeviceDetailPage = () => {
       ),
     );
   const [savingDisplayPrintingConfig, setSavingDisplayPrintingConfig] = useState(false);
+  const [hasLoadedCurrentConfig, setHasLoadedCurrentConfig] = useState(false);
+  const [hasLoadedCompanyConfigs, setHasLoadedCompanyConfigs] = useState(false);
+  const [hasLoadedMovementData, setHasLoadedMovementData] = useState(false);
 
   // Edição inline do alias
   const [alias,        setAlias]        = useState(initialAlias || '');
@@ -287,48 +293,7 @@ const DeviceDetailPage = () => {
   );
   const pickerMode = Platform.OS === 'android' ? 'dropdown' : undefined;
 
-  const loadData = useCallback(async () => {
-    if (!isPdvDevice) {
-      setProducts([]);
-      setInflowData(null);
-      setLoadingData(false);
-      return;
-    }
-
-    if (!currentCompany?.id || !deviceString) return;
-    setLoadingData(true);
-    try {
-      const [cashData, inflowRaw] = await Promise.all([
-        actionsRef.current.invoiceActions.getCashRegister({
-          device:   deviceString,
-          provider: currentCompany.id,
-        }),
-        actionsRef.current.invoiceActions.getInflow({
-          'device.device': deviceString,
-          receiver:        currentCompany.id,
-        }),
-      ]);
-
-      setProducts(Array.isArray(cashData) ? cashData : []);
-
-      // getInflow retorna data['member'] = [{ payments: {...} }]
-      const member = Array.isArray(inflowRaw) ? inflowRaw : [];
-      setInflowData(member[0]?.payments || null);
-    } catch {
-      setProducts([]);
-      setInflowData(null);
-    } finally {
-      setLoadingData(false);
-    }
-  }, [currentCompany?.id, deviceString, isPdvDevice]);
-
-  const refreshConfigs = useCallback(async () => {
-    if (!currentCompany?.id) return;
-    const items = await actionsRef.current.deviceConfigActions.getItems({
-      people: `/people/${currentCompany.id}`,
-    });
-    const scopedItems = filterDeviceConfigsByCompany(items, currentCompany?.id);
-    setCompanyDeviceConfigs(Array.isArray(scopedItems) ? scopedItems : []);
+  const applyCurrentDeviceConfig = useCallback(scopedItems => {
     const dc = (scopedItems || []).find(d => {
       const currentConfigType = String(d?.type || d?.device?.type || '')
         .trim()
@@ -343,6 +308,7 @@ const DeviceDetailPage = () => {
         currentConfigType === deviceType
       );
     });
+
     if (dc) {
       const nextConfigs = parseConfigsObject(dc.configs);
       setConfigs(nextConfigs);
@@ -392,14 +358,160 @@ const DeviceDetailPage = () => {
     setDisplayPrinterId('');
     setDisplayAllowPrinterChange(false);
     setDisplayAutoPrintProductEnabled(false);
-  }, [currentCompany?.id, dcId, deviceString, deviceType]);
+  }, [dcId, deviceString, deviceType]);
+
+  const loadMovementData = useCallback(async () => {
+    if (!isPdvDevice) {
+      setProducts([]);
+      setInflowData(null);
+      setHasLoadedMovementData(false);
+      return;
+    }
+
+    if (!currentCompany?.id || !deviceString) return;
+    setLoadingMovementData(true);
+    try {
+      const [cashData, inflowRaw] = await Promise.all([
+        actionsRef.current.invoiceActions.getCashRegister({
+          device:   deviceString,
+          provider: currentCompany.id,
+        }),
+        actionsRef.current.invoiceActions.getInflow({
+          'device.device': deviceString,
+          receiver:        currentCompany.id,
+        }),
+      ]);
+
+      setProducts(Array.isArray(cashData) ? cashData : []);
+
+      // getInflow retorna data['member'] = [{ payments: {...} }]
+      const member = Array.isArray(inflowRaw) ? inflowRaw : [];
+      setInflowData(member[0]?.payments || null);
+    } catch {
+      setProducts([]);
+      setInflowData(null);
+    } finally {
+      setLoadingMovementData(false);
+      setHasLoadedMovementData(true);
+    }
+  }, [currentCompany?.id, deviceString, isPdvDevice]);
+
+  const refreshCurrentConfig = useCallback(async () => {
+    if (!currentCompany?.id) return;
+    setLoadingConfigData(true);
+    try {
+      const items = await actionsRef.current.deviceConfigActions.getItems({
+        'device.device': deviceString,
+        people: `/people/${currentCompany.id}`,
+        type: deviceType,
+      });
+      const scopedItems = filterDeviceConfigsByCompany(items, currentCompany?.id);
+      applyCurrentDeviceConfig(scopedItems);
+    } catch {
+      applyCurrentDeviceConfig([]);
+    } finally {
+      setLoadingConfigData(false);
+      setHasLoadedCurrentConfig(true);
+    }
+  }, [
+    actionsRef,
+    applyCurrentDeviceConfig,
+    currentCompany?.id,
+    deviceString,
+    deviceType,
+  ]);
+
+  const loadCompanyConfigs = useCallback(async () => {
+    if (!currentCompany?.id) return;
+
+    setLoadingCompanyDeviceConfigs(true);
+    try {
+      const items = await actionsRef.current.deviceConfigActions.getItems({
+        people: `/people/${currentCompany.id}`,
+      });
+      const scopedItems = filterDeviceConfigsByCompany(items, currentCompany?.id);
+      setCompanyDeviceConfigs(Array.isArray(scopedItems) ? scopedItems : []);
+    } catch {
+      setCompanyDeviceConfigs([]);
+    } finally {
+      setLoadingCompanyDeviceConfigs(false);
+      setHasLoadedCompanyConfigs(true);
+    }
+  }, [currentCompany?.id]);
+
+  const ensureActiveTabData = useCallback(async ({ force = false } = {}) => {
+    if (!currentCompany?.id) {
+      return;
+    }
+
+    if (!isPdvDevice) {
+      await Promise.all([
+        refreshCurrentConfig(),
+        loadCompanyConfigs(),
+      ]);
+      return;
+    }
+
+    if (activePdvTab === PDV_TAB_MOVEMENT) {
+      if (!force && hasLoadedMovementData) {
+        return;
+      }
+      await loadMovementData();
+      return;
+    }
+
+    if (activePdvTab === PDV_TAB_ORDERS) {
+      const pendingLoads = [];
+      if (force || !hasLoadedCurrentConfig) {
+        pendingLoads.push(refreshCurrentConfig());
+      }
+      if (force || !hasLoadedCompanyConfigs) {
+        pendingLoads.push(loadCompanyConfigs());
+      }
+
+      if (pendingLoads.length > 0) {
+        await Promise.all(pendingLoads);
+      }
+      return;
+    }
+
+    if (force || !hasLoadedCurrentConfig) {
+      await refreshCurrentConfig();
+    }
+  }, [
+    activePdvTab,
+    currentCompany?.id,
+    hasLoadedCompanyConfigs,
+    hasLoadedCurrentConfig,
+    hasLoadedMovementData,
+    isPdvDevice,
+    loadCompanyConfigs,
+    loadMovementData,
+    refreshCurrentConfig,
+  ]);
+
+  useEffect(() => {
+    setHasLoadedCurrentConfig(false);
+    setHasLoadedCompanyConfigs(false);
+    setHasLoadedMovementData(false);
+    setProducts([]);
+    setInflowData(null);
+    setCompanyDeviceConfigs([]);
+  }, [currentCompany?.id, deviceString, deviceType]);
 
   useFocusEffect(
     useCallback(() => {
-      loadData();
-      refreshConfigs();
-    }, [loadData, refreshConfigs]),
+      ensureActiveTabData({ force: true });
+    }, [ensureActiveTabData]),
   );
+
+  useEffect(() => {
+    if (!isPdvDevice) {
+      return;
+    }
+
+    ensureActiveTabData();
+  }, [activePdvTab, ensureActiveTabData, isPdvDevice]);
 
   useFocusEffect(
     useCallback(() => {
@@ -424,7 +536,7 @@ const DeviceDetailPage = () => {
     ]),
   );
 
-  const handleToggle = () => {
+  const handleToggle = useCallback(() => {
     if (!isPdvDevice) {
       return;
     }
@@ -437,15 +549,26 @@ const DeviceDetailPage = () => {
           ? actionsRef.current.invoiceActions.closeCashRegister
           : actionsRef.current.invoiceActions.openCashRegister;
         await action({ device: deviceString, provider: currentCompany.id });
-        await refreshConfigs();
-        await loadData();
+        await refreshCurrentConfig();
+        if (activePdvTab === PDV_TAB_MOVEMENT || hasLoadedMovementData) {
+          await loadMovementData();
+        }
       } catch {
         // silencioso
       } finally {
         setActionLoading(false);
       }
     });
-  };
+  }, [
+    activePdvTab,
+    currentCompany?.id,
+    deviceString,
+    hasLoadedMovementData,
+    isOpen,
+    isPdvDevice,
+    loadMovementData,
+    refreshCurrentConfig,
+  ]);
 
   const startEditAlias = useCallback(() => {
     setAliasInput(alias);
@@ -493,13 +616,13 @@ const DeviceDetailPage = () => {
         people: '/people/' + currentCompany.id,
         type: deviceType,
       });
-      await refreshConfigs();
+      await refreshCurrentConfig();
     } catch {
       // silencioso
     } finally {
       setSavingPaymentTarget(false);
     }
-  }, [currentCompany?.id, devicePaymentTarget, deviceString, deviceType, refreshConfigs]);
+  }, [currentCompany?.id, devicePaymentTarget, deviceString, deviceType, refreshCurrentConfig]);
 
   const savePdvSettings = useCallback(async () => {
     if (
@@ -522,7 +645,7 @@ const DeviceDetailPage = () => {
         people: '/people/' + currentCompany.id,
         type: deviceType,
       });
-      await refreshConfigs();
+      await refreshCurrentConfig();
     } catch {
       // silencioso
     } finally {
@@ -535,7 +658,7 @@ const DeviceDetailPage = () => {
     isPdvDevice,
     pdvGateway,
     pdvPrinterEnabled,
-    refreshConfigs,
+    refreshCurrentConfig,
     savingPdvSettings,
   ]);
 
@@ -559,7 +682,7 @@ const DeviceDetailPage = () => {
         people: '/people/' + currentCompany.id,
         type: deviceType,
       });
-      await refreshConfigs();
+      await refreshCurrentConfig();
     } catch {
       // silencioso
     } finally {
@@ -571,7 +694,7 @@ const DeviceDetailPage = () => {
     deviceType,
     isPdvDevice,
     posOperationMode,
-    refreshConfigs,
+    refreshCurrentConfig,
     savingPosOperationMode,
   ]);
 
@@ -591,7 +714,7 @@ const DeviceDetailPage = () => {
         people: '/people/' + currentCompany.id,
         type: deviceType,
       });
-      await refreshConfigs();
+      await refreshCurrentConfig();
     } catch {
       // silencioso
     } finally {
@@ -603,7 +726,7 @@ const DeviceDetailPage = () => {
     deviceAlertSoundUrl,
     deviceString,
     deviceType,
-    refreshConfigs,
+    refreshCurrentConfig,
     savingAlertSound,
   ]);
 
@@ -622,7 +745,7 @@ const DeviceDetailPage = () => {
         people: '/people/' + currentCompany.id,
         type: deviceType,
       });
-      await refreshConfigs();
+      await refreshCurrentConfig();
     } catch {
       // silencioso
     } finally {
@@ -633,7 +756,7 @@ const DeviceDetailPage = () => {
     deviceOrderVisibility,
     deviceString,
     deviceType,
-    refreshConfigs,
+    refreshCurrentConfig,
     savingOrderVisibility,
   ]);
 
@@ -653,7 +776,7 @@ const DeviceDetailPage = () => {
         people: '/people/' + currentCompany.id,
         type: deviceType,
       });
-      await refreshConfigs();
+      await refreshCurrentConfig();
     } catch {
       // silencioso
     } finally {
@@ -664,7 +787,7 @@ const DeviceDetailPage = () => {
     deviceRuntimeDebugInfoEnabled,
     deviceString,
     deviceType,
-    refreshConfigs,
+    refreshCurrentConfig,
     savingRuntimeDebugInfo,
   ]);
 
@@ -718,7 +841,7 @@ const DeviceDetailPage = () => {
         people: '/people/' + currentCompany.id,
         type: deviceType,
       });
-      await refreshConfigs();
+      await refreshCurrentConfig();
     } catch {
       // silencioso
     } finally {
@@ -733,7 +856,7 @@ const DeviceDetailPage = () => {
     displayPrinterId,
     isDisplayDevice,
     linkedDisplayId,
-    refreshConfigs,
+    refreshCurrentConfig,
     savingDisplayPrintingConfig,
   ]);
 
@@ -794,6 +917,11 @@ const DeviceDetailPage = () => {
   const showPdvDeviceTab = isPdvDevice && activePdvTab === PDV_TAB_DEVICE;
   const showPdvMovementTab =
     isPdvDevice && activePdvTab === PDV_TAB_MOVEMENT;
+  const loadingActiveTabData = isPdvDevice && (
+    (showPdvMovementTab && loadingMovementData) ||
+    (!showPdvMovementTab && loadingConfigData) ||
+    (showPdvOrdersTab && loadingCompanyDeviceConfigs)
+  );
   const shouldShowOrderVisibility =
     !isDisplayDevice && (!isPdvDevice || showPdvOrdersTab);
   const shouldShowRemotePayment =
@@ -878,7 +1006,7 @@ const DeviceDetailPage = () => {
               <TouchableOpacity
                 style={[styles.toggleBtn, { backgroundColor: isOpen ? hex.danger : hex.success }, actionLoading && { opacity: 0.6 }]}
                 onPress={handleToggle}
-                disabled={actionLoading || loadingData}
+                disabled={actionLoading || loadingConfigData}
                 activeOpacity={0.85}
               >
                 {actionLoading ? (
@@ -894,7 +1022,7 @@ const DeviceDetailPage = () => {
           )}
         </View>
 
-        {isPdvDevice && loadingData && (
+        {loadingActiveTabData && (
           <View style={styles.loadingBox}>
             <ActivityIndicator size="small" color={brandColors.primary} />
             <Text style={styles.loadingText}>Carregando dados do device...</Text>
