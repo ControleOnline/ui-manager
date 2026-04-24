@@ -614,6 +614,35 @@ export default function IFoodIntegrationPage() {
     });
   }, []);
 
+  const addHoursShift = useCallback(dayOfWeek => {
+    setHoursDraft(current => {
+      if (!Array.isArray(current)) return current;
+
+      return current.map(day => {
+        if (day.dayOfWeek !== dayOfWeek) return day;
+
+        return {
+          ...day,
+          open: true,
+          shifts: [...(day.shifts || []), { start: '09:00', duration: 180 }],
+        };
+      });
+    });
+  }, []);
+
+  const removeHoursShift = useCallback((dayOfWeek, shiftIndex) => {
+    setHoursDraft(current => {
+      if (!Array.isArray(current)) return current;
+
+      return current.map(day => {
+        if (day.dayOfWeek !== dayOfWeek) return day;
+
+        const shifts = (day.shifts || []).filter((_, index) => index !== shiftIndex);
+        return { ...day, shifts };
+      });
+    });
+  }, []);
+
   const saveHours = useCallback(async () => {
     if (!providerId || !hoursDraft) return;
 
@@ -889,6 +918,8 @@ export default function IFoodIntegrationPage() {
             onStartEditHours={startEditHours}
             hoursDraft={hoursDraft}
             onUpdateHoursDraft={updateHoursDraft}
+            onAddHoursShift={addHoursShift}
+            onRemoveHoursShift={removeHoursShift}
             hoursSaving={hoursSaving}
             onSaveHours={saveHours}
             onCancelEditHours={cancelEditHours}

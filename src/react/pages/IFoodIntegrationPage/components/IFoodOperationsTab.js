@@ -23,6 +23,8 @@ export default function IFoodOperationsTab({
   onStartEditHours,
   hoursDraft,
   onUpdateHoursDraft,
+  onAddHoursShift,
+  onRemoveHoursShift,
   hoursSaving,
   onSaveHours,
   onCancelEditHours,
@@ -290,8 +292,23 @@ export default function IFoodOperationsTab({
                               keyboardType="numbers-and-punctuation"
                               editable={!hoursSaving}
                             />
+                            {(entry.shifts || []).length > 1 && (
+                              <TouchableOpacity
+                                onPress={() => onRemoveHoursShift(day, index)}
+                                disabled={hoursSaving}
+                                style={styles.hoursShiftRemoveBtn}>
+                                <Icon name="trash-2" size={14} color="#EF4444" />
+                              </TouchableOpacity>
+                            )}
                           </View>
                         ))}
+                        <TouchableOpacity
+                          onPress={() => onAddHoursShift(day)}
+                          disabled={hoursSaving}
+                          style={styles.hoursShiftAddBtn}>
+                          <Icon name="plus" size={14} color="#0EA5E9" />
+                          <Text style={styles.hoursShiftAddText}>Adicionar turno</Text>
+                        </TouchableOpacity>
                       </View>
                     ) : (
                       <Text style={styles.hoursClosed}>Fechado</Text>
