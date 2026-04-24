@@ -23,7 +23,11 @@ import {
   DEVICE_RUNTIME_DEBUG_INFO_ENABLED_KEY,
   isTruthyValue,
   parseConfigsObject,
+  POS_OPERATION_MODE_CONFIG_KEY,
+  POS_OPERATION_MODE_OPTIONS,
+  getPosOperationModeOption,
   resolveDeviceOrderVisibility,
+  resolvePosOperationMode,
 } from '@controleonline/ui-common/src/react/config/deviceConfigBootstrap';
 
 import {
@@ -79,6 +83,19 @@ const DISPLAY_DEVICE_TYPE = 'DISPLAY';
 const PDV_DEVICE_TYPE = 'PDV';
 const DISPLAY_DEVICE_LINK_CONFIG_KEY = 'display-id';
 const DISPLAY_DEVICE_PRINTER_CONFIG_KEY = 'printer';
+const tt = (type, key) => global.t?.t('configs', type, key);
+
+const PDV_TAB_OPERATION = 'operation';
+const PDV_TAB_ORDERS = 'orders';
+const PDV_TAB_DEVICE = 'device';
+const PDV_TAB_MOVEMENT = 'movement';
+
+const PDV_DETAIL_TABS = [
+  {key: PDV_TAB_OPERATION, icon: 'sliders', labelKey: 'pdvOperation'},
+  {key: PDV_TAB_ORDERS, icon: 'list', labelKey: 'pdvOrders'},
+  {key: PDV_TAB_DEVICE, icon: 'cpu', labelKey: 'pdvDevice'},
+  {key: PDV_TAB_MOVEMENT, icon: 'bar-chart-2', labelKey: 'pdvMovement'},
+];
 
 const getDisplayLabel = display => {
   const name = String(display?.display || '').trim();
@@ -163,8 +180,10 @@ const DeviceDetailPage = () => {
   const [configs,       setConfigs]       = useState(normalizedInitialConfigs || {});
   const [loadingData,   setLoadingData]   = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
+  const [activePdvTab, setActivePdvTab] = useState(PDV_TAB_OPERATION);
   const [savingPaymentTarget, setSavingPaymentTarget] = useState(false);
   const [savingPdvSettings, setSavingPdvSettings] = useState(false);
+  const [savingPosOperationMode, setSavingPosOperationMode] = useState(false);
   const [savingAlertSound, setSavingAlertSound] = useState(false);
   const [savingOrderVisibility, setSavingOrderVisibility] = useState(false);
   const [savingRuntimeDebugInfo, setSavingRuntimeDebugInfo] = useState(false);
@@ -178,6 +197,9 @@ const DeviceDetailPage = () => {
   );
   const [pdvPrinterEnabled, setPdvPrinterEnabled] = useState(
     isPdvPrinterEnabled(normalizedInitialConfigs),
+  );
+  const [posOperationMode, setPosOperationMode] = useState(
+    resolvePosOperationMode(normalizedInitialConfigs),
   );
   const [deviceOrderVisibility, setDeviceOrderVisibility] = useState(
     resolveDeviceOrderVisibility(normalizedInitialConfigs),
@@ -259,6 +281,10 @@ const DeviceDetailPage = () => {
       }),
     [companyDeviceConfigs, currentCompany?.id, printers],
   );
+  const selectedPosOperationModeOption = useMemo(
+    () => getPosOperationModeOption(posOperationMode),
+    [posOperationMode],
+  );
   const pickerMode = Platform.OS === 'android' ? 'dropdown' : undefined;
 
   const loadData = useCallback(async () => {
@@ -325,6 +351,7 @@ const DeviceDetailPage = () => {
       );
       setPdvGateway(getPaymentGatewayFromConfigs(nextConfigs));
       setPdvPrinterEnabled(isPdvPrinterEnabled(nextConfigs));
+      setPosOperationMode(resolvePosOperationMode(nextConfigs));
       setDeviceOrderVisibility(
         resolveDeviceOrderVisibility(nextConfigs),
       );
@@ -356,6 +383,7 @@ const DeviceDetailPage = () => {
     setDevicePaymentTarget('');
     setPdvGateway('');
     setPdvPrinterEnabled(true);
+    setPosOperationMode(resolvePosOperationMode({}));
     setDeviceOrderVisibility(DEVICE_ORDER_VISIBILITY_DEVICE);
     setDeviceAlertSoundEnabled(false);
     setDeviceAlertSoundUrl('');
@@ -509,6 +537,42 @@ const DeviceDetailPage = () => {
     pdvPrinterEnabled,
     refreshConfigs,
     savingPdvSettings,
+  ]);
+
+  const savePosOperationMode = useCallback(async () => {
+    if (
+      !isPdvDevice ||
+      !currentCompany?.id ||
+      !deviceString ||
+      savingPosOperationMode
+    ) {
+      return;
+    }
+
+    setSavingPosOperationMode(true);
+    try {
+      await actionsRef.current.deviceConfigActions.addDeviceConfigs({
+        device: deviceString,
+        configs: JSON.stringify({
+          [POS_OPERATION_MODE_CONFIG_KEY]: posOperationMode,
+        }),
+        people: '/people/' + currentCompany.id,
+        type: deviceType,
+      });
+      await refreshConfigs();
+    } catch {
+      // silencioso
+    } finally {
+      setSavingPosOperationMode(false);
+    }
+  }, [
+    currentCompany?.id,
+    deviceString,
+    deviceType,
+    isPdvDevice,
+    posOperationMode,
+    refreshConfigs,
+    savingPosOperationMode,
   ]);
 
   const saveDeviceAlertSoundConfig = useCallback(async () => {
@@ -724,6 +788,20 @@ const DeviceDetailPage = () => {
   const accent = isPdvDevice
     ? (isOpen ? hex.success : hex.danger)
     : hex.info;
+  const showPdvOperationTab =
+    isPdvDevice && activePdvTab === PDV_TAB_OPERATION;
+  const showPdvOrdersTab = isPdvDevice && activePdvTab === PDV_TAB_ORDERS;
+  const showPdvDeviceTab = isPdvDevice && activePdvTab === PDV_TAB_DEVICE;
+  const showPdvMovementTab =
+    isPdvDevice && activePdvTab === PDV_TAB_MOVEMENT;
+  const shouldShowOrderVisibility =
+    !isDisplayDevice && (!isPdvDevice || showPdvOrdersTab);
+  const shouldShowRemotePayment =
+    shouldShowOrderVisibility &&
+    (!hasLocalPaymentGateway || pdvGateway !== PAYMENT_GATEWAY_CIELO);
+  const shouldShowDeviceBehavior = !isPdvDevice || showPdvDeviceTab;
+  const shouldShowRemoteCommands =
+    !isDisplayDevice && (!isPdvDevice || showPdvDeviceTab);
 
   const renderProduct = ({ item, index }) => (
     <View style={[styles.productRow, index % 2 === 0 && styles.productRowAlt]}>
@@ -824,6 +902,46 @@ const DeviceDetailPage = () => {
         )}
 
         {isPdvDevice && (
+          <View style={styles.tabsBar}>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.tabsContent}>
+              {PDV_DETAIL_TABS.map(tab => {
+                const active = activePdvTab === tab.key;
+
+                return (
+                  <TouchableOpacity
+                    key={tab.key}
+                    style={[
+                      styles.tabButton,
+                      active && {
+                        borderColor: withOpacity(brandColors.primary, 0.35),
+                        backgroundColor: withOpacity(brandColors.primary, 0.1),
+                      },
+                    ]}
+                    activeOpacity={0.85}
+                    onPress={() => setActivePdvTab(tab.key)}>
+                    <Icon
+                      name={tab.icon}
+                      size={14}
+                      color={active ? brandColors.primary : '#64748B'}
+                    />
+                    <Text
+                      style={[
+                        styles.tabButtonText,
+                        active && {color: brandColors.primary},
+                      ]}>
+                      {tt('tab', tab.labelKey)}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          </View>
+        )}
+
+        {showPdvMovementTab && (
           <View style={styles.summaryRow}>
             <View style={styles.summaryCard}>
               <Icon name="dollar-sign" size={14} color={hex.success} style={styles.summaryIcon} />
@@ -849,11 +967,71 @@ const DeviceDetailPage = () => {
           </View>
         )}
 
-        {isPdvDevice && (
+        {showPdvOperationTab && (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>
               <Icon name="credit-card" size={13} /> {'  '}Configuracao do PDV
             </Text>
+
+            <View style={styles.configCard}>
+              <Text style={styles.configTitle}>
+                {tt('title', 'posOperationMode')}
+              </Text>
+              <Text style={styles.configDescription}>
+                {tt('description', 'posOperationModeDescription')}
+              </Text>
+
+              <View style={styles.textInputWrap}>
+                <Text style={styles.textInputLabel}>
+                  {tt('label', 'operationMode')}
+                </Text>
+                <View style={styles.pickerWrap}>
+                  <Picker
+                    selectedValue={posOperationMode}
+                    mode={pickerMode}
+                    onValueChange={value =>
+                      setPosOperationMode(resolvePosOperationMode({
+                        [POS_OPERATION_MODE_CONFIG_KEY]: value,
+                      }))
+                    }>
+                    {POS_OPERATION_MODE_OPTIONS.map(option => (
+                      <Picker.Item
+                        key={option.value}
+                        label={tt('option', option.translationKey)}
+                        value={option.value}
+                      />
+                    ))}
+                  </Picker>
+                </View>
+              </View>
+
+              <Text style={styles.configHint}>
+                {tt(
+                  'description',
+                  selectedPosOperationModeOption?.descriptionKey,
+                )}
+              </Text>
+
+              <TouchableOpacity
+                style={[
+                  styles.configButton,
+                  savingPosOperationMode && {opacity: 0.6},
+                ]}
+                activeOpacity={0.85}
+                disabled={savingPosOperationMode}
+                onPress={savePosOperationMode}>
+                {savingPosOperationMode ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <>
+                    <Icon name="save" size={14} color="#fff" />
+                    <Text style={styles.configButtonText}>
+                      {tt('button', 'savePosOperationMode')}
+                    </Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            </View>
 
             <View style={styles.configCard}>
               <Text style={styles.configTitle}>Gateway e impressora</Text>
@@ -931,7 +1109,7 @@ const DeviceDetailPage = () => {
           </View>
         )}
 
-        {!isDisplayDevice && (
+        {shouldShowOrderVisibility && (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>
               <Icon name="list" size={13} /> {'  '}Pedidos do Device
@@ -1149,6 +1327,7 @@ const DeviceDetailPage = () => {
           </View>
         )}
 
+        {shouldShowDeviceBehavior && (
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>
             <Icon name="volume-2" size={13} /> {'  '}Aviso Sonoro
@@ -1219,7 +1398,9 @@ const DeviceDetailPage = () => {
             </TouchableOpacity>
           </View>
         </View>
+        )}
 
+        {shouldShowDeviceBehavior && (
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>
             <Icon name="activity" size={13} /> {'  '}Rodape do Sistema
@@ -1280,9 +1461,9 @@ const DeviceDetailPage = () => {
             </TouchableOpacity>
           </View>
         </View>
+        )}
 
-        {!isDisplayDevice &&
-          (!hasLocalPaymentGateway || pdvGateway !== PAYMENT_GATEWAY_CIELO) && (
+        {shouldShowRemotePayment && (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>
               <Icon name="credit-card" size={13} /> {'  '}Pagamento Remoto
@@ -1338,7 +1519,7 @@ const DeviceDetailPage = () => {
           </View>
         )}
 
-        {!isDisplayDevice && (
+        {shouldShowRemoteCommands && (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>
               <Icon name="refresh-cw" size={13} /> {'  '}Comandos Remotos
@@ -1372,7 +1553,7 @@ const DeviceDetailPage = () => {
           </View>
         )}
 
-        {isPdvDevice && wallets.length > 0 && (
+        {showPdvMovementTab && wallets.length > 0 && (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>
               <Icon name="credit-card" size={13} /> {'  '}Recebimentos por Forma de Pagamento
@@ -1402,7 +1583,7 @@ const DeviceDetailPage = () => {
           </View>
         )}
 
-        {isPdvDevice && (
+        {showPdvMovementTab && (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>
               <Icon name="shopping-bag" size={13} /> {'  '}Produtos Vendidos

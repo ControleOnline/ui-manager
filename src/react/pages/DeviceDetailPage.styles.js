@@ -59,6 +59,36 @@ const styles = StyleSheet.create({
   loadingBox:  { flexDirection: 'row', gap: 8, alignItems: 'center' },
   loadingText: { fontSize: 12, color: '#64748B', fontWeight: '600' },
 
+  /* Abas */
+  tabsBar: {
+    backgroundColor: '#fff',
+    borderRadius: 14,
+    padding: 6,
+    ...cardShadow,
+  },
+  tabsContent: {
+    gap: 6,
+  },
+  tabButton: {
+    minWidth: 126,
+    minHeight: 42,
+    borderWidth: 1,
+    borderColor: 'transparent',
+    borderRadius: 10,
+    backgroundColor: '#F8FAFC',
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 7,
+  },
+  tabButtonText: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#64748B',
+  },
+
   /* Resumo */
   summaryRow: { flexDirection: 'row', gap: 10 },
   summaryCard: {

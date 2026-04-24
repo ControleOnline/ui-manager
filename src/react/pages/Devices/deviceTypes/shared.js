@@ -9,7 +9,11 @@ import {
 import {useFocusEffect, useNavigation} from '@react-navigation/native';
 import {useStore} from '@store';
 import {api} from '@controleonline/ui-common/src/api';
-import {parseConfigsObject} from '@controleonline/ui-common/src/react/config/deviceConfigBootstrap';
+import {
+  getPosOperationModeOption,
+  parseConfigsObject,
+  resolvePosOperationMode,
+} from '@controleonline/ui-common/src/react/config/deviceConfigBootstrap';
 import {
   checkNetworkPrinterConnection,
   isNetworkPrinterRuntimeSupported,
@@ -40,6 +44,7 @@ import Icon from 'react-native-vector-icons/Feather';
 import styles from '../../Devices.styles';
 
 const PAGE_SIZE = 20;
+const tt = (type, key) => global.t?.t('configs', type, key);
 
 const hex = {
   primary: '#0EA5E9',
@@ -143,6 +148,13 @@ const getDeviceItemTypeLabel = type => {
   }
 
   return getDeviceTypeLabel(normalizedType);
+};
+
+const getPosOperationModeLabel = configs => {
+  const mode = resolvePosOperationMode(configs);
+  const option = getPosOperationModeOption(mode);
+
+  return tt('option', option?.translationKey);
 };
 
 const getDeviceDetailRoute = type => {
@@ -489,6 +501,9 @@ export const createDeviceTypeTab = ({
           ? getPaymentGatewayLabel(pdvGateway)
           : 'Sem gateway';
         const pdvPrinterEnabled = isPdvPrinterEnabled(deviceConfig);
+        const posOperationModeLabel = isPdv
+          ? getPosOperationModeLabel(deviceConfig?.configs)
+          : '';
         const alias =
           deviceConfig.device?.alias ||
           deviceConfig.device?.device ||
@@ -545,6 +560,11 @@ export const createDeviceTypeTab = ({
                     <View style={styles.deviceMetaChip}>
                       <Text style={styles.deviceMetaChipText}>
                         {pdvGatewayLabel}
+                      </Text>
+                    </View>
+                    <View style={styles.deviceMetaChip}>
+                      <Text style={styles.deviceMetaChipText}>
+                        {posOperationModeLabel}
                       </Text>
                     </View>
                     <View style={styles.deviceMetaChip}>
