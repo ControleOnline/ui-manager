@@ -29,12 +29,21 @@ import {
   POS_CASH_MANAGEMENT_MODE_CASH_REGISTER,
   POS_CASH_MANAGEMENT_MODE_CONFIG_KEY,
   POS_CASH_MANAGEMENT_MODE_DAILY,
+  POS_CHECK_ORDER_MANAGEMENT_MODE_CONFIG_KEY,
+  POS_CHECK_ORDER_MANAGEMENT_MODE_EXISTING_ONLY,
+  POS_CHECK_ORDER_MANAGEMENT_MODE_MANAGE,
+  POS_CHECK_ORDER_TYPE_CONFIG_KEY,
+  POS_CHECK_ORDER_TYPE_NONE,
+  POS_CHECK_ORDER_TYPE_TAB,
+  POS_CHECK_ORDER_TYPE_TABLE,
   POS_OPERATION_MODE_COUNTER,
   POS_OPERATION_MODE_CONFIG_KEY,
   POS_OPERATION_MODE_OPTIONS,
   POS_PRINT_MODE_FORM,
   POS_PRINT_MODE_ORDER,
   getPosOperationModeOption,
+  resolvePosCheckOrderManagementMode,
+  resolvePosCheckOrderType,
   resolveDeviceOrderVisibility,
   resolvePosCashManagementMode,
   resolvePosOperationMode,
@@ -223,6 +232,12 @@ const DeviceDetailPage = () => {
   const [counterCashManagementMode, setCounterCashManagementMode] = useState(
     resolvePosCashManagementMode(normalizedInitialConfigs),
   );
+  const [checkOrderType, setCheckOrderType] = useState(
+    resolvePosCheckOrderType(normalizedInitialConfigs),
+  );
+  const [checkOrderManagementMode, setCheckOrderManagementMode] = useState(
+    resolvePosCheckOrderManagementMode(normalizedInitialConfigs),
+  );
   const [deviceOrderVisibility, setDeviceOrderVisibility] = useState(
     resolveDeviceOrderVisibility(normalizedInitialConfigs),
   );
@@ -340,6 +355,10 @@ const DeviceDetailPage = () => {
       setCounterAutoPrintEnabled(isPosAutoPrintEnabled(nextConfigs));
       setCounterPrintMode(resolvePosPrintMode(nextConfigs));
       setCounterCashManagementMode(resolvePosCashManagementMode(nextConfigs));
+      setCheckOrderType(resolvePosCheckOrderType(nextConfigs));
+      setCheckOrderManagementMode(
+        resolvePosCheckOrderManagementMode(nextConfigs),
+      );
       setDeviceOrderVisibility(
         resolveDeviceOrderVisibility(nextConfigs),
       );
@@ -375,6 +394,8 @@ const DeviceDetailPage = () => {
     setCounterAutoPrintEnabled(isPosAutoPrintEnabled({}));
     setCounterPrintMode(resolvePosPrintMode({}));
     setCounterCashManagementMode(resolvePosCashManagementMode({}));
+    setCheckOrderType(resolvePosCheckOrderType({}));
+    setCheckOrderManagementMode(resolvePosCheckOrderManagementMode({}));
     setDeviceOrderVisibility(DEVICE_ORDER_VISIBILITY_DEVICE);
     setDeviceAlertSoundEnabled(false);
     setDeviceAlertSoundUrl('');
@@ -614,9 +635,14 @@ const DeviceDetailPage = () => {
     }
     setSavingAlias(true);
     try {
-      await actionsRef.current.deviceActions.updateItem({ id: deviceId, alias: trimmed });
-      setAlias(trimmed);
-      navigation.setParams({ alias: trimmed });
+      const savedDevice = await actionsRef.current.deviceActions.save({
+        id: deviceId,
+        alias: trimmed,
+      });
+      const nextAlias = String(savedDevice?.alias || trimmed).trim();
+      setAlias(nextAlias);
+      setAliasInput(nextAlias);
+      navigation.setParams({alias: nextAlias});
       setEditingAlias(false);
     } catch {
       // silencioso — mantém o valor anterior
@@ -701,6 +727,11 @@ const DeviceDetailPage = () => {
     try {
       const nextOperationConfigs = {
         [POS_OPERATION_MODE_CONFIG_KEY]: posOperationMode,
+        [POS_CHECK_ORDER_TYPE_CONFIG_KEY]: checkOrderType,
+        [POS_CHECK_ORDER_MANAGEMENT_MODE_CONFIG_KEY]:
+          checkOrderType === POS_CHECK_ORDER_TYPE_NONE
+            ? POS_CHECK_ORDER_MANAGEMENT_MODE_MANAGE
+            : checkOrderManagementMode,
       };
 
       if (posOperationMode === POS_OPERATION_MODE_COUNTER) {
@@ -725,6 +756,8 @@ const DeviceDetailPage = () => {
     }
   }, [
     currentCompany?.id,
+    checkOrderManagementMode,
+    checkOrderType,
     counterAutoPrintEnabled,
     counterCashManagementMode,
     counterPrintMode,
@@ -1039,25 +1072,6 @@ const DeviceDetailPage = () => {
             </View>
           </View>
 
-          {isPdvDevice && (
-            <View style={styles.deviceHeaderRight}>
-              <TouchableOpacity
-                style={[styles.toggleBtn, { backgroundColor: isOpen ? hex.danger : hex.success }, actionLoading && { opacity: 0.6 }]}
-                onPress={handleToggle}
-                disabled={actionLoading || loadingConfigData}
-                activeOpacity={0.85}
-              >
-                {actionLoading ? (
-                  <ActivityIndicator color="#fff" size="small" />
-                ) : (
-                  <>
-                    <Icon name={isOpen ? 'lock' : 'unlock'} size={13} color="#fff" />
-                    <Text style={styles.toggleBtnText}>{isOpen ? 'Fechar' : 'Abrir'}</Text>
-                  </>
-                )}
-              </TouchableOpacity>
-            </View>
-          )}
         </View>
 
         {loadingActiveTabData && (
@@ -1177,6 +1191,88 @@ const DeviceDetailPage = () => {
                   selectedPosOperationModeOption?.descriptionKey,
                 )}
               </Text>
+
+              <View style={styles.textInputWrap}>
+                <Text style={styles.textInputLabel}>
+                  {global.t?.t('configs', 'label', 'linkedOrderType') ||
+                    'Service base order'}
+                </Text>
+                <View style={styles.pickerWrap}>
+                  <Picker
+                    selectedValue={checkOrderType}
+                    mode={pickerMode}
+                    onValueChange={value =>
+                      setCheckOrderType(
+                        value === POS_CHECK_ORDER_TYPE_TAB
+                          ? POS_CHECK_ORDER_TYPE_TAB
+                          : value === POS_CHECK_ORDER_TYPE_TABLE
+                            ? POS_CHECK_ORDER_TYPE_TABLE
+                            : POS_CHECK_ORDER_TYPE_NONE,
+                      )
+                    }>
+                    <Picker.Item
+                      label={global.t?.t('configs', 'option', 'none') || 'None'}
+                      value={POS_CHECK_ORDER_TYPE_NONE}
+                    />
+                    <Picker.Item
+                      label={global.t?.t('orders', 'title', 'tab') || 'Tab'}
+                      value={POS_CHECK_ORDER_TYPE_TAB}
+                    />
+                    <Picker.Item
+                      label={global.t?.t('orders', 'title', 'table') || 'Table'}
+                      value={POS_CHECK_ORDER_TYPE_TABLE}
+                    />
+                  </Picker>
+                </View>
+              </View>
+
+              {checkOrderType !== POS_CHECK_ORDER_TYPE_NONE && (
+                <View style={styles.textInputWrap}>
+                  <Text style={styles.textInputLabel}>
+                    {global.t?.t(
+                      'configs',
+                      'label',
+                      'linkedOrderManagementMode',
+                    ) || 'Tab and table access'}
+                  </Text>
+                  <View style={styles.pickerWrap}>
+                    <Picker
+                      selectedValue={checkOrderManagementMode}
+                      mode={pickerMode}
+                      onValueChange={value =>
+                        setCheckOrderManagementMode(
+                          value ===
+                            POS_CHECK_ORDER_MANAGEMENT_MODE_EXISTING_ONLY
+                            ? POS_CHECK_ORDER_MANAGEMENT_MODE_EXISTING_ONLY
+                            : POS_CHECK_ORDER_MANAGEMENT_MODE_MANAGE,
+                        )
+                      }>
+                      <Picker.Item
+                        label={
+                          global.t?.t(
+                            'configs',
+                            'option',
+                            'manageLinkedOrders',
+                          ) || 'Open and close tabs/tables'
+                        }
+                        value={POS_CHECK_ORDER_MANAGEMENT_MODE_MANAGE}
+                      />
+                      <Picker.Item
+                        label={
+                          global.t?.t(
+                            'configs',
+                            'option',
+                            'existingLinkedOrdersOnly',
+                          ) || 'Use open tabs/tables only'
+                        }
+                        value={
+                          POS_CHECK_ORDER_MANAGEMENT_MODE_EXISTING_ONLY
+                        }
+                      />
+                    </Picker>
+                  </View>
+                </View>
+              )}
 
               {posOperationMode === POS_OPERATION_MODE_COUNTER && (
                 <>
@@ -1811,6 +1907,48 @@ const DeviceDetailPage = () => {
                 )}
               </TouchableOpacity>
             </View>
+          </View>
+        )}
+
+        {showPdvMovementTab && (
+          <View style={styles.section}>
+            <View style={styles.sectionHeaderRow}>
+              <Text style={styles.sectionTitle}>
+                <Icon name="shield" size={13} /> {'  '}
+                {global.t?.t('manager', 'title', 'pdvMovement') || 'PDV Movement'}
+              </Text>
+              <TouchableOpacity
+                style={[
+                  styles.toggleBtn,
+                  {backgroundColor: isOpen ? hex.danger : hex.success},
+                  actionLoading && {opacity: 0.6},
+                ]}
+                onPress={handleToggle}
+                disabled={actionLoading || loadingConfigData}
+                activeOpacity={0.85}>
+                {actionLoading ? (
+                  <ActivityIndicator color="#fff" size="small" />
+                ) : (
+                  <>
+                    <Icon
+                      name={isOpen ? 'lock' : 'unlock'}
+                      size={13}
+                      color="#fff"
+                    />
+                    <Text style={styles.toggleBtnText}>
+                      {isOpen
+                        ? global.t?.t('orders', 'button', 'closeCashRegister') || 'Close'
+                        : global.t?.t('orders', 'button', 'openCashRegister') || 'Open'}
+                    </Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            </View>
+            <Text style={styles.sectionHelperText}>
+              {isOpen
+                ? global.t?.t('orders', 'message', 'cashRegisterOpen') || 'The register is currently open for this device.'
+                : global.t?.t('orders', 'message', 'cashRegisterClosed') || 'The register is currently closed for this device.'}
+            </Text>
           </View>
         )}
 

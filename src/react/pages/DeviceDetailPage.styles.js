@@ -105,6 +105,18 @@ const styles = StyleSheet.create({
     fontSize: 13, fontWeight: '800', color: '#334155',
     textTransform: 'uppercase', letterSpacing: 0.4,
   },
+  sectionHeaderRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 10,
+    justifyContent: 'space-between',
+  },
+  sectionHelperText: {
+    color: '#64748B',
+    fontSize: 12,
+    fontWeight: '500',
+    lineHeight: 18,
+  },
   configCard: {
     backgroundColor: '#fff',
     borderRadius: 14,
