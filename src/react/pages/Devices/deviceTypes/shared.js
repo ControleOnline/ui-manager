@@ -11,6 +11,7 @@ import {useStore} from '@store';
 import {api} from '@controleonline/ui-common/src/api';
 import {
   getPosOperationModeOption,
+  isPosCashRegisterOpen,
   parseConfigsObject,
   resolvePosOperationMode,
 } from '@controleonline/ui-common/src/react/config/deviceConfigBootstrap';
@@ -75,11 +76,7 @@ const mergeDeviceConfigs = (currentItems = [], nextItems = []) => {
 
 const getStatus = deviceConfig => {
   const configs = parseConfigsObject(deviceConfig?.configs);
-  const closed = configs?.['cash-wallet-closed-id'];
-
-  return closed === 0 || closed === '0' || closed === undefined || closed === null
-    ? 'open'
-    : 'closed';
+  return isPosCashRegisterOpen(configs) ? 'open' : 'closed';
 };
 
 const getPrinterConnectivityMeta = status => {

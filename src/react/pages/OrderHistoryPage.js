@@ -17,7 +17,10 @@ import { useStore } from '@store';
 import DateShortcutFilter from '@controleonline/ui-common/src/react/components/filters/DateShortcutFilter';
 import Formatter from '@controleonline/ui-common/src/utils/formatter';
 import { getOrderChannelLabel, getOrderChannelLogo } from '@assets/ppc/channels';
-import { canDeviceViewCompanyOrders } from '@controleonline/ui-common/src/react/config/deviceConfigBootstrap';
+import {
+  canDeviceViewCompanyOrders,
+  isPosCashRegisterClosed,
+} from '@controleonline/ui-common/src/react/config/deviceConfigBootstrap';
 import { getDateRange } from '@controleonline/ui-common/src/react/utils/dateRangeFilter';
 import { resolveDisplayedOrderStatus } from '@controleonline/ui-orders/src/react/components/OrderHeader';
 import { buildOrderDetailsRouteParams } from '@controleonline/ui-orders/src/react/utils/orderRoute';
@@ -166,12 +169,7 @@ export default function OrderHistoryPage({ navigation }) {
   const [purchaseSuppliersById, setPurchaseSuppliersById] = useState({});
 
   const isCashRegisterClosed = useMemo(() => {
-    const closedId = Number(deviceConfig?.configs?.['cash-wallet-closed-id']);
-    return (
-      !deviceConfig?.configs ||
-      deviceConfig?.configs?.['cash-wallet-closed-id'] === undefined ||
-      (Number.isFinite(closedId) && closedId > 0)
-    );
+    return isPosCashRegisterClosed(deviceConfig?.configs);
   }, [deviceConfig?.configs]);
 
   const canViewCompanyOrders = useMemo(

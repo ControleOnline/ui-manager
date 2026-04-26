@@ -21,13 +21,24 @@ import {
   DEVICE_ORDER_VISIBILITY_DEVICE,
   DEVICE_ORDER_VISIBILITY_KEY,
   DEVICE_RUNTIME_DEBUG_INFO_ENABLED_KEY,
+  isPosAutoPrintEnabled,
+  isPosCashRegisterOpen,
   isTruthyValue,
   parseConfigsObject,
+  POS_AUTO_PRINT_ENABLED_CONFIG_KEY,
+  POS_CASH_MANAGEMENT_MODE_CASH_REGISTER,
+  POS_CASH_MANAGEMENT_MODE_CONFIG_KEY,
+  POS_CASH_MANAGEMENT_MODE_DAILY,
+  POS_OPERATION_MODE_COUNTER,
   POS_OPERATION_MODE_CONFIG_KEY,
   POS_OPERATION_MODE_OPTIONS,
+  POS_PRINT_MODE_FORM,
+  POS_PRINT_MODE_ORDER,
   getPosOperationModeOption,
   resolveDeviceOrderVisibility,
+  resolvePosCashManagementMode,
   resolvePosOperationMode,
+  resolvePosPrintMode,
 } from '@controleonline/ui-common/src/react/config/deviceConfigBootstrap';
 
 import {
@@ -113,8 +124,7 @@ const getDisplayLabel = display => {
 };
 
 const getIsOpen = configs => {
-  const closed = configs?.['cash-wallet-closed-id'];
-  return closed === 0 || closed === '0' || closed === undefined || closed === null;
+  return isPosCashRegisterOpen(configs);
 };
 
 const confirm = (msg, cb) => {
@@ -203,6 +213,15 @@ const DeviceDetailPage = () => {
   );
   const [posOperationMode, setPosOperationMode] = useState(
     resolvePosOperationMode(normalizedInitialConfigs),
+  );
+  const [counterAutoPrintEnabled, setCounterAutoPrintEnabled] = useState(
+    isPosAutoPrintEnabled(normalizedInitialConfigs),
+  );
+  const [counterPrintMode, setCounterPrintMode] = useState(
+    resolvePosPrintMode(normalizedInitialConfigs),
+  );
+  const [counterCashManagementMode, setCounterCashManagementMode] = useState(
+    resolvePosCashManagementMode(normalizedInitialConfigs),
   );
   const [deviceOrderVisibility, setDeviceOrderVisibility] = useState(
     resolveDeviceOrderVisibility(normalizedInitialConfigs),
@@ -318,6 +337,9 @@ const DeviceDetailPage = () => {
       setPdvGateway(getPaymentGatewayFromConfigs(nextConfigs));
       setPdvPrinterEnabled(isPdvPrinterEnabled(nextConfigs));
       setPosOperationMode(resolvePosOperationMode(nextConfigs));
+      setCounterAutoPrintEnabled(isPosAutoPrintEnabled(nextConfigs));
+      setCounterPrintMode(resolvePosPrintMode(nextConfigs));
+      setCounterCashManagementMode(resolvePosCashManagementMode(nextConfigs));
       setDeviceOrderVisibility(
         resolveDeviceOrderVisibility(nextConfigs),
       );
@@ -350,6 +372,9 @@ const DeviceDetailPage = () => {
     setPdvGateway('');
     setPdvPrinterEnabled(true);
     setPosOperationMode(resolvePosOperationMode({}));
+    setCounterAutoPrintEnabled(isPosAutoPrintEnabled({}));
+    setCounterPrintMode(resolvePosPrintMode({}));
+    setCounterCashManagementMode(resolvePosCashManagementMode({}));
     setDeviceOrderVisibility(DEVICE_ORDER_VISIBILITY_DEVICE);
     setDeviceAlertSoundEnabled(false);
     setDeviceAlertSoundUrl('');
@@ -674,11 +699,21 @@ const DeviceDetailPage = () => {
 
     setSavingPosOperationMode(true);
     try {
+      const nextOperationConfigs = {
+        [POS_OPERATION_MODE_CONFIG_KEY]: posOperationMode,
+      };
+
+      if (posOperationMode === POS_OPERATION_MODE_COUNTER) {
+        nextOperationConfigs[POS_AUTO_PRINT_ENABLED_CONFIG_KEY] =
+          counterAutoPrintEnabled ? '1' : '0';
+        nextOperationConfigs['print-mode'] = counterPrintMode;
+        nextOperationConfigs[POS_CASH_MANAGEMENT_MODE_CONFIG_KEY] =
+          counterCashManagementMode;
+      }
+
       await actionsRef.current.deviceConfigActions.addDeviceConfigs({
         device: deviceString,
-        configs: JSON.stringify({
-          [POS_OPERATION_MODE_CONFIG_KEY]: posOperationMode,
-        }),
+        configs: JSON.stringify(nextOperationConfigs),
         people: '/people/' + currentCompany.id,
         type: deviceType,
       });
@@ -690,6 +725,9 @@ const DeviceDetailPage = () => {
     }
   }, [
     currentCompany?.id,
+    counterAutoPrintEnabled,
+    counterCashManagementMode,
+    counterPrintMode,
     deviceString,
     deviceType,
     isPdvDevice,
@@ -1139,6 +1177,101 @@ const DeviceDetailPage = () => {
                   selectedPosOperationModeOption?.descriptionKey,
                 )}
               </Text>
+
+              {posOperationMode === POS_OPERATION_MODE_COUNTER && (
+                <>
+                  <TouchableOpacity
+                    style={styles.toggleRow}
+                    activeOpacity={0.85}
+                    onPress={() =>
+                      setCounterAutoPrintEnabled(currentValue => !currentValue)
+                    }>
+                    <View>
+                      <Text style={styles.toggleRowLabel}>
+                        Impressao automatica
+                      </Text>
+                      <Text style={styles.toggleRowValue}>
+                        {counterAutoPrintEnabled ? 'Sim' : 'Nao'}
+                      </Text>
+                    </View>
+                    <Icon
+                      name={
+                        counterAutoPrintEnabled
+                          ? 'toggle-right'
+                          : 'toggle-left'
+                      }
+                      size={28}
+                      color={
+                        counterAutoPrintEnabled
+                          ? hex.success
+                          : '#94A3B8'
+                      }
+                    />
+                  </TouchableOpacity>
+
+                  {counterAutoPrintEnabled && (
+                    <View style={styles.textInputWrap}>
+                      <Text style={styles.textInputLabel}>
+                        Tipo de impressao automatica
+                      </Text>
+                      <View style={styles.pickerWrap}>
+                        <Picker
+                          selectedValue={counterPrintMode}
+                          mode={pickerMode}
+                          onValueChange={value =>
+                            setCounterPrintMode(
+                              value === POS_PRINT_MODE_FORM
+                                ? POS_PRINT_MODE_FORM
+                                : POS_PRINT_MODE_ORDER,
+                            )
+                          }>
+                          <Picker.Item
+                            label="Pedido"
+                            value={POS_PRINT_MODE_ORDER}
+                          />
+                          <Picker.Item
+                            label="Fichas"
+                            value={POS_PRINT_MODE_FORM}
+                          />
+                        </Picker>
+                      </View>
+                    </View>
+                  )}
+
+                  <View style={styles.textInputWrap}>
+                    <Text style={styles.textInputLabel}>
+                      Politica de caixa
+                    </Text>
+                    <View style={styles.pickerWrap}>
+                      <Picker
+                        selectedValue={counterCashManagementMode}
+                        mode={pickerMode}
+                        onValueChange={value =>
+                          setCounterCashManagementMode(
+                            value === POS_CASH_MANAGEMENT_MODE_DAILY
+                              ? POS_CASH_MANAGEMENT_MODE_DAILY
+                              : POS_CASH_MANAGEMENT_MODE_CASH_REGISTER,
+                          )
+                        }>
+                        <Picker.Item
+                          label="Abertura e fechamento de caixa"
+                          value={POS_CASH_MANAGEMENT_MODE_CASH_REGISTER}
+                        />
+                        <Picker.Item
+                          label="Fechamento diario"
+                          value={POS_CASH_MANAGEMENT_MODE_DAILY}
+                        />
+                      </Picker>
+                    </View>
+                  </View>
+
+                  <Text style={styles.configHint}>
+                    Quando o balcao usar abertura e fechamento de caixa, o
+                    fechamento pode disparar o relatorio de vendas do device
+                    para os numeros configurados em Operacao e PDV da empresa.
+                  </Text>
+                </>
+              )}
 
               <TouchableOpacity
                 style={[
