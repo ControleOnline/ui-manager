@@ -19,11 +19,13 @@ import Formatter from '@controleonline/ui-common/src/utils/formatter';
 import { getOrderChannelLabel, getOrderChannelLogo } from '@assets/ppc/channels';
 import {
   canDeviceViewCompanyOrders,
+  isPosCounterMode,
   isPosCashRegisterClosed,
 } from '@controleonline/ui-common/src/react/config/deviceConfigBootstrap';
 import { getDateRange } from '@controleonline/ui-common/src/react/utils/dateRangeFilter';
 import { resolveDisplayedOrderStatus } from '@controleonline/ui-orders/src/react/components/OrderHeader';
 import { buildOrderDetailsRouteParams } from '@controleonline/ui-orders/src/react/utils/orderRoute';
+import usePosCartSession from '@controleonline/ui-orders/src/react/hooks/usePosCartSession';
 import { colors } from '@controleonline/../../src/styles/colors';
 import { resolveThemePalette, withOpacity } from '@controleonline/../../src/styles/branding';
 import styles from './OrderHistoryPage.styles';
@@ -90,7 +92,7 @@ const FilterChip = ({ active, label, onPress }) => (
 
 /* ─── componente principal ──────────────────────────────────────────── */
 
-export default function OrderHistoryPage({ navigation }) {
+export default function OrderHistoryPage({ navigation, route }) {
   const ordersStore = useStore('orders');
   const peopleStore = useStore('people');
   const themeStore = useStore('theme');
@@ -101,7 +103,7 @@ export default function OrderHistoryPage({ navigation }) {
   const { item: storagedDevice } = deviceGetters;
   const { item: deviceConfig } = deviceConfigStore.getters;
   const { actions: peopleActions, getters: peopleGetters } = peopleStore;
-  const { currentCompany } = peopleGetters;
+  const { currentCompany, defaultCompany } = peopleGetters;
   const { colors: themeColors } = themeStore.getters;
   const { actions: orderActions, getters: ordersGetters } = ordersStore;
   const {
@@ -171,6 +173,14 @@ export default function OrderHistoryPage({ navigation }) {
   const isCashRegisterClosed = useMemo(() => {
     return isPosCashRegisterClosed(deviceConfig?.configs);
   }, [deviceConfig?.configs]);
+  const isCounterMode = useMemo(() => {
+    return isPosCounterMode(deviceConfig?.configs);
+  }, [deviceConfig?.configs]);
+  const { resolveCounterStartDestination } = usePosCartSession({
+    companyId: currentCompany?.id,
+    deviceId: storagedDevice?.id,
+    defaultStatusId: defaultCompany?.configs?.['pos-default-status'],
+  });
 
   const canViewCompanyOrders = useMemo(
     () => canDeviceViewCompanyOrders(deviceConfig?.configs),
@@ -196,6 +206,57 @@ export default function OrderHistoryPage({ navigation }) {
 
     navigation.navigate('PdvPage', {startNewOrder: true});
   }, [navigation, isCashRegisterClosed]);
+
+  useEffect(() => {
+    if (!isFocused || env.APP_TYPE !== 'POS' || !isCounterMode) {
+      return;
+    }
+
+    if (route?.params?.resumeCounterFlow !== true) {
+      return;
+    }
+
+    let cancelled = false;
+
+    void (async () => {
+      try {
+        const destination = await resolveCounterStartDestination();
+
+        if (cancelled) {
+          return;
+        }
+
+        if (destination.screen === 'OrderHistoryPage') {
+          navigation.setParams?.({resumeCounterFlow: false});
+          return;
+        }
+
+        if (destination.screen === 'OrderDetails' && destination.order) {
+          navigation.replace(
+            'OrderDetails',
+            buildOrderDetailsRouteParams(destination.order),
+          );
+          return;
+        }
+
+        navigation.replace('AddProductScreen');
+      } catch {
+        if (!cancelled) {
+          navigation.replace('AddProductScreen');
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    isCounterMode,
+    isFocused,
+    navigation,
+    resolveCounterStartDestination,
+    route?.params?.resumeCounterFlow,
+  ]);
 
   useEffect(() => {
     if (!isFocused || env.APP_TYPE !== 'POS') return;
