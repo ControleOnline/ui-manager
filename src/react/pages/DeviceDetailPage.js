@@ -176,6 +176,7 @@ const DeviceDetailPage = () => {
   const websocketStore    = useStore('websocket');
 
   const { currentCompany }      = peopleStore.getters;
+  const { item: runtimeDevice } = deviceStore.getters;
   const { items: displays = [], isLoading: isLoadingDisplays } = displayStore.getters;
   const { items: printers = [], isLoading: isLoadingPrinters } = printerStore.getters;
   const { colors: themeColors } = themeStore.getters;
@@ -326,6 +327,24 @@ const DeviceDetailPage = () => {
     [posOperationMode],
   );
   const pickerMode = Platform.OS === 'android' ? 'dropdown' : undefined;
+  const runtimeDeviceId = useMemo(
+    () => normalizeDeviceId(runtimeDevice?.id || runtimeDevice?.device),
+    [runtimeDevice?.device, runtimeDevice?.id],
+  );
+  const runtimeDeviceType = useMemo(
+    () =>
+      String(runtimeDevice?.type || runtimeDevice?.deviceType || '')
+        .trim()
+        .toUpperCase(),
+    [runtimeDevice?.deviceType, runtimeDevice?.type],
+  );
+  const isEditingRuntimeDevice = useMemo(
+    () =>
+      !!runtimeDeviceId &&
+      runtimeDeviceId === normalizeDeviceId(deviceString) &&
+      runtimeDeviceType === deviceType,
+    [deviceString, deviceType, runtimeDeviceId, runtimeDeviceType],
+  );
 
   const applyCurrentDeviceConfig = useCallback(scopedItems => {
     const dc = (scopedItems || []).find(d => {
@@ -345,6 +364,12 @@ const DeviceDetailPage = () => {
 
     if (dc) {
       const nextConfigs = parseConfigsObject(dc.configs);
+      if (isEditingRuntimeDevice) {
+        actionsRef.current.deviceConfigActions.setItem({
+          ...dc,
+          configs: nextConfigs,
+        });
+      }
       setConfigs(nextConfigs);
       setDevicePaymentTarget(
         normalizeDeviceId(nextConfigs[ORDER_PAYMENT_DEVICE_CONFIG_KEY]),
@@ -386,6 +411,10 @@ const DeviceDetailPage = () => {
       return;
     }
 
+    if (isEditingRuntimeDevice) {
+      actionsRef.current.deviceConfigActions.setItem({});
+    }
+
     setConfigs({});
     setDevicePaymentTarget('');
     setPdvGateway('');
@@ -404,7 +433,7 @@ const DeviceDetailPage = () => {
     setDisplayPrinterId('');
     setDisplayAllowPrinterChange(false);
     setDisplayAutoPrintProductEnabled(false);
-  }, [dcId, deviceString, deviceType]);
+  }, [dcId, deviceString, deviceType, isEditingRuntimeDevice]);
 
   const loadMovementData = useCallback(async () => {
     if (!isPdvDevice) {
