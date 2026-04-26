@@ -194,7 +194,7 @@ export default function OrderHistoryPage({ navigation }) {
       return;
     }
 
-    navigation.navigate('PdvPage');
+    navigation.navigate('PdvPage', {startNewOrder: true});
   }, [navigation, isCashRegisterClosed]);
 
   useEffect(() => {
