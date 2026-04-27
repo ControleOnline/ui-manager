@@ -18,5 +18,6 @@
 - Configuracoes administrativas de `PDV` para atendimento por `tab/table` devem expor valores canonicos em ingles no codigo e usar traducao apenas nos labels visuais.
 - O `MANAGER` e a fonte administrativa das configuracoes operacionais do `PDV`, inclusive das permissoes que definem se um device pode abrir e fechar `tab/table` ou apenas operar sobre atendimentos ja abertos.
 - Quando o `MANAGER` hospedar uma `PdvPage`, esse fluxo continua sujeito as mesmas regras operacionais de `PDV` para `tab/table`, identificacao e leitores. O ganho do `MANAGER` fica nas acoes administrativas adicionais, nao em um contrato operacional paralelo.
+- A tela de settlement de `tab/table` no `MANAGER` deve reutilizar o pedido raiz e o checkout compartilhado de `ui-orders`, em vez de criar um fluxo de pagamento paralelo.
 - Fluxos administrativos de liquidacao, consolidacao ou pagamento de `tab/table` pertencem ao `MANAGER`, mesmo quando o `POS` estiver restrito a usar apenas atendimentos ja abertos.
 - `SHOP` nao entra nesse contrato operacional de `PDV` dentro do `MANAGER`.

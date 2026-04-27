@@ -32,6 +32,7 @@ import DisplayList from '@controleonline/ui-ppc/src/react/pages/displays/display
 import DisplayDetails from '@controleonline/ui-ppc/src/react/pages/displays/DisplayDetails';
 import DisplayForm from '@controleonline/ui-ppc/src/react/pages/displays/DisplayForm';
 import QueueAddProducts from '@controleonline/ui-ppc/src/react/pages/queues/QueueAddProducts';
+import LinkedOrderSettlementPage from '@controleonline/ui-orders/src/react/pages/checkout/LinkedOrderSettlementPage';
 
 const managerRoutes = [
   {
@@ -193,6 +194,18 @@ const managerRoutes = [
       headerShown: true,
       headerBackVisible: true,
       title: 'PDV',
+      showBottomToolBar: true,
+      showCompanyFilter: true,
+      companyFilterMode: 'icon',
+    },
+  },
+  {
+    name: 'LinkedOrderSettlementPage',
+    component: LinkedOrderSettlementPage,
+    options: {
+      headerShown: true,
+      headerBackVisible: true,
+      title: 'Settlement',
       showBottomToolBar: true,
       showCompanyFilter: true,
       companyFilterMode: 'icon',
