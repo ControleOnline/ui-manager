@@ -1556,9 +1556,10 @@ const DeviceDetailPage = () => {
             <View style={styles.configCard}>
               <Text style={styles.configTitle}>Display vinculado e impressora da fila</Text>
               <Text style={styles.configDescription}>
-                Este bloco e usado na impressao automatica do backend. O device
-                DISPLAY precisa apontar qual display/fila representa e qual
-                impressora deve receber a copia separada por fila.
+                Este bloco e usado na impressao automatica disparada pelo app
+                DISPLAY. O device DISPLAY precisa apontar qual display/fila
+                representa e qual impressora deve receber a copia separada por
+                fila.
               </Text>
 
               {(isLoadingDisplays || isLoadingPrinters) ? (
