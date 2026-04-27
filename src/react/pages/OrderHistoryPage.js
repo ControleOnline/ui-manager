@@ -23,12 +23,12 @@ import {
   isPosCounterMode,
   isPosCashRegisterClosed,
 } from '@controleonline/ui-common/src/react/config/deviceConfigBootstrap';
-import { formatHumanLabel } from '@controleonline/ui-common/src/react/utils/entityDisplay';
 import { getDateRange } from '@controleonline/ui-common/src/react/utils/dateRangeFilter';
 import { resolveDisplayedOrderStatus } from '@controleonline/ui-orders/src/react/components/OrderHeader';
+import OrderIdentityLabel from '@controleonline/ui-orders/src/react/components/OrderIdentityLabel';
 import { buildOrderDetailsRouteParams } from '@controleonline/ui-orders/src/react/utils/orderRoute';
+import { resolveOrderIdentity } from '@controleonline/ui-orders/src/react/utils/orderIdentity';
 import usePosCartSession from '@controleonline/ui-orders/src/react/hooks/usePosCartSession';
-import { resolveLinkedOrderLabel } from '@controleonline/ui-orders/src/react/utils/linkedOrderContext';
 import { colors } from '@controleonline/../../src/styles/colors';
 import { resolveThemePalette, withOpacity } from '@controleonline/../../src/styles/branding';
 import styles from './OrderHistoryPage.styles';
@@ -40,7 +40,6 @@ const PAGE_SIZE = 50;
 /* tabs sem filtro de canal/status */
 const ORDER_TYPE_FILTER_KEYS = new Set(['sale', 'purchase', 'transfer', 'loss']);
 const SIMPLE_TAB_KEYS = new Set(['transfer', 'loss']);
-const LEGACY_ORDER_KIND_ALIASES = new Set(['quote', 'cart', 'tab', 'table']);
 
 /* ─── helpers ───────────────────────────────────────────────────────── */
 
@@ -104,15 +103,22 @@ const getPeopleLabel = entity =>
   );
 
 const normalizeApp = o => normalizeText(o?.app);
-const getSearchText = o =>
-  [
+const getSearchText = o => {
+  const identity = resolveOrderIdentity(o);
+
+  return [
     o?.id,
     o?.app,
+    identity?.internalId,
+    identity?.externalId,
+    identity?.primaryText,
+    identity?.secondaryText,
     o?.client?.name,
     o?.client?.alias,
     o?.status?.status,
     o?.status?.realStatus,
   ].filter(Boolean).join(' ').toLowerCase();
+};
 
 /* ─── componente principal ──────────────────────────────────────────── */
 
@@ -251,50 +257,6 @@ export default function OrderHistoryPage({ navigation, route }) {
   /* ref para evitar fetch duplicado */
   const fetchingRef = useRef(false);
   const loadingPurchaseSuppliersRef = useRef(new Set());
-
-  const resolveVisibleOrderKind = useCallback(order => {
-    const normalizedOrderType = normalizeText(
-      order?.orderType || order?.order?.orderType,
-    ).toLowerCase();
-    const normalizedStatus = normalizeText(
-      order?.status?.status || order?.order?.status?.status,
-    ).toLowerCase();
-
-    if (
-      LEGACY_ORDER_KIND_ALIASES.has(normalizedStatus) &&
-      (!normalizedOrderType || normalizedOrderType === 'sale')
-    ) {
-      return normalizedStatus;
-    }
-
-    return normalizedOrderType || normalizedStatus || 'sale';
-  }, []);
-
-  const resolveOrderKindLabel = useCallback(order => {
-    const orderKind = resolveVisibleOrderKind(order);
-
-    if (orderKind === 'sale') {
-      return formatHumanLabel(resolveDisplayText(global.t?.t('orders', 'label', 'tab_sale'), 'Sale', ['Tab ']));
-    }
-
-    if (orderKind === 'purchase') {
-      return formatHumanLabel(resolveDisplayText(global.t?.t('orders', 'label', 'tab_purchase'), 'Purchase', ['Tab ']));
-    }
-
-    if (orderKind === 'transfer') {
-      return formatHumanLabel(resolveDisplayText(global.t?.t('orders', 'label', 'tab_transfer'), 'Transfer', ['Tab ']));
-    }
-
-    if (orderKind === 'loss') {
-      return formatHumanLabel(resolveDisplayText(global.t?.t('orders', 'label', 'tab_loss'), 'Loss', ['Tab ']));
-    }
-
-    if (orderKind === 'tab' || orderKind === 'table') {
-      return formatHumanLabel(resolveDisplayText(resolveLinkedOrderLabel(orderKind), orderKind));
-    }
-
-    return formatHumanLabel(orderKind) || global.t?.t('orders', 'label', 'order') || 'Order';
-  }, [resolveVisibleOrderKind]);
 
   const goToAddProduct = useCallback(() => {
     if (orderTypeFilter === 'purchase') {
@@ -636,8 +598,6 @@ export default function OrderHistoryPage({ navigation, route }) {
         : isLoss
           ? global.t?.t('orders', 'label', 'stock_loss')
           : (getOrderChannelLabel(order) || normalizeApp(order) || global.t?.t('orders', 'label', 'shop'));
-    const orderKindLabel = resolveOrderKindLabel(order);
-
     const statusPresentation = resolveDisplayedOrderStatus(order, '#64748B');
     const statusLabel = statusPresentation.labelUpper;
     const statusColor = statusPresentation.color;
@@ -685,7 +645,11 @@ export default function OrderHistoryPage({ navigation, route }) {
               }
             </View>
             <View>
-              <Text style={styles.orderId}>{orderKindLabel} #{order.id}</Text>
+              <OrderIdentityLabel
+                order={order}
+                primaryTextStyle={styles.orderId}
+                showSecondary={false}
+              />
               <Text style={styles.orderDate}>
                 {Formatter.formatDateYmdTodmY(
                   order?.alterDate || order?.alter_date || order?.orderDate || order?.order_date,
@@ -716,7 +680,7 @@ export default function OrderHistoryPage({ navigation, route }) {
         </View>
       </TouchableOpacity>
     );
-  }, [openOrder, purchaseSuppliersById, resolveOrderKindLabel]);
+  }, [openOrder, purchaseSuppliersById]);
 
   /* ─── render ─────────────────────────────────────────────────────── */
 
