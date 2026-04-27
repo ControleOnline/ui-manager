@@ -28,6 +28,11 @@ const HEX = {
   muted: '#64748B',
 };
 
+const resolveShortcutLabel = (value, fallback) => {
+  const normalizedValue = String(value || '').replace(/^Tab\s+/i, '').trim();
+  return normalizedValue || fallback;
+};
+
 function ShortcutCard({ label, icon, color, onPress }) {
   return (
     <TouchableOpacity style={styles.shortcutCard} activeOpacity={0.85} onPress={onPress}>
@@ -97,6 +102,14 @@ export default function HomePage({ navigation }) {
     { label: global.t?.t('configs', 'stat_label', 'customers'), value: '...', icon: 'users', color: HEX.success, route: 'ClientsIndex' },
   ]);
   const [loadingStats, setLoadingStats] = useState(true);
+  const salesHistoryLabel = useMemo(
+    () => resolveShortcutLabel(global.t?.t('orders', 'label', 'tab_sale'), 'Vendas'),
+    [],
+  );
+  const purchaseHistoryLabel = useMemo(
+    () => resolveShortcutLabel(global.t?.t('orders', 'label', 'tab_purchase'), 'Compras'),
+    [],
+  );
 
   const currentMonth = new Date().getMonth() + 1;
   const currentYear = new Date().getFullYear();
@@ -188,7 +201,12 @@ export default function HomePage({ navigation }) {
     fetchStats();
   }, [currentCompany?.id]);
 
-  const go = (route) => navigation.navigate(route);
+  const go = (route, params = undefined) => navigation.navigate(route, params);
+  const openOrderHistory = (orderTypeFilter, historyTitle) =>
+    navigation.navigate('OrderHistoryPage', {
+      orderTypeFilter,
+      historyTitle,
+    });
   const openModelEditor = (params = {}) =>
     navigation.navigate('ModelTemplatesPage', {
       templateAction: Date.now(),
@@ -272,11 +290,12 @@ export default function HomePage({ navigation }) {
           <ShortcutsRow>
             <ShortcutCard label={global.t?.t('configs', 'button_title', 'ppc')} icon="monitor" color={HEX.purple} onPress={() => go('DisplayList')} />
             <ShortcutCard label={global.t?.t('configs', 'button_title', 'providers')} icon="briefcase" color={HEX.warning} onPress={() => go('ProvidersIndex')} />
-            <ShortcutCard label={global.t?.t('configs', 'button_title', 'orders')} icon="clock" color={HEX.info} onPress={() => go('OrderHistoryPage')} />
+            <ShortcutCard label={salesHistoryLabel} icon="shopping-bag" color={HEX.info} onPress={() => openOrderHistory('sale', salesHistoryLabel)} />
           </ShortcutsRow>
           <ShortcutsRow>
             <ShortcutCard label={global.t?.t('configs', 'button_title', 'products')} icon="package" color={HEX.success} onPress={() => go('CategoriesPage')} />
             <ShortcutCard label={global.t?.t('configs', 'button_title', 'inventory')} icon="archive" color={HEX.warning} onPress={() => go('InventoriesPage')} />
+            <ShortcutCard label={purchaseHistoryLabel} icon="truck" color={HEX.orange} onPress={() => openOrderHistory('purchase', purchaseHistoryLabel)} />
           </ShortcutsRow>
           <ShortcutsRow>
             <ShortcutCard label={global.t?.t('configs', 'button_title', 'purchasingSuggestion')} icon="truck" color={HEX.purple} onPress={() => go('PurchasingSuggestion')} />

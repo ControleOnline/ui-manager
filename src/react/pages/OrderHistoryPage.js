@@ -38,6 +38,7 @@ import styles from './OrderHistoryPage.styles';
 const PAGE_SIZE = 50;
 
 /* tabs sem filtro de canal/status */
+const ORDER_TYPE_FILTER_KEYS = new Set(['sale', 'purchase', 'transfer', 'loss']);
 const SIMPLE_TAB_KEYS = new Set(['transfer', 'loss']);
 const LEGACY_ORDER_KIND_ALIASES = new Set(['quote', 'cart', 'tab', 'table']);
 
@@ -67,6 +68,11 @@ const resolveDisplayText = (value, fallback = '', prefixes = []) => {
   }
 
   return label;
+};
+
+const resolveOrderTypeFilter = value => {
+  const normalizedValue = normalizeText(value).toLowerCase();
+  return ORDER_TYPE_FILTER_KEYS.has(normalizedValue) ? normalizedValue : 'sale';
 };
 
 const getEntityId = entity => {
@@ -182,36 +188,15 @@ export default function OrderHistoryPage({ navigation, route }) {
     },
   ]), []);
 
-  const tabs = useMemo(() => ([
-    {
-      key: 'sale',
-      label: formatHumanLabel(resolveDisplayText(global.t?.t('orders', 'label', 'tab_sale'), 'Sale', ['Tab '])),
-      icon: 'shopping-bag',
-    },
-    {
-      key: 'purchase',
-      label: formatHumanLabel(resolveDisplayText(global.t?.t('orders', 'label', 'tab_purchase'), 'Purchase', ['Tab '])),
-      icon: 'truck',
-    },
-    {
-      key: 'transfer',
-      label: formatHumanLabel(resolveDisplayText(global.t?.t('orders', 'label', 'tab_transfer'), 'Transfer', ['Tab '])),
-      icon: 'repeat',
-    },
-    {
-      key: 'loss',
-      label: formatHumanLabel(resolveDisplayText(global.t?.t('orders', 'label', 'tab_loss'), 'Loss', ['Tab '])),
-      icon: 'trending-down',
-    },
-  ]), []);
-
   /* ─── estado ──────────────────────────────────────────────────────── */
 
   const [loadingMore, setLoadingMore] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
 
-  const [orderTypeFilter, setOrderTypeFilter] = useState('sale');
+  const [orderTypeFilter, setOrderTypeFilter] = useState(
+    () => resolveOrderTypeFilter(route?.params?.orderTypeFilter),
+  );
   const [channelFilter, setChannelFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
   const [dateFilter, setDateFilter] = useState('today');
@@ -242,6 +227,18 @@ export default function OrderHistoryPage({ navigation, route }) {
     [storedOrders],
   );
   const totalOrders = Number(storedTotalItems || 0);
+  const routeOrderTypeFilter = useMemo(
+    () => resolveOrderTypeFilter(route?.params?.orderTypeFilter),
+    [route?.params?.orderTypeFilter],
+  );
+  const defaultHistoryTitle = useMemo(
+    () => normalizeText(global.t?.t('configs', 'title', 'orderHistory')) || 'Historico de pedidos',
+    [],
+  );
+  const historyPageTitle = useMemo(
+    () => normalizeText(route?.params?.historyTitle) || defaultHistoryTitle,
+    [defaultHistoryTitle, route?.params?.historyTitle],
+  );
   const currentChannelLabel = useMemo(
     () => channelOptions.find(option => option.key === channelFilter)?.label || channelOptions[0]?.label || 'All',
     [channelFilter, channelOptions],
@@ -300,13 +297,38 @@ export default function OrderHistoryPage({ navigation, route }) {
   }, [resolveVisibleOrderKind]);
 
   const goToAddProduct = useCallback(() => {
+    if (orderTypeFilter === 'purchase') {
+      navigation.navigate('PurchaseFormPage');
+      return;
+    }
+
+    if (orderTypeFilter === 'transfer') {
+      navigation.navigate('PurchaseFormPage', { mode: 'transfer' });
+      return;
+    }
+
+    if (orderTypeFilter === 'loss') {
+      return;
+    }
+
     if (env.APP_TYPE === 'POS' && isCashRegisterClosed) {
       navigation.navigate('CloseCashRegister');
       return;
     }
 
     navigation.navigate('PdvPage', {startNewOrder: true});
-  }, [navigation, isCashRegisterClosed]);
+  }, [navigation, isCashRegisterClosed, orderTypeFilter]);
+
+  useEffect(() => {
+    navigation.setOptions?.({ title: historyPageTitle });
+  }, [historyPageTitle, navigation]);
+
+  useEffect(() => {
+    setOrderTypeFilter(routeOrderTypeFilter);
+    setChannelFilter('all');
+    setStatusFilter('all');
+    setSearchText('');
+  }, [routeOrderTypeFilter]);
 
   useEffect(() => {
     if (!isFocused || env.APP_TYPE !== 'POS' || !isCounterMode) {
@@ -706,38 +728,14 @@ export default function OrderHistoryPage({ navigation, route }) {
         onScroll={handleScroll}
         scrollEventThrottle={200}
       >
-        {/* tabs Vendas | Compras | Transferências | Perdas */}
-        {env.APP_TYPE !== 'POS' && (
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.tabBar} contentContainerStyle={styles.tabBarContent}>
-            {tabs.map(tab => {
-              const active = orderTypeFilter === tab.key;
-              return (
-                <TouchableOpacity
-                  key={tab.key}
-                  style={[styles.tabItem, active && [styles.tabItemActive, { borderBottomColor: brandColors.primary }]]}
-                  onPress={() => { setOrderTypeFilter(tab.key); setChannelFilter('all'); setStatusFilter('all'); }}
-                  activeOpacity={0.8}
-                >
-                  <Icon name={tab.icon} size={14} color={active ? brandColors.primary : '#94A3B8'} />
-                  <Text style={[styles.tabLabel, active && [styles.tabLabelActive, { color: brandColors.primary }]]}>
-                    {tab.label}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </ScrollView>
-        )}
-
-        {/* contagem */}
-        <View style={styles.summaryRow}>
-          <View style={styles.countPill}>
-            <Text style={styles.countPillText}>{displayedOrdersCount} {global.t?.t('orders', 'label', 'orders')}</Text>
-          </View>
-        </View>
-
         {/* filtros */}
         <View style={styles.filtersCard}>
-          <Text style={styles.filtersTitle}>{global.t?.t('orders', 'title', 'filters')}</Text>
+          <View style={styles.filtersHeaderRow}>
+            <Text style={styles.filtersTitle}>{global.t?.t('orders', 'title', 'filters')}</Text>
+            <View style={styles.countPill}>
+              <Text style={styles.countPillText}>{displayedOrdersCount} {global.t?.t('orders', 'label', 'orders')}</Text>
+            </View>
+          </View>
 
           <TextInput
             value={searchText}
@@ -857,13 +855,15 @@ export default function OrderHistoryPage({ navigation, route }) {
         )}
 
       </ScrollView>
-      <TouchableOpacity
-        style={[styles.fab, { backgroundColor: brandColors.primary }]}
-        activeOpacity={0.85}
-        onPress={goToAddProduct}
-      >
-        <Icon name="plus" size={22} color="#fff" />
-      </TouchableOpacity>
+      {orderTypeFilter !== 'loss' && (
+        <TouchableOpacity
+          style={[styles.fab, { backgroundColor: brandColors.primary }]}
+          activeOpacity={0.85}
+          onPress={goToAddProduct}
+        >
+          <Icon name="plus" size={22} color="#fff" />
+        </TouchableOpacity>
+      )}
 
     </SafeAreaView>
   );

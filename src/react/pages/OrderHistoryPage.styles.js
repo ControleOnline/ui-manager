@@ -4,11 +4,11 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   scroll: { paddingHorizontal: 20, paddingTop: 16, paddingBottom: 32, gap: 16 },
 
-  summaryRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end' },
   countPill: { borderRadius: 999, backgroundColor: '#EFF6FF', paddingHorizontal: 12, paddingVertical: 7 },
   countPillText: { fontSize: 12, fontWeight: '700', color: '#1D4ED8' },
 
   filtersCard: { backgroundColor: '#fff', borderRadius: 20, padding: 16, gap: 10 },
+  filtersHeaderRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
   filtersTitle: { fontSize: 15, fontWeight: '700', color: '#0F172A' },
   searchInput: {
     borderWidth: 1,
@@ -70,29 +70,6 @@ const styles = StyleSheet.create({
   },
   statusDot: { width: 7, height: 7, borderRadius: 999 },
   statusText: { fontSize: 11, fontWeight: '700' },
-
-  tabBar: {
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-  },
-  tabBarContent: {
-    flexDirection: 'row',
-  },
-  tabItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderBottomWidth: 2.5,
-    borderBottomColor: 'transparent',
-  },
-  tabItemActive: {},
-  tabLabel: { fontSize: 13, fontWeight: '600', color: '#94A3B8' },
-  tabLabelActive: { fontWeight: '700' },
 
   cardMetaRow: {
     flexDirection: 'row',

@@ -33,7 +33,9 @@ const styles = StyleSheet.create({
   iconHeaderWrap: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'flex-end',
     gap: 8,
+    width: '100%',
     maxWidth: 220,
   },
 
