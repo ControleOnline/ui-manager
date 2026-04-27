@@ -182,12 +182,6 @@ export default function ConnectionsPage({ navigation }) {
         </View>
 
         <View style={styles.companyRow}>
-          <View>
-            <Text style={styles.sectionTitle}>Empresa ativa</Text>
-            <Text style={styles.companyName}>
-              {currentCompany?.name || currentCompany?.alias || `Empresa #${providerId}`}
-            </Text>
-          </View>
           <View style={styles.companyBadge}>
             <Text style={styles.companyBadgeText}>{connections.length} conexoes</Text>
           </View>

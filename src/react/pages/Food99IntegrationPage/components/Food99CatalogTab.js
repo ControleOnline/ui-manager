@@ -3,6 +3,7 @@ import { ActivityIndicator, Text, TextInput, TouchableOpacity, View } from 'reac
 import Icon from 'react-native-vector-icons/Feather';
 
 import { withOpacity } from '@controleonline/../../src/styles/branding';
+import CompactFilterSelector from '@controleonline/ui-common/src/react/components/filters/CompactFilterSelector';
 
 import styles from '../styles';
 import { filterTabs, MINIMUM_REQUIRED_ITEMS } from '../utils';
@@ -26,6 +27,15 @@ export default function Food99CatalogTab({
   selectedProductSet,
   onToggleProduct,
 }) {
+  const filterOptions = filterTabs.map(tab => ({
+    key: tab.key,
+    label: `${tab.label} (${tabCounts[tab.key] || 0})`,
+  }));
+  const selectedFilterLabel =
+    filterOptions.find(option => option.key === filterKey)?.label
+    || filterOptions[0]?.label
+    || 'Todos';
+
   return (
     <View style={[styles.panel, shadowStyle]}>
       <View style={styles.panelHeader}>
@@ -57,28 +67,19 @@ export default function Food99CatalogTab({
         />
       </View>
 
-      <View style={styles.filterTabsRow}>
-        {filterTabs.map(tab => {
-          const active = filterKey === tab.key;
-
-          return (
-            <TouchableOpacity
-              key={tab.key}
-              style={[
-                styles.filterChip,
-                active && {
-                  backgroundColor: withOpacity(accentColor, 0.12),
-                  borderColor: withOpacity(accentColor, 0.25),
-                },
-              ]}
-              onPress={() => setFilterKey(tab.key)}>
-              <Text style={[styles.filterChipText, active && { color: accentColor }]}>
-                {tab.label} ({tabCounts[tab.key] || 0})
-              </Text>
-            </TouchableOpacity>
-          );
-        })}
-      </View>
+      <CompactFilterSelector
+        icon="filter"
+        label={selectedFilterLabel}
+        title="Produtos do catalogo"
+        accentColor={accentColor}
+        active={filterKey !== filterTabs[0]?.key}
+        options={filterOptions}
+        selectedKey={filterKey}
+        onSelect={optionKey => {
+          setFilterKey(optionKey);
+          return true;
+        }}
+      />
 
       <View style={styles.selectionSummaryRow}>
         <Text style={styles.selectionSummaryText}>

@@ -9,8 +9,6 @@ import styles from '../styles';
 // Aba inicial com leitura rápida da integração 99Food.
 export default function Food99OverviewTab({
   shadowStyle,
-  currentCompany,
-  providerId,
   connected,
   summaryCards,
   lastMenuPublishState,
@@ -22,13 +20,6 @@ export default function Food99OverviewTab({
   return (
     <>
       <View style={styles.companyRow}>
-        <View>
-          <Text style={styles.sectionTitle}>Empresa ativa</Text>
-          <Text style={styles.companyName}>
-            {currentCompany?.name || currentCompany?.alias || `Empresa #${providerId}`}
-          </Text>
-        </View>
-
         <View
           style={[
             styles.statusPill,

@@ -205,10 +205,6 @@ export default function IntegrationsPage({ navigation }) {
         </View>
 
         <View style={styles.companyRow}>
-          <View>
-            <Text style={styles.sectionTitle}>{global.t?.t('configs', 'label', 'activeCompany')}</Text>
-            <Text style={styles.companyName}>{currentCompany?.name || currentCompany?.alias || `${global.t?.t('configs', 'label', 'company')} #${providerId}`}</Text>
-          </View>
           <View style={styles.companyBadge}>
             <Text style={styles.companyBadgeText}>{integrationCards.length} {global.t?.t('configs', 'label', 'channels')}</Text>
           </View>

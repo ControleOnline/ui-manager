@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
-import { View, Text, TouchableOpacity, Modal, ScrollView, Animated, Image } from 'react-native';
+import { View, Text, TouchableOpacity, Modal, ScrollView, Animated, Image, useWindowDimensions } from 'react-native';
 import Icon from 'react-native-vector-icons/Feather';
 import { useStore } from '@store';
 import md5 from 'md5';
@@ -29,6 +29,7 @@ const CompanyFilter = ({ navigation, mode }) => {
 
   const [selectedCompany, setSelectedCompany] = useState(currentCompany);
   const [modalVisible, setModalVisible] = useState(false);
+  const { width } = useWindowDimensions();
 
   const [fadeAnim] = useState(new Animated.Value(0));
   const [slideAnim] = useState(new Animated.Value(-50));
@@ -45,9 +46,18 @@ const CompanyFilter = ({ navigation, mode }) => {
   };
   const host =
     env.DOMAIN ||
-    (typeof location !== 'undefined' && location?.host ? location.host : '');
+    (
+      typeof globalThis !== 'undefined' &&
+      globalThis?.location?.host
+        ? globalThis.location.host
+        : ''
+    );
   const firstName = currentUser?.name?.split(' ')[0] || 'Usuário';
   const canSwitchCompany = Array.isArray(companies) && companies.length > 1;
+  const showHeaderCompanyName = width >= 920;
+  const headerCompanyLabel = selectedCompany?.alias ||
+    selectedCompany?.name ||
+    'Selecionar empresa';
 
   const brandColors = useMemo(
     () =>
@@ -174,21 +184,65 @@ const CompanyFilter = ({ navigation, mode }) => {
     [selectedCompany, handleSelectCompany, brandColors.primary],
   );
 
-  if (mode === 'icon' && !canSwitchCompany) {
-    return null;
-  }
-
   if (mode === 'icon') {
+    if (!canSwitchCompany && !showHeaderCompanyName) {
+      return null;
+    }
+
+    const triggerContent = (
+      <>
+        {companyLogoUrl ? (
+          <Image
+            source={{ uri: companyLogoUrl }}
+            style={styles.iconCompanyLogo}
+          />
+        ) : (
+          <Icon name="briefcase" size={18} color={brandColors.primary} />
+        )}
+
+        {showHeaderCompanyName ? (
+          <Text
+            numberOfLines={1}
+            style={[styles.iconCompanyName, { color: brandColors.textSecondary }]}
+          >
+            {headerCompanyLabel}
+          </Text>
+        ) : null}
+
+        {canSwitchCompany && showHeaderCompanyName ? (
+          <Icon
+            name="chevron-down"
+            size={14}
+            color={brandColors.textSecondary}
+            style={styles.iconChevron}
+          />
+        ) : null}
+      </>
+    );
+
     return (
       <>
         <View style={styles.iconHeaderWrap}>
-          {canSwitchCompany && (
+          {canSwitchCompany ? (
             <TouchableOpacity
               onPress={openModal}
-              style={styles.iconButton}
+              style={[
+                styles.iconButton,
+                showHeaderCompanyName ? styles.iconButtonExpanded : styles.iconButtonCompact,
+              ]}
               activeOpacity={0.8}>
-              <Icon name="briefcase" size={18} color={brandColors.primary} />
+              {triggerContent}
             </TouchableOpacity>
+          ) : (
+            <View
+              style={[
+                styles.iconButton,
+                styles.iconButtonStatic,
+                styles.iconButtonExpanded,
+              ]}
+            >
+              {triggerContent}
+            </View>
           )}
         </View>
 

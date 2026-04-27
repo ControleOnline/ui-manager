@@ -14,6 +14,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/Feather';
 
 import { api } from '@controleonline/ui-common/src/api';
+import CompactFilterSelector from '@controleonline/ui-common/src/react/components/filters/CompactFilterSelector';
 import useToastMessage from '@controleonline/ui-crm/src/react/hooks/useToastMessage';
 import { useStore } from '@store';
 import { colors } from '@controleonline/../../src/styles/colors';
@@ -73,37 +74,6 @@ function SummaryCard({ label, value, accent }) {
       <Text style={styles.summaryLabel}>{label}</Text>
       <Text style={styles.summaryValue}>{value || 0}</Text>
     </View>
-  );
-}
-
-function FilterChip({ label, active, onPress, tone = 'default', count }) {
-  const toneStyle = {
-    default: styles.filterChipDefault,
-    info: styles.filterChipInfo,
-    warning: styles.filterChipWarning,
-    danger: styles.filterChipDanger,
-  }[tone] || styles.filterChipDefault;
-
-  return (
-    <TouchableOpacity
-      activeOpacity={0.9}
-      onPress={onPress}
-      style={[
-        styles.filterChip,
-        toneStyle,
-        active && styles.filterChipActive,
-      ]}>
-      <Text style={[styles.filterChipText, active && styles.filterChipTextActive]}>
-        {label}
-      </Text>
-      {count > 0 ? (
-        <View style={[styles.filterChipCount, active && styles.filterChipCountActive]}>
-          <Text style={[styles.filterChipCountText, active && styles.filterChipCountTextActive]}>
-            {count}
-          </Text>
-        </View>
-      ) : null}
-    </TouchableOpacity>
   );
 }
 
@@ -182,23 +152,66 @@ export default function TranslationsReviewPage() {
     return Boolean(currentCompanyId && mainCompanyId && String(currentCompanyId) !== String(mainCompanyId));
   }, [currentCompanyId, defaultCompany?.id, summary?.mainCompany?.id]);
 
-  const selectedCompanyLabel =
-    summary?.selectedCompany?.name
-    || currentCompany?.name
-    || currentCompany?.alias
-    || (currentCompanyId ? `Empresa #${currentCompanyId}` : 'Empresa ativa');
-
   const mainCompanyLabel =
     summary?.mainCompany?.name
     || defaultCompany?.name
     || defaultCompany?.alias
     || 'empresa principal';
-
-  const pendingTone = filters.pendingOnly
-    ? 'danger'
-    : summary?.pendingReview > 0
-      ? 'warning'
-      : 'info';
+  const languageFilterOptions = useMemo(
+    () => languageOptions.map(language => ({
+      key: language.value,
+      label: language.label,
+    })),
+    [languageOptions],
+  );
+  const storeFilterOptions = useMemo(
+    () => [
+      { key: '', label: 'Todas as stores' },
+      ...storeOptions.map(store => ({
+        key: store,
+        label: store,
+      })),
+    ],
+    [storeOptions],
+  );
+  const typeFilterOptions = useMemo(
+    () => [
+      { key: '', label: 'Todos os tipos' },
+      ...typeOptions.map(type => ({
+        key: type,
+        label: type,
+      })),
+    ],
+    [typeOptions],
+  );
+  const reviewFilterOptions = useMemo(
+    () => [
+      { key: 'all', label: 'Todas as traducoes' },
+      {
+        key: 'pending',
+        label: summary?.pendingReview > 0
+          ? `Pendentes (${summary.pendingReview})`
+          : 'Pendentes',
+      },
+    ],
+    [summary?.pendingReview],
+  );
+  const selectedLanguageLabel = useMemo(
+    () => languageFilterOptions.find(option => option.key === filters.language)?.label || 'Idioma',
+    [filters.language, languageFilterOptions],
+  );
+  const selectedStoreLabel = useMemo(
+    () => storeFilterOptions.find(option => option.key === filters.store)?.label || 'Todas as stores',
+    [filters.store, storeFilterOptions],
+  );
+  const selectedTypeLabel = useMemo(
+    () => typeFilterOptions.find(option => option.key === filters.type)?.label || 'Todos os tipos',
+    [filters.type, typeFilterOptions],
+  );
+  const selectedReviewLabel = useMemo(
+    () => reviewFilterOptions.find(option => option.key === (filters.pendingOnly ? 'pending' : 'all'))?.label || 'Todas as traducoes',
+    [filters.pendingOnly, reviewFilterOptions],
+  );
 
   const loadLanguages = useCallback(async () => {
     try {
@@ -423,29 +436,6 @@ export default function TranslationsReviewPage() {
           </Text>
         </View>
 
-        <View style={styles.companyRow}>
-          <View style={styles.companyContent}>
-            <Text style={styles.sectionTitle}>Empresa ativa</Text>
-            <Text style={styles.companyName}>{selectedCompanyLabel}</Text>
-            {hasMainFallback ? (
-              <Text style={styles.companyHint}>
-                Fallback atual: {mainCompanyLabel}
-              </Text>
-            ) : (
-              <Text style={styles.companyHint}>
-                Esta empresa e a referencia principal das traducoes.
-              </Text>
-            )}
-          </View>
-          <FilterChip
-            label="Pendentes"
-            active={filters.pendingOnly}
-            onPress={() => setFilterValue('pendingOnly', !filters.pendingOnly)}
-            tone={pendingTone}
-            count={summary?.pendingReview || 0}
-          />
-        </View>
-
         <View style={styles.summaryGrid}>
           <SummaryCard label="Total" value={summary?.total} accent="#0EA5E9" />
           <SummaryCard label="Pendentes" value={summary?.pendingReview} accent="#EF4444" />
@@ -480,63 +470,67 @@ export default function TranslationsReviewPage() {
             </TouchableOpacity>
           </View>
 
-          <View style={styles.filterSection}>
-            <Text style={styles.filterLabel}>Idioma</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRow}>
-              {languageOptions.map(language => (
-                <FilterChip
-                  key={language.value}
-                  label={language.label}
-                  active={filters.language === language.value}
-                  onPress={() => setFilterValue('language', language.value)}
-                />
-              ))}
-            </ScrollView>
+          <View style={styles.filterSelectorsRow}>
+            <CompactFilterSelector
+              icon="globe"
+              label={selectedLanguageLabel}
+              title="Idioma"
+              accentColor={brandColors.primary || '#0F766E'}
+              active={Boolean(filters.language)}
+              options={languageFilterOptions}
+              selectedKey={filters.language}
+              onSelect={optionKey => {
+                setFilterValue('language', optionKey);
+                return true;
+              }}
+            />
+
+            <CompactFilterSelector
+              icon="alert-triangle"
+              label={selectedReviewLabel}
+              title="Revisao"
+              accentColor={filters.pendingOnly ? '#DC2626' : (brandColors.primary || '#0F766E')}
+              active={filters.pendingOnly}
+              options={reviewFilterOptions}
+              selectedKey={filters.pendingOnly ? 'pending' : 'all'}
+              onSelect={optionKey => {
+                setFilterValue('pendingOnly', optionKey === 'pending');
+                return true;
+              }}
+            />
+
+            {storeOptions.length > 0 ? (
+              <CompactFilterSelector
+                icon="database"
+                label={selectedStoreLabel}
+                title="Store"
+                accentColor={brandColors.primary || '#0F766E'}
+                active={Boolean(filters.store)}
+                options={storeFilterOptions}
+                selectedKey={filters.store}
+                onSelect={optionKey => {
+                  setFilterValue('store', optionKey);
+                  return true;
+                }}
+              />
+            ) : null}
+
+            {typeOptions.length > 0 ? (
+              <CompactFilterSelector
+                icon="tag"
+                label={selectedTypeLabel}
+                title="Tipo"
+                accentColor={brandColors.primary || '#0F766E'}
+                active={Boolean(filters.type)}
+                options={typeFilterOptions}
+                selectedKey={filters.type}
+                onSelect={optionKey => {
+                  setFilterValue('type', optionKey);
+                  return true;
+                }}
+              />
+            ) : null}
           </View>
-
-          {storeOptions.length > 0 ? (
-            <View style={styles.filterSection}>
-              <Text style={styles.filterLabel}>Store</Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRow}>
-                <FilterChip
-                  label="Todas"
-                  active={!filters.store}
-                  onPress={() => setFilterValue('store', '')}
-                  tone="info"
-                />
-                {storeOptions.map(store => (
-                  <FilterChip
-                    key={store}
-                    label={store}
-                    active={filters.store === store}
-                    onPress={() => setFilterValue('store', store)}
-                  />
-                ))}
-              </ScrollView>
-            </View>
-          ) : null}
-
-          {typeOptions.length > 0 ? (
-            <View style={styles.filterSection}>
-              <Text style={styles.filterLabel}>Tipo</Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRow}>
-                <FilterChip
-                  label="Todos"
-                  active={!filters.type}
-                  onPress={() => setFilterValue('type', '')}
-                  tone="info"
-                />
-                {typeOptions.map(type => (
-                  <FilterChip
-                    key={type}
-                    label={type}
-                    active={filters.type === type}
-                    onPress={() => setFilterValue('type', type)}
-                  />
-                ))}
-              </ScrollView>
-            </View>
-          ) : null}
 
           {hasMainFallback ? (
             <View style={styles.infoBanner}>
@@ -618,7 +612,7 @@ export default function TranslationsReviewPage() {
 
                   <View style={styles.editorCard}>
                     <Text style={styles.referenceLabel}>
-                      {isFallbackOnly ? selectedCompanyLabel : 'Traducao da empresa ativa'}
+                      {isFallbackOnly ? 'Traducao da empresa ativa' : 'Sobrescrita da empresa ativa'}
                     </Text>
                     <TextInput
                       multiline

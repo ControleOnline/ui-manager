@@ -8,18 +8,49 @@ const styles = StyleSheet.create({
   },
 
   iconButton: {
-    width: 36,
+    minWidth: 36,
     height: 36,
     borderRadius: 18,
     justifyContent: 'center',
     alignItems: 'center',
+    flexDirection: 'row',
+    gap: 8,
+  },
+
+  iconButtonCompact: {
+    width: 36,
+  },
+
+  iconButtonExpanded: {
+    maxWidth: 220,
+    paddingHorizontal: 10,
+  },
+
+  iconButtonStatic: {
+    backgroundColor: '#F8FAFC',
   },
 
   iconHeaderWrap: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    maxWidth: 156,
+    maxWidth: 220,
+  },
+
+  iconCompanyLogo: {
+    width: 18,
+    height: 18,
+    borderRadius: 4,
+  },
+
+  iconCompanyName: {
+    maxWidth: 150,
+    fontSize: 13,
+    fontWeight: '700',
+  },
+
+  iconChevron: {
+    marginTop: 1,
   },
 
   header: {
@@ -122,4 +153,3 @@ export const inlineStyle_275_20 = {
   marginLeft: 4,
   marginTop: 4,
 };
-

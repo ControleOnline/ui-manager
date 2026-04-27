@@ -338,25 +338,6 @@ const styles = StyleSheet.create({
     color: '#0F172A',
     paddingVertical: 10,
   },
-  filterTabsRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    paddingBottom: 6,
-    gap: 8,
-  },
-  filterChip: {
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    backgroundColor: '#fff',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-  },
-  filterChipText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#475569',
-  },
   selectionSummaryRow: {
     flexDirection: 'row',
     alignItems: 'center',

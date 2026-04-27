@@ -77,35 +77,6 @@ const styles = StyleSheet.create({
     color: 'rgba(255,255,255,0.86)',
     maxWidth: 680,
   },
-  companyRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
-    gap: 12,
-    marginBottom: 16,
-  },
-  companyContent: {
-    flex: 1,
-    minWidth: 240,
-  },
-  sectionTitle: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: '#0F172A',
-  },
-  companyName: {
-    marginTop: 6,
-    fontSize: 22,
-    fontWeight: '800',
-    color: '#0F172A',
-  },
-  companyHint: {
-    marginTop: 6,
-    fontSize: 13,
-    lineHeight: 20,
-    color: '#64748B',
-  },
   summaryGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -202,79 +173,10 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
   },
-  filterSection: {
-    marginBottom: 14,
-  },
-  filterLabel: {
-    fontSize: 12,
-    fontWeight: '800',
-    textTransform: 'uppercase',
-    letterSpacing: 0.8,
-    color: '#64748B',
-    marginBottom: 8,
-  },
-  filterRow: {
+  filterSelectorsRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: 8,
-    paddingRight: 8,
-  },
-  filterChip: {
-    minHeight: 38,
-    borderRadius: 999,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderWidth: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  filterChipDefault: {
-    backgroundColor: '#FFFFFF',
-    borderColor: '#CBD5E1',
-  },
-  filterChipInfo: {
-    backgroundColor: '#EFF6FF',
-    borderColor: '#BFDBFE',
-  },
-  filterChipWarning: {
-    backgroundColor: '#FFF7ED',
-    borderColor: '#FDBA74',
-  },
-  filterChipDanger: {
-    backgroundColor: '#FEF2F2',
-    borderColor: '#FCA5A5',
-  },
-  filterChipActive: {
-    backgroundColor: '#0F172A',
-    borderColor: '#0F172A',
-  },
-  filterChipText: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#334155',
-  },
-  filterChipTextActive: {
-    color: '#FFFFFF',
-  },
-  filterChipCount: {
-    minWidth: 20,
-    height: 20,
-    paddingHorizontal: 6,
-    borderRadius: 999,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#FFFFFF',
-  },
-  filterChipCountActive: {
-    backgroundColor: 'rgba(255,255,255,0.16)',
-  },
-  filterChipCountText: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: '#DC2626',
-  },
-  filterChipCountTextActive: {
-    color: '#FFFFFF',
   },
   infoBanner: {
     marginTop: 4,

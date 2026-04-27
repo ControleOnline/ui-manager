@@ -2,13 +2,11 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   ActivityIndicator,
   Image,
-  Modal,
   RefreshControl,
   ScrollView,
   Text,
   TextInput,
   TouchableOpacity,
-  TouchableWithoutFeedback,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -16,6 +14,8 @@ import { useIsFocused } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/Feather';
 import { env } from '@env';
 import { useStore } from '@store';
+import CompactFilterSelector from '@controleonline/ui-common/src/react/components/filters/CompactFilterSelector';
+import DateShortcutFilter from '@controleonline/ui-common/src/react/components/filters/DateShortcutFilter';
 import Formatter from '@controleonline/ui-common/src/utils/formatter';
 import { getOrderChannelLabel, getOrderChannelLogo } from '@assets/ppc/channels';
 import {
@@ -24,12 +24,7 @@ import {
   isPosCashRegisterClosed,
 } from '@controleonline/ui-common/src/react/config/deviceConfigBootstrap';
 import { formatHumanLabel } from '@controleonline/ui-common/src/react/utils/entityDisplay';
-import {
-  buildDateFilterOptions,
-  getDateRange,
-  resolveDateRangeSummary,
-  validateCustomDateRange,
-} from '@controleonline/ui-common/src/react/utils/dateRangeFilter';
+import { getDateRange } from '@controleonline/ui-common/src/react/utils/dateRangeFilter';
 import { resolveDisplayedOrderStatus } from '@controleonline/ui-orders/src/react/components/OrderHeader';
 import { buildOrderDetailsRouteParams } from '@controleonline/ui-orders/src/react/utils/orderRoute';
 import usePosCartSession from '@controleonline/ui-orders/src/react/hooks/usePosCartSession';
@@ -45,12 +40,10 @@ const PAGE_SIZE = 50;
 /* tabs sem filtro de canal/status */
 const SIMPLE_TAB_KEYS = new Set(['transfer', 'loss']);
 const LEGACY_ORDER_KIND_ALIASES = new Set(['quote', 'cart', 'tab', 'table']);
-const FILTER_OPTION_KEYS = ['all', 'today', '7d', '30d', 'custom'];
 
 /* ─── helpers ───────────────────────────────────────────────────────── */
 
 const normalizeText = value => String(value || '').trim();
-const noop = () => {};
 
 const stripLeadingPrefixes = (value, prefixes = []) => {
   const label = normalizeText(value);
@@ -114,119 +107,6 @@ const getSearchText = o =>
     o?.status?.status,
     o?.status?.realStatus,
   ].filter(Boolean).join(' ').toLowerCase();
-
-const FilterSelector = ({ accentColor, active = false, icon, label, onPress }) => (
-  <TouchableOpacity
-    style={[
-      styles.filterSelector,
-      active && {
-        borderColor: accentColor,
-        backgroundColor: withOpacity(accentColor, 0.08),
-      },
-    ]}
-    activeOpacity={0.9}
-    onPress={onPress}
-  >
-    <View
-      style={[
-        styles.filterSelectorIconWrap,
-        {
-          backgroundColor: active ? withOpacity(accentColor, 0.14) : '#E2E8F0',
-        },
-      ]}
-    >
-      <Icon
-        name={icon}
-        size={15}
-        color={active ? accentColor : '#64748B'}
-      />
-    </View>
-
-    <Text
-      numberOfLines={1}
-      style={[
-        styles.filterSelectorText,
-        active && { color: accentColor },
-      ]}
-    >
-      {label}
-    </Text>
-
-    <Icon name="chevron-down" size={16} color={active ? accentColor : '#94A3B8'} />
-  </TouchableOpacity>
-);
-
-const FilterOptionsModal = ({
-  accentColor,
-  children = null,
-  onClose,
-  onSelect,
-  options = [],
-  selectedKey = '',
-  title = '',
-  visible = false,
-}) => (
-  <Modal
-    transparent
-    visible={visible}
-    animationType="fade"
-    onRequestClose={onClose}
-  >
-    <TouchableWithoutFeedback onPress={onClose}>
-      <View style={styles.filterModalOverlay}>
-        <TouchableWithoutFeedback onPress={noop}>
-          <View style={styles.filterModalCard}>
-            <View style={styles.filterModalHeader}>
-              <Text style={styles.filterModalTitle}>{title}</Text>
-
-              <TouchableOpacity onPress={onClose} activeOpacity={0.8}>
-                <Icon name="x" size={20} color="#64748B" />
-              </TouchableOpacity>
-            </View>
-
-            <ScrollView
-              style={styles.filterModalScroll}
-              contentContainerStyle={styles.filterModalContent}
-              keyboardShouldPersistTaps="handled"
-            >
-              {options.map(option => {
-                const selected = option.key === selectedKey;
-
-                return (
-                  <TouchableOpacity
-                    key={option.key}
-                    style={[
-                      styles.filterModalOption,
-                      selected && {
-                        borderColor: accentColor,
-                        backgroundColor: withOpacity(accentColor, 0.08),
-                      },
-                    ]}
-                    activeOpacity={0.9}
-                    onPress={() => onSelect(option.key)}
-                  >
-                    <Text
-                      style={[
-                        styles.filterModalOptionText,
-                        selected && { color: accentColor },
-                      ]}
-                    >
-                      {option.label}
-                    </Text>
-
-                    {selected && <Icon name="check" size={16} color={accentColor} />}
-                  </TouchableOpacity>
-                );
-              })}
-
-              {children}
-            </ScrollView>
-          </View>
-        </TouchableWithoutFeedback>
-      </View>
-    </TouchableWithoutFeedback>
-  </Modal>
-);
 
 /* ─── componente principal ──────────────────────────────────────────── */
 
@@ -302,21 +182,6 @@ export default function OrderHistoryPage({ navigation, route }) {
     },
   ]), []);
 
-  const dateOptions = useMemo(() => (
-    buildDateFilterOptions(FILTER_OPTION_KEYS).map(option => ({
-      ...option,
-      label:
-        resolveDisplayText(option.label, '', ['Period ']) ||
-        (
-          option.key === 'all' ? 'All time'
-            : option.key === 'today' ? 'Today'
-              : option.key === '7d' ? '7 days'
-                : option.key === '30d' ? '30 days'
-                  : 'Custom'
-        ),
-    }))
-  ), []);
-
   const tabs = useMemo(() => ([
     {
       key: 'sale',
@@ -352,10 +217,6 @@ export default function OrderHistoryPage({ navigation, route }) {
   const [dateFilter, setDateFilter] = useState('today');
   const [searchText, setSearchText] = useState('');
   const [customRange, setCustomRange] = useState({ from: '', to: '' });
-  const [filterModalKey, setFilterModalKey] = useState('');
-  const [periodEditorVisible, setPeriodEditorVisible] = useState(false);
-  const [dateDraftRange, setDateDraftRange] = useState({ from: '', to: '' });
-  const [dateValidationMessage, setDateValidationMessage] = useState('');
   const [purchaseSuppliersById, setPurchaseSuppliersById] = useState({});
 
   const isCashRegisterClosed = useMemo(() => {
@@ -389,70 +250,10 @@ export default function OrderHistoryPage({ navigation, route }) {
     () => statusOptions.find(option => option.key === statusFilter)?.label || statusOptions[0]?.label || 'All',
     [statusFilter, statusOptions],
   );
-  const currentDateLabel = useMemo(() => {
-    if (dateFilter === 'custom') {
-      return resolveDateRangeSummary(dateFilter, customRange) ||
-        dateOptions.find(option => option.key === 'custom')?.label ||
-        'Custom';
-    }
-
-    return dateOptions.find(option => option.key === dateFilter)?.label ||
-      resolveDateRangeSummary(dateFilter, customRange) ||
-      'Today';
-  }, [customRange, dateFilter, dateOptions]);
 
   /* ref para evitar fetch duplicado */
   const fetchingRef = useRef(false);
   const loadingPurchaseSuppliersRef = useRef(new Set());
-
-  const closeFilterModal = useCallback(() => {
-    setFilterModalKey('');
-  }, []);
-
-  const openFilterModal = useCallback(key => {
-    if (key === 'period') {
-      setDateDraftRange({
-        from: String(customRange?.from || ''),
-        to: String(customRange?.to || ''),
-      });
-      setDateValidationMessage('');
-      setPeriodEditorVisible(dateFilter === 'custom');
-    }
-
-    setFilterModalKey(key);
-  }, [customRange?.from, customRange?.to, dateFilter]);
-
-  const handleSelectDateOption = useCallback(optionKey => {
-    if (optionKey === 'custom') {
-      setPeriodEditorVisible(true);
-      return;
-    }
-
-    setPeriodEditorVisible(false);
-    setDateValidationMessage('');
-    setDateFilter(optionKey);
-    closeFilterModal();
-  }, [closeFilterModal]);
-
-  const applyCustomDateRange = useCallback(() => {
-    const validationMessage = validateCustomDateRange(
-      dateDraftRange?.from,
-      dateDraftRange?.to,
-    );
-
-    setDateValidationMessage(validationMessage);
-
-    if (validationMessage) {
-      return;
-    }
-
-    setCustomRange({
-      from: String(dateDraftRange?.from || '').trim(),
-      to: String(dateDraftRange?.to || '').trim(),
-    });
-    setDateFilter('custom');
-    closeFilterModal();
-  }, [closeFilterModal, dateDraftRange]);
 
   const resolveVisibleOrderKind = useCallback(order => {
     const normalizedOrderType = normalizeText(
@@ -719,6 +520,13 @@ export default function OrderHistoryPage({ navigation, route }) {
     const q = searchText.trim().toLowerCase().replace(/^#/, '');
     return orders.filter(o => getSearchText(o).includes(q));
   }, [orders, searchText]);
+  const displayedOrdersCount = useMemo(() => {
+    if (searchText.trim()) {
+      return filteredOrders.length;
+    }
+
+    return totalOrders || filteredOrders.length;
+  }, [filteredOrders.length, searchText, totalOrders]);
 
   useEffect(() => {
     const missingSupplierIds = [...new Set(
@@ -898,32 +706,6 @@ export default function OrderHistoryPage({ navigation, route }) {
         onScroll={handleScroll}
         scrollEventThrottle={200}
       >
-        {/* cabeçalho */}
-        <View style={[styles.heroCard, { backgroundColor: brandColors.primary }]}>
-          <View style={styles.heroCopy}>
-            <Text style={styles.heroEyebrow}>{global.t?.t('orders', 'title', 'orders')}</Text>
-            <Text style={styles.heroTitle}>{global.t?.t('orders', 'title', 'history')}</Text>
-            <Text style={styles.heroText}>
-              {orderTypeFilter === 'purchase' ? global.t?.t('orders', 'description', 'purchase_period')
-                : orderTypeFilter === 'transfer' ? global.t?.t('orders', 'description', 'transfer_period')
-                  : orderTypeFilter === 'loss' ? global.t?.t('orders', 'description', 'loss_period')
-                    : global.t?.t('orders', 'description', 'filter_channel_status_period')}
-            </Text>
-          </View>
-          <View style={styles.heroBadge}>
-            <Icon
-              name={
-                orderTypeFilter === 'purchase' ? 'truck'
-                  : orderTypeFilter === 'transfer' ? 'repeat'
-                    : orderTypeFilter === 'loss' ? 'trending-down'
-                      : 'shopping-bag'
-              }
-              size={22}
-              color={brandColors.primary}
-            />
-          </View>
-        </View>
-
         {/* tabs Vendas | Compras | Transferências | Perdas */}
         {env.APP_TYPE !== 'POS' && (
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.tabBar} contentContainerStyle={styles.tabBarContent}>
@@ -946,11 +728,10 @@ export default function OrderHistoryPage({ navigation, route }) {
           </ScrollView>
         )}
 
-        {/* empresa + contagem */}
+        {/* contagem */}
         <View style={styles.summaryRow}>
-          <Text style={styles.sectionTitle}>{currentCompany?.name || currentCompany?.alias || global.t?.t('orders', 'label', 'company')}</Text>
           <View style={styles.countPill}>
-            <Text style={styles.countPillText}>{filteredOrders.length}{hasMore ? '+' : ''} {global.t?.t('orders', 'label', 'orders')}</Text>
+            <Text style={styles.countPillText}>{displayedOrdersCount} {global.t?.t('orders', 'label', 'orders')}</Text>
           </View>
         </View>
 
@@ -974,31 +755,57 @@ export default function OrderHistoryPage({ navigation, route }) {
           {showAdvancedFilters && (
             <View style={styles.filterSelectorsRow}>
               {orderTypeFilter === 'sale' && (
-                <FilterSelector
+                <CompactFilterSelector
                   icon="radio"
                   label={currentChannelLabel}
                   accentColor={brandColors.primary}
-                  active={filterModalKey === 'channel' || channelFilter !== 'all'}
-                  onPress={() => openFilterModal('channel')}
+                  active={channelFilter !== 'all'}
+                  title={global.t?.t('orders', 'label', 'channel')}
+                  options={channelOptions}
+                  selectedKey={channelFilter}
+                  onSelect={optionKey => {
+                    setChannelFilter(optionKey);
+                    return true;
+                  }}
                 />
               )}
 
               {!SIMPLE_TAB_KEYS.has(orderTypeFilter) && (
-                <FilterSelector
+                <CompactFilterSelector
                   icon="check-circle"
                   label={currentStatusLabel}
                   accentColor={brandColors.primary}
-                  active={filterModalKey === 'status' || statusFilter !== 'all'}
-                  onPress={() => openFilterModal('status')}
+                  active={statusFilter !== 'all'}
+                  title={global.t?.t('orders', 'label', 'status')}
+                  options={statusOptions}
+                  selectedKey={statusFilter}
+                  onSelect={optionKey => {
+                    setStatusFilter(optionKey);
+                    return true;
+                  }}
                 />
               )}
 
-              <FilterSelector
-                icon="calendar"
-                label={currentDateLabel}
-                accentColor={brandColors.primary}
-                active={filterModalKey === 'period' || dateFilter !== 'all'}
-                onPress={() => openFilterModal('period')}
+              <DateShortcutFilter
+                value={dateFilter}
+                onChange={setDateFilter}
+                customRange={customRange}
+                onCustomRangeChange={setCustomRange}
+                colors={{
+                  accent: brandColors.primary,
+                  appBg: 'transparent',
+                  border: '#CBD5E1',
+                  borderSoft: '#E2E8F0',
+                  cardBg: '#FFFFFF',
+                  cardBgSoft: '#F8FAFC',
+                  danger: '#DC2626',
+                  isLight: true,
+                  panelBg: '#EFF6FF',
+                  pillTextDark: '#FFFFFF',
+                  textPrimary: '#0F172A',
+                  textSecondary: '#64748B',
+                }}
+                optionKeys={['all', 'today', 'yesterday', '7d', '30d', 'custom']}
               />
             </View>
           )}
@@ -1057,107 +864,6 @@ export default function OrderHistoryPage({ navigation, route }) {
       >
         <Icon name="plus" size={22} color="#fff" />
       </TouchableOpacity>
-
-      <FilterOptionsModal
-        visible={filterModalKey === 'channel'}
-        title={global.t?.t('orders', 'label', 'channel') || 'Channel'}
-        options={channelOptions}
-        selectedKey={channelFilter}
-        onSelect={optionKey => {
-          setChannelFilter(optionKey);
-          closeFilterModal();
-        }}
-        onClose={closeFilterModal}
-        accentColor={brandColors.primary}
-      />
-
-      <FilterOptionsModal
-        visible={filterModalKey === 'status'}
-        title={global.t?.t('orders', 'label', 'status') || 'Status'}
-        options={statusOptions}
-        selectedKey={statusFilter}
-        onSelect={optionKey => {
-          setStatusFilter(optionKey);
-          closeFilterModal();
-        }}
-        onClose={closeFilterModal}
-        accentColor={brandColors.primary}
-      />
-
-      <FilterOptionsModal
-        visible={filterModalKey === 'period'}
-        title={global.t?.t('orders', 'label', 'period') || 'Period'}
-        options={dateOptions}
-        selectedKey={periodEditorVisible ? 'custom' : dateFilter}
-        onSelect={handleSelectDateOption}
-        onClose={closeFilterModal}
-        accentColor={brandColors.primary}
-      >
-        {periodEditorVisible && (
-          <View style={styles.filterModalCustomSection}>
-            <View style={styles.filterModalCustomInputsRow}>
-              <TextInput
-                value={dateDraftRange.from}
-                onChangeText={value => {
-                  setDateDraftRange(prev => ({ ...prev, from: value }));
-                  if (dateValidationMessage) {
-                    setDateValidationMessage('');
-                  }
-                }}
-                placeholder={global.t?.t('orders', 'placeholder', 'date_from') || 'From'}
-                placeholderTextColor="#94A3B8"
-                style={styles.filterModalInput}
-                autoCapitalize="none"
-                autoCorrect={false}
-              />
-
-              <TextInput
-                value={dateDraftRange.to}
-                onChangeText={value => {
-                  setDateDraftRange(prev => ({ ...prev, to: value }));
-                  if (dateValidationMessage) {
-                    setDateValidationMessage('');
-                  }
-                }}
-                placeholder={global.t?.t('orders', 'placeholder', 'date_to') || 'To'}
-                placeholderTextColor="#94A3B8"
-                style={styles.filterModalInput}
-                autoCapitalize="none"
-                autoCorrect={false}
-              />
-            </View>
-
-            {!!dateValidationMessage && (
-              <Text style={styles.filterModalValidationText}>{dateValidationMessage}</Text>
-            )}
-
-            <View style={styles.filterModalActionsRow}>
-              <TouchableOpacity
-                style={styles.filterModalSecondaryButton}
-                activeOpacity={0.9}
-                onPress={() => {
-                  setDateDraftRange({ from: '', to: '' });
-                  setDateValidationMessage('');
-                }}
-              >
-                <Text style={styles.filterModalSecondaryButtonText}>
-                  {global.t?.t('orders', 'button', 'clear') || 'Clear'}
-                </Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[styles.filterModalPrimaryButton, { backgroundColor: brandColors.primary }]}
-                activeOpacity={0.9}
-                onPress={applyCustomDateRange}
-              >
-                <Text style={styles.filterModalPrimaryButtonText}>
-                  {global.t?.t('orders', 'button', 'apply_period') || 'Apply period'}
-                </Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        )}
-      </FilterOptionsModal>
 
     </SafeAreaView>
   );

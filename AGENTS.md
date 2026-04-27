@@ -21,3 +21,5 @@
 - A tela de settlement de `tab/table` no `MANAGER` deve reutilizar o pedido raiz e o checkout compartilhado de `ui-orders`, em vez de criar um fluxo de pagamento paralelo.
 - Fluxos administrativos de liquidacao, consolidacao ou pagamento de `tab/table` pertencem ao `MANAGER`, mesmo quando o `POS` estiver restrito a usar apenas atendimentos ja abertos.
 - `SHOP` nao entra nesse contrato operacional de `PDV` dentro do `MANAGER`.
+- Em telas do `MANAGER`, o nome da empresa deve viver no `CompanyFilter` do header quando a rota usa `companyFilterMode: 'icon'`. Nao repetir esse contexto no meio da pagina sem necessidade.
+- Filtros operacionais devem preferir os componentes compactos compartilhados de `ui-common` em vez de fileiras de chips locais.

@@ -1,10 +1,11 @@
 import React, {useEffect, useMemo, useState} from 'react';
-import {ScrollView, Text, TouchableOpacity, View} from 'react-native';
+import {Text, TouchableOpacity, View} from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import {useNavigation} from '@react-navigation/native';
 import {useStore} from '@store';
-import {resolveThemePalette, withOpacity} from '@controleonline/../../src/styles/branding';
+import {resolveThemePalette} from '@controleonline/../../src/styles/branding';
 import {colors} from '@controleonline/../../src/styles/colors';
+import CompactFilterSelector from '@controleonline/ui-common/src/react/components/filters/CompactFilterSelector';
 import {PDV_DEVICE_TYPE} from '@controleonline/ui-common/src/react/utils/printerDevices';
 import Icon from 'react-native-vector-icons/Feather';
 import {
@@ -60,6 +61,31 @@ const Devices = () => {
     () => getDeviceCreationAction(topLevelActiveFilter),
     [topLevelActiveFilter],
   );
+  const deviceTypeSelectorOptions = useMemo(
+    () => filterOptions.map(option => ({
+      key: option.key,
+      label: option.label,
+    })),
+    [filterOptions],
+  );
+  const pdvGatewaySelectorOptions = useMemo(
+    () => [
+      {key: PDV_DEVICE_TYPE, label: 'Todos'},
+      ...pdvSubfilterOptions.map(option => ({
+        key: option.key,
+        label: option.label,
+      })),
+    ],
+    [pdvSubfilterOptions],
+  );
+  const selectedDeviceTypeLabel = useMemo(
+    () => deviceTypeSelectorOptions.find(option => option.key === topLevelActiveFilter)?.label || 'Todos os tipos',
+    [deviceTypeSelectorOptions, topLevelActiveFilter],
+  );
+  const selectedPdvGatewayLabel = useMemo(
+    () => pdvGatewaySelectorOptions.find(option => option.key === activeFilter)?.label || 'Todos',
+    [activeFilter, pdvGatewaySelectorOptions],
+  );
   const ActiveTabComponent = activeFilterDefinition.TabComponent;
 
   useEffect(() => {
@@ -73,119 +99,43 @@ const Devices = () => {
       style={[styles.container, {backgroundColor: brandColors.background}]}>
       <View style={styles.filtersBlock}>
         <Text style={styles.filtersLabel}>Filtrar por tipo</Text>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.filtersContent}>
-          {filterOptions.map(option => {
-            const active = option.key === topLevelActiveFilter;
-            const accentColor = getDeviceFilterAccent(option.key, {
-              brandColors,
-              hex,
-            });
-
-            return (
-              <TouchableOpacity
-                key={option.key}
-                style={[
-                  styles.filterChip,
-                  active && {
-                    borderColor: withOpacity(accentColor, 0.35),
-                    backgroundColor: withOpacity(accentColor, 0.1),
-                  },
-                ]}
-                activeOpacity={0.86}
-                onPress={() => setActiveFilter(option.key)}>
-                <Icon
-                  name={getDeviceFilterIcon(option.key)}
-                  size={14}
-                  color={active ? accentColor : '#64748B'}
-                />
-                <Text
-                  style={[
-                    styles.filterChipText,
-                    active && {color: accentColor},
-                  ]}>
-                  {option.label}
-                </Text>
-              </TouchableOpacity>
-            );
+        <CompactFilterSelector
+          icon={getDeviceFilterIcon(topLevelActiveFilter)}
+          label={selectedDeviceTypeLabel}
+          title="Filtrar por tipo"
+          accentColor={getDeviceFilterAccent(topLevelActiveFilter, {
+            brandColors,
+            hex,
           })}
-        </ScrollView>
+          active={topLevelActiveFilter !== ALL_DEVICE_FILTER}
+          options={deviceTypeSelectorOptions}
+          selectedKey={topLevelActiveFilter}
+          onSelect={optionKey => {
+            setActiveFilter(optionKey);
+            return true;
+          }}
+        />
       </View>
 
       {topLevelActiveFilter === PDV_DEVICE_TYPE && pdvSubfilterOptions.length > 0 ? (
         <View style={styles.filtersBlock}>
           <Text style={styles.filtersLabel}>Gateway do PDV</Text>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.filtersContent}>
-            <TouchableOpacity
-              style={[
-                styles.filterChip,
-                activeFilter === PDV_DEVICE_TYPE && {
-                  borderColor: withOpacity(brandColors.primary, 0.35),
-                  backgroundColor: withOpacity(brandColors.primary, 0.1),
-                },
-              ]}
-              activeOpacity={0.86}
-              onPress={() => setActiveFilter(PDV_DEVICE_TYPE)}>
-              <Icon
-                name={getDeviceFilterIcon(PDV_DEVICE_TYPE)}
-                size={14}
-                color={
-                  activeFilter === PDV_DEVICE_TYPE
-                    ? brandColors.primary
-                    : '#64748B'
-                }
-              />
-              <Text
-                style={[
-                  styles.filterChipText,
-                  activeFilter === PDV_DEVICE_TYPE && {
-                    color: brandColors.primary,
-                  },
-                ]}>
-                Todos
-              </Text>
-            </TouchableOpacity>
-
-            {pdvSubfilterOptions.map(option => {
-              const active = option.key === activeFilter;
-              const accentColor = getDeviceFilterAccent(option.key, {
-                brandColors,
-                hex,
-              });
-
-              return (
-                <TouchableOpacity
-                  key={option.key}
-                  style={[
-                    styles.filterChip,
-                    active && {
-                      borderColor: withOpacity(accentColor, 0.35),
-                      backgroundColor: withOpacity(accentColor, 0.1),
-                    },
-                  ]}
-                  activeOpacity={0.86}
-                  onPress={() => setActiveFilter(option.key)}>
-                  <Icon
-                    name={getDeviceFilterIcon(option.key)}
-                    size={14}
-                    color={active ? accentColor : '#64748B'}
-                  />
-                  <Text
-                    style={[
-                      styles.filterChipText,
-                      active && {color: accentColor},
-                    ]}>
-                    {option.label}
-                  </Text>
-                </TouchableOpacity>
-              );
+          <CompactFilterSelector
+            icon={getDeviceFilterIcon(activeFilter)}
+            label={selectedPdvGatewayLabel}
+            title="Gateway do PDV"
+            accentColor={getDeviceFilterAccent(activeFilter, {
+              brandColors,
+              hex,
             })}
-          </ScrollView>
+            active={activeFilter !== PDV_DEVICE_TYPE}
+            options={pdvGatewaySelectorOptions}
+            selectedKey={activeFilter}
+            onSelect={optionKey => {
+              setActiveFilter(optionKey);
+              return true;
+            }}
+          />
         </View>
       ) : null}
 
