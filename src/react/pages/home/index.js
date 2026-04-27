@@ -297,6 +297,15 @@ export default function HomePage({ navigation }) {
             <ShortcutCard label={global.t?.t('configs', 'button_title', 'customers')} icon="users" color={HEX.success} onPress={() => go('ClientsIndex')} />
             <ShortcutCard label="PDV" icon="shopping-bag" color={HEX.orange} onPress={() => go('PdvPage')} />
           </ShortcutsRow>
+          <ShortcutsRow last>
+            <ShortcutCard
+              label={global.t?.t('orders', 'title', 'linkedOrderSettlement')}
+              icon="layers"
+              color={HEX.info}
+              onPress={() => go('LinkedOrderSettlementPage')}
+            />
+            <View style={styles.shortcutSpacer} />
+          </ShortcutsRow>
         </SectionBlock>
 
         <SectionBlock

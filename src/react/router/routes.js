@@ -205,7 +205,7 @@ const managerRoutes = [
     options: {
       headerShown: true,
       headerBackVisible: true,
-      title: 'Settlement',
+      title: global.t?.t('orders', 'title', 'linkedOrderSettlement'),
       showBottomToolBar: true,
       showCompanyFilter: true,
       companyFilterMode: 'icon',
