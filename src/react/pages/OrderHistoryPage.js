@@ -598,6 +598,7 @@ export default function OrderHistoryPage({ navigation, route }) {
         : isLoss
           ? global.t?.t('orders', 'label', 'stock_loss')
           : (getOrderChannelLabel(order) || normalizeApp(order) || global.t?.t('orders', 'label', 'shop'));
+    const showChannelLabel = !channelLogo || isPurchase || isTransfer || isLoss;
     const statusPresentation = resolveDisplayedOrderStatus(order, '#64748B');
     const statusLabel = statusPresentation.labelUpper;
     const statusColor = statusPresentation.color;
@@ -671,7 +672,11 @@ export default function OrderHistoryPage({ navigation, route }) {
         </View>
 
         <View style={styles.cardMetaRow}>
-          <Text style={styles.channelText} numberOfLines={1}>{channelLabel}</Text>
+          {showChannelLabel ? (
+            <Text style={styles.channelText} numberOfLines={1}>{channelLabel}</Text>
+          ) : (
+            <View style={styles.channelText} />
+          )}
           {price > 0 && (
             <Text style={[styles.priceText, priceStyle]}>
               {Formatter.formatMoney(price)}
