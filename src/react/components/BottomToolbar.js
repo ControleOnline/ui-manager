@@ -7,7 +7,11 @@ import createStyles from './BottomToolbar.styles';
 
 const BottomToolbar = ({navigation}) => {
   const state = useNavigationState(state => state);
-  const activeTab = state.routes[state.index]?.name || 'HomePage';
+  const currentRoute = state.routes[state.index]?.name || 'HomePage';
+  const activeTab =
+    currentRoute === 'EmployeesIndex' || currentRoute === 'ClientDetails'
+      ? 'ClientsIndex'
+      : currentRoute;
   const peopleStore = useStore('people');
   const peopleGetters = peopleStore.getters;
   const themeStore = useStore('theme');

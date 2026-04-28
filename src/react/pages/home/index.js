@@ -314,6 +314,7 @@ export default function HomePage({ navigation }) {
         >
           <ShortcutsRow>
             <ShortcutCard label={global.t?.t('configs', 'button_title', 'customers')} icon="users" color={HEX.success} onPress={() => go('ClientsIndex')} />
+            <ShortcutCard label={global.t?.t('people', 'label', 'employee')} icon="user-check" color={HEX.purple} onPress={() => go('EmployeesIndex')} />
             <ShortcutCard label="PDV" icon="shopping-bag" color={HEX.orange} onPress={() => go('PdvPage')} />
           </ShortcutsRow>
           <ShortcutsRow last>
@@ -323,6 +324,7 @@ export default function HomePage({ navigation }) {
               color={HEX.info}
               onPress={() => go('LinkedOrderSettlementPage')}
             />
+            <View style={styles.shortcutSpacer} />
             <View style={styles.shortcutSpacer} />
           </ShortcutsRow>
         </SectionBlock>

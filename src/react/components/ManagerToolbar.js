@@ -20,6 +20,7 @@ const routeToTab = {
   HomePage:         'HomePage',
   CrmIndex:         'CrmIndex',
   ClientsIndex:     'ClientsIndex',
+  EmployeesIndex:   'ClientsIndex',
   ClientDetails:    'ClientsIndex',
   ProfilePage:      'ProfilePage',
   SettingsPage:     'ProfilePage',
