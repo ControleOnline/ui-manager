@@ -24,8 +24,8 @@ import {
   isPosCashRegisterClosed,
 } from '@controleonline/ui-common/src/react/config/deviceConfigBootstrap';
 import { getDateRange } from '@controleonline/ui-common/src/react/utils/dateRangeFilter';
+import OrderCardHeader from '@controleonline/ui-orders/src/react/components/OrderCardHeader';
 import { resolveDisplayedOrderStatus } from '@controleonline/ui-orders/src/react/components/OrderHeader';
-import OrderIdentityLabel from '@controleonline/ui-orders/src/react/components/OrderIdentityLabel';
 import { buildOrderDetailsRouteParams } from '@controleonline/ui-orders/src/react/utils/orderRoute';
 import { resolveOrderIdentity } from '@controleonline/ui-orders/src/react/utils/orderIdentity';
 import usePosCartSession from '@controleonline/ui-orders/src/react/hooks/usePosCartSession';
@@ -637,52 +637,48 @@ export default function OrderHistoryPage({ navigation, route }) {
         activeOpacity={0.85}
         onPress={() => openOrder(order)}
       >
-        <View style={styles.cardTopRow}>
-          <View style={styles.orderIdentity}>
+        <OrderCardHeader
+          order={order}
+          containerStyle={styles.cardTopRow}
+          leftSectionStyle={styles.orderIdentity}
+          leftContent={
             <View style={[styles.orderIconWrap, iconWrapStyle]}>
               {channelLogo
                 ? <Image source={channelLogo} style={styles.channelLogo} resizeMode="contain" />
                 : <Icon name={iconName} size={16} color={iconColor} />
               }
             </View>
-            <View>
-              <OrderIdentityLabel
-                order={order}
-                primaryTextStyle={styles.orderId}
-                showSecondary={false}
-              />
-              <Text style={styles.orderDate}>
-                {Formatter.formatDateYmdTodmY(
-                  order?.alterDate || order?.alter_date || order?.orderDate || order?.order_date,
-                  true,
-                )}
+          }
+          titleWrapStyle={styles.orderTitleWrap}
+          primaryTextStyle={styles.orderId}
+          secondaryTextStyle={styles.orderIdSecondary}
+          dateTextStyle={styles.orderDate}
+          dateText={Formatter.formatDateYmdTodmY(
+            order?.alterDate || order?.alter_date || order?.orderDate || order?.order_date,
+            true,
+          )}
+          rightSectionStyle={styles.cardRightInfo}
+          status={!isTransfer && !isLoss ? { label: statusLabel, color: statusColor } : null}
+          statusBadgeStyle={[
+            styles.statusBadge,
+            { borderColor: withOpacity(statusColor, 0.4), backgroundColor: withOpacity(statusColor, 0.08) },
+          ]}
+          statusDotStyle={[styles.statusDot, { backgroundColor: statusColor }]}
+          statusTextStyle={[styles.statusText, { color: statusColor }]}
+          rightContent={
+            price > 0 ? (
+              <Text style={[styles.priceText, priceStyle]}>
+                {Formatter.formatMoney(price)}
               </Text>
-            </View>
-          </View>
+            ) : null
+          }
+        />
 
-          {!isTransfer && !isLoss && (
-            <View style={[
-              styles.statusBadge,
-              { borderColor: withOpacity(statusColor, 0.4), backgroundColor: withOpacity(statusColor, 0.08) },
-            ]}>
-              <View style={[styles.statusDot, { backgroundColor: statusColor }]} />
-              <Text style={[styles.statusText, { color: statusColor }]}>{statusLabel}</Text>
-            </View>
-          )}
-        </View>
-
-        <View style={styles.cardMetaRow}>
-          {showChannelLabel ? (
+        {showChannelLabel && (
+          <View style={styles.cardMetaRow}>
             <Text style={styles.channelText} numberOfLines={1}>{channelLabel}</Text>
-          ) : (
-            <View style={styles.channelText} />
-          )}
-          {price > 0 && (
-            <Text style={[styles.priceText, priceStyle]}>
-              {Formatter.formatMoney(price)}
-            </Text>
-          )}
-        </View>
+          </View>
+        )}
       </TouchableOpacity>
     );
   }, [openOrder, purchaseSuppliersById]);

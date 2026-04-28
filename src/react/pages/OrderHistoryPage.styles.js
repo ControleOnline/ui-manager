@@ -43,7 +43,7 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 2,
   },
-  cardTopRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
+  cardTopRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 },
   orderIdentity: { flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 },
   orderIconWrap: {
     width: 38,
@@ -56,9 +56,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   channelLogo: { width: 22, height: 22 },
+  orderTitleWrap: { flex: 1, minWidth: 0 },
   orderId: { fontSize: 15, fontWeight: '800', color: '#0F172A' },
+  orderIdSecondary: { fontSize: 12, fontWeight: '700', color: '#64748B', marginTop: 1 },
   orderDate: { fontSize: 12, color: '#64748B', marginTop: 1 },
 
+  cardRightInfo: { alignItems: 'flex-end' },
   statusBadge: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -72,15 +75,12 @@ const styles = StyleSheet.create({
   statusText: { fontSize: 11, fontWeight: '700' },
 
   cardMetaRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
     paddingTop: 10,
     borderTopWidth: 1,
     borderTopColor: '#F1F5F9',
   },
   channelText: { fontSize: 13, fontWeight: '600', color: '#475569', flex: 1 },
-  priceText: { fontSize: 15, fontWeight: '800', color: '#16A34A' },
+  priceText: { fontSize: 15, fontWeight: '800', color: '#16A34A', marginTop: 8 },
   purchasePriceText: { color: '#D97706' },
   transferPriceText: { color: '#7C3AED' },
   lossPriceText: { color: '#DC2626' },
