@@ -1,7 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
-  Image,
   RefreshControl,
   ScrollView,
   Text,
@@ -16,21 +15,18 @@ import { env } from '@env';
 import { useStore } from '@store';
 import CompactFilterSelector from '@controleonline/ui-common/src/react/components/filters/CompactFilterSelector';
 import DateShortcutFilter from '@controleonline/ui-common/src/react/components/filters/DateShortcutFilter';
-import Formatter from '@controleonline/ui-common/src/utils/formatter';
-import { getOrderChannelLabel, getOrderChannelLogo } from '@assets/ppc/channels';
 import {
   canDeviceViewCompanyOrders,
   isPosCounterMode,
   isPosCashRegisterClosed,
 } from '@controleonline/ui-common/src/react/config/deviceConfigBootstrap';
 import { getDateRange } from '@controleonline/ui-common/src/react/utils/dateRangeFilter';
-import OrderCardHeader from '@controleonline/ui-orders/src/react/components/OrderCardHeader';
-import { resolveDisplayedOrderStatus } from '@controleonline/ui-orders/src/react/components/OrderHeader';
+import OrderHeader from '@controleonline/ui-orders/src/react/components/OrderHeader';
 import { buildOrderDetailsRouteParams } from '@controleonline/ui-orders/src/react/utils/orderRoute';
 import { resolveOrderIdentity } from '@controleonline/ui-orders/src/react/utils/orderIdentity';
 import usePosCartSession from '@controleonline/ui-orders/src/react/hooks/usePosCartSession';
 import { colors } from '@controleonline/../../src/styles/colors';
-import { resolveThemePalette, withOpacity } from '@controleonline/../../src/styles/branding';
+import { resolveThemePalette } from '@controleonline/../../src/styles/branding';
 import styles from './OrderHistoryPage.styles';
 
 /* ─── constantes ────────────────────────────────────────────────────── */
@@ -102,7 +98,6 @@ const getPeopleLabel = entity =>
     entity?.document
   );
 
-const normalizeApp = o => normalizeText(o?.app);
 const getSearchText = o => {
   const identity = resolveOrderIdentity(o);
 
@@ -585,7 +580,6 @@ export default function OrderHistoryPage({ navigation, route }) {
     const isPurchase = order.orderType === 'purchase';
     const isTransfer = order.orderType === 'transfer';
     const isLoss = order.orderType === 'loss';
-    const channelLogo = (isPurchase || isTransfer || isLoss) ? null : getOrderChannelLogo(order);
     const purchaseSupplierId = getEntityId(order?.client);
     const purchaseSupplierLabel =
       getPeopleLabel(order?.client) ||
@@ -597,38 +591,8 @@ export default function OrderHistoryPage({ navigation, route }) {
         ? global.t?.t('orders', 'label', 'stock_transfer')
         : isLoss
           ? global.t?.t('orders', 'label', 'stock_loss')
-          : (getOrderChannelLabel(order) || normalizeApp(order) || global.t?.t('orders', 'label', 'shop'));
-    const showChannelLabel = !channelLogo || isPurchase || isTransfer || isLoss;
-    const statusPresentation = resolveDisplayedOrderStatus(order, '#64748B');
-    const statusLabel = statusPresentation.labelUpper;
-    const statusColor = statusPresentation.color;
-    const price = Number(order?.price || 0);
-
-    const iconName =
-      isPurchase ? 'truck'
-        : isTransfer ? 'repeat'
-          : isLoss ? 'trending-down'
-            : 'shopping-bag';
-
-    const iconColor =
-      isPurchase ? '#D97706'
-        : isTransfer ? '#7C3AED'
-          : isLoss ? '#DC2626'
-            : '#64748B';
-
-    const iconWrapStyle =
-      isPurchase ? styles.orderIconWrapPurchase
-        : isTransfer ? styles.orderIconWrapTransfer
-          : isLoss ? styles.orderIconWrapLoss
-            : null;
-
-    const priceStyle =
-      isPurchase ? styles.purchasePriceText
-        : isTransfer ? styles.transferPriceText
-          : isLoss ? styles.lossPriceText
-            : null;
-
-
+          : '';
+    const showChannelLabel = isPurchase || isTransfer || isLoss;
 
     return (
       <TouchableOpacity
@@ -637,42 +601,7 @@ export default function OrderHistoryPage({ navigation, route }) {
         activeOpacity={0.85}
         onPress={() => openOrder(order)}
       >
-        <OrderCardHeader
-          order={order}
-          containerStyle={styles.cardTopRow}
-          leftSectionStyle={styles.orderIdentity}
-          leftContent={
-            <View style={[styles.orderIconWrap, iconWrapStyle]}>
-              {channelLogo
-                ? <Image source={channelLogo} style={styles.channelLogo} resizeMode="contain" />
-                : <Icon name={iconName} size={16} color={iconColor} />
-              }
-            </View>
-          }
-          titleWrapStyle={styles.orderTitleWrap}
-          primaryTextStyle={styles.orderId}
-          secondaryTextStyle={styles.orderIdSecondary}
-          dateTextStyle={styles.orderDate}
-          dateText={Formatter.formatDateYmdTodmY(
-            order?.alterDate || order?.alter_date || order?.orderDate || order?.order_date,
-            true,
-          )}
-          rightSectionStyle={styles.cardRightInfo}
-          status={!isTransfer && !isLoss ? { label: statusLabel, color: statusColor } : null}
-          statusBadgeStyle={[
-            styles.statusBadge,
-            { borderColor: withOpacity(statusColor, 0.4), backgroundColor: withOpacity(statusColor, 0.08) },
-          ]}
-          statusDotStyle={[styles.statusDot, { backgroundColor: statusColor }]}
-          statusTextStyle={[styles.statusText, { color: statusColor }]}
-          rightContent={
-            price > 0 ? (
-              <Text style={[styles.priceText, priceStyle]}>
-                {Formatter.formatMoney(price)}
-              </Text>
-            ) : null
-          }
-        />
+        <OrderHeader order={order} isKds={false} />
 
         {showChannelLabel && (
           <View style={styles.cardMetaRow}>
