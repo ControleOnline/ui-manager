@@ -74,9 +74,9 @@ const mergeDeviceConfigs = (currentItems = [], nextItems = []) => {
   ];
 };
 
-const getStatus = deviceConfig => {
+const isPosDeviceOpen = deviceConfig => {
   const configs = parseConfigsObject(deviceConfig?.configs);
-  return isPosCashRegisterOpen(configs) ? 'open' : 'closed';
+  return isPosCashRegisterOpen(configs);
 };
 
 const getPrinterConnectivityMeta = status => {
@@ -146,6 +146,32 @@ const getDeviceItemTypeLabel = type => {
 
   return getDeviceTypeLabel(normalizedType);
 };
+
+const getDeviceBadgeLabel = (type, deviceConfig) => {
+  const normalizedType = normalizeDeviceType(type);
+
+  if (normalizedType === PDV_DEVICE_TYPE) {
+    const gateway = getPaymentGateway(deviceConfig);
+    return gateway ? getPaymentGatewayLabel(gateway) : 'PDV';
+  }
+
+  return getDeviceItemTypeLabel(normalizedType);
+};
+
+const getDeviceTypeAccent = type => {
+  const normalizedType = normalizeDeviceType(type);
+
+  if (!normalizedType || normalizedType === 'DEVICE') {
+    return hex.warning;
+  }
+
+  return hex.primary;
+};
+
+const getPosStatusLabel = deviceConfig =>
+  isPosDeviceOpen(deviceConfig)
+    ? global.t?.t('orders', 'status', 'open') || 'Aberto'
+    : global.t?.t('orders', 'status', 'closed') || 'Fechado';
 
 const getPosOperationModeLabel = configs => {
   const mode = resolvePosOperationMode(configs);
@@ -491,12 +517,6 @@ export const createDeviceTypeTab = ({
         const normalizedType = getDeviceConfigType(deviceConfig);
         const isManagedNetwork = isManagedNetworkDeviceType(normalizedType);
         const isPdv = normalizedType === PDV_DEVICE_TYPE;
-        const isDisplay = normalizedType === DISPLAY_DEVICE_TYPE;
-        const isOpen = getStatus(deviceConfig) === 'open';
-        const pdvGateway = getPaymentGateway(deviceConfig);
-        const pdvGatewayLabel = pdvGateway
-          ? getPaymentGatewayLabel(pdvGateway)
-          : 'Sem gateway';
         const pdvPrinterEnabled = isPdvPrinterEnabled(deviceConfig);
         const posOperationModeLabel = isPdv
           ? getPosOperationModeLabel(deviceConfig?.configs)
@@ -511,22 +531,22 @@ export const createDeviceTypeTab = ({
         const printerConnectivityMeta = getPrinterConnectivityMeta(
           networkConnectivityByDevice?.[deviceKey]?.status,
         );
-        const accent = isManagedNetwork
-          ? printerConnectivityMeta.color
-          : isDisplay
-            ? hex.primary
-            : isOpen
-              ? hex.success
-              : hex.danger;
-        const badgeText = isManagedNetwork
-          ? printerConnectivityMeta.label
-          : isDisplay
-            ? 'KDS'
-            : isPdv
-              ? isOpen
-                ? 'Aberto'
-                : 'Fechado'
-              : 'Device';
+        const accent = getDeviceTypeAccent(normalizedType);
+        const badgeText = getDeviceBadgeLabel(normalizedType, deviceConfig);
+        const metaChips = [];
+
+        if (isPdv) {
+          if (posOperationModeLabel) {
+            metaChips.push(posOperationModeLabel);
+          }
+
+          metaChips.push(`Impressora ${pdvPrinterEnabled ? 'Sim' : 'Nao'}`);
+          metaChips.push(getPosStatusLabel(deviceConfig));
+        }
+
+        if (isManagedNetwork) {
+          metaChips.push(printerConnectivityMeta.label);
+        }
 
         return (
           <TouchableOpacity
@@ -552,23 +572,13 @@ export const createDeviceTypeTab = ({
                 <Text style={styles.deviceSub} numberOfLines={1}>
                   {`${getDeviceItemTypeLabel(normalizedType)} • ${deviceConfig.device?.device || ''}`}
                 </Text>
-                {isPdv ? (
+                {metaChips.length > 0 ? (
                   <View style={styles.deviceMetaRow}>
-                    <View style={styles.deviceMetaChip}>
-                      <Text style={styles.deviceMetaChipText}>
-                        {pdvGatewayLabel}
-                      </Text>
-                    </View>
-                    <View style={styles.deviceMetaChip}>
-                      <Text style={styles.deviceMetaChipText}>
-                        {posOperationModeLabel}
-                      </Text>
-                    </View>
-                    <View style={styles.deviceMetaChip}>
-                      <Text style={styles.deviceMetaChipText}>
-                        {`Impressora ${pdvPrinterEnabled ? 'Sim' : 'Nao'}`}
-                      </Text>
-                    </View>
+                    {metaChips.map(chipLabel => (
+                      <View key={chipLabel} style={styles.deviceMetaChip}>
+                        <Text style={styles.deviceMetaChipText}>{chipLabel}</Text>
+                      </View>
+                    ))}
                   </View>
                 ) : null}
               </View>
