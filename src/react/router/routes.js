@@ -42,7 +42,7 @@ const managerRoutes = [
       headerShown: true,
       headerBackVisible: false,
       title: global.t?.t("configs", "title", "displays"),
-      showBottomToolBar: true,
+      showBottomToolBar: false,
       showCompanyFilter: true,
       companyFilterMode: 'icon',
     },
@@ -63,8 +63,6 @@ const managerRoutes = [
     name: 'DisplayForm',
     component: DisplayForm,
     options: {
-      headerShown: false,
-      headerBackVisible: false,
       title: global.t?.t("configs", "title", "displayForm"),
     },
   },
@@ -73,7 +71,6 @@ const managerRoutes = [
     component: QueueAddProducts,
     options: {
       headerShown: true,
-      headerBackVisible: false,
       title: global.t?.t("configs", "title", "queueAddProducts"),
     },
   },
