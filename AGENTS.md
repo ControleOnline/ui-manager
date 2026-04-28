@@ -1,25 +1,13 @@
 ## Escopo
-- Modulo da visao `MANAGER`.
-- Cobre gestao administrativa: devices, configurador, conexoes, integracoes, historico, hub financeiro e cadastros de administracao.
+- `ui-manager` e o modulo administrativo do app para configuracoes operacionais, devices, integracoes e visoes amplas da empresa.
+- As telas React em `src/react/pages` sao a referencia ativa deste modulo.
 
-## Estado
-- Este modulo tem implementacao ativa em `src/react` e deve constar em novos prompts.
-- Se existir `src/vue`, ela e apenas legado e deve ser ignorada, salvo pedido explicito.
-
-## Quando usar
-- Prompts sobre `MANAGER`, administracao, devices, impressoras, configuracoes de empresa, integracoes e telas de gestao.
+## Devices
+- `DeviceDetailPage` e `PrinterDeviceDetailPage` sao os donos das configuracoes por device no `MANAGER`.
+- Toda regra booleana ou normalizacao de `configs` de device deve nascer ou ser reutilizada de `@controleonline/ui-common/src/react/config/deviceConfigBootstrap`.
+- Persistencia de configuracao de device deve continuar passando pelo store `device_config`, sem criar chamadas paralelas fora desse fluxo.
+- A chave `pos-delivery-enabled` pertence a configuracao do device no `MANAGER` e controla se o detalhe operacional do pedido daquele equipamento mostra cliente, endereco e observacoes de entrega.
 
 ## Limites
-- Fluxo operacional de venda e checkout pertence a `ui-orders`.
-- Fluxo cliente-facing da loja online pertence a `ui-shop`.
-
-## Regras
-- Telas administrativas que limpam listas por ausencia de empresa selecionada devem fazer essa limpeza de forma idempotente, sem entrar em loop de efeito com o store.
-- Configuracoes administrativas de `PDV` para atendimento por `tab/table` devem expor valores canonicos em ingles no codigo e usar traducao apenas nos labels visuais.
-- O `MANAGER` e a fonte administrativa das configuracoes operacionais do `PDV`, inclusive das permissoes que definem se um device pode abrir e fechar `tab/table` ou apenas operar sobre atendimentos ja abertos.
-- Quando o `MANAGER` hospedar uma `PdvPage`, esse fluxo continua sujeito as mesmas regras operacionais de `PDV` para `tab/table`, identificacao e leitores. O ganho do `MANAGER` fica nas acoes administrativas adicionais, nao em um contrato operacional paralelo.
-- A tela de settlement de `tab/table` no `MANAGER` deve reutilizar o pedido raiz e o checkout compartilhado de `ui-orders`, em vez de criar um fluxo de pagamento paralelo.
-- Fluxos administrativos de liquidacao, consolidacao ou pagamento de `tab/table` pertencem ao `MANAGER`, mesmo quando o `POS` estiver restrito a usar apenas atendimentos ja abertos.
-- `SHOP` nao entra nesse contrato operacional de `PDV` dentro do `MANAGER`.
-- Em telas do `MANAGER`, o nome da empresa deve viver no `CompanyFilter` do header quando a rota usa `companyFilterMode: 'icon'`. Nao repetir esse contexto no meio da pagina sem necessidade.
-- Filtros operacionais devem preferir os componentes compactos compartilhados de `ui-common` em vez de fileiras de chips locais.
+- `ui-manager` configura a operacao, mas nao deve duplicar a UI operacional de `ui-orders`.
+- Quando a configuracao alterar comportamento do `POS`, documente a regra tambem no `AGENTS.md` do modulo dono do fluxo operacional.

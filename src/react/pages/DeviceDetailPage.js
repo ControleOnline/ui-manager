@@ -43,12 +43,14 @@ import {
   POS_CHECK_ORDER_TYPE_NONE,
   POS_CHECK_ORDER_TYPE_TAB,
   POS_CHECK_ORDER_TYPE_TABLE,
+  POS_DELIVERY_ENABLED_CONFIG_KEY,
   POS_OPERATION_MODE_COUNTER,
   POS_OPERATION_MODE_CONFIG_KEY,
   POS_OPERATION_MODE_OPTIONS,
   POS_PRINT_MODE_FORM,
   POS_PRINT_MODE_ORDER,
   getPosOperationModeOption,
+  isPosDeliveryEnabled,
   resolvePosCheckOrderManagementMode,
   resolvePosCheckOrderType,
   resolveDeviceOrderVisibility,
@@ -222,6 +224,8 @@ const DeviceDetailPage = () => {
   const [savingPosOperationMode, setSavingPosOperationMode] = useState(false);
   const [savingAlertSound, setSavingAlertSound] = useState(false);
   const [savingOrderVisibility, setSavingOrderVisibility] = useState(false);
+  const [savingDeviceDeliverySettings, setSavingDeviceDeliverySettings] =
+    useState(false);
   const [savingRuntimeDebugInfo, setSavingRuntimeDebugInfo] = useState(false);
   const [sendingCatalogRefresh, setSendingCatalogRefresh] = useState(false);
   const [search,        setSearch]        = useState('');
@@ -254,6 +258,9 @@ const DeviceDetailPage = () => {
   );
   const [deviceOrderVisibility, setDeviceOrderVisibility] = useState(
     resolveDeviceOrderVisibility(normalizedInitialConfigs),
+  );
+  const [deviceDeliveryEnabled, setDeviceDeliveryEnabled] = useState(
+    isPosDeliveryEnabled(normalizedInitialConfigs),
   );
   const [deviceAlertSoundEnabled, setDeviceAlertSoundEnabled] = useState(
     isTruthyValue(normalizedInitialConfigs?.[DEVICE_ALERT_SOUND_ENABLED_KEY]),
@@ -406,6 +413,9 @@ const DeviceDetailPage = () => {
       setDeviceOrderVisibility(
         resolveDeviceOrderVisibility(nextConfigs),
       );
+      setDeviceDeliveryEnabled(
+        isPosDeliveryEnabled(nextConfigs),
+      );
       setDeviceAlertSoundEnabled(
         isTruthyValue(nextConfigs[DEVICE_ALERT_SOUND_ENABLED_KEY]),
       );
@@ -451,6 +461,7 @@ const DeviceDetailPage = () => {
     setCheckOrderType(resolvePosCheckOrderType({}));
     setCheckOrderManagementMode(resolvePosCheckOrderManagementMode({}));
     setDeviceOrderVisibility(DEVICE_ORDER_VISIBILITY_DEVICE);
+    setDeviceDeliveryEnabled(isPosDeliveryEnabled({}));
     setDeviceAlertSoundEnabled(false);
     setDeviceAlertSoundUrl('');
     setDeviceRuntimeDebugInfoEnabled(false);
@@ -885,6 +896,40 @@ const DeviceDetailPage = () => {
     deviceType,
     refreshCurrentConfig,
     savingOrderVisibility,
+  ]);
+
+  const saveDeviceDeliverySettings = useCallback(async () => {
+    if (
+      !currentCompany?.id ||
+      !deviceString ||
+      savingDeviceDeliverySettings
+    ) {
+      return;
+    }
+
+    setSavingDeviceDeliverySettings(true);
+    try {
+      await actionsRef.current.deviceConfigActions.addDeviceConfigs({
+        device: deviceString,
+        configs: JSON.stringify({
+          [POS_DELIVERY_ENABLED_CONFIG_KEY]: deviceDeliveryEnabled ? '1' : '0',
+        }),
+        people: '/people/' + currentCompany.id,
+        type: deviceType,
+      });
+      await refreshCurrentConfig();
+    } catch {
+      // silencioso
+    } finally {
+      setSavingDeviceDeliverySettings(false);
+    }
+  }, [
+    currentCompany?.id,
+    deviceDeliveryEnabled,
+    deviceString,
+    deviceType,
+    refreshCurrentConfig,
+    savingDeviceDeliverySettings,
   ]);
 
   const saveDeviceRuntimeDebugInfo = useCallback(async () => {
@@ -1529,10 +1574,10 @@ const DeviceDetailPage = () => {
         )}
 
         {shouldShowOrderVisibility && (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>
-              <Icon name="list" size={13} /> {'  '}Pedidos do Device
-            </Text>
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>
+            <Icon name="list" size={13} /> {'  '}Pedidos do Device
+          </Text>
 
             <View style={styles.configCard}>
               <Text style={styles.configTitle}>Escopo da listagem no PDV</Text>
@@ -1573,6 +1618,67 @@ const DeviceDetailPage = () => {
                   <>
                     <Icon name="save" size={14} color="#fff" />
                     <Text style={styles.configButtonText}>Salvar visibilidade dos pedidos</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.configCard}>
+              <Text style={styles.configTitle}>
+                {tt('title', 'deliveryOnDevice') || 'Delivery neste device'}
+              </Text>
+              <Text style={styles.configDescription}>
+                {tt('description', 'deliveryOnDeviceDescription') ||
+                  'Ative quando este equipamento precisa operar pedidos com cliente, endereco e observacoes de entrega. Desative para simplificar a conferencia em devices que nao trabalham com delivery.'}
+              </Text>
+
+              <TouchableOpacity
+                style={[
+                  styles.toggleRow,
+                  deviceDeliveryEnabled && styles.toggleRowActive,
+                ]}
+                activeOpacity={0.85}
+                onPress={() =>
+                  setDeviceDeliveryEnabled(currentValue => !currentValue)
+                }>
+                <View>
+                  <Text style={styles.toggleRowLabel}>
+                    {tt('label', 'deliveryEnabled') ||
+                      'Trabalhar com delivery'}
+                  </Text>
+                  <Text style={styles.toggleRowValue}>
+                    {deviceDeliveryEnabled ? 'Ativo' : 'Inativo'}
+                  </Text>
+                </View>
+                <Icon
+                  name={deviceDeliveryEnabled ? 'toggle-right' : 'toggle-left'}
+                  size={28}
+                  color={deviceDeliveryEnabled ? hex.success : '#94A3B8'}
+                />
+              </TouchableOpacity>
+
+              <Text style={styles.configHint}>
+                {tt('description', 'deliveryEnabledHint') ||
+                  'Quando desligado, o detalhe do pedido deste device deixa de mostrar o bloco de cliente, endereco e observacoes de entrega.'}
+              </Text>
+
+              <TouchableOpacity
+                style={[
+                  styles.configButton,
+                  savingDeviceDeliverySettings && {opacity: 0.6},
+                ]}
+                activeOpacity={0.85}
+                disabled={savingDeviceDeliverySettings}
+                onPress={saveDeviceDeliverySettings}>
+                {savingDeviceDeliverySettings ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <>
+                    <Icon name="save" size={14} color="#fff" />
+                    <Text style={styles.configButtonText}>
+                      {tt('button', 'saveDeviceDelivery') ||
+                        'Salvar configuracao de delivery'}
+                    </Text>
                   </>
                 )}
               </TouchableOpacity>
