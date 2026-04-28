@@ -15,15 +15,22 @@ import {
   canDisplayChangePrinter,
   DISPLAY_AUTO_PRINT_PRODUCT_CONFIG_KEY,
   DISPLAY_ALLOW_PRINTER_CHANGE_CONFIG_KEY,
+  DISPLAY_SIDE_BREAK_CONFIG_KEY,
+  DISPLAY_SIZE_CONFIG_KEY,
+  DISPLAY_SIZE_DEFAULT,
+  DISPLAY_SIZE_MAX,
+  DISPLAY_SIZE_MIN,
   DEVICE_ALERT_SOUND_ENABLED_KEY,
   DEVICE_ALERT_SOUND_URL_KEY,
   DEVICE_ORDER_VISIBILITY_COMPANY,
   DEVICE_ORDER_VISIBILITY_DEVICE,
   DEVICE_ORDER_VISIBILITY_KEY,
   DEVICE_RUNTIME_DEBUG_INFO_ENABLED_KEY,
+  isDisplaySideBreakEnabled,
   isPosAutoPrintEnabled,
   isPosCashRegisterOpen,
   isTruthyValue,
+  normalizeDisplaySize,
   parseConfigsObject,
   POS_AUTO_PRINT_ENABLED_CONFIG_KEY,
   POS_CASH_MANAGEMENT_MODE_CASH_REGISTER,
@@ -45,6 +52,7 @@ import {
   resolvePosCheckOrderManagementMode,
   resolvePosCheckOrderType,
   resolveDeviceOrderVisibility,
+  resolveDisplaySize,
   resolvePosCashManagementMode,
   resolvePosOperationMode,
   resolvePosPrintMode,
@@ -116,6 +124,11 @@ const PDV_DETAIL_TABS = [
   {key: PDV_TAB_DEVICE, icon: 'cpu', labelKey: 'pdvDevice'},
   {key: PDV_TAB_MOVEMENT, icon: 'bar-chart-2', labelKey: 'pdvMovement'},
 ];
+
+const DISPLAY_SIZE_OPTIONS = Array.from(
+  {length: DISPLAY_SIZE_MAX - DISPLAY_SIZE_MIN + 1},
+  (_, index) => DISPLAY_SIZE_MIN + index,
+);
 
 const getDisplayLabel = display => {
   const name = String(display?.display || '').trim();
@@ -263,6 +276,12 @@ const DeviceDetailPage = () => {
   const [displayAllowPrinterChange, setDisplayAllowPrinterChange] = useState(
     canDisplayChangePrinter(normalizedInitialConfigs),
   );
+  const [displaySize, setDisplaySize] = useState(
+    resolveDisplaySize(normalizedInitialConfigs),
+  );
+  const [displaySideBreakEnabled, setDisplaySideBreakEnabled] = useState(
+    isDisplaySideBreakEnabled(normalizedInitialConfigs),
+  );
   const [displayAutoPrintProductEnabled, setDisplayAutoPrintProductEnabled] =
     useState(
       isTruthyValue(
@@ -405,6 +424,12 @@ const DeviceDetailPage = () => {
       setDisplayAllowPrinterChange(
         canDisplayChangePrinter(nextConfigs),
       );
+      setDisplaySize(
+        resolveDisplaySize(nextConfigs),
+      );
+      setDisplaySideBreakEnabled(
+        isDisplaySideBreakEnabled(nextConfigs),
+      );
       setDisplayAutoPrintProductEnabled(
         isTruthyValue(nextConfigs[DISPLAY_AUTO_PRINT_PRODUCT_CONFIG_KEY]),
       );
@@ -432,6 +457,8 @@ const DeviceDetailPage = () => {
     setLinkedDisplayId('');
     setDisplayPrinterId('');
     setDisplayAllowPrinterChange(false);
+    setDisplaySize(DISPLAY_SIZE_DEFAULT);
+    setDisplaySideBreakEnabled(false);
     setDisplayAutoPrintProductEnabled(false);
   }, [dcId, deviceString, deviceType, isEditingRuntimeDevice]);
 
@@ -903,6 +930,7 @@ const DeviceDetailPage = () => {
 
     const normalizedDisplayId = String(linkedDisplayId || '').trim();
     const normalizedPrinterId = normalizeDeviceId(displayPrinterId);
+    const normalizedDisplaySize = normalizeDisplaySize(displaySize);
 
     if (
       (normalizedDisplayId && !normalizedPrinterId) ||
@@ -935,6 +963,9 @@ const DeviceDetailPage = () => {
           [DISPLAY_DEVICE_PRINTER_CONFIG_KEY]: normalizedPrinterId,
           [DISPLAY_ALLOW_PRINTER_CHANGE_CONFIG_KEY]:
             displayAllowPrinterChange ? '1' : '0',
+          [DISPLAY_SIZE_CONFIG_KEY]: String(normalizedDisplaySize),
+          [DISPLAY_SIDE_BREAK_CONFIG_KEY]:
+            displaySideBreakEnabled ? '1' : '0',
           [DISPLAY_AUTO_PRINT_PRODUCT_CONFIG_KEY]:
             displayAutoPrintProductEnabled ? '1' : '0',
         }),
@@ -954,6 +985,8 @@ const DeviceDetailPage = () => {
     displayAllowPrinterChange,
     displayAutoPrintProductEnabled,
     displayPrinterId,
+    displaySideBreakEnabled,
+    displaySize,
     isDisplayDevice,
     linkedDisplayId,
     refreshCurrentConfig,
@@ -1559,7 +1592,8 @@ const DeviceDetailPage = () => {
                 Este bloco e usado na impressao automatica disparada pelo app
                 DISPLAY. O device DISPLAY precisa apontar qual display/fila
                 representa e qual impressora deve receber a copia separada por
-                fila.
+                fila. Nesta mesma configuracao voce pode ajustar o tamanho dos
+                cards do KDS e ativar a quebra lateral para pedidos grandes.
               </Text>
 
               {(isLoadingDisplays || isLoadingPrinters) ? (
@@ -1618,6 +1652,59 @@ const DeviceDetailPage = () => {
                       })}
                     </Picker>
                   </View>
+
+                  <View style={styles.pickerWrap}>
+                    <Picker
+                      selectedValue={displaySize}
+                      mode={pickerMode}
+                      onValueChange={value =>
+                        setDisplaySize(normalizeDisplaySize(value))
+                      }>
+                      {DISPLAY_SIZE_OPTIONS.map(sizeValue => (
+                        <Picker.Item
+                          key={`display-size-${sizeValue}`}
+                          label={
+                            sizeValue === DISPLAY_SIZE_DEFAULT
+                              ? `Tamanho ${sizeValue} (atual)`
+                              : `Tamanho ${sizeValue}`
+                          }
+                          value={sizeValue}
+                        />
+                      ))}
+                    </Picker>
+                  </View>
+
+                  <TouchableOpacity
+                    style={[
+                      styles.toggleRow,
+                      displaySideBreakEnabled && styles.toggleRowActive,
+                    ]}
+                    activeOpacity={0.85}
+                    onPress={() =>
+                      setDisplaySideBreakEnabled(currentValue => !currentValue)
+                    }>
+                    <View>
+                      <Text style={styles.toggleRowLabel}>
+                        Quebrar pedidos grandes para o lado
+                      </Text>
+                      <Text style={styles.toggleRowValue}>
+                        {displaySideBreakEnabled ? 'Ativo' : 'Inativo'}
+                      </Text>
+                    </View>
+                    <Icon
+                      name={
+                        displaySideBreakEnabled
+                          ? 'toggle-right'
+                          : 'toggle-left'
+                      }
+                      size={28}
+                      color={
+                        displaySideBreakEnabled
+                          ? hex.success
+                          : '#94A3B8'
+                      }
+                    />
+                  </TouchableOpacity>
 
                   <TouchableOpacity
                     style={[
@@ -1690,7 +1777,11 @@ const DeviceDetailPage = () => {
                 preenchidos. Quando a opcao automatica estiver ativa, cada
                 produto enviado para a fila deste display gera sua propria
                 impressao na impressora vinculada. Quando a troca estiver
-                desativada, o app usa sempre a impressora padrao acima.
+                desativada, o app usa sempre a impressora padrao acima. O
+                tamanho 5 preserva a escala atual; tamanhos menores deixam mais
+                cards na tela e tamanhos maiores ampliam a leitura. Com a
+                quebra lateral ativa, um pedido grande pode ocupar mais de um
+                card lado a lado.
               </Text>
 
               <TouchableOpacity
@@ -1706,7 +1797,7 @@ const DeviceDetailPage = () => {
                 ) : (
                   <>
                     <Icon name="save" size={14} color="#fff" />
-                    <Text style={styles.configButtonText}>Salvar impressao de preparo</Text>
+                    <Text style={styles.configButtonText}>Salvar configuracoes do KDS</Text>
                   </>
                 )}
               </TouchableOpacity>
