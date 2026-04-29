@@ -58,7 +58,7 @@ const EmptyState = ({ message }) => (
 const MetricCard = ({ label, value, accent, missing, message }) => (
   <View style={[styles.metricCard, missing && { borderColor: alpha(SCREEN_COLORS.bad, 0.55) }]}>
     {missing ? (
-      <MissingInfo label={label} />
+      <MissingInfo label={label} message={message} />
     ) : (
       <>
         <Text style={[styles.metricValue, accent ? { color: accent } : null]}>{value || '—'}</Text>
@@ -426,6 +426,7 @@ export default function MenuCostsPage({ navigation }) {
                 key={metric.key}
                 label={metric.label}
                 value={metric.value}
+                missing={metric.missing}
                 message={metric.message}
                 accent={metric.accent}
               />
@@ -538,6 +539,8 @@ export default function MenuCostsPage({ navigation }) {
 
     const compositionState = compositionCache[selectedProduct.id];
     const isCompositionLoading = loadingCompositionId === selectedProduct.id;
+    const pricing = selectedProduct.pricing || null;
+    const suggestedPriceLabel = pricing?.simulatedByMarginLabel || pricing?.suggestedByMarginWithFeesLabel || '';
 
     return (
       <View style={styles.detailCard}>
@@ -627,10 +630,17 @@ export default function MenuCostsPage({ navigation }) {
 
         <View style={styles.divider} />
 
-        <Text style={styles.detailSectionTitle}>Campos do app sem fonte nesta fase</Text>
-        <MissingInfo label="Custo consolidado por rendimento" />
-        <View style={{ height: 10 }} />
-        <MissingInfo label="Preço sugerido por margem/CMV" />
+        <Text style={styles.detailSectionTitle}>Precificação atual</Text>
+        <View style={styles.fieldGrid}>
+          <FieldCard label="Margem alvo" value={pricing?.marginTargetLabel || MISSING_TEXT} missing={!pricing?.marginTargetLabel} />
+          <FieldCard label="Custo consolidado por rendimento" value={pricing?.totalUnitCostLabel || MISSING_TEXT} missing={!pricing?.totalUnitCostLabel} />
+          <FieldCard label="Preço sugerido por margem/CMV" value={suggestedPriceLabel || MISSING_TEXT} missing={!suggestedPriceLabel} />
+          <FieldCard label="Perda estimada" value={pricing?.lossPctLabel || MISSING_TEXT} missing={!pricing?.lossPctLabel} />
+          <FieldCard label="Custo operacional" value={pricing?.operationalCostLabel || MISSING_TEXT} missing={!pricing?.operationalCostLabel} />
+          <FieldCard label="Custo de embalagem" value={pricing?.packagingCostLabel || MISSING_TEXT} missing={!pricing?.packagingCostLabel} />
+          <FieldCard label="Custo logístico" value={pricing?.logisticsCostLabel || MISSING_TEXT} missing={!pricing?.logisticsCostLabel} />
+          <FieldCard label="Origem da precificação" value={pricing?.source || MISSING_TEXT} missing={!pricing?.source} />
+        </View>
       </View>
     );
   };
