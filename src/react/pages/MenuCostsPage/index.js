@@ -10,8 +10,11 @@ import {
   useWindowDimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useFocusEffect } from '@react-navigation/native';
+import Icon from 'react-native-vector-icons/Feather';
 import { useStore } from '@store';
 import { api } from '@controleonline/ui-common/src/api';
+import AddCompanyModal from '@controleonline/ui-people/src/react/components/AddCompanyModal';
 import { resolveThemePalette } from '@controleonline/../../src/styles/branding';
 import { colors as baseColors } from '@controleonline/../../src/styles/colors';
 import styles, { SCREEN_COLORS } from './index.styles';
@@ -52,14 +55,15 @@ const EmptyState = ({ message }) => (
   </View>
 );
 
-const MetricCard = ({ label, value, accent, missing }) => (
+const MetricCard = ({ label, value, accent, missing, message }) => (
   <View style={[styles.metricCard, missing && { borderColor: alpha(SCREEN_COLORS.bad, 0.55) }]}>
     {missing ? (
       <MissingInfo label={label} />
     ) : (
       <>
-        <Text style={[styles.metricValue, accent ? { color: accent } : null]}>{value}</Text>
+        <Text style={[styles.metricValue, accent ? { color: accent } : null]}>{value || '—'}</Text>
         <Text style={styles.metricLabel}>{label}</Text>
+        {message ? <Text style={styles.metricHelperText}>{message}</Text> : null}
       </>
     )}
   </View>
@@ -97,7 +101,18 @@ const getStatusAccent = statusColor => {
 
 const getPreviewText = items => items.filter(Boolean).slice(0, 3).join(' • ');
 
-export default function MenuCostsPage() {
+const ActionButton = ({ label, onPress, accent = SCREEN_COLORS.brand }) => (
+  <TouchableOpacity
+    style={[styles.actionButton, { borderColor: alpha(accent, 0.55) }]}
+    activeOpacity={0.84}
+    onPress={onPress}
+  >
+    <Icon name="plus" size={15} color={accent} />
+    {label ? <Text style={[styles.actionButtonText, { color: accent }]}>{label}</Text> : null}
+  </TouchableOpacity>
+);
+
+export default function MenuCostsPage({ navigation }) {
   const peopleStore = useStore('people');
   const themeStore = useStore('theme');
   const { width } = useWindowDimensions();
@@ -127,6 +142,17 @@ export default function MenuCostsPage() {
   const [selectedMapKey, setSelectedMapKey] = useState(null);
   const [compositionCache, setCompositionCache] = useState({});
   const [loadingCompositionId, setLoadingCompositionId] = useState(null);
+  const [showProviderModal, setShowProviderModal] = useState(false);
+
+  const providerContext = useMemo(() => ({
+    context: 'provider',
+    title: global.t?.t('people', 'title', 'providers'),
+    searchPlaceholder: global.t?.t('people', 'searchPlaceholder', 'searchProvider'),
+    modalTitle: 'Cadastro de Fornecedor',
+    emptyTitle: global.t?.t('people', 'title', 'emptyProvider'),
+    emptySearchTitle: global.t?.t('people', 'title', 'emptySearchProvider'),
+    emptySubtitle: global.t?.t('people', 'title', 'addFirstProvider'),
+  }), []);
 
   const loadScreen = useCallback(async (refreshing = false) => {
     if (!currentCompany?.id) return;
@@ -157,11 +183,51 @@ export default function MenuCostsPage() {
     }
   }, [currentCompany]);
 
-  useEffect(() => {
+  useFocusEffect(useCallback(() => {
     loadScreen(false);
-  }, [loadScreen]);
+  }, [loadScreen]));
 
   const viewModel = state.viewModel;
+
+  const openProductCreator = useCallback(initialProductType => {
+    const supplyTypes = ['feedstock', 'component', 'package'];
+    const context = supplyTypes.includes(initialProductType) ? 'supplies' : 'products';
+    navigation.push('ProductDetails', {
+      context,
+      initialProductType,
+    });
+  }, [navigation]);
+
+  const openPurchaseCreator = useCallback(() => {
+    navigation.push('PurchaseFormPage');
+  }, [navigation]);
+
+  const openProviderCreator = useCallback(() => {
+    setShowProviderModal(true);
+  }, []);
+
+  const catalogPrimaryAction = useMemo(() => {
+    switch (catalogSegment) {
+      case 'ingredients':
+        return { label: 'Ingrediente', onPress: () => openProductCreator('feedstock') };
+      case 'recipes':
+        return { label: 'Preparo', onPress: () => openProductCreator('manufactured') };
+      case 'packaging':
+        return { label: 'Embalagem', onPress: () => openProductCreator('package') };
+      case 'finalItems':
+      case 'all':
+      default:
+        return { label: 'Item', onPress: () => openProductCreator('product') };
+    }
+  }, [catalogSegment, openProductCreator]);
+
+  const resourceActions = useMemo(() => ({
+    ingredients: { label: '', onPress: () => openProductCreator('feedstock'), accent: SCREEN_COLORS.good },
+    recipes: { label: '', onPress: () => openProductCreator('manufactured'), accent: SCREEN_COLORS.warn },
+    packaging: { label: '', onPress: () => openProductCreator('package'), accent: '#38BDF8' },
+    suppliers: { label: '', onPress: openProviderCreator, accent: SCREEN_COLORS.brand },
+    purchases: { label: '', onPress: openPurchaseCreator, accent: SCREEN_COLORS.brand },
+  }), [openProductCreator, openProviderCreator, openPurchaseCreator]);
 
   const filteredCatalogItems = useMemo(() => {
     const items = viewModel?.catalog?.items || [];
@@ -338,69 +404,80 @@ export default function MenuCostsPage() {
   );
 
   const renderDashboard = () => (
-    <>
-      <View style={styles.metricGrid}>
-        {viewModel.dashboard.actualMetrics.map(metric => (
-          <MetricCard
-            key={metric.key}
-            label={metric.label}
-            value={metric.value}
-            accent={metric.key === 'suggestions' ? SCREEN_COLORS.brand : SCREEN_COLORS.text}
-          />
-        ))}
-        {viewModel.dashboard.missingMetrics.map(metric => (
-          <MetricCard
-            key={metric.key}
-            label={metric.label}
-            missing
-          />
-        ))}
-      </View>
+    (() => {
+      const actualMetrics = viewModel?.dashboard?.actualMetrics || [];
+      const configMetrics = viewModel?.dashboard?.configMetrics || [];
+      const suggestionSource = viewModel?.dashboard?.suggestionSource || createSourceState([], 'Sem itens com reposição sugerida');
+      const recentPurchaseSource = viewModel?.dashboard?.recentPurchaseSource || createSourceState([], 'Sem compras registradas');
 
-      <View style={styles.twoColumnRow}>
-        <View style={styles.sidePanel}>
-          <Text style={styles.panelTitle}>Reposição sugerida</Text>
-          <ListState source={viewModel.dashboard.suggestionSource} />
-          {viewModel.dashboard.suggestionSource.status === SOURCE_STATUS.AVAILABLE
-            ? viewModel.dashboard.suggestionSource.items.slice(0, 6).map(item => (
-              <View key={`${item.id}-${item.productName}`} style={styles.listItemCard}>
-                <View style={styles.listItemHeader}>
-                  <Text style={styles.listItemTitle}>{item.productName || `Produto #${item.id || '-'}`}</Text>
-                  <Badge label={item.productTypeLabel} accent={SCREEN_COLORS.good} />
-                </View>
-                <Text style={styles.listItemMeta}>
-                  Estoque {item.stockLabel} • Mínimo {item.minimumLabel} • Repor {item.neededLabel} {item.unity || ''}
-                </Text>
-              </View>
-            ))
-            : null}
-        </View>
+      return (
+        <>
+          <View style={styles.metricGrid}>
+            {actualMetrics.map(metric => (
+              <MetricCard
+                key={metric.key}
+                label={metric.label}
+                value={metric.value}
+                accent={metric.key === 'suggestions' ? SCREEN_COLORS.brand : SCREEN_COLORS.text}
+              />
+            ))}
+            {configMetrics.map(metric => (
+              <MetricCard
+                key={metric.key}
+                label={metric.label}
+                value={metric.value}
+                message={metric.message}
+                accent={metric.accent}
+              />
+            ))}
+          </View>
 
-        <View style={styles.sidePanel}>
-          <Text style={styles.panelTitle}>Últimas compras</Text>
-          <ListState source={viewModel.dashboard.recentPurchaseSource} />
-          {viewModel.dashboard.recentPurchaseSource.status === SOURCE_STATUS.AVAILABLE
-            ? viewModel.dashboard.recentPurchaseSource.items.map(order => (
-              <View key={order.id} style={styles.listItemCard}>
-                <View style={styles.listItemHeader}>
-                  <Text style={styles.listItemTitle}>Pedido #{order.id}</Text>
-                  <Badge
-                    label={order.statusLabel || 'Compra'}
-                    accent={getStatusAccent(order.statusColor)}
-                  />
-                </View>
-                <Text style={styles.listItemMeta}>
-                  {order.dateLabel || MISSING_TEXT} • {order.supplierLabel || MISSING_TEXT}
-                </Text>
-                <Text style={styles.listItemMeta}>
-                  {order.itemsPreview.length ? getPreviewText(order.itemsPreview) : 'Sem itens detalhados'}
-                </Text>
-              </View>
-            ))
-            : null}
-        </View>
-      </View>
-    </>
+          <View style={styles.twoColumnRow}>
+            <View style={styles.sidePanel}>
+              <Text style={styles.panelTitle}>Reposição sugerida</Text>
+              <ListState source={suggestionSource} />
+              {suggestionSource.status === SOURCE_STATUS.AVAILABLE
+                ? suggestionSource.items.slice(0, 6).map(item => (
+                  <View key={`${item.id}-${item.productName}`} style={styles.listItemCard}>
+                    <View style={styles.listItemHeader}>
+                      <Text style={styles.listItemTitle}>{item.productName || `Produto #${item.id || '-'}`}</Text>
+                      <Badge label={item.productTypeLabel} accent={SCREEN_COLORS.good} />
+                    </View>
+                    <Text style={styles.listItemMeta}>
+                      Estoque {item.stockLabel} • Mínimo {item.minimumLabel} • Repor {item.neededLabel} {item.unity || ''}
+                    </Text>
+                  </View>
+                ))
+                : null}
+            </View>
+
+            <View style={styles.sidePanel}>
+              <Text style={styles.panelTitle}>Últimas compras</Text>
+              <ListState source={recentPurchaseSource} />
+              {recentPurchaseSource.status === SOURCE_STATUS.AVAILABLE
+                ? recentPurchaseSource.items.map(order => (
+                  <View key={order.id} style={styles.listItemCard}>
+                    <View style={styles.listItemHeader}>
+                      <Text style={styles.listItemTitle}>Pedido #{order.id}</Text>
+                      <Badge
+                        label={order.statusLabel || 'Compra'}
+                        accent={getStatusAccent(order.statusColor)}
+                      />
+                    </View>
+                    <Text style={styles.listItemMeta}>
+                      {order.dateLabel || MISSING_TEXT} • {order.supplierLabel || MISSING_TEXT}
+                    </Text>
+                    <Text style={styles.listItemMeta}>
+                      {order.itemsPreview.length ? getPreviewText(order.itemsPreview) : 'Sem itens detalhados'}
+                    </Text>
+                  </View>
+                ))
+                : null}
+            </View>
+          </View>
+        </>
+      );
+    })()
   );
 
   const renderCatalogTable = () => (
@@ -572,6 +649,20 @@ export default function MenuCostsPage() {
       </View>
 
       <View style={styles.sectionBlock}>
+        <View style={styles.sectionHeaderRow}>
+          <View style={styles.sectionTitleWrap}>
+            <Text style={styles.sectionTitle}>Catálogo</Text>
+            <Text style={styles.sectionDescription}>
+              Produtos já cadastrados com atalho direto para novo ingrediente, preparo, embalagem ou item final.
+            </Text>
+          </View>
+          <ActionButton
+            label={catalogPrimaryAction.label}
+            onPress={catalogPrimaryAction.onPress}
+            accent={SCREEN_COLORS.brand}
+          />
+        </View>
+
         <View style={styles.filterRow}>
           {CATALOG_SEGMENTS.map(segment => {
             const active = segment.key === catalogSegment;
@@ -837,6 +928,11 @@ export default function MenuCostsPage() {
               </Text>
             </View>
             <View style={styles.modeRow}>
+              <ActionButton
+                label="Compra"
+                onPress={openPurchaseCreator}
+                accent={SCREEN_COLORS.brand}
+              />
               {LEDGER_MODES.map(mode => {
                 const active = ledgerMode === mode.key;
                 return (
@@ -878,10 +974,15 @@ export default function MenuCostsPage() {
   };
 
   const renderRegisterCard = (sectionKey, section) => {
+    const action = resourceActions[sectionKey];
+
     if (section.status === SOURCE_STATUS.MISSING) {
       return (
         <View key={sectionKey} style={styles.registerCard}>
-          <Text style={styles.registerCardTitle}>{section.title}</Text>
+          <View style={styles.registerCardHeader}>
+            <Text style={styles.registerCardTitle}>{section.title}</Text>
+            {action ? <ActionButton onPress={action.onPress} accent={action.accent} /> : null}
+          </View>
           <MissingInfo label={section.title} message={section.message} />
         </View>
       );
@@ -890,7 +991,10 @@ export default function MenuCostsPage() {
     const previewItems = section.items.slice(0, 3);
     return (
       <View key={sectionKey} style={styles.registerCard}>
-        <Text style={styles.registerCardTitle}>{section.title}</Text>
+        <View style={styles.registerCardHeader}>
+          <Text style={styles.registerCardTitle}>{section.title}</Text>
+          {action ? <ActionButton onPress={action.onPress} accent={action.accent} /> : null}
+        </View>
         <Text style={styles.registerCount}>{String(section.items.length)}</Text>
         {section.status === SOURCE_STATUS.EMPTY ? (
           <EmptyState message={section.message} />
@@ -899,7 +1003,7 @@ export default function MenuCostsPage() {
             <View key={`${sectionKey}-${item.id || index}`} style={styles.smallListItem}>
               <Text style={styles.smallListTitle}>{item.label || item.name || item.productName || `Registro ${index + 1}`}</Text>
               <Text style={styles.smallListMeta}>
-                {item.document || item.email || item.dateLabel || item.segmentLabel || getPreviewText([item.supplierLabel, formatMoney(item.orderPrice), formatDate(item.date)]) || 'Registro disponível'}
+                {item.valueLabel || item.document || item.email || item.dateLabel || item.segmentLabel || getPreviewText([item.supplierLabel, formatMoney(item.orderPrice), formatDate(item.date)]) || 'Registro disponível'}
               </Text>
             </View>
           ))
@@ -909,17 +1013,17 @@ export default function MenuCostsPage() {
   };
 
   const renderResources = () => {
-    const sections = viewModel.resources;
+    const sections = viewModel?.resources || {};
     const orderedSections = [
-      ['ingredients', sections.ingredients],
-      ['recipes', sections.recipes],
-      ['packaging', sections.packaging],
-      ['suppliers', sections.suppliers],
-      ['purchases', sections.purchases],
-      ['inputs', sections.inputs],
-      ['operationalExpenses', sections.operationalExpenses],
-      ['fixedCosts', sections.fixedCosts],
-      ['settings', sections.settings],
+      ['ingredients', sections.ingredients || { title: 'Ingredientes', ...createSourceState([]) }],
+      ['recipes', sections.recipes || { title: 'Preparos', ...createSourceState([]) }],
+      ['packaging', sections.packaging || { title: 'Embalagens', ...createSourceState([]) }],
+      ['suppliers', sections.suppliers || { title: 'Fornecedores', ...createSourceState([]) }],
+      ['purchases', sections.purchases || { title: 'Compras', ...createSourceState([]) }],
+      ['inputs', sections.inputs || { title: 'Inputs', ...createSourceState([]) }],
+      ['operationalExpenses', sections.operationalExpenses || { title: 'Gastos operacionais', ...createSourceState([]) }],
+      ['fixedCosts', sections.fixedCosts || { title: 'Custos fixos', ...createSourceState([]) }],
+      ['settings', sections.settings || { title: 'Parâmetros', ...createSourceState([]) }],
     ];
 
     return (
@@ -982,6 +1086,15 @@ export default function MenuCostsPage() {
 
         {viewModel ? renderActiveTab() : null}
       </ScrollView>
+
+      <AddCompanyModal
+        visible={showProviderModal}
+        onClose={() => setShowProviderModal(false)}
+        context={providerContext}
+        onSuccess={() => {
+          loadScreen(true);
+        }}
+      />
     </SafeAreaView>
   );
 }

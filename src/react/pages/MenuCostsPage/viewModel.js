@@ -50,6 +50,13 @@ const normalizeText = value => String(value || '').trim();
 
 const safeArray = value => (Array.isArray(value) ? value : []);
 
+const normalizeLookupKey = value => String(value || '')
+  .normalize('NFD')
+  .replace(/[\u0300-\u036f]/g, '')
+  .replace(/[^a-z0-9]+/gi, ' ')
+  .trim()
+  .toLowerCase();
+
 export const createSourceState = (items, emptyMessage = DEFAULT_EMPTY_MESSAGE) => {
   const normalizedItems = safeArray(items);
 
@@ -177,6 +184,269 @@ export const formatQuantity = (value, maxDigits = 2) => {
     minimumFractionDigits: 0,
     maximumFractionDigits: maxDigits,
   });
+};
+
+const formatPercentValue = value => {
+  const number = toNumber(value);
+  if (number === null) return null;
+  return `${formatQuantity(number, 2)}%`;
+};
+
+const formatMoneyValue = value => {
+  const number = toNumber(value);
+  if (number === null) return null;
+  return number.toLocaleString('pt-BR', {
+    style: 'currency',
+    currency: 'BRL',
+  });
+};
+
+const parseConfigValue = value => {
+  if (typeof value !== 'string') return value;
+
+  const trimmedValue = value.trim();
+  if (!trimmedValue) return '';
+
+  try {
+    return JSON.parse(trimmedValue);
+  } catch {
+    return value;
+  }
+};
+
+const prettifyConfigKey = configKey =>
+  String(configKey || '')
+    .replace(/[_-]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+const formatConfigValue = value => {
+  if (value === null || value === undefined) return '';
+
+  if (typeof value === 'boolean') {
+    return value ? 'Sim' : 'Não';
+  }
+
+  if (typeof value === 'number') {
+    return value.toLocaleString('pt-BR', {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 2,
+    });
+  }
+
+  if (typeof value === 'string') {
+    return value.trim();
+  }
+
+  if (Array.isArray(value)) {
+    const preview = value
+      .slice(0, 3)
+      .map(item => formatConfigValue(item))
+      .filter(Boolean)
+      .join(', ');
+
+    return preview || JSON.stringify(value);
+  }
+
+  if (typeof value === 'object') {
+    const preview = Object.entries(value)
+      .slice(0, 3)
+      .map(([key, itemValue]) => `${prettifyConfigKey(key)}: ${formatConfigValue(itemValue)}`)
+      .join(' • ');
+
+    return preview || JSON.stringify(value);
+  }
+
+  return String(value);
+};
+
+const createConfigEntry = ({
+  id,
+  label,
+  configKey,
+  visibility = '',
+  parsedValue,
+  parentConfigKey = '',
+}) => ({
+  id,
+  label,
+  configKey,
+  parentConfigKey,
+  visibility,
+  parsedValue,
+  valueLabel: formatConfigValue(parsedValue),
+  normalizedKey: normalizeLookupKey(
+    [configKey, parentConfigKey, label]
+      .filter(Boolean)
+      .join(' '),
+  ),
+});
+
+const buildConfigEntries = (configItems = [], configMap = {}) => {
+  const indexedEntries = new Map();
+
+  safeArray(configItems).forEach(config => {
+    const configKey = normalizeText(config?.configKey || '');
+    if (!configKey) return;
+
+    const parsedValue = parseConfigValue(config?.configValue);
+    indexedEntries.set(configKey, createConfigEntry({
+      id: toId(config) || `config-${configKey}`,
+      label: prettifyConfigKey(configKey),
+      configKey,
+      visibility: normalizeText(config?.visibility || ''),
+      parsedValue,
+    }));
+  });
+
+  Object.entries(configMap || {}).forEach(([configKey, configValue]) => {
+    const normalizedKey = normalizeText(configKey);
+    if (!normalizedKey || indexedEntries.has(normalizedKey)) return;
+
+    const parsedValue = parseConfigValue(configValue);
+    indexedEntries.set(normalizedKey, createConfigEntry({
+      id: `company-config-${normalizedKey}`,
+      label: prettifyConfigKey(normalizedKey),
+      configKey: normalizedKey,
+      visibility: 'public',
+      parsedValue,
+    }));
+  });
+
+  return Array.from(indexedEntries.values()).sort((left, right) => left.label.localeCompare(right.label, 'pt-BR', { sensitivity: 'base' }));
+};
+
+const buildNestedConfigEntries = (entries, maxDepth = 3) => {
+  const nestedEntries = [];
+
+  const pushEntry = (baseEntry, path, value) => {
+    if (!path.length) return;
+
+    const pathKey = path.join('.');
+    nestedEntries.push(createConfigEntry({
+      id: `${baseEntry.id}:${pathKey}`,
+      label: `${baseEntry.label} / ${path.map(prettifyConfigKey).join(' / ')}`,
+      configKey: `${baseEntry.configKey}.${pathKey}`,
+      visibility: baseEntry.visibility,
+      parsedValue: value,
+      parentConfigKey: baseEntry.configKey,
+    }));
+  };
+
+  const walkValue = (baseEntry, value, path = [], depth = 0) => {
+    if (value === null || value === undefined) {
+      pushEntry(baseEntry, path, value);
+      return;
+    }
+
+    if (depth >= maxDepth) {
+      pushEntry(baseEntry, path, value);
+      return;
+    }
+
+    if (Array.isArray(value)) {
+      if (!value.length) {
+        pushEntry(baseEntry, path, value);
+        return;
+      }
+
+      value.forEach((item, index) => {
+        walkValue(baseEntry, item, [...path, String(index + 1)], depth + 1);
+      });
+      return;
+    }
+
+    if (typeof value === 'object') {
+      const objectEntries = Object.entries(value);
+      if (!objectEntries.length) {
+        pushEntry(baseEntry, path, value);
+        return;
+      }
+
+      objectEntries.forEach(([key, itemValue]) => {
+        walkValue(baseEntry, itemValue, [...path, key], depth + 1);
+      });
+      return;
+    }
+
+    pushEntry(baseEntry, path, value);
+  };
+
+  entries.forEach(entry => {
+    walkValue(entry, entry.parsedValue);
+  });
+
+  return nestedEntries;
+};
+
+const buildDisplayConfigEntries = (configEntries, nestedEntries) => {
+  const nestedParents = new Set(
+    nestedEntries
+      .map(entry => normalizeText(entry?.parentConfigKey || ''))
+      .filter(Boolean),
+  );
+
+  return [
+    ...configEntries.filter(entry => !nestedParents.has(normalizeText(entry?.configKey || ''))),
+    ...nestedEntries,
+  ].sort((left, right) => left.label.localeCompare(right.label, 'pt-BR', { sensitivity: 'base' }));
+};
+
+const findConfigEntry = (entries, candidates = [], keywordGroups = []) => {
+  const normalizedCandidates = candidates
+    .map(candidate => normalizeText(candidate))
+    .filter(Boolean);
+
+  if (normalizedCandidates.length) {
+    const exactMatch = entries.find(entry => normalizedCandidates.includes(entry.configKey));
+    if (exactMatch) return exactMatch;
+  }
+
+  if (!keywordGroups.length) return null;
+
+  return entries.find(entry =>
+    keywordGroups.every(keywordGroup =>
+      keywordGroup.some(keyword => entry.normalizedKey.includes(normalizeLookupKey(keyword))),
+    ),
+  ) || null;
+};
+
+const filterConfigEntries = (entries, keywordGroups = []) => {
+  if (!keywordGroups.length) return [];
+
+  return entries.filter(entry =>
+    keywordGroups.some(keywordGroup =>
+      keywordGroup.every(keyword => entry.normalizedKey.includes(normalizeLookupKey(keyword))),
+    ),
+  );
+};
+
+const buildConfigMetric = (entries, { key, label, candidates = [], keywordGroups = [], formatter = null }) => {
+  const configEntry = findConfigEntry(entries, candidates, keywordGroups);
+
+  if (!configEntry) {
+    return {
+      key,
+      label,
+      value: '',
+      message: 'Sem configuração',
+      accent: '#9AA9C2',
+      missing: true,
+    };
+  }
+
+  const formattedValue = formatter
+    ? formatter(configEntry.parsedValue, configEntry)
+    : configEntry.valueLabel;
+
+  return {
+    key,
+    label,
+    value: formattedValue || '—',
+    message: configEntry.configKey,
+    accent: '#FBBF24',
+    missing: false,
+  };
 };
 
 const getProductSegmentKey = type => {
@@ -355,6 +625,46 @@ const extractProductSuppliers = product => {
   return relations;
 };
 
+const extractPricingSnapshot = product => {
+  const pricing = product?.extraData?.pricing;
+  if (!pricing || typeof pricing !== 'object') {
+    return null;
+  }
+
+  const channelSuggestedByMargin = safeArray(pricing?.channelSimulations)
+    .map(simulation => toNumber(simulation?.suggestedByMarginWithFees))
+    .find(value => value !== null);
+
+  const costBreakdown = pricing?.costBreakdown || {};
+
+  const snapshot = {
+    source: normalizeText(pricing?.source || ''),
+    syncMode: normalizeText(pricing?.syncMode || ''),
+    marginTarget: toNumber(pricing?.marginTarget),
+    marginTargetLabel: formatPercentValue(pricing?.marginTarget),
+    simulatedByMargin: toNumber(pricing?.simulatedByMargin),
+    simulatedByMarginLabel: formatMoneyValue(pricing?.simulatedByMargin),
+    suggestedByMarginWithFees: channelSuggestedByMargin,
+    suggestedByMarginWithFeesLabel: formatMoneyValue(channelSuggestedByMargin),
+    totalUnitCost: toNumber(costBreakdown?.totalUnitCost),
+    totalUnitCostLabel: formatMoneyValue(costBreakdown?.totalUnitCost),
+    operationalCost: toNumber(costBreakdown?.operationalCost),
+    operationalCostLabel: formatMoneyValue(costBreakdown?.operationalCost),
+    packagingCost: toNumber(costBreakdown?.packagingCost),
+    packagingCostLabel: formatMoneyValue(costBreakdown?.packagingCost),
+    logisticsCost: toNumber(costBreakdown?.logisticsCost),
+    logisticsCostLabel: formatMoneyValue(costBreakdown?.logisticsCost),
+    lossPct: toNumber(pricing?.lossPct),
+    lossPctLabel: formatPercentValue(pricing?.lossPct),
+  };
+
+  const hasAnyValue = Object.values(snapshot).some(value =>
+    value !== null && value !== undefined && value !== '',
+  );
+
+  return hasAnyValue ? snapshot : null;
+};
+
 const buildCatalogItems = ({ products, categoriesByProductId, groupsByProductId }) => {
   const items = products.map(product => {
     const productId = toId(product);
@@ -363,6 +673,7 @@ const buildCatalogItems = ({ products, categoriesByProductId, groupsByProductId 
     const productGroups = groupsByProductId[productId] || [];
     const suppliers = extractProductSuppliers(product);
     const segment = getProductSegmentMeta(product?.type);
+    const pricing = extractPricingSnapshot(product);
 
     return {
       id: productId,
@@ -389,6 +700,7 @@ const buildCatalogItems = ({ products, categoriesByProductId, groupsByProductId 
       groups: productGroups,
       defaultInInventory: getInventoryLabel(product?.defaultInInventory),
       defaultOutInventory: getInventoryLabel(product?.defaultOutInventory),
+      pricing,
     };
   });
 
@@ -571,6 +883,60 @@ const buildRegisterSections = ({ catalogItems, suppliers, ledgerOrders }) => {
   };
 };
 
+const buildRegisterSectionsFromConfigs = (
+  configEntries,
+  searchableEntries = configEntries,
+  displayEntries = configEntries,
+) => ({
+  settings: createSourceState(
+    displayEntries.map(entry => ({
+      id: entry.id,
+      label: entry.label,
+      configKey: entry.configKey,
+      valueLabel: entry.valueLabel || 'Sem valor configurado',
+    })),
+    'Sem configurações da empresa',
+  ),
+  inputs: createSourceState(
+    filterConfigEntries(searchableEntries, [
+      ['input'],
+      ['insumo'],
+      ['ingrediente'],
+    ]).map(entry => ({
+      id: entry.id,
+      label: entry.label,
+      valueLabel: entry.valueLabel || 'Sem valor configurado',
+    })),
+    'Sem configurações de inputs',
+  ),
+  operationalExpenses: createSourceState(
+    filterConfigEntries(searchableEntries, [
+      ['gasto'],
+      ['despesa'],
+      ['operacional'],
+      ['expense'],
+    ]).map(entry => ({
+      id: entry.id,
+      label: entry.label,
+      valueLabel: entry.valueLabel || 'Sem valor configurado',
+    })),
+    'Sem configurações de gastos operacionais',
+  ),
+  fixedCosts: createSourceState(
+    filterConfigEntries(searchableEntries, [
+      ['fixo'],
+      ['fixed'],
+      ['rateio'],
+      ['custo', 'fixo'],
+    ]).map(entry => ({
+      id: entry.id,
+      label: entry.label,
+      valueLabel: entry.valueLabel || 'Sem valor configurado',
+    })),
+    'Sem configurações de custos fixos',
+  ),
+});
+
 export async function loadProductComposition(apiClient, productGroups = []) {
   if (!productGroups.length) {
     return createSourceState([], 'Sem composição cadastrada');
@@ -620,6 +986,7 @@ export async function loadMenuCostsViewModel(apiClient, currentCompany) {
     categories,
     productCategories,
     productGroups,
+    configs,
   ] = await Promise.all([
     fetchAllPages(apiClient, '/products', { company: companyId }, { itemsPerPage: 100, maxPages: 50 }),
     fetchAllPages(apiClient, '/people', {
@@ -641,6 +1008,9 @@ export async function loadMenuCostsViewModel(apiClient, currentCompany) {
     }, { itemsPerPage: 100, maxPages: 50 }),
     fetchAllPages(apiClient, '/product_groups', {
       'parentProduct.company': companyIri,
+    }, { itemsPerPage: 100, maxPages: 30 }),
+    fetchAllPages(apiClient, '/configs', {
+      people: companyIri,
     }, { itemsPerPage: 100, maxPages: 30 }),
   ]);
 
@@ -682,11 +1052,20 @@ export async function loadMenuCostsViewModel(apiClient, currentCompany) {
   });
   const ledgerOrders = buildLedgerOrders(detailedPurchaseOrders);
   const purchaseMap = buildPurchaseMapRows(ledgerOrders);
+  const configEntries = buildConfigEntries(configs, currentCompany?.configs || {});
+  const nestedConfigEntries = buildNestedConfigEntries(configEntries);
+  const searchableConfigEntries = [...configEntries, ...nestedConfigEntries];
+  const displayConfigEntries = buildDisplayConfigEntries(configEntries, nestedConfigEntries);
   const registerSections = buildRegisterSections({
     catalogItems,
     suppliers,
     ledgerOrders,
   });
+  const configSections = buildRegisterSectionsFromConfigs(
+    configEntries,
+    searchableConfigEntries,
+    displayConfigEntries,
+  );
 
   const activeProductsCount = catalogItems.filter(item => item.active).length;
   const supplierRelationsCount = suppliers.length;
@@ -712,11 +1091,35 @@ export async function loadMenuCostsViewModel(apiClient, currentCompany) {
         { key: 'orders', label: 'Compras registradas', value: String(purchaseOrdersCount) },
         { key: 'suggestions', label: 'Itens com reposição sugerida', value: String(replenishmentCount) },
       ],
-      missingMetrics: [
-        { key: 'targetMargin', label: 'Margem alvo', message: MISSING_TEXT },
-        { key: 'cmv', label: 'CMV consolidado', message: MISSING_TEXT },
-        { key: 'suggestedPrice', label: 'Preço sugerido', message: MISSING_TEXT },
-        { key: 'fixedAllocation', label: 'Rateio fixo mensal', message: MISSING_TEXT },
+      configMetrics: [
+        buildConfigMetric(searchableConfigEntries, {
+          key: 'targetMargin',
+          label: 'Margem alvo',
+          candidates: ['target-margin', 'margem-alvo', 'margem_alvo'],
+          keywordGroups: [['margem', 'margin'], ['alvo', 'target']],
+          formatter: value => formatPercentValue(value) || formatConfigValue(value),
+        }),
+        buildConfigMetric(searchableConfigEntries, {
+          key: 'cmv',
+          label: 'CMV consolidado',
+          candidates: ['cmv', 'food-cost-percent', 'food_cost_percent'],
+          keywordGroups: [['cmv']],
+          formatter: value => formatPercentValue(value) || formatConfigValue(value),
+        }),
+        buildConfigMetric(searchableConfigEntries, {
+          key: 'suggestedPrice',
+          label: 'Preço sugerido',
+          candidates: ['suggested-price', 'preco-sugerido', 'preco_sugerido'],
+          keywordGroups: [['preco', 'price'], ['sugerido', 'suggested']],
+          formatter: value => formatMoneyValue(value) || formatConfigValue(value),
+        }),
+        buildConfigMetric(searchableConfigEntries, {
+          key: 'fixedAllocation',
+          label: 'Rateio fixo mensal',
+          candidates: ['fixed-monthly-allocation', 'rateio-fixo-mensal', 'rateio_fixo_mensal'],
+          keywordGroups: [['rateio', 'allocation'], ['fixo', 'fixed']],
+          formatter: value => formatMoneyValue(value) || formatConfigValue(value),
+        }),
       ],
       suggestionSource: createSourceState(purchaseSuggestions, 'Sem itens com reposição sugerida'),
       recentPurchaseSource: createSourceState(ledgerOrders.slice(0, 6), 'Sem compras registradas'),
@@ -746,6 +1149,12 @@ export async function loadMenuCostsViewModel(apiClient, currentCompany) {
       purchaseMapSource: createSourceState(purchaseMap, 'Sem itens comprados para consolidar'),
       purchaseMap,
     },
-    resources: registerSections,
+    resources: {
+      ...registerSections,
+      inputs: configSections.inputs,
+      operationalExpenses: configSections.operationalExpenses,
+      fixedCosts: configSections.fixedCosts,
+      settings: configSections.settings,
+    },
   };
 }

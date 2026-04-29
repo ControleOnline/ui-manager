@@ -207,6 +207,12 @@ export default StyleSheet.create({
     fontSize: 12,
     lineHeight: 18,
   },
+  metricHelperText: {
+    color: SCREEN_COLORS.muted,
+    fontSize: 11,
+    lineHeight: 16,
+    marginTop: 4,
+  },
   twoColumnRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -512,11 +518,16 @@ export default StyleSheet.create({
     marginHorizontal: 6,
     marginBottom: 12,
   },
+  registerCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 10,
+  },
   registerCardTitle: {
     color: SCREEN_COLORS.text,
     fontSize: 15,
     fontWeight: '700',
-    marginBottom: 10,
   },
   registerCount: {
     color: SCREEN_COLORS.brand,
@@ -528,6 +539,22 @@ export default StyleSheet.create({
     color: SCREEN_COLORS.muted,
     fontSize: 12,
     lineHeight: 18,
+  },
+  actionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    borderRadius: 999,
+    borderWidth: 1,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    backgroundColor: SCREEN_COLORS.chip,
+  },
+  actionButtonText: {
+    color: SCREEN_COLORS.text,
+    fontSize: 12,
+    fontWeight: '700',
+    marginLeft: 6,
   },
   errorCard: {
     borderRadius: 18,
