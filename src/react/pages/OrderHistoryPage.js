@@ -650,8 +650,10 @@ export default function OrderHistoryPage({ navigation, route }) {
                 <CompactFilterSelector
                   icon="radio"
                   label={currentChannelLabel}
+                  labelCaption={global.t?.t('orders', 'label', 'channel') || 'Canal'}
                   accentColor={brandColors.primary}
                   active={channelFilter !== 'all'}
+                  dense
                   title={global.t?.t('orders', 'label', 'channel')}
                   options={channelOptions}
                   selectedKey={channelFilter}
@@ -666,8 +668,10 @@ export default function OrderHistoryPage({ navigation, route }) {
                 <CompactFilterSelector
                   icon="check-circle"
                   label={currentStatusLabel}
+                  labelCaption={global.t?.t('orders', 'label', 'status') || 'Status'}
                   accentColor={brandColors.primary}
                   active={statusFilter !== 'all'}
+                  dense
                   title={global.t?.t('orders', 'label', 'status')}
                   options={statusOptions}
                   selectedKey={statusFilter}
@@ -683,6 +687,8 @@ export default function OrderHistoryPage({ navigation, route }) {
                 onChange={setDateFilter}
                 customRange={customRange}
                 onCustomRangeChange={setCustomRange}
+                dense
+                labelCaption={global.t?.t('orders', 'label', 'period') || 'Periodo'}
                 colors={{
                   accent: brandColors.primary,
                   appBg: 'transparent',

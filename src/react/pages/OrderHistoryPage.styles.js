@@ -2,32 +2,32 @@ import { StyleSheet } from 'react-native';
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  scroll: { paddingHorizontal: 20, paddingTop: 16, paddingBottom: 32, gap: 16 },
+  scroll: { paddingHorizontal: 20, paddingTop: 14, paddingBottom: 32 },
 
   countPill: { borderRadius: 999, backgroundColor: '#EFF6FF', paddingHorizontal: 12, paddingVertical: 7 },
   countPillText: { fontSize: 12, fontWeight: '700', color: '#1D4ED8' },
 
-  filtersCard: { backgroundColor: '#fff', borderRadius: 20, padding: 16, gap: 10 },
-  filtersHeaderRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
+  filtersCard: { backgroundColor: '#fff', borderRadius: 20, padding: 14, marginBottom: 10 },
+  filtersHeaderRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 10 },
   filtersTitle: { fontSize: 15, fontWeight: '700', color: '#0F172A' },
   searchInput: {
     borderWidth: 1,
     borderColor: '#E2E8F0',
     borderRadius: 12,
     paddingHorizontal: 12,
-    paddingVertical: 10,
+    paddingVertical: 9,
     fontSize: 14,
     color: '#0F172A',
     backgroundColor: '#fff',
+    marginBottom: 8,
   },
   filterSelectorsRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 10,
-    marginTop: 2,
+    gap: 8,
   },
 
-  centerState: { backgroundColor: '#fff', borderRadius: 20, padding: 24, alignItems: 'center', gap: 10 },
+  centerState: { backgroundColor: '#fff', borderRadius: 20, padding: 24, alignItems: 'center', gap: 10, marginBottom: 10 },
   centerStateTitle: { fontSize: 18, fontWeight: '700', color: '#0F172A', textAlign: 'center' },
   centerStateText: { fontSize: 14, color: '#64748B', textAlign: 'center', lineHeight: 20 },
 
@@ -88,8 +88,8 @@ const styles = StyleSheet.create({
   orderIconWrapTransfer: { backgroundColor: '#F5F3FF', borderColor: '#DDD6FE' },
   orderIconWrapLoss: { backgroundColor: '#FEF2F2', borderColor: '#FECACA' },
 
-  loadingMoreWrap: { paddingVertical: 16, alignItems: 'center' },
-  endText: { textAlign: 'center', fontSize: 12, color: '#CBD5E1', paddingVertical: 16 },
+  loadingMoreWrap: { paddingTop: 8, paddingBottom: 16, alignItems: 'center' },
+  endText: { textAlign: 'center', fontSize: 12, color: '#CBD5E1', paddingTop: 10, paddingBottom: 16 },
   fab: {
     position: 'absolute',
     right: 20,
