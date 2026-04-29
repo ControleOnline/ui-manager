@@ -645,68 +645,75 @@ export default function MenuCostsPage({ navigation }) {
     );
   };
 
-  const renderCatalog = () => (
-    <>
-      <View style={styles.metricGrid}>
-        {viewModel.catalog.segmentSummary.map(metric => (
-          <MetricCard
-            key={metric.key}
-            label={metric.label}
-            value={metric.value}
-            accent={metric.accent}
-          />
-        ))}
-      </View>
+  const renderCatalog = () => {
+    const catalog = viewModel?.catalog || {
+      segmentSummary: [],
+      source: createSourceState([], 'Sem produtos cadastrados'),
+    };
 
-      <View style={styles.sectionBlock}>
-        <View style={styles.sectionHeaderRow}>
-          <View style={styles.sectionTitleWrap}>
-            <Text style={styles.sectionTitle}>Catálogo</Text>
-            <Text style={styles.sectionDescription}>
-              Produtos já cadastrados com atalho direto para novo ingrediente, preparo, embalagem ou item final.
-            </Text>
-          </View>
-          <ActionButton
-            label={catalogPrimaryAction.label}
-            onPress={catalogPrimaryAction.onPress}
-            accent={SCREEN_COLORS.brand}
-          />
+    return (
+      <>
+        <View style={styles.metricGrid}>
+          {catalog.segmentSummary.map(metric => (
+            <MetricCard
+              key={metric.key}
+              label={metric.label}
+              value={metric.value}
+              accent={metric.accent}
+            />
+          ))}
         </View>
 
-        <View style={styles.filterRow}>
-          {CATALOG_SEGMENTS.map(segment => {
-            const active = segment.key === catalogSegment;
-            return (
-              <TouchableOpacity
-                key={segment.key}
-                style={[styles.filterChip, active && styles.filterChipActive, active && { borderColor: segment.accent }]}
-                activeOpacity={0.85}
-                onPress={() => setCatalogSegment(segment.key)}
-              >
-                <Text style={[styles.filterChipText, active && { color: segment.accent }]}>{segment.label}</Text>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
-
-        <TextInput
-          value={catalogQuery}
-          onChangeText={setCatalogQuery}
-          placeholder="Buscar item, SKU, tipo ou categoria..."
-          placeholderTextColor={SCREEN_COLORS.muted}
-          style={styles.searchInput}
-        />
-
-        <ListState source={viewModel.catalog.source.status === SOURCE_STATUS.AVAILABLE ? createSourceState(filteredCatalogItems, 'Nenhum item encontrado com este filtro') : viewModel.catalog.source} />
-        {filteredCatalogItems.length ? (
-          <View style={[styles.splitLayout, !isWide && { flexDirection: 'column' }]}>
-            <View style={styles.splitPrimary}>{renderCatalogTable()}</View>
-            <View style={styles.splitSecondary}>{renderCatalogDetail()}</View>
+        <View style={styles.sectionBlock}>
+          <View style={styles.sectionHeaderRow}>
+            <View style={styles.sectionTitleWrap}>
+              <Text style={styles.sectionTitle}>Catálogo</Text>
+              <Text style={styles.sectionDescription}>
+                Produtos já cadastrados com atalho direto para novo ingrediente, preparo, embalagem ou item final.
+              </Text>
+            </View>
+            <ActionButton
+              label={catalogPrimaryAction.label}
+              onPress={catalogPrimaryAction.onPress}
+              accent={SCREEN_COLORS.brand}
+            />
           </View>
-        ) : null}
-      </View>
-    </>
-  );
+
+          <View style={styles.filterRow}>
+            {CATALOG_SEGMENTS.map(segment => {
+              const active = segment.key === catalogSegment;
+              return (
+                <TouchableOpacity
+                  key={segment.key}
+                  style={[styles.filterChip, active && styles.filterChipActive, active && { borderColor: segment.accent }]}
+                  activeOpacity={0.85}
+                  onPress={() => setCatalogSegment(segment.key)}
+                >
+                  <Text style={[styles.filterChipText, active && { color: segment.accent }]}>{segment.label}</Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+
+          <TextInput
+            value={catalogQuery}
+            onChangeText={setCatalogQuery}
+            placeholder="Buscar item, SKU, tipo ou categoria..."
+            placeholderTextColor={SCREEN_COLORS.muted}
+            style={styles.searchInput}
+          />
+
+          <ListState source={catalog.source.status === SOURCE_STATUS.AVAILABLE ? createSourceState(filteredCatalogItems, 'Nenhum item encontrado com este filtro') : catalog.source} />
+          {filteredCatalogItems.length ? (
+            <View style={[styles.splitLayout, !isWide && { flexDirection: 'column' }]}>
+              <View style={styles.splitPrimary}>{renderCatalogTable()}</View>
+              <View style={styles.splitSecondary}>{renderCatalogDetail()}</View>
+            </View>
+          ) : null}
+        </View>
+      </>
+    );
+  };
 
   const renderLedgerTimeline = () => (
     <View style={styles.tableWrap}>
@@ -906,19 +913,25 @@ export default function MenuCostsPage({ navigation }) {
   };
 
   const renderLedger = () => {
+    const ledger = viewModel?.ledger || {
+      source: createSourceState([], 'Sem compras registradas'),
+      orders: [],
+      purchaseMapSource: createSourceState([], 'Sem itens comprados para consolidar'),
+      purchaseMap: [],
+    };
     const activeListSource = ledgerMode === 'timeline'
-      ? (viewModel.ledger.source.status === SOURCE_STATUS.AVAILABLE
+      ? (ledger.source.status === SOURCE_STATUS.AVAILABLE
         ? createSourceState(filteredLedgerOrders, 'Nenhum pedido encontrado com este filtro')
-        : viewModel.ledger.source)
-      : (viewModel.ledger.purchaseMapSource.status === SOURCE_STATUS.AVAILABLE
+        : ledger.source)
+      : (ledger.purchaseMapSource.status === SOURCE_STATUS.AVAILABLE
         ? createSourceState(filteredPurchaseMap, 'Nenhuma familia encontrada com este filtro')
-        : viewModel.ledger.purchaseMapSource);
+        : ledger.purchaseMapSource);
 
     return (
       <>
         <View style={styles.metricGrid}>
-          <MetricCard label="Compras" value={String(viewModel.ledger.orders.length)} accent={SCREEN_COLORS.brand} />
-          <MetricCard label="Famílias compradas" value={String(viewModel.ledger.purchaseMap.length)} accent={SCREEN_COLORS.good} />
+          <MetricCard label="Compras" value={String(ledger.orders.length)} accent={SCREEN_COLORS.brand} />
+          <MetricCard label="Famílias compradas" value={String(ledger.purchaseMap.length)} accent={SCREEN_COLORS.good} />
           <MetricCard
             label="Comprovantes anexos"
             missing
@@ -985,29 +998,31 @@ export default function MenuCostsPage({ navigation }) {
 
   const renderRegisterCard = (sectionKey, section) => {
     const action = resourceActions[sectionKey];
+    const normalizedSection = section || { title: '', ...createSourceState([]) };
+    const sectionItems = Array.isArray(normalizedSection.items) ? normalizedSection.items : [];
 
-    if (section.status === SOURCE_STATUS.MISSING) {
+    if (normalizedSection.status === SOURCE_STATUS.MISSING) {
       return (
         <View key={sectionKey} style={styles.registerCard}>
           <View style={styles.registerCardHeader}>
-            <Text style={styles.registerCardTitle}>{section.title}</Text>
+            <Text style={styles.registerCardTitle}>{normalizedSection.title}</Text>
             {action ? <ActionButton onPress={action.onPress} accent={action.accent} /> : null}
           </View>
-          <MissingInfo label={section.title} message={section.message} />
+          <MissingInfo label={normalizedSection.title} message={normalizedSection.message} />
         </View>
       );
     }
 
-    const previewItems = section.items.slice(0, 3);
+    const previewItems = sectionItems.slice(0, 3);
     return (
       <View key={sectionKey} style={styles.registerCard}>
         <View style={styles.registerCardHeader}>
-          <Text style={styles.registerCardTitle}>{section.title}</Text>
+          <Text style={styles.registerCardTitle}>{normalizedSection.title}</Text>
           {action ? <ActionButton onPress={action.onPress} accent={action.accent} /> : null}
         </View>
-        <Text style={styles.registerCount}>{String(section.items.length)}</Text>
-        {section.status === SOURCE_STATUS.EMPTY ? (
-          <EmptyState message={section.message} />
+        <Text style={styles.registerCount}>{String(sectionItems.length)}</Text>
+        {normalizedSection.status === SOURCE_STATUS.EMPTY ? (
+          <EmptyState message={normalizedSection.message} />
         ) : (
           previewItems.map((item, index) => (
             <View key={`${sectionKey}-${item.id || index}`} style={styles.smallListItem}>

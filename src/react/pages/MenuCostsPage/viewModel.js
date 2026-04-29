@@ -885,7 +885,6 @@ const buildRegisterSections = ({ catalogItems, suppliers, ledgerOrders }) => {
 
 const buildRegisterSectionsFromConfigs = (
   configEntries,
-  searchableEntries = configEntries,
   displayEntries = configEntries,
 ) => ({
   settings: createSourceState(
@@ -898,7 +897,7 @@ const buildRegisterSectionsFromConfigs = (
     'Sem configurações da empresa',
   ),
   inputs: createSourceState(
-    filterConfigEntries(searchableEntries, [
+    filterConfigEntries(displayEntries, [
       ['input'],
       ['insumo'],
       ['ingrediente'],
@@ -910,7 +909,7 @@ const buildRegisterSectionsFromConfigs = (
     'Sem configurações de inputs',
   ),
   operationalExpenses: createSourceState(
-    filterConfigEntries(searchableEntries, [
+    filterConfigEntries(displayEntries, [
       ['gasto'],
       ['despesa'],
       ['operacional'],
@@ -923,7 +922,7 @@ const buildRegisterSectionsFromConfigs = (
     'Sem configurações de gastos operacionais',
   ),
   fixedCosts: createSourceState(
-    filterConfigEntries(searchableEntries, [
+    filterConfigEntries(displayEntries, [
       ['fixo'],
       ['fixed'],
       ['rateio'],
@@ -1061,11 +1060,7 @@ export async function loadMenuCostsViewModel(apiClient, currentCompany) {
     suppliers,
     ledgerOrders,
   });
-  const configSections = buildRegisterSectionsFromConfigs(
-    configEntries,
-    searchableConfigEntries,
-    displayConfigEntries,
-  );
+  const configSections = buildRegisterSectionsFromConfigs(configEntries, displayConfigEntries);
 
   const activeProductsCount = catalogItems.filter(item => item.active).length;
   const supplierRelationsCount = suppliers.length;
