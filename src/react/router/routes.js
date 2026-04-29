@@ -25,6 +25,7 @@ import Food99IntegrationPage from '@controleonline/ui-manager/src/react/pages/Fo
 import IFoodIntegrationPage from '@controleonline/ui-manager/src/react/pages/IFoodIntegrationPage';
 import IntegrationsPage from '@controleonline/ui-manager/src/react/pages/Integrations';
 import ManagerCategoriesPage from '@controleonline/ui-manager/src/react/pages/ManagerCategoriesPage';
+import MenuCostsPage from '@controleonline/ui-manager/src/react/pages/MenuCostsPage';
 import ModelTemplatesPage from '@controleonline/ui-manager/src/react/pages/ModelTemplatesPage';
 import OrderHistoryPage from '@controleonline/ui-manager/src/react/pages/OrderHistoryPage';
 import WhatsAppConnectionPage from '@controleonline/ui-manager/src/react/pages/WhatsAppConnectionPage';
@@ -367,6 +368,17 @@ const managerRoutes = [
       companyFilterMode: 'icon',
     },
     initialParams: { store: 'product_inventories' },
+  },
+  {
+    name: 'MenuCostsPage',
+    component: MenuCostsPage,
+    options: {
+      headerShown: true,
+      headerBackVisible: true,
+      title: 'Custos do Cardápio',
+      showCompanyFilter: true,
+      companyFilterMode: 'icon',
+    },
   },
   {
     name: 'Inventory',

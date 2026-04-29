@@ -297,12 +297,10 @@ export default function HomePage({ navigation }) {
             <ShortcutCard label={global.t?.t('configs', 'button_title', 'inventory')} icon="archive" color={HEX.warning} onPress={() => go('InventoriesPage')} />
             <ShortcutCard label={purchaseHistoryLabel} icon="truck" color={HEX.orange} onPress={() => openOrderHistory('purchase', purchaseHistoryLabel)} />
           </ShortcutsRow>
-          <ShortcutsRow>
+          <ShortcutsRow last>
             <ShortcutCard label={global.t?.t('configs', 'button_title', 'purchasingSuggestion')} icon="truck" color={HEX.purple} onPress={() => go('PurchasingSuggestion')} />
             <ShortcutCard label={global.t?.t('configs', 'button_title', 'purchaseForm')} icon="shopping-cart" color={HEX.success} onPress={() => go('PurchaseFormPage')} />
-          </ShortcutsRow>
-          <ShortcutsRow last>
-            <View style={styles.shortcutSpacer} />
+            <ShortcutCard label="Custos do Cardápio" icon="pie-chart" color={HEX.orange} onPress={() => go('MenuCostsPage')} />
           </ShortcutsRow>
         </SectionBlock>
 
