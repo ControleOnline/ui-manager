@@ -186,6 +186,7 @@ export default StyleSheet.create({
     marginBottom: 4,
   },
   metricCard: {
+    position: 'relative',
     minWidth: 160,
     flexGrow: 1,
     borderRadius: 18,
@@ -212,6 +213,11 @@ export default StyleSheet.create({
     fontSize: 11,
     lineHeight: 16,
     marginTop: 4,
+  },
+  metricActionIcon: {
+    position: 'absolute',
+    top: 12,
+    right: 12,
   },
   twoColumnRow: {
     flexDirection: 'row',
@@ -520,9 +526,21 @@ export default StyleSheet.create({
   },
   registerCardHeader: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     justifyContent: 'space-between',
     marginBottom: 10,
+  },
+  registerActionsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    flexWrap: 'wrap',
+    marginHorizontal: -4,
+    marginVertical: -4,
+  },
+  registerActionWrap: {
+    marginHorizontal: 4,
+    marginVertical: 4,
   },
   registerCardTitle: {
     color: SCREEN_COLORS.text,
@@ -555,6 +573,23 @@ export default StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
     marginLeft: 6,
+  },
+  smallListHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 3,
+  },
+  smallListAction: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginLeft: 8,
+  },
+  smallListActionText: {
+    color: SCREEN_COLORS.brand,
+    fontSize: 11,
+    fontWeight: '700',
+    marginLeft: 4,
   },
   errorCard: {
     borderRadius: 18,

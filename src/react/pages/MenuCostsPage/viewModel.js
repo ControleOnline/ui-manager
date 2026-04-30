@@ -267,11 +267,17 @@ const createConfigEntry = ({
   visibility = '',
   parsedValue,
   parentConfigKey = '',
+  pathSegments = [],
+  rootConfigKey = '',
+  rootParsedValue = undefined,
 }) => ({
   id,
   label,
   configKey,
   parentConfigKey,
+  pathSegments,
+  rootConfigKey: rootConfigKey || configKey,
+  rootParsedValue: rootParsedValue === undefined ? parsedValue : rootParsedValue,
   visibility,
   parsedValue,
   valueLabel: formatConfigValue(parsedValue),
@@ -296,6 +302,9 @@ const buildConfigEntries = (configItems = [], configMap = {}) => {
       configKey,
       visibility: normalizeText(config?.visibility || ''),
       parsedValue,
+      pathSegments: [],
+      rootConfigKey: configKey,
+      rootParsedValue: parsedValue,
     }));
   });
 
@@ -310,6 +319,9 @@ const buildConfigEntries = (configItems = [], configMap = {}) => {
       configKey: normalizedKey,
       visibility: 'public',
       parsedValue,
+      pathSegments: [],
+      rootConfigKey: normalizedKey,
+      rootParsedValue: parsedValue,
     }));
   });
 
@@ -330,6 +342,9 @@ const buildNestedConfigEntries = (entries, maxDepth = 3) => {
       visibility: baseEntry.visibility,
       parsedValue: value,
       parentConfigKey: baseEntry.configKey,
+      pathSegments: path,
+      rootConfigKey: baseEntry.rootConfigKey || baseEntry.configKey,
+      rootParsedValue: baseEntry.rootParsedValue,
     }));
   };
 
@@ -423,6 +438,7 @@ const filterConfigEntries = (entries, keywordGroups = []) => {
 
 const buildConfigMetric = (entries, { key, label, candidates = [], keywordGroups = [], formatter = null }) => {
   const configEntry = findConfigEntry(entries, candidates, keywordGroups);
+  const fallbackConfigKey = normalizeText(candidates[0] || key);
 
   if (!configEntry) {
     return {
@@ -432,6 +448,15 @@ const buildConfigMetric = (entries, { key, label, candidates = [], keywordGroups
       message: 'Sem configuração',
       accent: '#9AA9C2',
       missing: true,
+      editor: {
+        label,
+        configKey: fallbackConfigKey,
+        rootConfigKey: fallbackConfigKey,
+        parentConfigKey: '',
+        pathSegments: [],
+        parsedValue: '',
+        rootParsedValue: '',
+      },
     };
   }
 
@@ -446,6 +471,15 @@ const buildConfigMetric = (entries, { key, label, candidates = [], keywordGroups
     message: configEntry.configKey,
     accent: '#FBBF24',
     missing: false,
+    editor: {
+      label,
+      configKey: configEntry.configKey,
+      rootConfigKey: configEntry.rootConfigKey || configEntry.configKey,
+      parentConfigKey: configEntry.parentConfigKey || '',
+      pathSegments: configEntry.pathSegments || [],
+      parsedValue: configEntry.parsedValue,
+      rootParsedValue: configEntry.rootParsedValue,
+    },
   };
 };
 
@@ -892,6 +926,12 @@ const buildRegisterSectionsFromConfigs = (
       id: entry.id,
       label: entry.label,
       configKey: entry.configKey,
+      rootConfigKey: entry.rootConfigKey || entry.configKey,
+      parentConfigKey: entry.parentConfigKey || '',
+      pathSegments: entry.pathSegments || [],
+      parsedValue: entry.parsedValue,
+      rootParsedValue: entry.rootParsedValue,
+      isConfig: true,
       valueLabel: entry.valueLabel || 'Sem valor configurado',
     })),
     'Sem configurações da empresa',
@@ -904,6 +944,13 @@ const buildRegisterSectionsFromConfigs = (
     ]).map(entry => ({
       id: entry.id,
       label: entry.label,
+      configKey: entry.configKey,
+      rootConfigKey: entry.rootConfigKey || entry.configKey,
+      parentConfigKey: entry.parentConfigKey || '',
+      pathSegments: entry.pathSegments || [],
+      parsedValue: entry.parsedValue,
+      rootParsedValue: entry.rootParsedValue,
+      isConfig: true,
       valueLabel: entry.valueLabel || 'Sem valor configurado',
     })),
     'Sem configurações de inputs',
@@ -917,6 +964,13 @@ const buildRegisterSectionsFromConfigs = (
     ]).map(entry => ({
       id: entry.id,
       label: entry.label,
+      configKey: entry.configKey,
+      rootConfigKey: entry.rootConfigKey || entry.configKey,
+      parentConfigKey: entry.parentConfigKey || '',
+      pathSegments: entry.pathSegments || [],
+      parsedValue: entry.parsedValue,
+      rootParsedValue: entry.rootParsedValue,
+      isConfig: true,
       valueLabel: entry.valueLabel || 'Sem valor configurado',
     })),
     'Sem configurações de gastos operacionais',
@@ -930,6 +984,13 @@ const buildRegisterSectionsFromConfigs = (
     ]).map(entry => ({
       id: entry.id,
       label: entry.label,
+      configKey: entry.configKey,
+      rootConfigKey: entry.rootConfigKey || entry.configKey,
+      parentConfigKey: entry.parentConfigKey || '',
+      pathSegments: entry.pathSegments || [],
+      parsedValue: entry.parsedValue,
+      rootParsedValue: entry.rootParsedValue,
+      isConfig: true,
       valueLabel: entry.valueLabel || 'Sem valor configurado',
     })),
     'Sem configurações de custos fixos',

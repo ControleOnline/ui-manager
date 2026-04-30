@@ -14,6 +14,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/Feather';
 import { useStore } from '@store';
 import { api } from '@controleonline/ui-common/src/api';
+import { useMessage } from '@controleonline/ui-common/src/react/components/MessageService';
 import AddCompanyModal from '@controleonline/ui-people/src/react/components/AddCompanyModal';
 import { resolveThemePalette } from '@controleonline/../../src/styles/branding';
 import { colors as baseColors } from '@controleonline/../../src/styles/colors';
@@ -55,19 +56,30 @@ const EmptyState = ({ message }) => (
   </View>
 );
 
-const MetricCard = ({ label, value, accent, missing, message }) => (
-  <View style={[styles.metricCard, missing && { borderColor: alpha(SCREEN_COLORS.bad, 0.55) }]}>
-    {missing ? (
-      <MissingInfo label={label} message={message} />
-    ) : (
-      <>
-        <Text style={[styles.metricValue, accent ? { color: accent } : null]}>{value || '—'}</Text>
-        <Text style={styles.metricLabel}>{label}</Text>
-        {message ? <Text style={styles.metricHelperText}>{message}</Text> : null}
-      </>
-    )}
-  </View>
-);
+const MetricCard = ({ label, value, accent, missing, message, onPress }) => {
+  const content = (
+    <View style={[styles.metricCard, missing && { borderColor: alpha(SCREEN_COLORS.bad, 0.55) }]}>
+      {onPress ? <Icon name="edit-3" size={14} color={accent || SCREEN_COLORS.brand} style={styles.metricActionIcon} /> : null}
+      {missing ? (
+        <MissingInfo label={label} message={message} />
+      ) : (
+        <>
+          <Text style={[styles.metricValue, accent ? { color: accent } : null]}>{value || '—'}</Text>
+          <Text style={styles.metricLabel}>{label}</Text>
+          {message ? <Text style={styles.metricHelperText}>{message}</Text> : null}
+        </>
+      )}
+    </View>
+  );
+
+  if (!onPress) return content;
+
+  return (
+    <TouchableOpacity activeOpacity={0.86} onPress={onPress}>
+      {content}
+    </TouchableOpacity>
+  );
+};
 
 const Badge = ({ label, accent = SCREEN_COLORS.brand, outline = true }) => (
   <View style={[
@@ -101,23 +113,187 @@ const getStatusAccent = statusColor => {
 
 const getPreviewText = items => items.filter(Boolean).slice(0, 3).join(' • ');
 
-const ActionButton = ({ label, onPress, accent = SCREEN_COLORS.brand }) => (
+const toConfigRequestValue = value => {
+  if (value === undefined) {
+    return JSON.stringify('');
+  }
+
+  if (typeof value === 'string') {
+    const trimmedValue = value.trim();
+
+    if (trimmedValue === '') {
+      return JSON.stringify('');
+    }
+
+    try {
+      JSON.parse(trimmedValue);
+      return value;
+    } catch {
+      return JSON.stringify(value);
+    }
+  }
+
+  return JSON.stringify(value);
+};
+
+const parseBooleanInput = value => {
+  const normalizedValue = String(value || '').trim().toLowerCase();
+
+  if (['1', 'true', 'sim', 'yes'].includes(normalizedValue)) return true;
+  if (['0', 'false', 'nao', 'não', 'no'].includes(normalizedValue)) return false;
+
+  return null;
+};
+
+const coerceConfigInputValue = (rawValue, currentValue) => {
+  if (typeof currentValue === 'number') {
+    const parsedNumber = Number.parseFloat(String(rawValue || '').replace(',', '.'));
+    return Number.isFinite(parsedNumber) ? parsedNumber : currentValue;
+  }
+
+  if (typeof currentValue === 'boolean') {
+    const parsedBoolean = parseBooleanInput(rawValue);
+    return parsedBoolean === null ? currentValue : parsedBoolean;
+  }
+
+  return rawValue;
+};
+
+const cloneConfigTree = value => {
+  if (Array.isArray(value)) {
+    return value.map(item => cloneConfigTree(item));
+  }
+
+  if (value && typeof value === 'object') {
+    return Object.entries(value).reduce((accumulator, [key, itemValue]) => {
+      accumulator[key] = cloneConfigTree(itemValue);
+      return accumulator;
+    }, {});
+  }
+
+  return value;
+};
+
+const isNumericPathSegment = segment => /^\d+$/.test(String(segment || '').trim());
+
+const setConfigValueAtPath = (sourceValue, pathSegments = [], nextValue) => {
+  if (!Array.isArray(pathSegments) || pathSegments.length === 0) {
+    return nextValue;
+  }
+
+  const rootContainer = cloneConfigTree(sourceValue);
+  const initialContainer = Array.isArray(rootContainer)
+    ? [...rootContainer]
+    : rootContainer && typeof rootContainer === 'object'
+      ? { ...rootContainer }
+      : (isNumericPathSegment(pathSegments[0]) ? [] : {});
+
+  let cursor = initialContainer;
+
+  for (let index = 0; index < pathSegments.length; index += 1) {
+    const rawSegment = String(pathSegments[index]);
+    const isLeaf = index === pathSegments.length - 1;
+    const numericIndex = isNumericPathSegment(rawSegment) ? Number(rawSegment) - 1 : null;
+    const targetKey = Array.isArray(cursor) && numericIndex !== null ? numericIndex : rawSegment;
+
+    if (isLeaf) {
+      cursor[targetKey] = nextValue;
+      break;
+    }
+
+    const nextSegment = String(pathSegments[index + 1]);
+    const shouldCreateArray = isNumericPathSegment(nextSegment);
+    const currentValue = cursor[targetKey];
+
+    if (Array.isArray(currentValue)) {
+      cursor[targetKey] = [...currentValue];
+    } else if (currentValue && typeof currentValue === 'object') {
+      cursor[targetKey] = { ...currentValue };
+    } else {
+      cursor[targetKey] = shouldCreateArray ? [] : {};
+    }
+
+    cursor = cursor[targetKey];
+  }
+
+  return initialContainer;
+};
+
+const formatPromptConfigValue = value => {
+  if (value === null || value === undefined) return '';
+  if (typeof value === 'string') return value;
+  if (typeof value === 'number' || typeof value === 'boolean') return String(value);
+
+  try {
+    return JSON.stringify(value, null, 2);
+  } catch {
+    return String(value);
+  }
+};
+
+const inferConfigInputValue = (rawValue, currentValue) => {
+  const normalizedRawValue = String(rawValue ?? '');
+  const trimmedRawValue = normalizedRawValue.trim();
+
+  if (Array.isArray(currentValue) || (currentValue && typeof currentValue === 'object')) {
+    if (!trimmedRawValue) {
+      return Array.isArray(currentValue) ? [] : {};
+    }
+
+    try {
+      return JSON.parse(trimmedRawValue);
+    } catch {
+      return currentValue;
+    }
+  }
+
+  if (typeof currentValue === 'number' || typeof currentValue === 'boolean') {
+    return coerceConfigInputValue(normalizedRawValue, currentValue);
+  }
+
+  if (typeof currentValue === 'string' && currentValue !== '') {
+    return rawValue;
+  }
+
+  if (!trimmedRawValue) {
+    return '';
+  }
+
+  const parsedBoolean = parseBooleanInput(trimmedRawValue);
+  if (parsedBoolean !== null) return parsedBoolean;
+
+  if (/^-?\d+(?:[.,]\d+)?$/.test(trimmedRawValue)) {
+    return Number.parseFloat(trimmedRawValue.replace(',', '.'));
+  }
+
+  try {
+    return JSON.parse(trimmedRawValue);
+  } catch {
+    return rawValue;
+  }
+};
+
+const ActionButton = ({ label, onPress, accent = SCREEN_COLORS.brand, iconName = 'plus' }) => (
   <TouchableOpacity
     style={[styles.actionButton, { borderColor: alpha(accent, 0.55) }]}
     activeOpacity={0.84}
     onPress={onPress}
   >
-    <Icon name="plus" size={15} color={accent} />
+    <Icon name={iconName} size={15} color={accent} />
     {label ? <Text style={[styles.actionButtonText, { color: accent }]}>{label}</Text> : null}
   </TouchableOpacity>
 );
 
 export default function MenuCostsPage({ navigation }) {
   const peopleStore = useStore('people');
+  const configsStore = useStore('configs');
   const themeStore = useStore('theme');
+  const messageApi = useMessage() || {};
   const { width } = useWindowDimensions();
   const { currentCompany } = peopleStore.getters;
   const { colors: themeColors } = themeStore.getters;
+  const configActions = configsStore.actions;
+  const { showError, showPrompt, showSuccess } = messageApi;
 
   const brandColors = useMemo(
     () => resolveThemePalette({ ...themeColors, ...(currentCompany?.theme?.colors || {}) }, baseColors),
@@ -125,6 +301,13 @@ export default function MenuCostsPage({ navigation }) {
   );
 
   const isWide = width >= 1080;
+  const currentCompanyIri = useMemo(() => {
+    if (typeof currentCompany?.['@id'] === 'string' && currentCompany['@id'].startsWith('/')) {
+      return currentCompany['@id'];
+    }
+
+    return currentCompany?.id ? `/people/${currentCompany.id}` : '';
+  }, [currentCompany?.['@id'], currentCompany?.id]);
 
   const [activeTab, setActiveTab] = useState('dashboard');
   const [ledgerMode, setLedgerMode] = useState('timeline');
@@ -206,6 +389,88 @@ export default function MenuCostsPage({ navigation }) {
     setShowProviderModal(true);
   }, []);
 
+  const openGeneralSettings = useCallback(() => {
+    navigation.push('GeneralSettings');
+  }, [navigation]);
+
+  const openSuppliersList = useCallback(() => {
+    navigation.push('ProvidersIndex');
+  }, [navigation]);
+
+  const openPurchaseList = useCallback(() => {
+    navigation.push('OrderHistoryPage', {
+      orderTypeFilter: 'purchase',
+      historyTitle: 'Compras',
+    });
+  }, [navigation]);
+
+  const openProductList = useCallback(productType => {
+    const supplyTypes = ['feedstock', 'component', 'package'];
+
+    navigation.push('ProductsPage', {
+      context: supplyTypes.includes(productType) ? 'supplies' : 'products',
+      interactionMode: 'manager',
+      showBottomCart: false,
+      showBottomToolBar: false,
+      ...(productType ? { typeFilter: productType } : {}),
+    });
+  }, [navigation]);
+
+  const handleEditConfig = useCallback(async configTarget => {
+    const configKey = String(configTarget?.rootConfigKey || configTarget?.configKey || '').trim();
+
+    if (!configKey) {
+      showError?.('Chave de configuração inválida.');
+      return;
+    }
+
+    if (!currentCompanyIri) {
+      showError?.('Empresa atual não encontrada para salvar configuração.');
+      return;
+    }
+
+    if (!showPrompt) {
+      openGeneralSettings();
+      return;
+    }
+
+    const currentValue = configTarget?.parsedValue;
+    const label = String(configTarget?.label || configTarget?.configKey || 'Configuração').trim();
+    const nextRawValue = await showPrompt({
+      title: label,
+      message: configTarget?.configKey ? `Chave: ${configTarget.configKey}` : 'Editar configuração da empresa',
+      defaultValue: formatPromptConfigValue(currentValue),
+      placeholder: 'Informe o novo valor',
+      confirmLabel: 'Salvar',
+      cancelLabel: 'Cancelar',
+    });
+
+    if (nextRawValue === null) {
+      return;
+    }
+
+    try {
+      const pathSegments = Array.isArray(configTarget?.pathSegments) ? configTarget.pathSegments : [];
+      const nextLeafValue = inferConfigInputValue(nextRawValue, currentValue);
+      const nextConfigValue = pathSegments.length
+        ? setConfigValueAtPath(configTarget?.rootParsedValue, pathSegments, nextLeafValue)
+        : nextLeafValue;
+
+      await configActions.addConfigs({
+        configKey,
+        configValue: toConfigRequestValue(nextConfigValue),
+        people: currentCompanyIri,
+        module: 4,
+        visibility: 'public',
+      });
+
+      showSuccess?.(`${label} atualizado.`);
+      await loadScreen(true);
+    } catch {
+      showError?.('Não foi possível salvar esta configuração.');
+    }
+  }, [configActions, currentCompanyIri, loadScreen, openGeneralSettings, showError, showPrompt, showSuccess]);
+
   const catalogPrimaryAction = useMemo(() => {
     switch (catalogSegment) {
       case 'ingredients':
@@ -222,12 +487,47 @@ export default function MenuCostsPage({ navigation }) {
   }, [catalogSegment, openProductCreator]);
 
   const resourceActions = useMemo(() => ({
-    ingredients: { label: '', onPress: () => openProductCreator('feedstock'), accent: SCREEN_COLORS.good },
-    recipes: { label: '', onPress: () => openProductCreator('manufactured'), accent: SCREEN_COLORS.warn },
-    packaging: { label: '', onPress: () => openProductCreator('package'), accent: '#38BDF8' },
-    suppliers: { label: '', onPress: openProviderCreator, accent: SCREEN_COLORS.brand },
-    purchases: { label: '', onPress: openPurchaseCreator, accent: SCREEN_COLORS.brand },
-  }), [openProductCreator, openProviderCreator, openPurchaseCreator]);
+    ingredients: [
+      { label: '', onPress: () => openProductCreator('feedstock'), accent: SCREEN_COLORS.good, iconName: 'plus' },
+      { label: 'Lista', onPress: () => openProductList('feedstock'), accent: SCREEN_COLORS.good, iconName: 'list' },
+    ],
+    recipes: [
+      { label: '', onPress: () => openProductCreator('manufactured'), accent: SCREEN_COLORS.warn, iconName: 'plus' },
+      { label: 'Lista', onPress: () => openProductList('manufactured'), accent: SCREEN_COLORS.warn, iconName: 'list' },
+    ],
+    packaging: [
+      { label: '', onPress: () => openProductCreator('package'), accent: '#38BDF8', iconName: 'plus' },
+      { label: 'Lista', onPress: () => openProductList('package'), accent: '#38BDF8', iconName: 'list' },
+    ],
+    suppliers: [
+      { label: '', onPress: openProviderCreator, accent: SCREEN_COLORS.brand, iconName: 'plus' },
+      { label: 'Lista', onPress: openSuppliersList, accent: SCREEN_COLORS.brand, iconName: 'list' },
+    ],
+    purchases: [
+      { label: '', onPress: openPurchaseCreator, accent: SCREEN_COLORS.brand, iconName: 'plus' },
+      { label: 'Lista', onPress: openPurchaseList, accent: SCREEN_COLORS.brand, iconName: 'list' },
+    ],
+    inputs: [
+      { label: 'Config.', onPress: openGeneralSettings, accent: SCREEN_COLORS.brand, iconName: 'sliders' },
+    ],
+    operationalExpenses: [
+      { label: 'Config.', onPress: openGeneralSettings, accent: SCREEN_COLORS.brand, iconName: 'sliders' },
+    ],
+    fixedCosts: [
+      { label: 'Config.', onPress: openGeneralSettings, accent: SCREEN_COLORS.brand, iconName: 'sliders' },
+    ],
+    settings: [
+      { label: 'Config.', onPress: openGeneralSettings, accent: SCREEN_COLORS.brand, iconName: 'sliders' },
+    ],
+  }), [
+    openGeneralSettings,
+    openProductCreator,
+    openProductList,
+    openProviderCreator,
+    openPurchaseCreator,
+    openPurchaseList,
+    openSuppliersList,
+  ]);
 
   const filteredCatalogItems = useMemo(() => {
     const items = viewModel?.catalog?.items || [];
@@ -367,10 +667,10 @@ export default function MenuCostsPage({ navigation }) {
         {viewModel?.company?.label ? `${viewModel.company.label} • ` : ''}
         {viewModel?.dashboard?.heroSubtitle}
       </Text>
-      <Text style={styles.companyLine}>Fontes reais: products, orders, product groups, product categories e purchasing suggestion.</Text>
+      <Text style={styles.companyLine}>Fontes reais: products, orders, product groups, product categories, purchasing suggestion e configs.</Text>
       <View style={styles.heroBadgeRow}>
         <View style={[styles.heroBadge, { borderColor: alpha(brandColors.primary || SCREEN_COLORS.brand, 0.55) }]}>
-          <Text style={[styles.heroBadgeText, { color: brandColors.primary || SCREEN_COLORS.brand }]}>Somente leitura</Text>
+          <Text style={[styles.heroBadgeText, { color: brandColors.primary || SCREEN_COLORS.brand }]}>Leitura + atalhos</Text>
         </View>
         <View style={[styles.heroBadge, { borderColor: alpha(SCREEN_COLORS.bad, 0.55) }]}>
           <Text style={[styles.heroBadgeText, { color: '#FCA5A5' }]}>{MISSING_TEXT}</Text>
@@ -429,6 +729,7 @@ export default function MenuCostsPage({ navigation }) {
                 missing={metric.missing}
                 message={metric.message}
                 accent={metric.accent}
+                onPress={metric.editor ? () => handleEditConfig(metric.editor) : undefined}
               />
             ))}
           </View>
@@ -997,16 +1298,34 @@ export default function MenuCostsPage({ navigation }) {
   };
 
   const renderRegisterCard = (sectionKey, section) => {
-    const action = resourceActions[sectionKey];
+    const actions = Array.isArray(resourceActions[sectionKey]) ? resourceActions[sectionKey] : [];
     const normalizedSection = section || { title: '', ...createSourceState([]) };
     const sectionItems = Array.isArray(normalizedSection.items) ? normalizedSection.items : [];
+    const renderHeaderActions = () => {
+      if (!actions.length) return null;
+
+      return (
+        <View style={styles.registerActionsRow}>
+          {actions.map((action, index) => (
+            <View key={`${sectionKey}-action-${action.label || action.iconName || 'action'}-${index}`} style={styles.registerActionWrap}>
+              <ActionButton
+                label={action.label}
+                onPress={action.onPress}
+                accent={action.accent}
+                iconName={action.iconName}
+              />
+            </View>
+          ))}
+        </View>
+      );
+    };
 
     if (normalizedSection.status === SOURCE_STATUS.MISSING) {
       return (
         <View key={sectionKey} style={styles.registerCard}>
           <View style={styles.registerCardHeader}>
             <Text style={styles.registerCardTitle}>{normalizedSection.title}</Text>
-            {action ? <ActionButton onPress={action.onPress} accent={action.accent} /> : null}
+            {renderHeaderActions()}
           </View>
           <MissingInfo label={normalizedSection.title} message={normalizedSection.message} />
         </View>
@@ -1018,19 +1337,35 @@ export default function MenuCostsPage({ navigation }) {
       <View key={sectionKey} style={styles.registerCard}>
         <View style={styles.registerCardHeader}>
           <Text style={styles.registerCardTitle}>{normalizedSection.title}</Text>
-          {action ? <ActionButton onPress={action.onPress} accent={action.accent} /> : null}
+          {renderHeaderActions()}
         </View>
         <Text style={styles.registerCount}>{String(sectionItems.length)}</Text>
         {normalizedSection.status === SOURCE_STATUS.EMPTY ? (
           <EmptyState message={normalizedSection.message} />
         ) : (
           previewItems.map((item, index) => (
-            <View key={`${sectionKey}-${item.id || index}`} style={styles.smallListItem}>
-              <Text style={styles.smallListTitle}>{item.label || item.name || item.productName || `Registro ${index + 1}`}</Text>
+            <TouchableOpacity
+              key={`${sectionKey}-${item.id || index}`}
+              style={styles.smallListItem}
+              activeOpacity={item.isConfig ? 0.82 : 1}
+              disabled={!item.isConfig}
+              onPress={item.isConfig ? () => handleEditConfig(item) : undefined}
+            >
+              <View style={styles.smallListHeaderRow}>
+                <Text style={[styles.smallListTitle, { flex: 1, marginRight: 8 }]}>
+                  {item.label || item.name || item.productName || `Registro ${index + 1}`}
+                </Text>
+                {item.isConfig ? (
+                  <View style={styles.smallListAction}>
+                    <Icon name="edit-3" size={13} color={SCREEN_COLORS.brand} />
+                    <Text style={styles.smallListActionText}>Editar</Text>
+                  </View>
+                ) : null}
+              </View>
               <Text style={styles.smallListMeta}>
                 {item.valueLabel || item.document || item.email || item.dateLabel || item.segmentLabel || getPreviewText([item.supplierLabel, formatMoney(item.orderPrice), formatDate(item.date)]) || 'Registro disponível'}
               </Text>
-            </View>
+            </TouchableOpacity>
           ))
         )}
       </View>
