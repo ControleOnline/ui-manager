@@ -571,7 +571,7 @@ export default function OrderHistoryPage({ navigation, route }) {
 
   const openOrder = useCallback(order => {
     orderActions.syncOrder?.(order);
-    navigation.navigate('OrderDetails', buildOrderDetailsRouteParams(order, { kds: true }));
+    navigation.navigate('OrderDetails', buildOrderDetailsRouteParams(order));
   }, [navigation, orderActions]);
 
   /* ─── card de pedido ─────────────────────────────────────────────── */
