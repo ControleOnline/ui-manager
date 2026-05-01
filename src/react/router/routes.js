@@ -14,6 +14,7 @@ import DeviceDetailPage from '@controleonline/ui-manager/src/react/pages/DeviceD
 import PrinterDeviceDetailPage from '@controleonline/ui-manager/src/react/pages/PrinterDeviceDetailPage';
 import PrinterDeviceFormPage from '@controleonline/ui-manager/src/react/pages/PrinterDeviceFormPage';
 import ConfiguratorPage from '@controleonline/ui-manager/src/react/pages/ConfiguratorPage';
+import ManagerOrderNotificationsPage from '@controleonline/ui-manager/src/react/pages/ManagerOrderNotificationsPage';
 import TranslationsReviewPage from '@controleonline/ui-manager/src/react/pages/TranslationsReviewPage';
 import {
   IP_CAMERA_DEVICE_TYPE,
@@ -95,6 +96,17 @@ const managerRoutes = [
       title: 'Configurador',
       showCompanyFilter: true,
       companyFilterMode: 'icon',
+    },
+  },
+  {
+    name: 'ManagerOrderNotificationsPage',
+    component: ManagerOrderNotificationsPage,
+    options: {
+      headerShown: true,
+      headerBackVisible: true,
+      title: 'Notificacoes de pedidos',
+      showBottomToolBar: true,
+      showCompanyFilter: false,
     },
   },
   {
