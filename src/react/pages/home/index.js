@@ -6,26 +6,28 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { Text } from 'react-native-animatable';
-import {
-  resolveThemePalette,
-  withOpacity,
-} from '@controleonline/../../src/styles/branding';
+import { resolveThemePalette } from '@controleonline/../../src/styles/branding';
 import { colors } from '@controleonline/../../src/styles/colors';
 import Icon from 'react-native-vector-icons/Feather';
 import { useStore } from '@store';
 import { api } from '@controleonline/ui-common/src/api';
 import Formatter from '@controleonline/ui-common/src/utils/formatter';
 import styles from './index.styles';
+	
+const createTone = solid => ({
+  solid,
+  soft: `${solid}1F`,
+});
 
-// Hex fixos para uso com withOpacity (CSS vars não são suportadas)
+// Usa hex com alpha no fundo para evitar remapeamento antes da opacidade.
 const HEX = {
-  info: '#3B82F6',
-  success: '#22C55E',
-  warning: '#F59E0B',
-  error: '#EF4444',
-  purple: '#8B5CF6',
-  orange: '#F97316',
-  muted: '#64748B',
+  info: createTone('#3B82F6'),
+  success: createTone('#22C55E'),
+  warning: createTone('#F59E0B'),
+  error: createTone('#EF4444'),
+  purple: createTone('#8B5CF6'),
+  orange: createTone('#F97316'),
+  muted: createTone('#64748B'),
 };
 
 const resolveShortcutLabel = (value, fallback) => {
@@ -33,11 +35,11 @@ const resolveShortcutLabel = (value, fallback) => {
   return normalizedValue || fallback;
 };
 
-function ShortcutCard({ label, icon, color, onPress }) {
+function ShortcutCard({ label, icon, tone, onPress }) {
   return (
     <TouchableOpacity style={styles.shortcutCard} activeOpacity={0.85} onPress={onPress}>
-      <View style={[styles.shortcutIcon, { backgroundColor: withOpacity(color, 0.12) }]}>
-        <Icon name={icon} size={22} color={color} />
+      <View style={[styles.shortcutIcon, { backgroundColor: tone.soft }]}>
+        <Icon name={icon} size={22} color={tone.solid} />
       </View>
       <Text style={styles.shortcutLabel} numberOfLines={2}>{label}</Text>
     </TouchableOpacity>
@@ -51,7 +53,7 @@ function SectionSummary({ items, loading }) {
       {items.map((item, idx) => (
         <View key={idx} style={styles.sectionSummaryItem}>
           {loading ? (
-            <ActivityIndicator size="small" color={HEX.muted} />
+            <ActivityIndicator size="small" color={HEX.muted.solid} />
           ) : (
             <Text style={styles.sectionSummaryValue}>{item.value}</Text>
           )}
@@ -62,12 +64,12 @@ function SectionSummary({ items, loading }) {
   );
 }
 
-function SectionBlock({ title, icon, color, summary, loadingSummary, last, children }) {
+function SectionBlock({ title, icon, tone, summary, loadingSummary, last, children }) {
   return (
     <View style={[styles.sectionBlock, last && styles.sectionBlockLast]}>
       <View style={styles.sectionHeaderRow}>
-        <View style={[styles.sectionIconWrap, { backgroundColor: withOpacity(color, 0.12) }]}>
-          <Icon name={icon} size={15} color={color} />
+        <View style={[styles.sectionIconWrap, { backgroundColor: tone.soft }]}>
+          <Icon name={icon} size={15} color={tone.solid} />
         </View>
         <Text style={styles.sectionTitle}>{title}</Text>
       </View>
@@ -98,8 +100,8 @@ export default function HomePage({ navigation }) {
   );
 
   const [stats, setStats] = useState([
-    { label: global.t?.t('configs', 'stat_label', 'orders'), value: '...', icon: 'shopping-bag', color: HEX.info, route: 'OrderHistoryPage' },
-    { label: global.t?.t('configs', 'stat_label', 'customers'), value: '...', icon: 'users', color: HEX.success, route: 'ClientsIndex' },
+    { label: global.t?.t('configs', 'stat_label', 'orders'), value: '...', icon: 'shopping-bag', tone: HEX.info, route: 'OrderHistoryPage' },
+    { label: global.t?.t('configs', 'stat_label', 'customers'), value: '...', icon: 'users', tone: HEX.success, route: 'ClientsIndex' },
   ]);
   const [loadingStats, setLoadingStats] = useState(true);
   const salesHistoryLabel = useMemo(
@@ -171,8 +173,8 @@ export default function HomePage({ navigation }) {
           : null;
 
         setStats([
-          { label: global.t?.t('configs', 'stat_label', 'orders'), value: String(ordersRes?.totalItems ?? '—'), icon: 'shopping-bag', color: HEX.info, route: 'OrderHistoryPage' },
-          { label: global.t?.t('configs', 'stat_label', 'customers'), value: String(clientsRes?.totalItems ?? '—'), icon: 'users', color: HEX.success, route: 'ClientsIndex' },
+          { label: global.t?.t('configs', 'stat_label', 'orders'), value: String(ordersRes?.totalItems ?? '—'), icon: 'shopping-bag', tone: HEX.info, route: 'OrderHistoryPage' },
+          { label: global.t?.t('configs', 'stat_label', 'customers'), value: String(clientsRes?.totalItems ?? '—'), icon: 'users', tone: HEX.success, route: 'ClientsIndex' },
         ]);
 
         setSummaries({
@@ -216,7 +218,7 @@ export default function HomePage({ navigation }) {
   if (!currentCompany || !themeColors) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={HEX.info} />
+        <ActivityIndicator size="large" color={HEX.info.solid} />
       </View>
     );
   }
@@ -235,11 +237,15 @@ export default function HomePage({ navigation }) {
               activeOpacity={0.85}
               onPress={() => go(stat.route)}
             >
-              <View style={[styles.statIcon, { backgroundColor: withOpacity(stat.color, 0.12) }]}>
-                <Icon name={stat.icon} size={17} color={stat.color} />
+              <View style={[styles.statIcon, { backgroundColor: stat.tone.soft }]}>
+                <Icon name={stat.icon} size={17} color={stat.tone.solid} />
               </View>
               {loadingStats ? (
-                <ActivityIndicator size="small" color={stat.color} style={styles.statLoader} />
+                <ActivityIndicator
+                  size="small"
+                  color={stat.tone.solid}
+                  style={styles.statLoader}
+                />
               ) : (
                 <Text style={styles.statValue}>{stat.value}</Text>
               )}
@@ -269,12 +275,12 @@ export default function HomePage({ navigation }) {
         <SectionBlock
           title={global.t?.t('configs', 'section_title', 'financial')}
           icon="dollar-sign"
-          color={HEX.info}
+          tone={HEX.info}
           summary={summaries.financeiro}
           loadingSummary={loadingStats}
         >
           <ShortcutsRow>
-            <ShortcutCard label="Financeiro" icon="dollar-sign" color={HEX.info} onPress={() => go('FinancialHubPage')} />
+            <ShortcutCard label="Financeiro" icon="dollar-sign" tone={HEX.info} onPress={() => go('FinancialHubPage')} />
             <View style={styles.shortcutSpacer} />
           </ShortcutsRow>
         </SectionBlock>
@@ -283,24 +289,24 @@ export default function HomePage({ navigation }) {
         <SectionBlock
           title={global.t?.t('configs', 'section_title', 'operations')}
           icon="shopping-bag"
-          color={HEX.warning}
+          tone={HEX.warning}
           summary={summaries.operacoes}
           loadingSummary={loadingStats}
         >
           <ShortcutsRow>
-            <ShortcutCard label={global.t?.t('configs', 'button_title', 'ppc')} icon="monitor" color={HEX.purple} onPress={() => go('DisplayList')} />
-            <ShortcutCard label={global.t?.t('configs', 'button_title', 'providers')} icon="briefcase" color={HEX.warning} onPress={() => go('ProvidersIndex')} />
-            <ShortcutCard label={salesHistoryLabel} icon="shopping-bag" color={HEX.info} onPress={() => openOrderHistory('sale', salesHistoryLabel)} />
+            <ShortcutCard label={global.t?.t('configs', 'button_title', 'ppc')} icon="monitor" tone={HEX.purple} onPress={() => go('DisplayList')} />
+            <ShortcutCard label={global.t?.t('configs', 'button_title', 'providers')} icon="briefcase" tone={HEX.warning} onPress={() => go('ProvidersIndex')} />
+            <ShortcutCard label={salesHistoryLabel} icon="shopping-bag" tone={HEX.info} onPress={() => openOrderHistory('sale', salesHistoryLabel)} />
           </ShortcutsRow>
           <ShortcutsRow>
-            <ShortcutCard label={global.t?.t('configs', 'button_title', 'products')} icon="package" color={HEX.success} onPress={() => go('CategoriesPage')} />
-            <ShortcutCard label={global.t?.t('configs', 'button_title', 'inventory')} icon="archive" color={HEX.warning} onPress={() => go('InventoriesPage')} />
-            <ShortcutCard label={purchaseHistoryLabel} icon="truck" color={HEX.orange} onPress={() => openOrderHistory('purchase', purchaseHistoryLabel)} />
+            <ShortcutCard label={global.t?.t('configs', 'button_title', 'products')} icon="package" tone={HEX.success} onPress={() => go('CategoriesPage')} />
+            <ShortcutCard label={global.t?.t('configs', 'button_title', 'inventory')} icon="archive" tone={HEX.warning} onPress={() => go('InventoriesPage')} />
+            <ShortcutCard label={purchaseHistoryLabel} icon="truck" tone={HEX.orange} onPress={() => openOrderHistory('purchase', purchaseHistoryLabel)} />
           </ShortcutsRow>
           <ShortcutsRow last>
-            <ShortcutCard label={global.t?.t('configs', 'button_title', 'purchasingSuggestion')} icon="truck" color={HEX.purple} onPress={() => go('PurchasingSuggestion')} />
-            <ShortcutCard label={global.t?.t('configs', 'button_title', 'purchaseForm')} icon="shopping-cart" color={HEX.success} onPress={() => go('PurchaseFormPage')} />
-            <ShortcutCard label="Custos do Cardápio" icon="pie-chart" color={HEX.orange} onPress={() => go('MenuCostsPage')} />
+            <ShortcutCard label={global.t?.t('configs', 'button_title', 'purchasingSuggestion')} icon="truck" tone={HEX.purple} onPress={() => go('PurchasingSuggestion')} />
+            <ShortcutCard label={global.t?.t('configs', 'button_title', 'purchaseForm')} icon="shopping-cart" tone={HEX.success} onPress={() => go('PurchaseFormPage')} />
+            <ShortcutCard label="Custos do Cardápio" icon="pie-chart" tone={HEX.orange} onPress={() => go('MenuCostsPage')} />
           </ShortcutsRow>
         </SectionBlock>
 
@@ -308,18 +314,18 @@ export default function HomePage({ navigation }) {
         <SectionBlock
           title={global.t?.t('configs', 'section_title', 'comercial')}
           icon="users"
-          color={HEX.success}
+          tone={HEX.success}
         >
           <ShortcutsRow>
-            <ShortcutCard label={global.t?.t('configs', 'button_title', 'customers')} icon="users" color={HEX.success} onPress={() => go('ClientsIndex')} />
-            <ShortcutCard label={global.t?.t('people', 'label', 'employee')} icon="user-check" color={HEX.purple} onPress={() => go('EmployeesIndex')} />
-            <ShortcutCard label="PDV" icon="shopping-bag" color={HEX.orange} onPress={() => go('PdvPage')} />
+            <ShortcutCard label={global.t?.t('configs', 'button_title', 'customers')} icon="users" tone={HEX.success} onPress={() => go('ClientsIndex')} />
+            <ShortcutCard label={global.t?.t('people', 'label', 'employee')} icon="user-check" tone={HEX.purple} onPress={() => go('EmployeesIndex')} />
+            <ShortcutCard label="PDV" icon="shopping-bag" tone={HEX.orange} onPress={() => go('PdvPage')} />
           </ShortcutsRow>
           <ShortcutsRow last>
             <ShortcutCard
               label={global.t?.t('orders', 'title', 'linkedOrderSettlement')}
               icon="layers"
-              color={HEX.info}
+              tone={HEX.info}
               onPress={() => go('LinkedOrderSettlementPage')}
             />
             <View style={styles.shortcutSpacer} />
@@ -330,12 +336,12 @@ export default function HomePage({ navigation }) {
         <SectionBlock
           title="Modelos"
           icon="edit-3"
-          color={HEX.orange}
+          tone={HEX.orange}
           summary={summaries.modelos}
           loadingSummary={loadingStats}
         >
           <ShortcutsRow last>
-            <ShortcutCard label="Editor de modelos" icon="edit-3" color={HEX.orange} onPress={() => openModelEditor()} />
+            <ShortcutCard label="Editor de modelos" icon="edit-3" tone={HEX.orange} onPress={() => openModelEditor()} />
             <View style={styles.shortcutSpacer} />
           </ShortcutsRow>
         </SectionBlock>
@@ -344,12 +350,12 @@ export default function HomePage({ navigation }) {
         <SectionBlock
           title={global.t?.t('configs', 'section_title', 'Configurations')}
           icon="monitor"
-          color={HEX.purple}
+          tone={HEX.purple}
           last
         >
           <ShortcutsRow>
-            <ShortcutCard label="Configurador" icon="settings" color={HEX.muted} onPress={() => go('ConfiguratorPage')} />
-            <ShortcutCard label="Dispositivos" icon="credit-card" color={HEX.warning} onPress={() => go('DevicesIndex')} />
+            <ShortcutCard label="Configurador" icon="settings" tone={HEX.muted} onPress={() => go('ConfiguratorPage')} />
+            <ShortcutCard label="Dispositivos" icon="credit-card" tone={HEX.warning} onPress={() => go('DevicesIndex')} />
           </ShortcutsRow>
         </SectionBlock>
 
