@@ -16,6 +16,7 @@ import {useStore} from '@store';
 import {useMessage} from '@controleonline/ui-common/src/react/components/MessageService';
 import {
   applyManagerOrderNotificationPreferences,
+  buildManagerOrderNotificationContent,
   getManagerOrderNotificationPermissionStatus,
   resolveManagerOrderNotificationPreferences,
   requestManagerOrderNotificationPermission,
@@ -31,9 +32,11 @@ const permissionStatusLabels = {
 
 export default function ManagerOrderNotificationsPage() {
   const authStore = useStore('auth');
+  const peopleStore = useStore('people');
   const {showError, showSuccess} = useMessage() || {};
   const authActions = authStore.actions;
   const {user} = authStore.getters;
+  const {currentCompany} = peopleStore.getters;
 
   const currentPreferences = useMemo(
     () => resolveManagerOrderNotificationPreferences(user),
@@ -47,6 +50,21 @@ export default function ManagerOrderNotificationsPage() {
   const [soundUrl, setSoundUrl] = useState(currentPreferences.soundUrl);
   const [permissionStatus, setPermissionStatus] = useState('default');
   const [isSaving, setIsSaving] = useState(false);
+  const previewNotification = useMemo(
+    () =>
+      buildManagerOrderNotificationContent(
+        [
+          {
+            order: '12345',
+            notificationHeader: 'Pedido #12345',
+            notificationSubheader: 'Referencia interna #12345',
+            notificationStatusLabel: 'Fila',
+          },
+        ],
+        currentCompany,
+      ),
+    [currentCompany],
+  );
 
   useEffect(() => {
     setPushEnabled(currentPreferences.pushEnabled);
@@ -139,6 +157,35 @@ export default function ManagerOrderNotificationsPage() {
             Se quiser, junto do push voce tambem define um audio remoto para tocar
             no mesmo gatilho do websocket.
           </Text>
+        </View>
+
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <View style={styles.sectionIconWrap}>
+              <Icon name="receipt-long" size={20} color={colors.primary} />
+            </View>
+            <View style={styles.sectionHeaderCopy}>
+              <Text style={styles.sectionTitle}>Preview do pedido</Text>
+              <Text style={styles.sectionDescription}>
+                Esta tela usa o cabecalho do pedido e o status inicial em fila
+                para antecipar como o aviso aparece no Gestor.
+              </Text>
+            </View>
+          </View>
+
+          <View style={styles.previewCard}>
+            <View style={styles.previewHeader}>
+              <View style={styles.previewCopy}>
+                <Text style={styles.previewTitle}>{previewNotification.title}</Text>
+                <Text style={styles.previewBody}>{previewNotification.body}</Text>
+              </View>
+              <View style={styles.previewStatusBadge}>
+                <Text style={styles.previewStatusText}>
+                  {previewNotification.statusLabel || 'Fila'}
+                </Text>
+              </View>
+            </View>
+          </View>
         </View>
 
         <View style={styles.section}>
@@ -322,6 +369,47 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.05,
     shadowRadius: 14,
     elevation: 2,
+  },
+  previewCard: {
+    backgroundColor: colors.white,
+    borderRadius: 20,
+    padding: 18,
+    shadowColor: '#0F172A',
+    shadowOffset: {width: 0, height: 6},
+    shadowOpacity: 0.05,
+    shadowRadius: 14,
+    elevation: 2,
+  },
+  previewHeader: {
+    flexDirection: 'row',
+    gap: 12,
+    alignItems: 'flex-start',
+  },
+  previewCopy: {
+    flex: 1,
+  },
+  previewTitle: {
+    color: '#0F172A',
+    fontSize: 18,
+    fontWeight: '800',
+    marginBottom: 6,
+  },
+  previewBody: {
+    color: '#475569',
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  previewStatusBadge: {
+    borderRadius: 999,
+    backgroundColor: '#E0F2FE',
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+  },
+  previewStatusText: {
+    color: '#0369A1',
+    fontSize: 12,
+    fontWeight: '800',
+    textTransform: 'uppercase',
   },
   toggleCopy: {
     flex: 1,
