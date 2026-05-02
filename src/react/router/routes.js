@@ -6,6 +6,7 @@ import IncomeStatement from '@controleonline/ui-financial/src/react/pages/report
 import Payables from '@controleonline/ui-financial/src/react/pages/Payables';
 import Receivables from '@controleonline/ui-financial/src/react/pages/Receivables';
 import OwnTransfers from '@controleonline/ui-financial/src/react/pages/OwnTransfers';
+import InvoiceDetailsPage from '@controleonline/ui-financial/src/react/pages/InvoiceDetailsPage';
 import WalletsPage from '@controleonline/ui-financial/src/react/pages/WalletsPage';
 import InvoiceCategoriesPage from '@controleonline/ui-financial/src/react/pages/InvoiceCategoriesPage';
 
@@ -342,6 +343,17 @@ const managerRoutes = [
       title: global.t?.t("configs", "title", "ownTransfers"),
       showCompanyFilter: true,
       companyFilterMode: 'icon',
+    },
+    initialParams: { store: 'invoice' },
+  },
+  {
+    name: 'InvoiceDetailsPage',
+    component: InvoiceDetailsPage,
+    options: {
+      headerShown: true,
+      headerBackVisible: true,
+      title: 'Detalhe da invoice',
+      showCompanyFilter: false,
     },
     initialParams: { store: 'invoice' },
   },
