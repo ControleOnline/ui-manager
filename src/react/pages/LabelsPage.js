@@ -13,14 +13,16 @@ import Icon from 'react-native-vector-icons/Feather';
 import { useStore } from '@store';
 import { resolveThemePalette, withOpacity } from '@controleonline/../../src/styles/branding';
 import { colors } from '@controleonline/../../src/styles/colors';
+import { PRINT_JOB_TYPE_PRODUCT_LABEL } from '@controleonline/ui-common/src/react/print/jobs';
+import PrintButton from '@controleonline/ui-orders/src/react/components/PrintButton';
 import styles from './LabelsPage.styles';
 
 const PRODUCT_TYPES = ['product', 'manufactured', 'custom', 'feedstock', 'package', 'component'];
+const DATE_MASK_RE = /^\d{2}\/\d{2}\/\d{4}$/;
 
 const TEMPLATE = {
-  key: 'product-expiration',
-  label: 'Nome do produto + validade',
-  description: 'Modelo inicial para selecionar um produto, informar vencimento e incluir texto livre.',
+  key: 'product-handling-expiration',
+  label: 'Produto, manejo e validade',
 };
 
 const getProductName = product =>
@@ -29,7 +31,15 @@ const getProductName = product =>
 const getProductDisplayName = product =>
   getProductName(product) || (product?.id ? `Produto #${product.id}` : '');
 
-const formatExpirationDate = value => {
+const maskDateInput = value => {
+  const digits = String(value || '').replace(/\D/g, '').slice(0, 8);
+
+  if (digits.length <= 2) return digits;
+  if (digits.length <= 4) return `${digits.slice(0, 2)}/${digits.slice(2)}`;
+  return `${digits.slice(0, 2)}/${digits.slice(2, 4)}/${digits.slice(4)}`;
+};
+
+const formatLabelDate = value => {
   const text = String(value || '').trim();
   const isoMatch = text.match(/^(\d{4})-(\d{2})-(\d{2})$/);
 
@@ -40,11 +50,13 @@ const formatExpirationDate = value => {
   return text;
 };
 
-const buildLabelText = ({ product, expirationDate, freeText }) => {
+const buildLabelText = ({ product, handlingDate, expirationDate, freeText }) => {
   const productName = getProductDisplayName(product) || 'Nome do produto';
-  const formattedExpiration = formatExpirationDate(expirationDate) || 'dd/mm/aaaa';
+  const formattedHandling = formatLabelDate(handlingDate) || 'dd/mm/aaaa';
+  const formattedExpiration = formatLabelDate(expirationDate) || 'dd/mm/aaaa';
   const lines = [
     productName.toUpperCase(),
+    `MANEJO: ${formattedHandling}`,
     `VALIDADE: ${formattedExpiration}`,
   ];
   const normalizedFreeText = String(freeText || '').trim();
@@ -58,7 +70,7 @@ const buildLabelText = ({ product, expirationDate, freeText }) => {
 
 export default function LabelsPage() {
   const { width } = useWindowDimensions();
-  const isWide = width >= 900;
+  const isCompact = width < 520;
 
   const themeStore = useStore('theme');
   const peopleStore = useStore('people');
@@ -80,32 +92,22 @@ export default function LabelsPage() {
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [productResults, setProductResults] = useState([]);
   const [searchingProducts, setSearchingProducts] = useState(false);
+  const [handlingDate, setHandlingDate] = useState('');
   const [expirationDate, setExpirationDate] = useState('');
   const [freeText, setFreeText] = useState('');
-  const [labelText, setLabelText] = useState('');
+  const [printFeedback, setPrintFeedback] = useState(null);
   const searchRef = useRef(0);
-  const lastGeneratedTextRef = useRef('');
 
   const generatedText = useMemo(
     () =>
       buildLabelText({
         product: selectedProduct,
+        handlingDate,
         expirationDate,
         freeText,
       }),
-    [expirationDate, freeText, selectedProduct],
+    [expirationDate, freeText, handlingDate, selectedProduct],
   );
-
-  useEffect(() => {
-    const previousGeneratedText = lastGeneratedTextRef.current;
-
-    setLabelText(currentText =>
-      !currentText || currentText === previousGeneratedText
-        ? generatedText
-        : currentText,
-    );
-    lastGeneratedTextRef.current = generatedText;
-  }, [generatedText]);
 
   const searchProducts = useCallback(
     async text => {
@@ -182,26 +184,73 @@ export default function LabelsPage() {
 
   const clearForm = () => {
     clearProduct();
+    setHandlingDate('');
     setExpirationDate('');
     setFreeText('');
-    setLabelText('');
-    lastGeneratedTextRef.current = '';
   };
 
-  const useModelText = () => {
-    setLabelText(generatedText);
-    lastGeneratedTextRef.current = generatedText;
-  };
-
-  const formattedExpiration = formatExpirationDate(expirationDate);
-  const previewReady = !!selectedProduct && !!formattedExpiration;
+  const formattedHandling = formatLabelDate(handlingDate);
+  const formattedExpiration = formatLabelDate(expirationDate);
+  const labelReady =
+    !!selectedProduct &&
+    DATE_MASK_RE.test(formattedHandling) &&
+    DATE_MASK_RE.test(formattedExpiration);
   const primaryColor = brandColors.primary || '#2563EB';
+  const finalLabelText = String(generatedText || '').trim();
+  const canPrint = labelReady && finalLabelText !== '';
+  const printJob = useMemo(
+    () => ({
+      type: PRINT_JOB_TYPE_PRODUCT_LABEL,
+      id: selectedProduct?.id || selectedProduct?.['@id'] || '',
+      productId: selectedProduct?.id || selectedProduct?.['@id'] || '',
+      productName: getProductDisplayName(selectedProduct),
+      handlingDate: formattedHandling,
+      expirationDate: formattedExpiration,
+      freeText,
+      labelText: finalLabelText,
+    }),
+    [
+      finalLabelText,
+      formattedExpiration,
+      formattedHandling,
+      freeText,
+      selectedProduct,
+    ],
+  );
+
+  const showPrintFeedback = (ok, message) => {
+    setPrintFeedback({ ok, message });
+    setTimeout(() => setPrintFeedback(null), 4000);
+  };
+
+  const handlePrintSuccess = completedRequest => {
+    const targetDeviceId = String(completedRequest?.targetDeviceId || '').trim();
+    showPrintFeedback(
+      true,
+      targetDeviceId
+        ? `Etiqueta enviada para ${targetDeviceId}`
+        : 'Etiqueta enviada para impressao.',
+    );
+  };
+
+  const handlePrintError = completedRequest => {
+    showPrintFeedback(
+      false,
+      completedRequest?.error || 'Erro ao imprimir etiqueta.',
+    );
+  };
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: brandColors.background || '#F8FAFC' }]} edges={['bottom']}>
-      <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
-        <View style={[styles.shell, isWide && styles.shellWide]}>
-          <View style={[styles.panel, styles.formPanel]}>
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={[
+          styles.scrollContent,
+          isCompact && styles.scrollContentCompact,
+        ]}
+      >
+        <View style={styles.shell}>
+          <View style={[styles.panel, styles.formPanel, isCompact && styles.panelCompact]}>
             <Text style={styles.panelTitle}>Etiquetas</Text>
 
             <View style={styles.templateCard}>
@@ -210,7 +259,6 @@ export default function LabelsPage() {
               </View>
               <View style={styles.templateText}>
                 <Text style={styles.templateTitle}>{TEMPLATE.label}</Text>
-                <Text style={styles.templateDescription}>{TEMPLATE.description}</Text>
               </View>
             </View>
 
@@ -273,17 +321,37 @@ export default function LabelsPage() {
               ) : null}
             </View>
 
-            <View style={styles.fieldBlock}>
-              <Text style={styles.fieldLabel}>Data de vencimento</Text>
-              <View style={styles.inputWrap}>
-                <Icon name="calendar" size={17} color="#94A3B8" />
-                <TextInput
-                  style={styles.input}
-                  value={expirationDate}
-                  onChangeText={setExpirationDate}
-                  placeholder="dd/mm/aaaa"
-                  placeholderTextColor="#94A3B8"
-                />
+            <View style={[styles.dateRow, isCompact && styles.dateRowCompact]}>
+              <View style={[styles.fieldBlock, styles.dateField]}>
+                <Text style={styles.fieldLabel}>Data de manejo</Text>
+                <View style={styles.inputWrap}>
+                  <Icon name="calendar" size={17} color="#94A3B8" />
+                  <TextInput
+                    style={styles.input}
+                    value={handlingDate}
+                    onChangeText={value => setHandlingDate(maskDateInput(value))}
+                    placeholder="dd/mm/aaaa"
+                    placeholderTextColor="#94A3B8"
+                    keyboardType="numeric"
+                    maxLength={10}
+                  />
+                </View>
+              </View>
+
+              <View style={[styles.fieldBlock, styles.dateField]}>
+                <Text style={styles.fieldLabel}>Data de validade</Text>
+                <View style={styles.inputWrap}>
+                  <Icon name="calendar" size={17} color="#94A3B8" />
+                  <TextInput
+                    style={styles.input}
+                    value={expirationDate}
+                    onChangeText={value => setExpirationDate(maskDateInput(value))}
+                    placeholder="dd/mm/aaaa"
+                    placeholderTextColor="#94A3B8"
+                    keyboardType="numeric"
+                    maxLength={10}
+                  />
+                </View>
               </View>
             </View>
 
@@ -299,52 +367,70 @@ export default function LabelsPage() {
               />
             </View>
 
-            <View style={styles.actionRow}>
+            <View style={[styles.actionRow, isCompact && styles.actionRowCompact]}>
+              <PrintButton
+                job={printJob}
+                store="print"
+                disabled={!canPrint}
+                iconColor="#FFFFFF"
+                label="Imprimir etiqueta"
+                printerSelection={{ enabled: true }}
+                onSuccess={handlePrintSuccess}
+                onError={handlePrintError}
+                style={[styles.printButtonWrap, isCompact && styles.fullWidthButton]}
+                layout={{
+                  mainButtonStyle: [
+                    styles.printButton,
+                    {
+                      backgroundColor: canPrint
+                        ? primaryColor
+                        : withOpacity(primaryColor, 0.45),
+                    },
+                  ],
+                  selectButtonStyle: [
+                    styles.printSelectButton,
+                    {
+                      backgroundColor: canPrint
+                        ? withOpacity(primaryColor, 0.9)
+                        : withOpacity(primaryColor, 0.35),
+                    },
+                  ],
+                }}
+                textStyle={styles.printButtonText}
+              />
               <TouchableOpacity
-                style={[styles.primaryButton, { backgroundColor: primaryColor }]}
+                style={[styles.secondaryButton, isCompact && styles.fullWidthButton]}
                 activeOpacity={0.85}
-                onPress={useModelText}
+                onPress={clearForm}
               >
-                <Icon name="refresh-cw" size={16} color="#FFFFFF" />
-                <Text style={[styles.buttonText, { color: '#FFFFFF' }]}>Recriar pelo modelo</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.secondaryButton} activeOpacity={0.85} onPress={clearForm}>
                 <Icon name="trash-2" size={16} color="#64748B" />
                 <Text style={[styles.buttonText, { color: '#475569' }]}>Limpar</Text>
               </TouchableOpacity>
             </View>
-          </View>
-
-          <View style={[styles.panel, styles.previewPanel]}>
-            <Text style={styles.panelTitle}>Previa</Text>
-
-            <View style={styles.previewWrap}>
-              <View style={[styles.labelPreview, !previewReady && styles.labelPreviewMuted]}>
-                <Text style={styles.labelProduct} numberOfLines={3}>
-                  {(getProductDisplayName(selectedProduct) || 'Nome do produto').toUpperCase()}
+            {!!printFeedback && (
+              <View
+                style={[
+                  styles.printFeedback,
+                  printFeedback.ok
+                    ? styles.printFeedbackOk
+                    : styles.printFeedbackError,
+                ]}
+              >
+                <Icon
+                  name={printFeedback.ok ? 'check-circle' : 'alert-circle'}
+                  size={16}
+                  color={printFeedback.ok ? '#16A34A' : '#DC2626'}
+                />
+                <Text
+                  style={[
+                    styles.printFeedbackText,
+                    { color: printFeedback.ok ? '#166534' : '#B91C1C' },
+                  ]}
+                >
+                  {printFeedback.message}
                 </Text>
-                <Text style={styles.labelDate}>
-                  VALIDADE: {formattedExpiration || 'dd/mm/aaaa'}
-                </Text>
-                {freeText.trim() ? (
-                  <Text style={styles.labelFreeText} numberOfLines={4}>
-                    {freeText.trim()}
-                  </Text>
-                ) : null}
               </View>
-            </View>
-
-            <View style={styles.fieldBlock}>
-              <Text style={styles.fieldLabel}>Texto final da etiqueta</Text>
-              <TextInput
-                style={[styles.textArea, styles.labelTextInput, { borderColor: withOpacity(primaryColor, 0.35) }]}
-                value={labelText}
-                onChangeText={setLabelText}
-                placeholder="Texto da etiqueta"
-                placeholderTextColor="#94A3B8"
-                multiline
-              />
-            </View>
+            )}
           </View>
         </View>
       </ScrollView>

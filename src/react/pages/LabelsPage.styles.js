@@ -11,17 +11,6 @@ const cardShadow = Platform.select({
   web: { boxShadow: '0 6px 18px rgba(15,23,42,0.08)' },
 });
 
-const labelShadow = Platform.select({
-  ios: {
-    shadowColor: '#0F172A',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.08,
-    shadowRadius: 10,
-  },
-  android: { elevation: 2 },
-  web: { boxShadow: '0 3px 12px rgba(15,23,42,0.1)' },
-});
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -35,14 +24,14 @@ const styles = StyleSheet.create({
     paddingBottom: 28,
     alignItems: 'center',
   },
+  scrollContentCompact: {
+    paddingHorizontal: 12,
+    paddingTop: 10,
+  },
   shell: {
     width: '100%',
-    maxWidth: 1120,
+    maxWidth: 720,
     gap: 16,
-  },
-  shellWide: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
   },
   panel: {
     backgroundColor: '#FFFFFF',
@@ -50,23 +39,19 @@ const styles = StyleSheet.create({
     padding: 18,
     ...cardShadow,
   },
-  formPanel: {
-    flex: 1.05,
+  panelCompact: {
+    borderRadius: 16,
+    paddingHorizontal: 14,
+    paddingVertical: 16,
   },
-  previewPanel: {
-    flex: 0.95,
+  formPanel: {
+    width: '100%',
   },
   panelTitle: {
     fontSize: 18,
     fontWeight: '800',
     color: '#0F172A',
     marginBottom: 6,
-  },
-  panelSub: {
-    fontSize: 13,
-    lineHeight: 19,
-    color: '#64748B',
-    marginBottom: 18,
   },
   fieldBlock: {
     marginBottom: 15,
@@ -98,7 +83,7 @@ const styles = StyleSheet.create({
     color: '#0F172A',
   },
   textArea: {
-    minHeight: 96,
+    minHeight: 92,
     borderWidth: 1,
     borderColor: '#E2E8F0',
     borderRadius: 14,
@@ -110,26 +95,20 @@ const styles = StyleSheet.create({
     color: '#0F172A',
     textAlignVertical: 'top',
   },
-  labelTextInput: {
-    minHeight: 160,
-    fontSize: 16,
-    lineHeight: 23,
-    fontWeight: '700',
-  },
   templateCard: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
     borderWidth: 1,
     borderColor: '#DBEAFE',
-    borderRadius: 16,
+    borderRadius: 14,
     backgroundColor: '#EFF6FF',
-    padding: 14,
+    padding: 12,
     marginBottom: 16,
   },
   templateIcon: {
-    width: 42,
-    height: 42,
+    width: 38,
+    height: 38,
     borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
@@ -144,11 +123,16 @@ const styles = StyleSheet.create({
     color: '#0F172A',
     lineHeight: 20,
   },
-  templateDescription: {
-    fontSize: 12,
-    lineHeight: 17,
-    color: '#64748B',
-    marginTop: 2,
+  dateRow: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  dateRowCompact: {
+    flexDirection: 'column',
+    gap: 0,
+  },
+  dateField: {
+    flex: 1,
   },
   selectedProduct: {
     flexDirection: 'row',
@@ -215,13 +199,19 @@ const styles = StyleSheet.create({
   actionRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
+    alignItems: 'stretch',
     gap: 10,
     marginTop: 2,
+  },
+  actionRowCompact: {
+    flexDirection: 'column',
   },
   primaryButton: {
     minHeight: 44,
     borderRadius: 14,
     paddingHorizontal: 16,
+    flexGrow: 1,
+    flexBasis: 160,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -238,62 +228,62 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#E2E8F0',
     backgroundColor: '#FFFFFF',
+    flexGrow: 1,
+    flexBasis: 120,
+  },
+  fullWidthButton: {
+    width: '100%',
+    flexBasis: '100%',
   },
   buttonText: {
     fontSize: 13,
     fontWeight: '800',
   },
-  previewWrap: {
-    alignItems: 'center',
-    marginBottom: 18,
+  printButtonWrap: {
+    minHeight: 44,
+    borderRadius: 14,
+    overflow: 'hidden',
+    flexGrow: 1,
+    flexBasis: 220,
   },
-  labelPreview: {
-    width: '100%',
-    maxWidth: 360,
-    minHeight: 168,
+  printButton: {
+    minHeight: 44,
+    borderRadius: 14,
+    paddingHorizontal: 16,
+    flex: 1,
+  },
+  printSelectButton: {
+    minHeight: 44,
+    borderRadius: 14,
+    paddingHorizontal: 10,
+  },
+  printButtonText: {
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  printFeedback: {
+    marginTop: 12,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#CBD5E1',
-    backgroundColor: '#FFFFFF',
-    paddingHorizontal: 20,
-    paddingVertical: 18,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    ...labelShadow,
+    gap: 8,
   },
-  labelPreviewMuted: {
-    opacity: 0.72,
+  printFeedbackOk: {
+    backgroundColor: '#F0FDF4',
+    borderColor: '#BBF7D0',
   },
-  labelProduct: {
-    fontSize: 23,
-    lineHeight: 28,
-    fontWeight: '900',
-    color: '#0F172A',
-    textAlign: 'center',
-    textTransform: 'uppercase',
+  printFeedbackError: {
+    backgroundColor: '#FEF2F2',
+    borderColor: '#FECACA',
   },
-  labelDate: {
-    fontSize: 19,
-    lineHeight: 24,
-    fontWeight: '900',
-    color: '#0F172A',
-    textAlign: 'center',
-    marginTop: 12,
-  },
-  labelFreeText: {
-    fontSize: 14,
-    lineHeight: 19,
-    fontWeight: '700',
-    color: '#334155',
-    textAlign: 'center',
-    marginTop: 14,
-  },
-  helperText: {
+  printFeedbackText: {
+    flex: 1,
     fontSize: 12,
-    lineHeight: 18,
-    color: '#64748B',
-    marginTop: 10,
-    textAlign: 'center',
+    lineHeight: 17,
+    fontWeight: '700',
   },
 });
 
