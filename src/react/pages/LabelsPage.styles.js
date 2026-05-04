@@ -206,17 +206,6 @@ const styles = StyleSheet.create({
   actionRowCompact: {
     flexDirection: 'column',
   },
-  primaryButton: {
-    minHeight: 44,
-    borderRadius: 14,
-    paddingHorizontal: 16,
-    flexGrow: 1,
-    flexBasis: 160,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-  },
   secondaryButton: {
     minHeight: 44,
     borderRadius: 14,

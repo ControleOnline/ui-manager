@@ -19,11 +19,7 @@ import styles from './LabelsPage.styles';
 
 const PRODUCT_TYPES = ['product', 'manufactured', 'custom', 'feedstock', 'package', 'component'];
 const DATE_MASK_RE = /^\d{2}\/\d{2}\/\d{4}$/;
-
-const TEMPLATE = {
-  key: 'product-handling-expiration',
-  label: 'Produto, manejo e validade',
-};
+const TEMPLATE_LABEL = 'Produto, manejo e validade';
 
 const getProductName = product =>
   String(product?.product || product?.name || product?.description || '').trim();
@@ -258,7 +254,7 @@ export default function LabelsPage() {
                 <Icon name="tag" size={20} color={primaryColor} />
               </View>
               <View style={styles.templateText}>
-                <Text style={styles.templateTitle}>{TEMPLATE.label}</Text>
+                <Text style={styles.templateTitle}>{TEMPLATE_LABEL}</Text>
               </View>
             </View>
 
