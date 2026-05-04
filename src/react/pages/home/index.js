@@ -130,6 +130,7 @@ export default function HomePage({ navigation }) {
       { label: 'Contratos', value: '...' },
       { label: 'E-mails', value: '...' },
       { label: 'Cardapios', value: '...' },
+      { label: 'Etiquetas', value: '...' },
     ],
   });
 
@@ -191,6 +192,7 @@ export default function HomePage({ navigation }) {
             { label: 'Contratos', value: String(modelSummary.contract || 0) },
             { label: 'E-mails', value: String(modelSummary.email || 0) },
             { label: 'Cardapios', value: String(modelSummary.menu || 0) },
+            { label: 'Etiquetas', value: '1 modelo' },
           ],
         });
       } catch {
@@ -303,10 +305,15 @@ export default function HomePage({ navigation }) {
             <ShortcutCard label={global.t?.t('configs', 'button_title', 'inventory')} icon="archive" tone={HEX.warning} onPress={() => go('InventoriesPage')} />
             <ShortcutCard label={purchaseHistoryLabel} icon="truck" tone={HEX.orange} onPress={() => openOrderHistory('purchase', purchaseHistoryLabel)} />
           </ShortcutsRow>
-          <ShortcutsRow last>
+          <ShortcutsRow>
             <ShortcutCard label={global.t?.t('configs', 'button_title', 'purchasingSuggestion')} icon="truck" tone={HEX.purple} onPress={() => go('PurchasingSuggestion')} />
             <ShortcutCard label={global.t?.t('configs', 'button_title', 'purchaseForm')} icon="shopping-cart" tone={HEX.success} onPress={() => go('PurchaseFormPage')} />
             <ShortcutCard label="Custos do Cardápio" icon="pie-chart" tone={HEX.orange} onPress={() => go('MenuCostsPage')} />
+          </ShortcutsRow>
+          <ShortcutsRow last>
+            <ShortcutCard label="Etiquetas" icon="tag" tone={HEX.info} onPress={() => go('LabelsPage')} />
+            <View style={styles.shortcutSpacer} />
+            <View style={styles.shortcutSpacer} />
           </ShortcutsRow>
         </SectionBlock>
 
@@ -342,6 +349,7 @@ export default function HomePage({ navigation }) {
         >
           <ShortcutsRow last>
             <ShortcutCard label="Editor de modelos" icon="edit-3" tone={HEX.orange} onPress={() => openModelEditor()} />
+            <ShortcutCard label="Etiquetas" icon="tag" tone={HEX.info} onPress={() => go('LabelsPage')} />
             <View style={styles.shortcutSpacer} />
           </ShortcutsRow>
         </SectionBlock>

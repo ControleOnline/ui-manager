@@ -28,6 +28,7 @@ import IFoodIntegrationPage from '@controleonline/ui-manager/src/react/pages/IFo
 import IntegrationsPage from '@controleonline/ui-manager/src/react/pages/Integrations';
 import ManagerCategoriesPage from '@controleonline/ui-manager/src/react/pages/ManagerCategoriesPage';
 import MenuCostsPage from '@controleonline/ui-manager/src/react/pages/MenuCostsPage';
+import LabelsPage from '@controleonline/ui-manager/src/react/pages/LabelsPage';
 import ModelTemplatesPage from '@controleonline/ui-manager/src/react/pages/ModelTemplatesPage';
 import OrderHistoryPage from '@controleonline/ui-manager/src/react/pages/OrderHistoryPage';
 import WhatsAppConnectionPage from '@controleonline/ui-manager/src/react/pages/WhatsAppConnectionPage';
@@ -172,6 +173,17 @@ const managerRoutes = [
       headerShown: true,
       headerBackVisible: true,
       title: 'Modelos HTML/Twig',
+      showCompanyFilter: true,
+      companyFilterMode: 'icon',
+    },
+  },
+  {
+    name: 'LabelsPage',
+    component: LabelsPage,
+    options: {
+      headerShown: true,
+      headerBackVisible: true,
+      title: 'Etiquetas',
       showCompanyFilter: true,
       companyFilterMode: 'icon',
     },
