@@ -313,7 +313,7 @@ export default function HomePage({ navigation }) {
           <ShortcutsRow last>
             <ShortcutCard
               label="Insumos"
-              icon="flask"
+              icon="box"
               tone={HEX.success}
               onPress={() => go('CategoriesPage', { context: 'supplies', interactionMode: 'manager' })}
             />
