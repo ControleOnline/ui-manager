@@ -311,8 +311,13 @@ export default function HomePage({ navigation }) {
             <ShortcutCard label="Custos do Cardápio" icon="pie-chart" tone={HEX.orange} onPress={() => go('MenuCostsPage')} />
           </ShortcutsRow>
           <ShortcutsRow last>
+            <ShortcutCard
+              label="Insumos"
+              icon="flask"
+              tone={HEX.success}
+              onPress={() => go('CategoriesPage', { context: 'supplies', interactionMode: 'manager' })}
+            />
             <ShortcutCard label="Etiquetas" icon="tag" tone={HEX.info} onPress={() => go('LabelsPage')} />
-            <View style={styles.shortcutSpacer} />
             <View style={styles.shortcutSpacer} />
           </ShortcutsRow>
         </SectionBlock>
