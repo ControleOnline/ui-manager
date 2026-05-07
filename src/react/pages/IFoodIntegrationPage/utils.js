@@ -55,3 +55,37 @@ export const formatDateTimeLabel = value => {
     minute: '2-digit',
   });
 };
+
+const pad = value => String(value).padStart(2, '0');
+
+export const toDateTimeLocalValue = value => {
+  const parsed = value ? new Date(value) : new Date();
+  const date = Number.isNaN(parsed.getTime()) ? new Date() : parsed;
+
+  return [
+    date.getFullYear(),
+    pad(date.getMonth() + 1),
+    pad(date.getDate()),
+  ].join('-') + `T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+};
+
+export const buildDefaultInterruptionDraft = () => {
+  const start = new Date();
+  start.setMinutes(start.getMinutes() + 5);
+  const end = new Date(start.getTime() + (60 * 60 * 1000));
+
+  return {
+    description: 'Pausa operacional',
+    start: toDateTimeLocalValue(start),
+    end: toDateTimeLocalValue(end),
+  };
+};
+
+export const toIFoodInterruptionDateTime = value => {
+  const normalized = String(value || '').trim();
+  if (!normalized) return '';
+  if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(normalized)) {
+    return `${normalized}:00`;
+  }
+  return normalized;
+};
