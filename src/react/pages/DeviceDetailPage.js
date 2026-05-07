@@ -982,7 +982,7 @@ const DeviceDetailPage = () => {
       (!normalizedDisplayId && normalizedPrinterId)
     ) {
       Alert.alert(
-        'Impressao de preparo',
+        'Impressão de preparo',
         'Selecione juntos o display vinculado e a impressora da fila, ou limpe os dois campos.',
       );
       return;
@@ -993,7 +993,7 @@ const DeviceDetailPage = () => {
       (!normalizedDisplayId || !normalizedPrinterId)
     ) {
       Alert.alert(
-        'Impressao automatica',
+        'Impressão automática',
         'Para imprimir produtos automaticamente, selecione o display vinculado e a impressora deste KDS.',
       );
       return;
@@ -1257,7 +1257,7 @@ const DeviceDetailPage = () => {
         {showPdvOperationTab && (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>
-              <Icon name="credit-card" size={13} /> {'  '}Configuracao do PDV
+              <Icon name="credit-card" size={13} /> {'  '}Configuração do PDV
             </Text>
 
             <View style={styles.configCard}>
@@ -1391,10 +1391,10 @@ const DeviceDetailPage = () => {
                     }>
                     <View>
                       <Text style={styles.toggleRowLabel}>
-                        Impressao automatica
+                        Impressão automática
                       </Text>
                       <Text style={styles.toggleRowValue}>
-                        {counterAutoPrintEnabled ? 'Sim' : 'Nao'}
+                        {counterAutoPrintEnabled ? 'Sim' : 'Não'}
                       </Text>
                     </View>
                     <Icon
@@ -1415,7 +1415,7 @@ const DeviceDetailPage = () => {
                   {counterAutoPrintEnabled && (
                     <View style={styles.textInputWrap}>
                       <Text style={styles.textInputLabel}>
-                        Tipo de impressao automatica
+                        Tipo de impressão automática
                       </Text>
                       <View style={styles.pickerWrap}>
                         <Picker
@@ -1443,7 +1443,7 @@ const DeviceDetailPage = () => {
 
                   <View style={styles.textInputWrap}>
                     <Text style={styles.textInputLabel}>
-                      Politica de caixa
+                      Política de caixa
                     </Text>
                     <View style={styles.pickerWrap}>
                       <Picker
@@ -1461,7 +1461,7 @@ const DeviceDetailPage = () => {
                           value={POS_CASH_MANAGEMENT_MODE_CASH_REGISTER}
                         />
                         <Picker.Item
-                          label="Fechamento diario"
+                          label="Fechamento diário"
                           value={POS_CASH_MANAGEMENT_MODE_DAILY}
                         />
                       </Picker>
@@ -1469,9 +1469,9 @@ const DeviceDetailPage = () => {
                   </View>
 
                   <Text style={styles.configHint}>
-                    Quando o balcao usar abertura e fechamento de caixa, o
-                    fechamento pode disparar o relatorio de vendas do device
-                    para os numeros configurados em Operacao e PDV da empresa.
+                    Quando o balcão usar abertura e fechamento de caixa, o
+                    fechamento pode disparar o relatório de vendas do device
+                    para os números configurados em Operação e PDV da empresa.
                   </Text>
                 </>
               )}
@@ -1534,7 +1534,7 @@ const DeviceDetailPage = () => {
                 <View>
                   <Text style={styles.toggleRowLabel}>Impressora</Text>
                   <Text style={styles.toggleRowValue}>
-                    {pdvPrinterEnabled ? 'Sim' : 'Nao'}
+                    {pdvPrinterEnabled ? 'Sim' : 'Não'}
                   </Text>
                 </View>
                 <Icon
@@ -1565,7 +1565,7 @@ const DeviceDetailPage = () => {
                 ) : (
                   <>
                     <Icon name="save" size={14} color="#fff" />
-                    <Text style={styles.configButtonText}>Salvar configuracao do PDV</Text>
+                    <Text style={styles.configButtonText}>Salvar configuração do PDV</Text>
                   </>
                 )}
               </TouchableOpacity>
@@ -1629,7 +1629,7 @@ const DeviceDetailPage = () => {
               </Text>
               <Text style={styles.configDescription}>
                 {tt('description', 'deliveryOnDeviceDescription') ||
-                  'Ative quando este equipamento precisa operar pedidos com cliente, endereco e observacoes de entrega. Desative para simplificar a conferencia em devices que nao trabalham com delivery.'}
+                  'Ative quando este equipamento precisa operar pedidos com cliente, endereço e observações de entrega. Desative para simplificar a conferência em devices que não trabalham com delivery.'}
               </Text>
 
               <TouchableOpacity
@@ -1659,7 +1659,7 @@ const DeviceDetailPage = () => {
 
               <Text style={styles.configHint}>
                 {tt('description', 'deliveryEnabledHint') ||
-                  'Quando desligado, o detalhe do pedido deste device deixa de mostrar o bloco de cliente, endereco e observacoes de entrega.'}
+                  'Quando desligado, o detalhe do pedido deste device deixa de mostrar o bloco de cliente, endereço e observações de entrega.'}
               </Text>
 
               <TouchableOpacity
@@ -1677,7 +1677,7 @@ const DeviceDetailPage = () => {
                     <Icon name="save" size={14} color="#fff" />
                     <Text style={styles.configButtonText}>
                       {tt('button', 'saveDeviceDelivery') ||
-                        'Salvar configuracao de delivery'}
+                        'Salvar configuração de delivery'}
                     </Text>
                   </>
                 )}
@@ -1689,7 +1689,7 @@ const DeviceDetailPage = () => {
         {isDisplayDevice && (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>
-              <Icon name="printer" size={13} /> {'  '}Impressao de Preparo
+              <Icon name="printer" size={13} /> {'  '}Impressão de Preparo
             </Text>
 
             <View style={styles.configCard}>
@@ -1826,7 +1826,7 @@ const DeviceDetailPage = () => {
                         Pode trocar de impressora?
                       </Text>
                       <Text style={styles.toggleRowValue}>
-                        {displayAllowPrinterChange ? 'Sim' : 'Nao'}
+                        {displayAllowPrinterChange ? 'Sim' : 'Não'}
                       </Text>
                     </View>
                     <Icon
@@ -2057,7 +2057,7 @@ const DeviceDetailPage = () => {
               <Text style={styles.configTitle}>Device preferencial para pagamento</Text>
               <Text style={styles.configDescription}>
                 Esse destino funciona como fallback desta origem quando a
-                empresa nao definiu uma ordem padrao no configurador geral.
+                empresa não definiu uma ordem padrão no configurador geral.
                 Quando a empresa tiver devices padrao para pagamento remoto,
                 essa ordem global tem prioridade. Quando vazio, o sistema usa a
                 regra da empresa ou cai para os PDVs remotos disponiveis.
