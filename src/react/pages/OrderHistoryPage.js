@@ -13,8 +13,8 @@ import { useIsFocused } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/Feather';
 import { env } from '@env';
 import { useStore } from '@store';
-import CompactFilterSelector from '@controleonline/ui-common/src/react/components/filters/CompactFilterSelector';
-import DateShortcutFilter from '@controleonline/ui-common/src/react/components/filters/DateShortcutFilter';
+import CompactFilterSelector from '@controleonline/ui-default/src/react/components/filters/CompactFilterSelector';
+import DateShortcutFilter from '@controleonline/ui-default/src/react/components/filters/DateShortcutFilter';
 import {
   canDeviceViewCompanyOrders,
   isPosCounterMode,

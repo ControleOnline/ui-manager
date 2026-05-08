@@ -14,7 +14,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/Feather';
 
 import { api } from '@controleonline/ui-common/src/api';
-import CompactFilterSelector from '@controleonline/ui-common/src/react/components/filters/CompactFilterSelector';
+import CompactFilterSelector from '@controleonline/ui-default/src/react/components/filters/CompactFilterSelector';
 import useToastMessage from '@controleonline/ui-crm/src/react/hooks/useToastMessage';
 import { useStore } from '@store';
 import { colors } from '@controleonline/../../src/styles/colors';
