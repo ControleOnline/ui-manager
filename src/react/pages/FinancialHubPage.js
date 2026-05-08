@@ -157,21 +157,6 @@ export default function FinancialHubPage({navigation}) {
         </View>
       </View>
 
-      <View style={styles.contentHeader}>
-        <View
-          style={[
-            styles.contentBadge,
-            {backgroundColor: withOpacity(activeSection.accent, 0.12)},
-          ]}>
-          <Icon
-            name={activeSection.icon}
-            size={15}
-            color={activeSection.accent}
-          />
-        </View>
-        <Text style={styles.contentTitle}>{activeSection.label}</Text>
-      </View>
-
       <View style={styles.entriesContainer}>
         <FinancialEntriesPage mode={activeSection.key} />
       </View>
