@@ -3,16 +3,20 @@ import {StyleSheet} from 'react-native';
 const styles = StyleSheet.create({
   container: {flex: 1},
   topBar: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 10,
     paddingHorizontal: 20,
-    paddingTop: 18,
-    paddingBottom: 10,
+    paddingTop: 12,
+    paddingBottom: 8,
   },
   actionsRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'flex-end',
     gap: 8,
-    marginBottom: 12,
   },
   subtleButton: {
     flexDirection: 'row',
@@ -32,6 +36,8 @@ const styles = StyleSheet.create({
     color: '#64748B',
   },
   tabsRow: {
+    flex: 1,
+    minWidth: 280,
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 8,
