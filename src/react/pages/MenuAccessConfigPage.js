@@ -331,9 +331,11 @@ export default function MenuAccessConfigPage() {
           menu: addDraft.menu,
           icon: addDraft.icon,
           color: addDraft.color,
-          sortOrder: Number(addDraft.sortOrder || 0),
           linkTypes: addDraft.linkTypes,
           enabled: true,
+          ...(String(addDraft.sortOrder || '').trim() !== ''
+            ? {sortOrder: Number(addDraft.sortOrder)}
+            : {}),
         },
       });
       setAddDraft(null);
