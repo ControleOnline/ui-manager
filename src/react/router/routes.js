@@ -30,7 +30,6 @@ import ManagerCategoriesPage from '@controleonline/ui-manager/src/react/pages/Ma
 import MenuCostsPage from '@controleonline/ui-manager/src/react/pages/MenuCostsPage';
 import LabelsPage from '@controleonline/ui-manager/src/react/pages/LabelsPage';
 import ModelTemplatesPage from '@controleonline/ui-manager/src/react/pages/ModelTemplatesPage';
-import OrderHistoryPage from '@controleonline/ui-manager/src/react/pages/OrderHistoryPage';
 import WhatsAppConnectionPage from '@controleonline/ui-manager/src/react/pages/WhatsAppConnectionPage';
 import DisplayList from '@controleonline/ui-ppc/src/react/pages/displays/displayPage';
 import DisplayDetails from '@controleonline/ui-ppc/src/react/pages/displays/DisplayDetails';
@@ -230,17 +229,6 @@ const managerRoutes = [
       headerBackVisible: true,
       title: global.t?.t('orders', 'title', 'linkedOrderSettlement'),
       showBottomToolBar: true,
-      showCompanyFilter: true,
-      companyFilterMode: 'icon',
-    },
-  },
-  {
-    name: 'OrderHistoryPage',
-    component: OrderHistoryPage,
-    options: {
-      headerShown: true,
-      headerBackVisible: true,
-      title: global.t?.t("configs", "title", "orderHistory"),
       showCompanyFilter: true,
       companyFilterMode: 'icon',
     },
