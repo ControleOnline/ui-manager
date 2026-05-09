@@ -21,9 +21,6 @@ const LINK_TYPES = [
   'employee',
   'salesman',
   'after-sales',
-  'client',
-  'provider',
-  'franchisee',
 ];
 const ITEMS_PER_PAGE = 40;
 
