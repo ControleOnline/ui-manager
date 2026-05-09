@@ -28,6 +28,7 @@ import IFoodIntegrationPage from '@controleonline/ui-manager/src/react/pages/IFo
 import IntegrationsPage from '@controleonline/ui-manager/src/react/pages/Integrations';
 import ManagerCategoriesPage from '@controleonline/ui-manager/src/react/pages/ManagerCategoriesPage';
 import MenuCostsPage from '@controleonline/ui-manager/src/react/pages/MenuCostsPage';
+import MenuAccessConfigPage from '@controleonline/ui-manager/src/react/pages/MenuAccessConfigPage';
 import LabelsPage from '@controleonline/ui-manager/src/react/pages/LabelsPage';
 import ModelTemplatesPage from '@controleonline/ui-manager/src/react/pages/ModelTemplatesPage';
 import WhatsAppConnectionPage from '@controleonline/ui-manager/src/react/pages/WhatsAppConnectionPage';
@@ -95,6 +96,17 @@ const managerRoutes = [
       headerShown: true,
       headerBackVisible: true,
       title: 'Configurador',
+      showCompanyFilter: true,
+      companyFilterMode: 'icon',
+    },
+  },
+  {
+    name: 'MenuAccessConfigPage',
+    component: MenuAccessConfigPage,
+    options: {
+      headerShown: true,
+      headerBackVisible: true,
+      title: 'Menus por perfil',
       showCompanyFilter: true,
       companyFilterMode: 'icon',
     },

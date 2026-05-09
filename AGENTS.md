@@ -13,3 +13,7 @@
 - A tela React `OrderHistoryPage` pertence ao modulo `ui-orders`. O `MANAGER` pode navegar para ela, mas nao deve manter uma copia da tela em `ui-manager`.
 - `OrderHistoryPage` do `MANAGER` nao deve abrir `OrderDetails` com `kds=true`. Esse param pertence apenas a origens reais de `PPC`/KDS.
 - Quando a configuracao alterar comportamento do `POS`, documente a regra tambem no `AGENTS.md` do modulo dono do fluxo operacional.
+
+## Menus
+- `MenuAccessConfigPage` e a tela administrativa para configurar menus por `APP_TYPE` e `people_link.link_type`.
+- Essa tela e exclusiva de `ROLE_SUPER` e deve persistir alteracoes pelo endpoint `menu-config`.
