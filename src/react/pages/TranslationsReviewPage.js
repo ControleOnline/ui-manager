@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Platform,
@@ -23,6 +23,14 @@ import {
 } from '@controleonline/../../src/styles/branding';
 import styles from './TranslationsReviewPage.styles';
 
+const { resolveConfiguredLanguage } = require('@controleonline/ui-common/src/react/utils/runtimeLanguage');
+const {
+  buildOverviewFromTranslateCollections,
+  isNotFoundError,
+  normalizeCollectionItems,
+  normalizeCollectionTotalItems,
+} = require('./TranslationsReviewPage.data');
+
 const shadowStyle = Platform.select({
   ios: {
     shadowColor: '#0F172A',
@@ -34,20 +42,27 @@ const shadowStyle = Platform.select({
   web: { boxShadow: '0 10px 24px rgba(15,23,42,0.08)' },
 });
 
-const getConfigLanguage = () => {
+const getStoredJson = storageKey => {
   try {
-    if (typeof localStorage === 'undefined') return 'pt-br';
-    const config = JSON.parse(localStorage.getItem('config') || '{}');
-    return String(config?.language || 'pt-br').trim().replace('_', '-').toLowerCase();
+    if (typeof localStorage === 'undefined') return {};
+    return JSON.parse(localStorage.getItem(storageKey) || '{}');
   } catch {
-    return 'pt-br';
+    return {};
   }
 };
 
+const getConfigLanguage = ({ currentCompany, defaultCompany } = {}) =>
+  resolveConfiguredLanguage({
+    currentCompany,
+    defaultCompany,
+    currentConfig: getStoredJson('config'),
+    sessionData: getStoredJson('session'),
+  });
+
 const formatApiError = error => {
-  if (!error) return 'Nao foi possivel carregar as traducoes.';
+  if (!error) return 'Não foi possível carregar as traduções.';
   if (typeof error === 'string') return error;
-  return error?.message || error?.description || error?.errmsg || 'Nao foi possivel carregar as traducoes.';
+  return error?.message || error?.description || error?.errmsg || 'Não foi possível carregar as traduções.';
 };
 
 const normalizeOptions = (values, activeValue = '') => {
@@ -85,6 +100,13 @@ export default function TranslationsReviewPage() {
   const { showError, showSuccess } = useToastMessage();
 
   const currentCompanyId = currentCompany?.id;
+  const resolvedLanguage = useMemo(
+    () => getConfigLanguage({ currentCompany, defaultCompany }),
+    [currentCompany, defaultCompany],
+  );
+  const syncedCompanyIdRef = useRef(currentCompanyId || null);
+  const lastSyncedLanguageRef = useRef(resolvedLanguage);
+  const overviewLoadModeRef = useRef('overview');
 
   const brandColors = useMemo(
     () =>
@@ -107,12 +129,37 @@ export default function TranslationsReviewPage() {
   const [savingRows, setSavingRows] = useState({});
   const [searchInput, setSearchInput] = useState('');
   const [filters, setFilters] = useState(() => ({
-    language: getConfigLanguage(),
+    language: resolvedLanguage,
     store: '',
     type: '',
     search: '',
-    pendingOnly: false,
+    pendingOnly: true,
   }));
+
+  useEffect(() => {
+    const normalizedCompanyId = currentCompanyId || null;
+    const companyChanged = syncedCompanyIdRef.current !== normalizedCompanyId;
+
+    // Keep the review language aligned with the active company unless the user changed it manually.
+    setFilters(previous => {
+      if (!resolvedLanguage) return previous;
+      const canSyncLanguage =
+        companyChanged
+        || !previous.language
+        || previous.language === lastSyncedLanguageRef.current;
+      if (!canSyncLanguage) return previous;
+
+      lastSyncedLanguageRef.current = resolvedLanguage;
+      if (previous.language === resolvedLanguage) return previous;
+
+      return {
+        ...previous,
+        language: resolvedLanguage,
+      };
+    });
+
+    syncedCompanyIdRef.current = normalizedCompanyId;
+  }, [currentCompanyId, resolvedLanguage]);
 
   const languageOptions = useMemo(() => {
     const uniqueLanguages = new Map();
@@ -186,7 +233,7 @@ export default function TranslationsReviewPage() {
   );
   const reviewFilterOptions = useMemo(
     () => [
-      { key: 'all', label: 'Todas as traducoes' },
+      { key: 'all', label: 'Todas as traduções' },
       {
         key: 'pending',
         label: summary?.pendingReview > 0
@@ -209,7 +256,7 @@ export default function TranslationsReviewPage() {
     [filters.type, typeFilterOptions],
   );
   const selectedReviewLabel = useMemo(
-    () => reviewFilterOptions.find(option => option.key === (filters.pendingOnly ? 'pending' : 'all'))?.label || 'Todas as traducoes',
+    () => reviewFilterOptions.find(option => option.key === (filters.pendingOnly ? 'pending' : 'all'))?.label || 'Todas as traduções',
     [filters.pendingOnly, reviewFilterOptions],
   );
 
@@ -222,7 +269,7 @@ export default function TranslationsReviewPage() {
       setLanguages(languageItems);
 
       if (!filters.language) {
-        const fallbackLanguage = languageItems[0]?.language || getConfigLanguage();
+        const fallbackLanguage = resolvedLanguage || languageItems[0]?.language || 'pt-br';
         if (fallbackLanguage) {
           setFilters(previous => (
             previous.language
@@ -237,14 +284,16 @@ export default function TranslationsReviewPage() {
         setFilters(previous => (
           previous.language
             ? previous
-            : { ...previous, language: getConfigLanguage() }
+            : { ...previous, language: resolvedLanguage || 'pt-br' }
         ));
       }
     }
-  }, [filters.language]);
+  }, [filters.language, resolvedLanguage]);
 
   const loadOverview = useCallback(async () => {
-    const activeLanguage = filters.language || getConfigLanguage();
+    const activeLanguage = filters.language || resolvedLanguage;
+    const mainCompany = defaultCompany || currentCompany;
+    const mainCompanyId = mainCompany?.id;
 
     if (!currentCompanyId || !activeLanguage) {
       setItems([]);
@@ -254,23 +303,93 @@ export default function TranslationsReviewPage() {
       return;
     }
 
-    try {
-      const response = await api.fetch('/translates/overview', {
-        params: {
-          people: currentCompanyId,
-          'language.language': activeLanguage,
-          ...(filters.store ? { store: filters.store } : {}),
-          ...(filters.type ? { type: filters.type } : {}),
-          ...(filters.search ? { search: filters.search } : {}),
-          ...(filters.pendingOnly ? { pendingReview: 1 } : {}),
-        },
-      });
+    const overviewParams = {
+      people: currentCompanyId,
+      'language.language': activeLanguage,
+      ...(filters.store ? { store: filters.store } : {}),
+      ...(filters.type ? { type: filters.type } : {}),
+      ...(filters.search ? { search: filters.search } : {}),
+      ...(filters.pendingOnly ? { pendingReview: 1 } : {}),
+    };
 
-      const nextItems = Array.isArray(response?.member)
-        ? response.member
-        : Array.isArray(response?.['hydra:member'])
-          ? response['hydra:member']
-          : [];
+    const loadAllTranslates = async peopleId => {
+      const collectedItems = [];
+      const itemsPerPage = 200;
+      let page = 1;
+      let totalItems = null;
+
+      while (page <= 1000) {
+        const response = await api.fetch('/translates', {
+          params: {
+            people: peopleId,
+            'language.language': activeLanguage,
+            itemsPerPage,
+            page,
+            ...(filters.store ? { store: filters.store } : {}),
+            ...(filters.type ? { type: filters.type } : {}),
+          },
+        });
+
+        const pageItems = normalizeCollectionItems(response);
+        if (pageItems.length === 0) {
+          break;
+        }
+
+        collectedItems.push(...pageItems);
+
+        if (totalItems == null) {
+          totalItems = normalizeCollectionTotalItems(response);
+        }
+
+        if (
+          pageItems.length < itemsPerPage
+          || (totalItems != null && collectedItems.length >= totalItems)
+        ) {
+          break;
+        }
+
+        page += 1;
+      }
+
+      return collectedItems;
+    };
+
+    const loadOverviewFromCollections = async () => {
+      const shouldLoadMainFallback =
+        Boolean(mainCompanyId)
+        && String(mainCompanyId) !== String(currentCompanyId);
+
+      const [companyTranslations, fallbackTranslations] = await Promise.all([
+        loadAllTranslates(currentCompanyId),
+        shouldLoadMainFallback ? loadAllTranslates(mainCompanyId) : Promise.resolve([]),
+      ]);
+
+      return buildOverviewFromTranslateCollections({
+        companyTranslations,
+        fallbackTranslations,
+        selectedCompany: currentCompany,
+        mainCompany,
+        activeLanguage,
+        search: filters.search,
+        pendingOnly: filters.pendingOnly,
+      });
+    };
+
+    try {
+      const response = overviewLoadModeRef.current === 'collection'
+        ? await loadOverviewFromCollections()
+        : await api.fetch('/translates/overview', {
+          params: overviewParams,
+        }).catch(async error => {
+          if (!isNotFoundError(error)) {
+            throw error;
+          }
+
+          overviewLoadModeRef.current = 'collection';
+          return loadOverviewFromCollections();
+        });
+
+      const nextItems = normalizeCollectionItems(response);
       setItems(nextItems);
       setSummary(response?.summary || {});
       setDrafts(
@@ -288,12 +407,15 @@ export default function TranslationsReviewPage() {
       setLoading(false);
     }
   }, [
+    currentCompany,
     currentCompanyId,
+    defaultCompany,
     filters.language,
     filters.pendingOnly,
     filters.search,
     filters.store,
     filters.type,
+    resolvedLanguage,
     showError,
   ]);
 
@@ -340,7 +462,7 @@ export default function TranslationsReviewPage() {
       store: '',
       type: '',
       search: '',
-      pendingOnly: false,
+      pendingOnly: true,
     }));
   }, []);
 
@@ -396,7 +518,7 @@ export default function TranslationsReviewPage() {
           <Icon name="building" size={32} color="#94A3B8" />
           <Text style={styles.centerStateTitle}>Selecione uma empresa</Text>
           <Text style={styles.centerStateText}>
-            A revisao de traducoes depende da empresa ativa.
+            A revisão de traduções depende da empresa ativa.
           </Text>
         </View>
       </SafeAreaView>
@@ -408,9 +530,9 @@ export default function TranslationsReviewPage() {
       <SafeAreaView style={[styles.container, { backgroundColor: brandColors.background }]} edges={['bottom']}>
         <View style={styles.centerState}>
           <ActivityIndicator size="large" color={brandColors.primary} />
-          <Text style={styles.centerStateTitle}>Carregando traducoes</Text>
+          <Text style={styles.centerStateTitle}>Carregando traduções</Text>
           <Text style={styles.centerStateText}>
-            Buscando pendencias, fallback e sobrescritas da empresa ativa.
+            Buscando pendências, fallback e sobrescritas da empresa ativa.
           </Text>
         </View>
       </SafeAreaView>
@@ -429,8 +551,8 @@ export default function TranslationsReviewPage() {
           <View style={styles.heroBadge}>
             <Icon name="type" size={22} color={brandColors.primary || '#0F766E'} />
           </View>
-          <Text style={styles.heroEyebrow}>TRADUCOES</Text>
-          <Text style={styles.heroTitle}>Revisao de textos</Text>
+          <Text style={styles.heroEyebrow}>TRADUÇÕES</Text>
+          <Text style={styles.heroTitle}>Revisão de textos</Text>
           <Text style={styles.heroText}>
             Revise o que entrou automaticamente, compare com a empresa principal e grave a sobrescrita da empresa ativa quando precisar.
           </Text>

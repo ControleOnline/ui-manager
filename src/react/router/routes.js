@@ -117,7 +117,7 @@ const managerRoutes = [
     options: {
       headerShown: true,
       headerBackVisible: true,
-      title: 'Notificacoes de pedidos',
+      title: 'Notificações de pedidos',
       showBottomToolBar: true,
       showCompanyFilter: false,
     },
@@ -128,7 +128,7 @@ const managerRoutes = [
     options: {
       headerShown: true,
       headerBackVisible: true,
-      title: 'Revisao de traducoes',
+      title: 'Revisão de traduções',
       showCompanyFilter: true,
       companyFilterMode: 'icon',
     },

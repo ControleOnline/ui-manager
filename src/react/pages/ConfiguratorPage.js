@@ -37,7 +37,7 @@ const CONFIG_ACTIONS = [
     route: 'IntegrationsPage',
   },
   {
-    label: 'Traducoes',
+    label: 'Traduções',
     description: 'Revise textos inseridos automaticamente, compare com o fallback principal e grave sobrescritas por empresa.',
     icon: 'type',
     accent: '#DC2626',
