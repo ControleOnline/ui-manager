@@ -7,6 +7,7 @@
 - Toda regra booleana ou normalizacao de `configs` de device deve nascer ou ser reutilizada de `@controleonline/ui-common/src/react/config/deviceConfigBootstrap`.
 - Persistencia de configuracao de device deve continuar passando pelo store `device_config`, sem criar chamadas paralelas fora desse fluxo.
 - A chave `pos-delivery-enabled` pertence a configuracao do device no `MANAGER` e controla se o detalhe operacional do pedido daquele equipamento mostra cliente, endereco e observacoes de entrega.
+- Na listagem de devices, o subtitulo deve usar o mesmo identificador resolvido pelo runtime compartilhado: para web, priorizar o IP publico persistido em `device.metadata.network.publicIp`; para nativo, manter o identificador salvo em `device.device`.
 
 ## Limites
 - `ui-manager` configura a operacao, mas nao deve duplicar a UI operacional de `ui-orders`.
