@@ -1469,9 +1469,9 @@ const DeviceDetailPage = () => {
                   </View>
 
                   <Text style={styles.configHint}>
-                    Quando o balcao usar abertura e fechamento de caixa, o
-                    fechamento pode disparar o relatorio de vendas do device
-                    para os numeros configurados em Operacao e PDV da empresa.
+                    Quando o balcão usar abertura e fechamento de caixa, o
+                    fechamento pode disparar o relatório de vendas do device
+                    para os números configurados em Operação e PDV da empresa.
                   </Text>
                 </>
               )}
@@ -1500,9 +1500,9 @@ const DeviceDetailPage = () => {
             <View style={styles.configCard}>
               <Text style={styles.configTitle}>Gateway e impressora</Text>
               <Text style={styles.configDescription}>
-                O tipo do PDV define qual carteira da empresa sera usada no
-                caixa e no pagamento remoto. Ative a opcao de impressora apenas
-                quando este PDV puder receber impressoes.
+                O tipo do PDV define qual carteira da empresa será usada no
+                caixa e no pagamento remoto. Ative a opção de impressora apenas
+                quando este PDV puder receber impressões.
               </Text>
 
               <View style={styles.textInputWrap}>
@@ -1549,7 +1549,7 @@ const DeviceDetailPage = () => {
                   ? `Gateway atual: ${getPaymentGatewayLabel(pdvGateway)}.`
                   : 'Escolha Cielo ou Infinite Pay para que o PDV use a carteira correta da empresa.'}{' '}
                 Quando a impressora estiver desativada, este PDV deixa de ser
-                oferecido como destino padrao de impressao.
+                oferecido como destino padrão de impressão.
               </Text>
 
               <TouchableOpacity
