@@ -16,11 +16,17 @@ import {useStore} from '@store';
 import {useMessage} from '@controleonline/ui-common/src/react/components/MessageService';
 import {
   applyManagerOrderNotificationPreferences,
+  applyManagerFinancialNotificationPreferences,
   buildManagerOrderNotificationContent,
   getManagerOrderNotificationPermissionStatus,
+  resolveManagerFinancialNotificationPreferences,
   resolveManagerOrderNotificationPreferences,
   requestManagerOrderNotificationPermission,
 } from '@controleonline/ui-common/src/react/utils/managerOrderNotifications';
+import {
+  normalizeNotificationTargets,
+  useGeneralSettingsConfig,
+} from '@controleonline/ui-crm/src/react/pages/settings/GeneralSettings.shared';
 import {colors} from '@controleonline/../../src/styles/colors';
 
 const permissionStatusLabels = {
@@ -37,9 +43,14 @@ export default function ManagerOrderNotificationsPage() {
   const authActions = authStore.actions;
   const {user} = authStore.getters;
   const {currentCompany} = peopleStore.getters;
+  const {effectiveCompanyConfigs, saveConfigs} = useGeneralSettingsConfig();
 
   const currentPreferences = useMemo(
     () => resolveManagerOrderNotificationPreferences(user),
+    [user],
+  );
+  const financialPreferences = useMemo(
+    () => resolveManagerFinancialNotificationPreferences(user),
     [user],
   );
 
@@ -48,8 +59,18 @@ export default function ManagerOrderNotificationsPage() {
     currentPreferences.soundEnabled,
   );
   const [soundUrl, setSoundUrl] = useState(currentPreferences.soundUrl);
+  const [cashClosePushEnabled, setCashClosePushEnabled] = useState(
+    financialPreferences.cashClosePushEnabled,
+  );
+  const [storeClosePushEnabled, setStoreClosePushEnabled] = useState(
+    financialPreferences.storeClosePushEnabled,
+  );
+  const [cashRegisterNumbers, setCashRegisterNumbers] = useState('');
+  const [storeCloseNumbers, setStoreCloseNumbers] = useState('');
   const [permissionStatus, setPermissionStatus] = useState('default');
   const [isSaving, setIsSaving] = useState(false);
+  const [isSavingFinancial, setIsSavingFinancial] = useState(false);
+  const isOwnerCompany = Boolean(currentCompany?.user?.owner_enabled);
   const previewNotification = useMemo(
     () =>
       buildManagerOrderNotificationContent(
@@ -71,6 +92,24 @@ export default function ManagerOrderNotificationsPage() {
     setSoundEnabled(currentPreferences.soundEnabled);
     setSoundUrl(currentPreferences.soundUrl);
   }, [currentPreferences]);
+
+  useEffect(() => {
+    setCashClosePushEnabled(financialPreferences.cashClosePushEnabled);
+    setStoreClosePushEnabled(financialPreferences.storeClosePushEnabled);
+  }, [financialPreferences]);
+
+  useEffect(() => {
+    setCashRegisterNumbers(
+      normalizeNotificationTargets(
+        effectiveCompanyConfigs?.['cash-register-notifications'],
+      ).join('\n'),
+    );
+    setStoreCloseNumbers(
+      normalizeNotificationTargets(
+        effectiveCompanyConfigs?.['store-close-notifications'],
+      ).join('\n'),
+    );
+  }, [effectiveCompanyConfigs]);
 
   const loadPermissionStatus = useCallback(async () => {
     setPermissionStatus(await getManagerOrderNotificationPermissionStatus());
@@ -141,6 +180,56 @@ export default function ManagerOrderNotificationsPage() {
     showSuccess,
     soundEnabled,
     soundUrl,
+    user,
+  ]);
+
+  const handleSaveFinancial = useCallback(async () => {
+    if (isSavingFinancial || !isOwnerCompany) {
+      return;
+    }
+
+    setIsSavingFinancial(true);
+
+    try {
+      authActions.logIn(
+        applyManagerFinancialNotificationPreferences(user, {
+          cashClosePushEnabled,
+          storeClosePushEnabled,
+        }),
+      );
+
+      const saved = await saveConfigs({
+        'cash-register-notifications': normalizeNotificationTargets(
+          cashRegisterNumbers,
+        ),
+        'store-close-notifications': normalizeNotificationTargets(
+          storeCloseNumbers,
+        ),
+      });
+
+      if (!saved) {
+        throw new Error('Nao foi possivel salvar as configuracoes financeiras.');
+      }
+
+      showSuccess?.('Notificacoes financeiras atualizadas.');
+    } catch (error) {
+      showError?.(
+        error?.message || 'Nao foi possivel salvar as notificacoes financeiras.',
+      );
+    } finally {
+      setIsSavingFinancial(false);
+    }
+  }, [
+    authActions,
+    cashClosePushEnabled,
+    cashRegisterNumbers,
+    isOwnerCompany,
+    isSavingFinancial,
+    saveConfigs,
+    showError,
+    showSuccess,
+    storeCloseNumbers,
+    storeClosePushEnabled,
     user,
   ]);
 
@@ -264,6 +353,96 @@ export default function ManagerOrderNotificationsPage() {
           </View>
         </View>
 
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <View style={styles.sectionIconWrap}>
+              <Icon name="savings" size={20} color={colors.primary} />
+            </View>
+            <View style={styles.sectionHeaderCopy}>
+              <Text style={styles.sectionTitle}>Fechamento financeiro</Text>
+              <Text style={styles.sectionDescription}>
+                Somente o owner da empresa pode ajustar estes alertas. O push
+                usa o mesmo websocket do Gestor e o WhatsApp sai pela tabela de
+                integrações do backend.
+              </Text>
+            </View>
+          </View>
+
+          {!isOwnerCompany ? (
+            <View style={styles.ownerHintCard}>
+              <Text style={styles.ownerHintText}>
+                Este perfil nao tem permissao de owner na empresa ativa.
+              </Text>
+            </View>
+          ) : (
+            <>
+              <View style={styles.toggleCard}>
+                <View style={styles.toggleCopy}>
+                  <Text style={styles.toggleLabel}>
+                    Push no fechamento de caixa
+                  </Text>
+                  <Text style={styles.toggleHint}>
+                    Recebe o alerta quando o caixa for encerrado com o mesmo
+                    resumo enviado ao WhatsApp.
+                  </Text>
+                </View>
+                <Switch
+                  value={cashClosePushEnabled}
+                  onValueChange={setCashClosePushEnabled}
+                />
+              </View>
+
+              <View style={styles.toggleCard}>
+                <View style={styles.toggleCopy}>
+                  <Text style={styles.toggleLabel}>
+                    Push no fechamento de loja
+                  </Text>
+                  <Text style={styles.toggleHint}>
+                    Recebe o resumo financeiro quando 99 ou iFood mudarem o
+                    status da loja para fechada.
+                  </Text>
+                </View>
+                <Switch
+                  value={storeClosePushEnabled}
+                  onValueChange={setStoreClosePushEnabled}
+                />
+              </View>
+
+              <View style={styles.soundCard}>
+                <Text style={styles.inputLabel}>
+                  WhatsApp do fechamento de caixa
+                </Text>
+                <TextInput
+                  value={cashRegisterNumbers}
+                  onChangeText={setCashRegisterNumbers}
+                  placeholder="5511999999999"
+                  placeholderTextColor="#94A3B8"
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  keyboardType="phone-pad"
+                  multiline
+                  style={styles.input}
+                />
+
+                <Text style={styles.inputLabel}>
+                  WhatsApp do fechamento de loja
+                </Text>
+                <TextInput
+                  value={storeCloseNumbers}
+                  onChangeText={setStoreCloseNumbers}
+                  placeholder="5511999999999"
+                  placeholderTextColor="#94A3B8"
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  keyboardType="phone-pad"
+                  multiline
+                  style={styles.input}
+                />
+              </View>
+            </>
+          )}
+        </View>
+
         <TouchableOpacity
           style={[styles.saveButton, isSaving && styles.saveButtonDisabled]}
           onPress={handleSave}
@@ -283,6 +462,34 @@ export default function ManagerOrderNotificationsPage() {
             </>
           )}
         </TouchableOpacity>
+
+        {isOwnerCompany && (
+          <TouchableOpacity
+            style={[
+              styles.saveButton,
+              styles.secondarySaveButton,
+              isSavingFinancial && styles.saveButtonDisabled,
+            ]}
+            onPress={handleSaveFinancial}
+            activeOpacity={0.85}
+            disabled={isSavingFinancial}>
+            {isSavingFinancial ? (
+              <ActivityIndicator size="small" color={colors.white} />
+            ) : (
+              <>
+                <Icon
+                  name="lock"
+                  size={18}
+                  color={colors.white}
+                  style={styles.saveIcon}
+                />
+                <Text style={styles.saveButtonText}>
+                  Salvar alertas financeiros
+                </Text>
+              </>
+            )}
+          </TouchableOpacity>
+        )}
       </ScrollView>
     </SafeAreaView>
   );
@@ -439,10 +646,23 @@ const styles = StyleSheet.create({
   soundCardDisabled: {
     opacity: 0.7,
   },
+  ownerHintCard: {
+    backgroundColor: '#FEF3C7',
+    borderRadius: 20,
+    padding: 18,
+  },
+  ownerHintText: {
+    color: '#92400E',
+    fontSize: 14,
+    lineHeight: 20,
+    fontWeight: '600',
+  },
   inputLabel: {
     color: '#0F172A',
     fontSize: 14,
     fontWeight: '700',
+    marginBottom: 8,
+    marginTop: 4,
   },
   input: {
     borderWidth: 1,
@@ -452,6 +672,8 @@ const styles = StyleSheet.create({
     paddingVertical: 13,
     color: '#0F172A',
     backgroundColor: '#F8FAFC',
+    minHeight: 52,
+    textAlignVertical: 'top',
   },
   inputDisabled: {
     color: '#94A3B8',
@@ -473,6 +695,10 @@ const styles = StyleSheet.create({
   },
   saveButtonDisabled: {
     opacity: 0.65,
+  },
+  secondarySaveButton: {
+    backgroundColor: '#0F766E',
+    marginTop: 0,
   },
   saveIcon: {
     marginRight: 8,
