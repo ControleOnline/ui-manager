@@ -1625,11 +1625,11 @@ const DeviceDetailPage = () => {
 
             <View style={styles.configCard}>
               <Text style={styles.configTitle}>
-                {tt('title', 'deliveryOnDevice') || 'Delivery neste device'}
+                {tt('title', 'deliveryOnDevice') || 'Delivery neste equipamento'}
               </Text>
               <Text style={styles.configDescription}>
                 {tt('description', 'deliveryOnDeviceDescription') ||
-                  'Ative quando este equipamento precisa operar pedidos com cliente, endereço e observações de entrega. Desative para simplificar a conferência em devices que não trabalham com delivery.'}
+                  'Ative quando este equipamento precisa operar pedidos com cliente, endereço e observações de entrega. Desative para simplificar a conferência em equipamentos que não trabalham com delivery.'}
               </Text>
 
               <TouchableOpacity
@@ -2256,7 +2256,7 @@ const DeviceDetailPage = () => {
               <View style={styles.emptyBox}>
                 <Icon name="inbox" size={24} color="#CBD5E1" style={inlineStyle_1301_61} />
                 <Text style={styles.emptyText}>
-                  {search ? 'Nenhum produto encontrado para esta busca' : 'Nenhum produto registrado neste device'}
+                  {search ? 'Nenhum produto encontrado para esta busca' : 'Nenhum produto registrado neste equipamento'}
                 </Text>
               </View>
             )}
