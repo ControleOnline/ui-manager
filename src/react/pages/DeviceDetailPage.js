@@ -1257,7 +1257,7 @@ const DeviceDetailPage = () => {
         {showPdvOperationTab && (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>
-              <Icon name="credit-card" size={13} /> {'  '}Configuracao do PDV
+              <Icon name="credit-card" size={13} /> {'  '}Configuração do PDV
             </Text>
 
             <View style={styles.configCard}>
@@ -1565,7 +1565,7 @@ const DeviceDetailPage = () => {
                 ) : (
                   <>
                     <Icon name="save" size={14} color="#fff" />
-                    <Text style={styles.configButtonText}>Salvar configuracao do PDV</Text>
+                    <Text style={styles.configButtonText}>Salvar configuração do PDV</Text>
                   </>
                 )}
               </TouchableOpacity>
@@ -1629,7 +1629,7 @@ const DeviceDetailPage = () => {
               </Text>
               <Text style={styles.configDescription}>
                 {tt('description', 'deliveryOnDeviceDescription') ||
-                  'Ative quando este equipamento precisa operar pedidos com cliente, endereco e observacoes de entrega. Desative para simplificar a conferencia em devices que nao trabalham com delivery.'}
+                  'Ative quando este equipamento precisa operar pedidos com cliente, endereço e observações de entrega. Desative para simplificar a conferência em devices que não trabalham com delivery.'}
               </Text>
 
               <TouchableOpacity
@@ -1677,7 +1677,7 @@ const DeviceDetailPage = () => {
                     <Icon name="save" size={14} color="#fff" />
                     <Text style={styles.configButtonText}>
                       {tt('button', 'saveDeviceDelivery') ||
-                        'Salvar configuracao de delivery'}
+                        'Salvar configuração de delivery'}
                     </Text>
                   </>
                 )}
@@ -1689,16 +1689,16 @@ const DeviceDetailPage = () => {
         {isDisplayDevice && (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>
-              <Icon name="printer" size={13} /> {'  '}Impressao de Preparo
+              <Icon name="printer" size={13} /> {'  '}Impressão de Preparo
             </Text>
 
             <View style={styles.configCard}>
               <Text style={styles.configTitle}>Display vinculado e impressora da fila</Text>
               <Text style={styles.configDescription}>
-                Este bloco e usado na impressao automatica disparada pelo app
+                Este bloco é usado na impressão automática disparada pelo app
                 DISPLAY. O device DISPLAY precisa apontar qual display/fila
-                representa e qual impressora deve receber a copia separada por
-                fila. Nesta mesma configuracao voce pode ajustar o tamanho dos
+                representa e qual impressora deve receber a cópia separada por
+                fila. Nesta mesma configuração você pode ajustar o tamanho dos
                 cards do KDS e ativar a quebra lateral para pedidos grandes.
               </Text>
 
@@ -1987,15 +1987,15 @@ const DeviceDetailPage = () => {
         {shouldShowDeviceBehavior && (
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>
-            <Icon name="activity" size={13} /> {'  '}Rodape do Sistema
+            <Icon name="activity" size={13} /> {'  '}Rodapé do Sistema
           </Text>
 
           <View style={styles.configCard}>
-            <Text style={styles.configTitle}>Debug do socket no rodape</Text>
+            <Text style={styles.configTitle}>Debug do socket no rodapé</Text>
             <Text style={styles.configDescription}>
               Quando habilitado, este device troca a bolinha discreta do socket
-              pelos detalhes de debug publicados pelos servicos do runtime no
-              rodape global do sistema.
+              pelos detalhes de debug publicados pelos serviços do runtime no
+              rodapé global do sistema.
             </Text>
 
             <TouchableOpacity
@@ -2039,7 +2039,7 @@ const DeviceDetailPage = () => {
               ) : (
                 <>
                   <Icon name="save" size={14} color="#fff" />
-                  <Text style={styles.configButtonText}>Salvar debug do rodape</Text>
+                  <Text style={styles.configButtonText}>Salvar debug do rodapé</Text>
                 </>
               )}
             </TouchableOpacity>
@@ -2057,10 +2057,10 @@ const DeviceDetailPage = () => {
               <Text style={styles.configTitle}>Device preferencial para pagamento</Text>
               <Text style={styles.configDescription}>
                 Esse destino funciona como fallback desta origem quando a
-                empresa nao definiu uma ordem padrao no configurador geral.
-                Quando a empresa tiver devices padrao para pagamento remoto,
+                empresa não definiu uma ordem padrão no configurador geral.
+                Quando a empresa tiver devices padrão para pagamento remoto,
                 essa ordem global tem prioridade. Quando vazio, o sistema usa a
-                regra da empresa ou cai para os PDVs remotos disponiveis.
+                regra da empresa ou cai para os PDVs remotos disponíveis.
               </Text>
 
               <View style={styles.pickerWrap}>
@@ -2069,7 +2069,7 @@ const DeviceDetailPage = () => {
                   mode={pickerMode}
                   onValueChange={value => setDevicePaymentTarget(value || '')}>
                   <Picker.Item
-                    label="Usar devices padrao da empresa"
+                    label="Usar devices padrão da empresa"
                     value=""
                   />
                   {paymentDeviceOptions.map(option => (
