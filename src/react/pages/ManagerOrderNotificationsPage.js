@@ -90,7 +90,7 @@ export default function ManagerOrderNotificationsPage() {
     const normalizedSoundUrl = String(soundUrl || '').trim();
 
     if (pushEnabled && soundEnabled && !normalizedSoundUrl) {
-      showError?.('Informe a URL do audio para tocar junto da notificacao.');
+      showError?.('Informe a URL do áudio para tocar junto da notificação.');
       return;
     }
 
@@ -106,8 +106,8 @@ export default function ManagerOrderNotificationsPage() {
         if (nextPermissionStatus !== 'granted') {
           throw new Error(
             nextPermissionStatus === 'unsupported'
-              ? 'Este ambiente nao permite notificacoes locais.'
-              : 'Permita as notificacoes do sistema para ativar o aviso push.',
+              ? 'Este ambiente não permite notificações locais.'
+              : 'Permita as notificações do sistema para ativar o aviso push.',
           );
         }
       }
@@ -122,12 +122,12 @@ export default function ManagerOrderNotificationsPage() {
 
       showSuccess?.(
         pushEnabled
-          ? 'Notificacoes de pedidos atualizadas.'
-          : 'Notificacoes de pedidos desativadas.',
+          ? 'Notificações de pedidos atualizadas.'
+          : 'Notificações de pedidos desativadas.',
       );
     } catch (error) {
       showError?.(
-        error?.message || 'Nao foi possivel salvar as notificacoes do gestor.',
+        error?.message || 'Não foi possível salvar as notificações do gestor.',
       );
     } finally {
       setIsSaving(false);
@@ -151,10 +151,10 @@ export default function ManagerOrderNotificationsPage() {
         showsVerticalScrollIndicator={false}>
         <View style={styles.heroCard}>
           <Text style={styles.heroEyebrow}>PERFIL DO GESTOR</Text>
-          <Text style={styles.heroTitle}>Notificacoes de pedidos</Text>
+          <Text style={styles.heroTitle}>Notificações de pedidos</Text>
           <Text style={styles.heroDescription}>
-            Cada pedido novo recebido no Gestor pode abrir uma notificacao local.
-            Se quiser, junto do push voce tambem define um audio remoto para tocar
+            Cada pedido novo recebido no Gestor pode abrir uma notificação local.
+            Se quiser, junto do push você também define um áudio remoto para tocar
             no mesmo gatilho do websocket.
           </Text>
         </View>
@@ -196,7 +196,7 @@ export default function ManagerOrderNotificationsPage() {
             <View style={styles.sectionHeaderCopy}>
               <Text style={styles.sectionTitle}>Push de novos pedidos</Text>
               <Text style={styles.sectionDescription}>
-                Ja vem habilitado por padrao, mas voce pode desligar quando nao
+                Já vem habilitado por padrão, mas você pode desligar quando não
                 quiser receber avisos no Gestor.
               </Text>
             </View>
@@ -204,7 +204,7 @@ export default function ManagerOrderNotificationsPage() {
 
           <View style={styles.toggleCard}>
             <View style={styles.toggleCopy}>
-              <Text style={styles.toggleLabel}>Receber notificacoes push</Text>
+              <Text style={styles.toggleLabel}>Receber notificações push</Text>
               <Text style={styles.toggleHint}>
                 Status do sistema: {permissionStatusLabels[permissionStatus] || permissionStatus}
               </Text>
@@ -222,7 +222,7 @@ export default function ManagerOrderNotificationsPage() {
               <Text style={styles.sectionTitle}>Aviso sonoro opcional</Text>
               <Text style={styles.sectionDescription}>
                 O som usa a URL informada abaixo e dispara no mesmo evento
-                `order.created` que gera a notificacao.
+                `order.created` que gera a notificação.
               </Text>
             </View>
           </View>
@@ -234,9 +234,9 @@ export default function ManagerOrderNotificationsPage() {
             ]}>
             <View style={styles.toggleCard}>
               <View style={styles.toggleCopy}>
-                <Text style={styles.toggleLabel}>Tocar audio junto do push</Text>
+                <Text style={styles.toggleLabel}>Tocar áudio junto do push</Text>
                 <Text style={styles.toggleHint}>
-                  So funciona quando as notificacoes do gestor estiverem ligadas.
+                  Só funciona quando as notificações do gestor estiverem ligadas.
                 </Text>
               </View>
               <Switch
@@ -279,7 +279,7 @@ export default function ManagerOrderNotificationsPage() {
                 color={colors.white}
                 style={styles.saveIcon}
               />
-              <Text style={styles.saveButtonText}>Salvar configuracao</Text>
+              <Text style={styles.saveButtonText}>Salvar configuração</Text>
             </>
           )}
         </TouchableOpacity>
