@@ -891,8 +891,8 @@ export default function IFoodIntegrationPage() {
   const sectionTabs = [
     { key: 'overview', label: 'Resumo' },
     { key: 'store', label: 'Loja', badge: stores.length },
-    { key: 'operations', label: 'Operacao' },
-    { key: 'catalog', label: 'Cardapio', badge: selectedEligible.length },
+    { key: 'operations', label: 'Operação' },
+    { key: 'catalog', label: 'Cardápio', badge: selectedEligible.length },
   ];
 
   return (
@@ -907,8 +907,8 @@ export default function IFoodIntegrationPage() {
           shadowStyle={integrationCardShadowStyle}
           accentColor={brandColors.primary}
           eyebrow="Marketplace"
-          title="Integracao iFood"
-          description="Gerencie vinculacao da loja, operacao diaria e publicacao do cardapio em blocos menores."
+          title="Integração iFood"
+          description="Gerencie vinculação da loja, operação diária e publicação do cardápio em blocos menores."
           logo={logo}
           iconName="shopping-bag"
         />

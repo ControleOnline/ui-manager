@@ -542,7 +542,7 @@ const PrinterDeviceDetailPage = () => {
     const normalizedHost = normalizePrinterHost(deviceHost);
     if (!normalizedHost) {
       Alert.alert(
-        'Rodape do sistema',
+        'Rodapé do sistema',
         deviceProfile.hostMissingBeforeSaveMessage,
       );
       return;
@@ -567,7 +567,7 @@ const PrinterDeviceDetailPage = () => {
         deviceString: normalizedHost,
       });
     } catch (error) {
-      Alert.alert('Rodape do sistema', resolveErrorMessage(error));
+      Alert.alert('Rodapé do sistema', resolveErrorMessage(error));
     } finally {
       setSavingRuntimeDebugInfo(false);
     }
@@ -1068,7 +1068,7 @@ const PrinterDeviceDetailPage = () => {
         </View>
 
         <View style={styles.sectionCard}>
-          <Text style={styles.sectionTitle}>Rodape do sistema</Text>
+          <Text style={styles.sectionTitle}>Rodapé do sistema</Text>
           <Text style={styles.sectionDescription}>
             {deviceProfile.footerDebugDescription}
           </Text>
