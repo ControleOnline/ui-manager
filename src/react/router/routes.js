@@ -24,6 +24,7 @@ import {
 import ConnectionsPage from '@controleonline/ui-manager/src/react/pages/Connections';
 import FinancialHubPage from '@controleonline/ui-manager/src/react/pages/FinancialHubPage';
 import Food99IntegrationPage from '@controleonline/ui-manager/src/react/pages/Food99IntegrationPage';
+import IntegrationConfigPage from '@controleonline/ui-manager/src/react/pages/IntegrationConfigPage';
 import IFoodIntegrationPage from '@controleonline/ui-manager/src/react/pages/IFoodIntegrationPage';
 import IntegrationsPage from '@controleonline/ui-manager/src/react/pages/Integrations';
 import ManagerCategoriesPage from '@controleonline/ui-manager/src/react/pages/ManagerCategoriesPage';
@@ -217,6 +218,39 @@ const managerRoutes = [
       headerShown: true,
       headerBackVisible: true,
       title: 'iFood',
+      showCompanyFilter: true,
+      companyFilterMode: 'icon',
+    },
+  },
+  {
+    name: 'UberIntegrationPage',
+    component: IntegrationConfigPage,
+    options: {
+      headerShown: true,
+      headerBackVisible: true,
+      title: 'Uber',
+      showCompanyFilter: true,
+      companyFilterMode: 'icon',
+    },
+  },
+  {
+    name: 'AsaasIntegrationPage',
+    component: IntegrationConfigPage,
+    options: {
+      headerShown: true,
+      headerBackVisible: true,
+      title: 'Asaas',
+      showCompanyFilter: true,
+      companyFilterMode: 'icon',
+    },
+  },
+  {
+    name: 'ClickSignIntegrationPage',
+    component: IntegrationConfigPage,
+    options: {
+      headerShown: true,
+      headerBackVisible: true,
+      title: 'ClickSign',
       showCompanyFilter: true,
       companyFilterMode: 'icon',
     },

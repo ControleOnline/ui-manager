@@ -12,7 +12,8 @@ import {
   resolveThemePalette,
   withOpacity,
 } from '@controleonline/../../src/styles/branding';
-import { getOrderChannelLogo } from '@assets/ppc/channels';
+
+import { INTEGRATION_LIST, parseIntegrationCollection } from './integrationsCatalog';
 import styles from './Integrations.styles';
 
 const shadowStyle = Platform.select({
@@ -26,31 +27,20 @@ const shadowStyle = Platform.select({
   web: { boxShadow: '0 10px 24px rgba(15,23,42,0.08)' },
 });
 
-
-
-const availableIntegrations = [
-  {
-    key: '99food',
-    label: '99Food',
-    description: global.t?.t('configs', 'description', '99description'),
-    route: 'Food99IntegrationPage',
-    accent: '#F97316',
-    app: '99Food',
-  },
-  {
-    key: 'ifood',
-    label: 'iFood',
-    description: global.t?.t('configs', 'description', 'ifooddescription'),
-    route: 'IFoodIntegrationPage',
-    accent: '#EA580C',
-    app: 'iFood',
-  },
-];
-
 const formatApiError = error => {
-  if (!error) return global.t?.t('configs', 'erro', 'unableLoadIntegrations');
+  if (!error) return 'Nao foi possivel carregar as integracoes.';
   if (typeof error === 'string') return error;
-  return error?.message || error?.description || error?.errmsg || global.t?.t('configs', 'erro', 'unableLoadIntegrations');
+  return error?.message || error?.description || error?.errmsg || 'Nao foi possivel carregar as integracoes.';
+};
+
+const renderIntegrationIcon = integration => {
+  if (integration.logo) {
+    return <Image source={integration.logo} style={styles.integrationLogo} resizeMode="contain" />;
+  }
+
+  return (
+    <Icon name={integration.icon || 'box'} size={20} color={integration.accent} />
+  );
 };
 
 export default function IntegrationsPage({ navigation }) {
@@ -81,22 +71,12 @@ export default function IntegrationsPage({ navigation }) {
   const integrationCards = useMemo(() => {
     const responseMap = new Map((integrationItems || []).map(item => [item?.key, item]));
 
-    return availableIntegrations.map(item => {
+    return INTEGRATION_LIST.map(item => {
       const responseItem = responseMap.get(item.key);
-      const logo = getOrderChannelLogo({ app: item.app });
+
       return {
         ...item,
-        logo,
         connected: Boolean(responseItem?.connected),
-        remoteConnected: Boolean(responseItem?.remote_connected),
-        store: responseItem?.store || responseItem?.selected_store || null,
-        storeError: responseItem?.store_error || null,
-        integrationCode:
-          responseItem?.food99_code
-          || responseItem?.ifood_code
-          || responseItem?.merchant_id
-          || null,
-        eligibleProductCount: responseItem?.eligible_product_count || 0,
       };
     });
   }, [integrationItems]);
@@ -111,9 +91,11 @@ export default function IntegrationsPage({ navigation }) {
       const response = await api.fetch('/marketplace/integrations', {
         params: { provider_id: providerId },
       });
-      setIntegrationItems(Array.isArray(response?.items) ? response.items : []);
+
+      setIntegrationItems(parseIntegrationCollection(response));
     } catch (error) {
       showError(formatApiError(error));
+      setIntegrationItems([]);
     } finally {
       setLoading(false);
     }
@@ -121,6 +103,7 @@ export default function IntegrationsPage({ navigation }) {
 
   useFocusEffect(
     useCallback(() => {
+      setLoading(true);
       loadIntegrations();
     }, [loadIntegrations]),
   );
@@ -137,7 +120,7 @@ export default function IntegrationsPage({ navigation }) {
   const handleOpenIntegration = useCallback(
     integration => {
       if (!integration.route) {
-        showInfo(global.t?.t('configs', 'erro', 'futureIntegration'));
+        showInfo('Essa integracao ainda nao esta disponivel.');
         return;
       }
 
@@ -146,18 +129,14 @@ export default function IntegrationsPage({ navigation }) {
     [navigation, showInfo],
   );
 
-  const handleOpenHistory = useCallback(() => {
-    navigation.navigate('OrderHistoryPage');
-  }, [navigation]);
-
   if (!providerId) {
     return (
       <SafeAreaView style={styles.container} edges={['bottom']}>
         <View style={styles.centerState}>
           <Icon name="building" size={32} color="#94A3B8" />
-          <Text style={styles.centerStateTitle}>{global.t?.t('configs', 'message', 'selectCompany')}</Text>
+          <Text style={styles.centerStateTitle}>Selecione uma empresa</Text>
           <Text style={styles.centerStateText}>
-            {global.t?.t('configs', 'message', 'integrationCenterReflectsActiveCompany')}
+            O hub de integracoes depende da empresa ativa.
           </Text>
         </View>
       </SafeAreaView>
@@ -166,12 +145,12 @@ export default function IntegrationsPage({ navigation }) {
 
   if (loading) {
     return (
-      <SafeAreaView style={styles.container} edges={['bottom']}>
+      <SafeAreaView style={[styles.container, { backgroundColor: brandColors.background }]} edges={['bottom']}>
         <View style={styles.centerState}>
           <ActivityIndicator size="large" color={brandColors.primary} />
-          <Text style={styles.centerStateTitle}>{global.t?.t('configs', 'message', 'loadingIntegrations')}</Text>
+          <Text style={styles.centerStateTitle}>Carregando integracoes</Text>
           <Text style={styles.centerStateText}>
-            {global.t?.t('configs', 'message', 'fetchingAvailableChannels')}
+            Buscando o status de conexao da empresa ativa.
           </Text>
         </View>
       </SafeAreaView>
@@ -186,40 +165,19 @@ export default function IntegrationsPage({ navigation }) {
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={brandColors.primary} />
         }>
-        <View
-          style={[
-            styles.heroCard,
-            shadowStyle,
-            { backgroundColor: brandColors.primary },
-          ]}>
-          <View style={styles.heroCopy}>
-            <Text style={styles.heroEyebrow}>{global.t?.t('configs', 'label', 'marketplace')}</Text>
-            <Text style={styles.heroTitle}>{global.t?.t('configs', 'label', 'integrationCenter')}</Text>
-            <Text style={styles.heroText}>
-              {global.t?.t('configs', 'label', 'integrationCenterDescription')}
-            </Text>
-          </View>
-          <View style={styles.heroBadge}>
-            <Icon name="layers" size={22} color={brandColors.primary} />
-          </View>
+        <View style={styles.pageHeader}>
+          <Text style={styles.pageTitle}>Integracoes</Text>
+          <Text style={styles.pageSubtitle}>
+            Toque em uma integracao para abrir a configuracao. O status mostra se
+            a empresa ativa ja tem as credenciais necessarias.
+          </Text>
         </View>
 
-        <View style={styles.companyRow}>
-          <View style={styles.companyBadge}>
-            <Text style={styles.companyBadgeText}>{integrationCards.length} {global.t?.t('configs', 'label', 'channels')}</Text>
-          </View>
-        </View>
-
-        <View style={styles.integrationList}>
+        <View style={styles.integrationGrid}>
           {integrationCards.map(integration => {
-            const statusTone = integration.connected ? '#16A34A' : integration.route ? '#F59E0B' : '#64748B';
-            const statusText = integration.connected
-              ? global.t?.t('configs', 'label', 'connected')
-              : integration.route
-                ? global.t?.t('configs', 'label', 'readyToConfigure')
-                : global.t?.t('configs', 'label', 'comingSoon');
-            const storeLabel = integration.store?.name
-              || (integration.connected ? global.t?.t('configs', 'label', 'locallyLinked') : global.t?.t('configs', 'label', 'notLinked'));
+            const connected = Boolean(integration.connected);
+            const statusTone = connected ? '#16A34A' : '#F59E0B';
+            const statusText = connected ? 'Conectado' : 'Pendente';
 
             return (
               <TouchableOpacity
@@ -228,59 +186,32 @@ export default function IntegrationsPage({ navigation }) {
                 activeOpacity={0.9}
                 onPress={() => handleOpenIntegration(integration)}>
                 <View style={styles.integrationTopRow}>
-                  <View style={[styles.integrationLogoWrap, { backgroundColor: withOpacity(integration.accent, 0.12) }]}>
-                    {integration.logo ? (
-                      <Image source={integration.logo} style={styles.integrationLogo} resizeMode="contain" />
-                    ) : (
-                      <Icon name="box" size={18} color={integration.accent} />
-                    )}
+                  <View
+                    style={[
+                      styles.integrationIconWrap,
+                      { backgroundColor: withOpacity(integration.accent, 0.12) },
+                    ]}>
+                    {renderIntegrationIcon(integration)}
                   </View>
-                  <View style={[styles.integrationStatus, { backgroundColor: withOpacity(statusTone, 0.12) }]}>
-                    <Text style={[styles.integrationStatusText, { color: statusTone }]}>{statusText}</Text>
-                  </View>
-                </View>
 
-                <Text style={styles.integrationTitle}>{integration.label}</Text>
-                <Text style={styles.integrationDescription}>{integration.description}</Text>
-
-                <View style={styles.integrationMetaRow}>
-                  <View style={styles.integrationMetaItem}>
-                    <Text style={styles.integrationMetaLabel}>{global.t?.t('configs', 'label', 'eligibleProducts')}</Text>
-                    <Text style={styles.integrationMetaValue}>{integration.eligibleProductCount}</Text>
-                  </View>
-                  <View style={styles.integrationMetaItem}>
-                    <Text style={styles.integrationMetaLabel}>{global.t?.t('configs', 'label', 'store')}</Text>
-                    <Text style={styles.integrationMetaValue} numberOfLines={1}>
-                      {storeLabel}
+                  <View
+                    style={[
+                      styles.integrationStatus,
+                      { backgroundColor: withOpacity(statusTone, 0.12) },
+                    ]}>
+                    <Text
+                      style={[
+                        styles.integrationStatusText,
+                        { color: statusTone },
+                      ]}>
+                      {statusText}
                     </Text>
                   </View>
                 </View>
 
-                {integration.connected && !integration.remoteConnected ? (
-                  <Text style={styles.integrationHint}>
-                    {global.t?.t('configs', 'label', 'locallyLinkedHint')}
-                  </Text>
-                ) : null}
-
-                <View style={styles.integrationFooter}>
-                  <Text style={styles.integrationFooterText}>
-                    {integration.route ? global.t?.t('configs', 'label', 'openIntegration') : global.t?.t('configs', 'label', 'comingSoon')}
-                  </Text>
-                  <Icon name={integration.route ? 'arrow-right' : 'clock'} size={16} color={integration.route ? brandColors.primary : '#94A3B8'} />
-                </View>
-
-                {integration.key === '99food' ? (
-                  <TouchableOpacity
-                    style={styles.historyButton}
-                    activeOpacity={0.85}
-                    onPress={event => {
-                      event?.stopPropagation?.();
-                      handleOpenHistory();
-                    }}>
-                    <Icon name="clock" size={16} color="#C2410C" />
-                    <Text style={styles.historyButtonText}>Ver historico de pedidos</Text>
-                  </TouchableOpacity>
-                ) : null}
+                <Text style={styles.integrationTitle} numberOfLines={1}>
+                  {integration.label}
+                </Text>
               </TouchableOpacity>
             );
           })}
