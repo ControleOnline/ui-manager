@@ -40,7 +40,7 @@ export default function IFoodOverviewTab({
       <View style={styles.metaGrid}>
         <View style={styles.metaBox}>
           <Text style={styles.metaLabel}>Token OAuth</Text>
-          <Text style={styles.metaValue}>{authAvailable ? 'Disponivel' : 'Indisponivel'}</Text>
+          <Text style={styles.metaValue}>{authAvailable ? 'Disponível' : 'Indisponível'}</Text>
         </View>
         <View style={styles.metaBox}>
           <Text style={styles.metaLabel}>Produtos aptos</Text>
@@ -51,16 +51,16 @@ export default function IFoodOverviewTab({
       <View style={styles.helperRow}>
         <Text style={styles.helperText}>
           {remoteConnected
-            ? 'A vinculacao local esta confirmada na conta iFood.'
+            ? 'A vinculação local está confirmada na conta iFood.'
             : connected
-              ? 'Loja vinculada localmente. Execute sincronizacao para validar no iFood.'
+              ? 'Loja vinculada localmente. Execute sincronização para validar no iFood.'
               : 'Selecione uma loja ou informe o código iFood para conectar.'}
         </Text>
       </View>
 
       {!!integration?.last_error_message && (
         <View style={styles.errorBox}>
-          <Text style={styles.errorTitle}>Ultimo erro</Text>
+          <Text style={styles.errorTitle}>Último erro</Text>
           <Text style={styles.errorText}>{integration.last_error_message}</Text>
         </View>
       )}
@@ -82,7 +82,7 @@ export default function IFoodOverviewTab({
 
           <View style={styles.metaGrid}>
             <View style={styles.metaBox}>
-              <Text style={styles.metaLabel}>Razao social</Text>
+              <Text style={styles.metaLabel}>Razão social</Text>
               <Text style={styles.metaValue}>{selectedStoreDetail?.corporate_name || '--'}</Text>
             </View>
             <View style={styles.metaBox}>
@@ -92,18 +92,18 @@ export default function IFoodOverviewTab({
           </View>
 
           <View style={styles.metaBox}>
-            <Text style={styles.metaLabel}>Endereco</Text>
+            <Text style={styles.metaLabel}>Endereço</Text>
             <Text style={styles.metaValue}>
-              {selectedStoreDetail?.address?.formatted || 'Endereco nao informado'}
+              {selectedStoreDetail?.address?.formatted || 'Endereço não informado'}
             </Text>
           </View>
 
           {Array.isArray(selectedStoreDetail?.operations) && selectedStoreDetail.operations.length > 0 && (
             <View style={styles.storeOperationsBox}>
-              <Text style={styles.metaLabel}>Operacoes configuradas</Text>
+              <Text style={styles.metaLabel}>Operações configuradas</Text>
               {selectedStoreDetail.operations.map((operation, index) => (
                 <Text key={`${operation?.name || 'operation'}-${index}`} style={styles.operationText}>
-                  {operation?.name || 'Operacao'}
+                  {operation?.name || 'Operação'}
                   {Array.isArray(operation?.sales_channels) && operation.sales_channels.length > 0
                     ? ` - ${operation.sales_channels.join(', ')}`
                     : ''}
