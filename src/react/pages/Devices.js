@@ -5,7 +5,7 @@ import {useNavigation} from '@react-navigation/native';
 import {useStore} from '@store';
 import {resolveThemePalette} from '@controleonline/../../src/styles/branding';
 import {colors} from '@controleonline/../../src/styles/colors';
-import CompactFilterSelector from '@controleonline/ui-common/src/react/components/filters/CompactFilterSelector';
+import CompactFilterSelector from '@controleonline/ui-default/src/react/components/filters/CompactFilterSelector';
 import {PDV_DEVICE_TYPE} from '@controleonline/ui-common/src/react/utils/printerDevices';
 import Icon from 'react-native-vector-icons/Feather';
 import {

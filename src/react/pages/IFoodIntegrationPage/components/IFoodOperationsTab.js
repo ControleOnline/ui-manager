@@ -14,6 +14,10 @@ export default function IFoodOperationsTab({
   storeStatus,
   activeInterruptions,
   actionLoading,
+  interruptionDraft,
+  interruptionRemoving,
+  onInterruptionDraftChange,
+  onRemoveInterruption,
   onStoreOpen,
   onStoreClose,
   onRefreshStatus,
@@ -85,9 +89,22 @@ export default function IFoodOperationsTab({
             <Text style={styles.interruptionsTitle}>Pausas ativas</Text>
             {activeInterruptions.map((interruption, index) => (
               <View key={String(interruption?.id || index)} style={styles.interruptionItem}>
-                <Text style={styles.interruptionText}>
-                  {interruption?.description || 'Interrupcao ativa'}
-                </Text>
+                <View style={styles.interruptionHeader}>
+                  <Text style={styles.interruptionText}>
+                    {interruption?.description || 'Interrupcao ativa'}
+                  </Text>
+                  <TouchableOpacity
+                    activeOpacity={0.9}
+                    style={styles.interruptionRemoveButton}
+                    onPress={() => onRemoveInterruption(interruption)}
+                    disabled={actionLoading !== null || interruptionRemoving?.has?.(String(interruption?.id || ''))}>
+                    {interruptionRemoving?.has?.(String(interruption?.id || '')) ? (
+                      <ActivityIndicator size="small" color="#B91C1C" />
+                    ) : (
+                      <Icon name="trash-2" size={13} color="#B91C1C" />
+                    )}
+                  </TouchableOpacity>
+                </View>
                 <Text style={styles.interruptionMeta}>
                   Inicio: {formatDateTimeLabel(interruption?.start)}
                 </Text>
@@ -98,6 +115,47 @@ export default function IFoodOperationsTab({
             ))}
           </View>
         )}
+
+        <View style={styles.interruptionForm}>
+          <Text style={styles.interruptionsTitle}>Nova pausa</Text>
+          <TextInput
+            value={interruptionDraft?.description || ''}
+            onChangeText={value => onInterruptionDraftChange('description', value)}
+            style={styles.input}
+            placeholder="Motivo da pausa"
+            placeholderTextColor="#94A3B8"
+            editable={actionLoading === null}
+          />
+          <View style={styles.interruptionDateRow}>
+            <View style={styles.interruptionDateField}>
+              <Text style={styles.inputLabel}>Inicio</Text>
+              <TextInput
+                value={interruptionDraft?.start || ''}
+                onChangeText={value => onInterruptionDraftChange('start', value)}
+                style={styles.input}
+                placeholder="AAAA-MM-DDTHH:MM"
+                placeholderTextColor="#94A3B8"
+                keyboardType="numbers-and-punctuation"
+                editable={actionLoading === null}
+              />
+            </View>
+            <View style={styles.interruptionDateField}>
+              <Text style={styles.inputLabel}>Fim</Text>
+              <TextInput
+                value={interruptionDraft?.end || ''}
+                onChangeText={value => onInterruptionDraftChange('end', value)}
+                style={styles.input}
+                placeholder="AAAA-MM-DDTHH:MM"
+                placeholderTextColor="#94A3B8"
+                keyboardType="numbers-and-punctuation"
+                editable={actionLoading === null}
+              />
+            </View>
+          </View>
+          <Text style={styles.interruptionMeta}>
+            Formato: AAAA-MM-DDTHH:MM. O iFood limita pausas a no maximo 7 dias e nao permite sobreposicao.
+          </Text>
+        </View>
 
         {Array.isArray(storeStatus?.data?.operations) && (() => {
           const storeOnline = storeStatus.data.online === true;

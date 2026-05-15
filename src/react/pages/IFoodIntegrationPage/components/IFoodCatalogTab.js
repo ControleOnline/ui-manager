@@ -3,7 +3,7 @@ import { ActivityIndicator, Text, TextInput, TouchableOpacity, View } from 'reac
 import Icon from 'react-native-vector-icons/Feather';
 
 import { withOpacity } from '@controleonline/../../src/styles/branding';
-import CompactFilterSelector from '@controleonline/ui-common/src/react/components/filters/CompactFilterSelector';
+import CompactFilterSelector from '@controleonline/ui-default/src/react/components/filters/CompactFilterSelector';
 
 import styles from '../styles';
 import { filterTabs } from '../utils';

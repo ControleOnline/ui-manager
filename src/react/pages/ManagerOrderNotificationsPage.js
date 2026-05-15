@@ -1,0 +1,711 @@
+import React, {useCallback, useEffect, useMemo, useState} from 'react';
+import {
+  ActivityIndicator,
+  ScrollView,
+  StyleSheet,
+  Switch,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from 'react-native';
+import {SafeAreaView} from 'react-native-safe-area-context';
+import Icon from 'react-native-vector-icons/MaterialIcons';
+import {useFocusEffect} from '@react-navigation/native';
+import {useStore} from '@store';
+import {useMessage} from '@controleonline/ui-common/src/react/components/MessageService';
+import {
+  applyManagerOrderNotificationPreferences,
+  applyManagerFinancialNotificationPreferences,
+  buildManagerOrderNotificationContent,
+  getManagerOrderNotificationPermissionStatus,
+  resolveManagerFinancialNotificationPreferences,
+  resolveManagerOrderNotificationPreferences,
+  requestManagerOrderNotificationPermission,
+} from '@controleonline/ui-common/src/react/utils/managerOrderNotifications';
+import {
+  normalizeNotificationTargets,
+  useGeneralSettingsConfig,
+} from '@controleonline/ui-crm/src/react/pages/settings/GeneralSettings.shared';
+import {colors} from '@controleonline/../../src/styles/colors';
+
+const permissionStatusLabels = {
+  granted: 'Permissão do sistema liberada.',
+  default: 'Permissão do sistema ainda não confirmada.',
+  denied: 'Permissão do sistema negada.',
+  unsupported: 'Este ambiente não expõe notificações locais.',
+};
+
+export default function ManagerOrderNotificationsPage() {
+  const authStore = useStore('auth');
+  const peopleStore = useStore('people');
+  const {showError, showSuccess} = useMessage() || {};
+  const authActions = authStore.actions;
+  const {user} = authStore.getters;
+  const {currentCompany} = peopleStore.getters;
+  const {effectiveCompanyConfigs, saveConfigs} = useGeneralSettingsConfig();
+
+  const currentPreferences = useMemo(
+    () => resolveManagerOrderNotificationPreferences(user),
+    [user],
+  );
+  const financialPreferences = useMemo(
+    () => resolveManagerFinancialNotificationPreferences(user),
+    [user],
+  );
+
+  const [pushEnabled, setPushEnabled] = useState(currentPreferences.pushEnabled);
+  const [soundEnabled, setSoundEnabled] = useState(
+    currentPreferences.soundEnabled,
+  );
+  const [soundUrl, setSoundUrl] = useState(currentPreferences.soundUrl);
+  const [cashClosePushEnabled, setCashClosePushEnabled] = useState(
+    financialPreferences.cashClosePushEnabled,
+  );
+  const [storeClosePushEnabled, setStoreClosePushEnabled] = useState(
+    financialPreferences.storeClosePushEnabled,
+  );
+  const [cashRegisterNumbers, setCashRegisterNumbers] = useState('');
+  const [storeCloseNumbers, setStoreCloseNumbers] = useState('');
+  const [permissionStatus, setPermissionStatus] = useState('default');
+  const [isSaving, setIsSaving] = useState(false);
+  const [isSavingFinancial, setIsSavingFinancial] = useState(false);
+  const isOwnerCompany = Boolean(currentCompany?.user?.owner_enabled);
+  const previewNotification = useMemo(
+    () =>
+      buildManagerOrderNotificationContent(
+        [
+          {
+            order: '12345',
+            notificationHeader: 'Pedido #12345',
+            notificationSubheader: 'Referencia interna #12345',
+            notificationStatusLabel: 'Fila',
+          },
+        ],
+        currentCompany,
+      ),
+    [currentCompany],
+  );
+
+  useEffect(() => {
+    setPushEnabled(currentPreferences.pushEnabled);
+    setSoundEnabled(currentPreferences.soundEnabled);
+    setSoundUrl(currentPreferences.soundUrl);
+  }, [currentPreferences]);
+
+  useEffect(() => {
+    setCashClosePushEnabled(financialPreferences.cashClosePushEnabled);
+    setStoreClosePushEnabled(financialPreferences.storeClosePushEnabled);
+  }, [financialPreferences]);
+
+  useEffect(() => {
+    setCashRegisterNumbers(
+      normalizeNotificationTargets(
+        effectiveCompanyConfigs?.['cash-register-notifications'],
+      ).join('\n'),
+    );
+    setStoreCloseNumbers(
+      normalizeNotificationTargets(
+        effectiveCompanyConfigs?.['store-close-notifications'],
+      ).join('\n'),
+    );
+  }, [effectiveCompanyConfigs]);
+
+  const loadPermissionStatus = useCallback(async () => {
+    setPermissionStatus(await getManagerOrderNotificationPermissionStatus());
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadPermissionStatus();
+    }, [loadPermissionStatus]),
+  );
+
+  const handleSave = useCallback(async () => {
+    if (isSaving) {
+      return;
+    }
+
+    const normalizedSoundUrl = String(soundUrl || '').trim();
+
+    if (pushEnabled && soundEnabled && !normalizedSoundUrl) {
+      showError?.('Informe a URL do áudio para tocar junto da notificação.');
+      return;
+    }
+
+    setIsSaving(true);
+
+    try {
+      let nextPermissionStatus = permissionStatus;
+
+      if (pushEnabled) {
+        nextPermissionStatus = await requestManagerOrderNotificationPermission();
+        setPermissionStatus(nextPermissionStatus);
+
+        if (nextPermissionStatus !== 'granted') {
+          throw new Error(
+            nextPermissionStatus === 'unsupported'
+              ? 'Este ambiente não permite notificações locais.'
+              : 'Permita as notificações do sistema para ativar o aviso push.',
+          );
+        }
+      }
+
+      authActions.logIn(
+        applyManagerOrderNotificationPreferences(user, {
+          pushEnabled,
+          soundEnabled,
+          soundUrl: normalizedSoundUrl,
+        }),
+      );
+
+      showSuccess?.(
+        pushEnabled
+          ? 'Notificações de pedidos atualizadas.'
+          : 'Notificações de pedidos desativadas.',
+      );
+    } catch (error) {
+      showError?.(
+        error?.message || 'Não foi possível salvar as notificações do gestor.',
+      );
+    } finally {
+      setIsSaving(false);
+    }
+  }, [
+    authActions,
+    isSaving,
+    permissionStatus,
+    pushEnabled,
+    showError,
+    showSuccess,
+    soundEnabled,
+    soundUrl,
+    user,
+  ]);
+
+  const handleSaveFinancial = useCallback(async () => {
+    if (isSavingFinancial || !isOwnerCompany) {
+      return;
+    }
+
+    setIsSavingFinancial(true);
+
+    try {
+      authActions.logIn(
+        applyManagerFinancialNotificationPreferences(user, {
+          cashClosePushEnabled,
+          storeClosePushEnabled,
+        }),
+      );
+
+      const saved = await saveConfigs({
+        'cash-register-notifications': normalizeNotificationTargets(
+          cashRegisterNumbers,
+        ),
+        'store-close-notifications': normalizeNotificationTargets(
+          storeCloseNumbers,
+        ),
+      });
+
+      if (!saved) {
+        throw new Error('Nao foi possivel salvar as configuracoes financeiras.');
+      }
+
+      showSuccess?.('Notificacoes financeiras atualizadas.');
+    } catch (error) {
+      showError?.(
+        error?.message || 'Nao foi possivel salvar as notificacoes financeiras.',
+      );
+    } finally {
+      setIsSavingFinancial(false);
+    }
+  }, [
+    authActions,
+    cashClosePushEnabled,
+    cashRegisterNumbers,
+    isOwnerCompany,
+    isSavingFinancial,
+    saveConfigs,
+    showError,
+    showSuccess,
+    storeCloseNumbers,
+    storeClosePushEnabled,
+    user,
+  ]);
+
+  return (
+    <SafeAreaView style={styles.screen}>
+      <ScrollView
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}>
+        <View style={styles.heroCard}>
+          <Text style={styles.heroEyebrow}>PERFIL DO GESTOR</Text>
+          <Text style={styles.heroTitle}>Notificações de pedidos</Text>
+          <Text style={styles.heroDescription}>
+            Cada pedido novo recebido no Gestor pode abrir uma notificação local.
+            Se quiser, junto do push você também define um áudio remoto para tocar
+            no mesmo gatilho do websocket.
+          </Text>
+        </View>
+
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <View style={styles.sectionIconWrap}>
+              <Icon name="receipt-long" size={20} color={colors.primary} />
+            </View>
+            <View style={styles.sectionHeaderCopy}>
+              <Text style={styles.sectionTitle}>Preview do pedido</Text>
+              <Text style={styles.sectionDescription}>
+                Esta tela usa o cabecalho do pedido e o status inicial em fila
+                para antecipar como o aviso aparece no Gestor.
+              </Text>
+            </View>
+          </View>
+
+          <View style={styles.previewCard}>
+            <View style={styles.previewHeader}>
+              <View style={styles.previewCopy}>
+                <Text style={styles.previewTitle}>{previewNotification.title}</Text>
+                <Text style={styles.previewBody}>{previewNotification.body}</Text>
+              </View>
+              <View style={styles.previewStatusBadge}>
+                <Text style={styles.previewStatusText}>
+                  {previewNotification.statusLabel || 'Fila'}
+                </Text>
+              </View>
+            </View>
+          </View>
+        </View>
+
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <View style={styles.sectionIconWrap}>
+              <Icon name="notifications-active" size={20} color={colors.primary} />
+            </View>
+            <View style={styles.sectionHeaderCopy}>
+              <Text style={styles.sectionTitle}>Push de novos pedidos</Text>
+              <Text style={styles.sectionDescription}>
+                Já vem habilitado por padrão, mas você pode desligar quando não
+                quiser receber avisos no Gestor.
+              </Text>
+            </View>
+          </View>
+
+          <View style={styles.toggleCard}>
+            <View style={styles.toggleCopy}>
+              <Text style={styles.toggleLabel}>Receber notificações push</Text>
+              <Text style={styles.toggleHint}>
+                Status do sistema: {permissionStatusLabels[permissionStatus] || permissionStatus}
+              </Text>
+            </View>
+            <Switch value={pushEnabled} onValueChange={setPushEnabled} />
+          </View>
+        </View>
+
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <View style={styles.sectionIconWrap}>
+              <Icon name="volume-up" size={20} color={colors.primary} />
+            </View>
+            <View style={styles.sectionHeaderCopy}>
+              <Text style={styles.sectionTitle}>Aviso sonoro opcional</Text>
+              <Text style={styles.sectionDescription}>
+                O som usa a URL informada abaixo e dispara no mesmo evento
+                `order.created` que gera a notificação.
+              </Text>
+            </View>
+          </View>
+
+          <View
+            style={[
+              styles.soundCard,
+              !pushEnabled && styles.soundCardDisabled,
+            ]}>
+            <View style={styles.toggleCard}>
+              <View style={styles.toggleCopy}>
+                <Text style={styles.toggleLabel}>Tocar áudio junto do push</Text>
+                <Text style={styles.toggleHint}>
+                  Só funciona quando as notificações do gestor estiverem ligadas.
+                </Text>
+              </View>
+              <Switch
+                value={soundEnabled}
+                disabled={!pushEnabled}
+                onValueChange={setSoundEnabled}
+              />
+            </View>
+
+            <Text style={styles.inputLabel}>URL do audio</Text>
+            <TextInput
+              value={soundUrl}
+              onChangeText={setSoundUrl}
+              placeholder="https://exemplo.com/alerta.mp3"
+              placeholderTextColor="#94A3B8"
+              autoCapitalize="none"
+              autoCorrect={false}
+              keyboardType="url"
+              editable={pushEnabled && soundEnabled}
+              style={[
+                styles.input,
+                (!pushEnabled || !soundEnabled) && styles.inputDisabled,
+              ]}
+            />
+          </View>
+        </View>
+
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <View style={styles.sectionIconWrap}>
+              <Icon name="savings" size={20} color={colors.primary} />
+            </View>
+            <View style={styles.sectionHeaderCopy}>
+              <Text style={styles.sectionTitle}>Fechamento financeiro</Text>
+              <Text style={styles.sectionDescription}>
+                Somente o owner da empresa pode ajustar estes alertas. O push
+                usa o mesmo websocket do Gestor e o WhatsApp sai pela tabela de
+                integrações do backend.
+              </Text>
+            </View>
+          </View>
+
+          {!isOwnerCompany ? (
+            <View style={styles.ownerHintCard}>
+              <Text style={styles.ownerHintText}>
+                Este perfil nao tem permissao de owner na empresa ativa.
+              </Text>
+            </View>
+          ) : (
+            <>
+              <View style={styles.toggleCard}>
+                <View style={styles.toggleCopy}>
+                  <Text style={styles.toggleLabel}>
+                    Push no fechamento de caixa
+                  </Text>
+                  <Text style={styles.toggleHint}>
+                    Recebe o alerta quando o caixa for encerrado com o mesmo
+                    resumo enviado ao WhatsApp.
+                  </Text>
+                </View>
+                <Switch
+                  value={cashClosePushEnabled}
+                  onValueChange={setCashClosePushEnabled}
+                />
+              </View>
+
+              <View style={styles.toggleCard}>
+                <View style={styles.toggleCopy}>
+                  <Text style={styles.toggleLabel}>
+                    Push no fechamento de loja
+                  </Text>
+                  <Text style={styles.toggleHint}>
+                    Recebe o resumo financeiro quando 99 ou iFood mudarem o
+                    status da loja para fechada.
+                  </Text>
+                </View>
+                <Switch
+                  value={storeClosePushEnabled}
+                  onValueChange={setStoreClosePushEnabled}
+                />
+              </View>
+
+              <View style={styles.soundCard}>
+                <Text style={styles.inputLabel}>
+                  WhatsApp do fechamento de caixa
+                </Text>
+                <TextInput
+                  value={cashRegisterNumbers}
+                  onChangeText={setCashRegisterNumbers}
+                  placeholder="5511999999999"
+                  placeholderTextColor="#94A3B8"
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  keyboardType="phone-pad"
+                  multiline
+                  style={styles.input}
+                />
+
+                <Text style={styles.inputLabel}>
+                  WhatsApp do fechamento de loja
+                </Text>
+                <TextInput
+                  value={storeCloseNumbers}
+                  onChangeText={setStoreCloseNumbers}
+                  placeholder="5511999999999"
+                  placeholderTextColor="#94A3B8"
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  keyboardType="phone-pad"
+                  multiline
+                  style={styles.input}
+                />
+              </View>
+            </>
+          )}
+        </View>
+
+        <TouchableOpacity
+          style={[styles.saveButton, isSaving && styles.saveButtonDisabled]}
+          onPress={handleSave}
+          activeOpacity={0.85}
+          disabled={isSaving}>
+          {isSaving ? (
+            <ActivityIndicator size="small" color={colors.white} />
+          ) : (
+            <>
+              <Icon
+                name="save"
+                size={18}
+                color={colors.white}
+                style={styles.saveIcon}
+              />
+              <Text style={styles.saveButtonText}>Salvar configuração</Text>
+            </>
+          )}
+        </TouchableOpacity>
+
+        {isOwnerCompany && (
+          <TouchableOpacity
+            style={[
+              styles.saveButton,
+              styles.secondarySaveButton,
+              isSavingFinancial && styles.saveButtonDisabled,
+            ]}
+            onPress={handleSaveFinancial}
+            activeOpacity={0.85}
+            disabled={isSavingFinancial}>
+            {isSavingFinancial ? (
+              <ActivityIndicator size="small" color={colors.white} />
+            ) : (
+              <>
+                <Icon
+                  name="lock"
+                  size={18}
+                  color={colors.white}
+                  style={styles.saveIcon}
+                />
+                <Text style={styles.saveButtonText}>
+                  Salvar alertas financeiros
+                </Text>
+              </>
+            )}
+          </TouchableOpacity>
+        )}
+      </ScrollView>
+    </SafeAreaView>
+  );
+}
+
+const styles = StyleSheet.create({
+  screen: {
+    flex: 1,
+    backgroundColor: '#F8FAFC',
+  },
+  content: {
+    padding: 20,
+    paddingBottom: 40,
+    gap: 18,
+  },
+  heroCard: {
+    backgroundColor: '#0F172A',
+    borderRadius: 24,
+    padding: 22,
+    shadowColor: '#0F172A',
+    shadowOffset: {width: 0, height: 10},
+    shadowOpacity: 0.18,
+    shadowRadius: 18,
+    elevation: 4,
+  },
+  heroEyebrow: {
+    color: '#93C5FD',
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 1.2,
+    marginBottom: 10,
+  },
+  heroTitle: {
+    color: colors.white,
+    fontSize: 28,
+    fontWeight: '800',
+    marginBottom: 8,
+  },
+  heroDescription: {
+    color: '#CBD5E1',
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  section: {
+    gap: 12,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    gap: 12,
+    alignItems: 'flex-start',
+  },
+  sectionIconWrap: {
+    width: 42,
+    height: 42,
+    borderRadius: 14,
+    backgroundColor: '#DBEAFE',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  sectionHeaderCopy: {
+    flex: 1,
+  },
+  sectionTitle: {
+    color: '#0F172A',
+    fontSize: 18,
+    fontWeight: '800',
+    marginBottom: 4,
+  },
+  sectionDescription: {
+    color: '#475569',
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  toggleCard: {
+    backgroundColor: colors.white,
+    borderRadius: 20,
+    padding: 18,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 16,
+    shadowColor: '#0F172A',
+    shadowOffset: {width: 0, height: 6},
+    shadowOpacity: 0.05,
+    shadowRadius: 14,
+    elevation: 2,
+  },
+  previewCard: {
+    backgroundColor: colors.white,
+    borderRadius: 20,
+    padding: 18,
+    shadowColor: '#0F172A',
+    shadowOffset: {width: 0, height: 6},
+    shadowOpacity: 0.05,
+    shadowRadius: 14,
+    elevation: 2,
+  },
+  previewHeader: {
+    flexDirection: 'row',
+    gap: 12,
+    alignItems: 'flex-start',
+  },
+  previewCopy: {
+    flex: 1,
+  },
+  previewTitle: {
+    color: '#0F172A',
+    fontSize: 18,
+    fontWeight: '800',
+    marginBottom: 6,
+  },
+  previewBody: {
+    color: '#475569',
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  previewStatusBadge: {
+    borderRadius: 999,
+    backgroundColor: '#E0F2FE',
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+  },
+  previewStatusText: {
+    color: '#0369A1',
+    fontSize: 12,
+    fontWeight: '800',
+    textTransform: 'uppercase',
+  },
+  toggleCopy: {
+    flex: 1,
+  },
+  toggleLabel: {
+    color: '#0F172A',
+    fontSize: 16,
+    fontWeight: '700',
+    marginBottom: 4,
+  },
+  toggleHint: {
+    color: '#64748B',
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  soundCard: {
+    backgroundColor: colors.white,
+    borderRadius: 20,
+    padding: 18,
+    gap: 14,
+    shadowColor: '#0F172A',
+    shadowOffset: {width: 0, height: 6},
+    shadowOpacity: 0.05,
+    shadowRadius: 14,
+    elevation: 2,
+  },
+  soundCardDisabled: {
+    opacity: 0.7,
+  },
+  ownerHintCard: {
+    backgroundColor: '#FEF3C7',
+    borderRadius: 20,
+    padding: 18,
+  },
+  ownerHintText: {
+    color: '#92400E',
+    fontSize: 14,
+    lineHeight: 20,
+    fontWeight: '600',
+  },
+  inputLabel: {
+    color: '#0F172A',
+    fontSize: 14,
+    fontWeight: '700',
+    marginBottom: 8,
+    marginTop: 4,
+  },
+  input: {
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 13,
+    color: '#0F172A',
+    backgroundColor: '#F8FAFC',
+    minHeight: 52,
+    textAlignVertical: 'top',
+  },
+  inputDisabled: {
+    color: '#94A3B8',
+    backgroundColor: '#F1F5F9',
+  },
+  saveButton: {
+    marginTop: 8,
+    backgroundColor: colors.primary,
+    borderRadius: 16,
+    paddingVertical: 15,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+    shadowColor: '#0F172A',
+    shadowOffset: {width: 0, height: 8},
+    shadowOpacity: 0.12,
+    shadowRadius: 16,
+    elevation: 3,
+  },
+  saveButtonDisabled: {
+    opacity: 0.65,
+  },
+  secondarySaveButton: {
+    backgroundColor: '#0F766E',
+    marginTop: 0,
+  },
+  saveIcon: {
+    marginRight: 8,
+  },
+  saveButtonText: {
+    color: colors.white,
+    fontSize: 16,
+    fontWeight: '800',
+  },
+});

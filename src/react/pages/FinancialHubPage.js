@@ -82,43 +82,6 @@ export default function FinancialHubPage({navigation}) {
       style={[styles.container, {backgroundColor: palette.background || '#F8FAFC'}]}
       edges={['bottom']}>
       <View style={styles.topBar}>
-        <View style={styles.actionsRow}>
-          <TouchableOpacity
-            style={styles.subtleButton}
-            activeOpacity={0.86}
-            onPress={() => navigation.navigate('WalletsPage')}>
-            <Icon name="briefcase" size={14} color="#64748B" />
-            <Text style={styles.subtleButtonText}>Carteiras</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[
-              styles.subtleButton,
-              {
-                borderColor: withOpacity(activeSection.accent, 0.24),
-                backgroundColor: withOpacity(activeSection.accent, 0.08),
-              },
-            ]}
-            activeOpacity={0.86}
-            onPress={() =>
-              navigation.navigate('InvoiceCategoriesPage', {
-                context: activeSection.categoryContext,
-                contextLabel: activeSection.categoryContextLabel,
-                lockContext: true,
-                title: activeSection.categoryTitle,
-              })
-            }>
-            <Icon name="tag" size={14} color={activeSection.accent} />
-            <Text
-              style={[
-                styles.subtleButtonText,
-                {color: activeSection.accent},
-              ]}>
-              Categorias
-            </Text>
-          </TouchableOpacity>
-        </View>
-
         <View style={styles.tabsRow}>
           {FINANCIAL_TABS.map(item => {
             const isActive = item.key === activeSection.key;
@@ -155,21 +118,43 @@ export default function FinancialHubPage({navigation}) {
             );
           })}
         </View>
-      </View>
 
-      <View style={styles.contentHeader}>
-        <View
-          style={[
-            styles.contentBadge,
-            {backgroundColor: withOpacity(activeSection.accent, 0.12)},
-          ]}>
-          <Icon
-            name={activeSection.icon}
-            size={15}
-            color={activeSection.accent}
-          />
+        <View style={styles.actionsRow}>
+          <TouchableOpacity
+            style={styles.subtleButton}
+            activeOpacity={0.86}
+            onPress={() => navigation.navigate('WalletsPage')}>
+            <Icon name="briefcase" size={14} color="#64748B" />
+            <Text style={styles.subtleButtonText}>Carteiras</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[
+              styles.subtleButton,
+              {
+                borderColor: withOpacity(activeSection.accent, 0.24),
+                backgroundColor: withOpacity(activeSection.accent, 0.08),
+              },
+            ]}
+            activeOpacity={0.86}
+            onPress={() =>
+              navigation.navigate('InvoiceCategoriesPage', {
+                context: activeSection.categoryContext,
+                contextLabel: activeSection.categoryContextLabel,
+                lockContext: true,
+                title: activeSection.categoryTitle,
+              })
+            }>
+            <Icon name="tag" size={14} color={activeSection.accent} />
+            <Text
+              style={[
+                styles.subtleButtonText,
+                {color: activeSection.accent},
+              ]}>
+              Categorias
+            </Text>
+          </TouchableOpacity>
         </View>
-        <Text style={styles.contentTitle}>{activeSection.label}</Text>
       </View>
 
       <View style={styles.entriesContainer}>

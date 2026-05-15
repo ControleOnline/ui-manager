@@ -23,7 +23,9 @@ import styles from './styles';
 import {
   calcDuration,
   DAY_ORDER,
+  buildDefaultInterruptionDraft,
   formatIFoodApiError,
+  toIFoodInterruptionDateTime,
 } from './utils';
 
 // Página principal da integração iFood, agora reduzida a orquestração.
@@ -62,6 +64,8 @@ export default function IFoodIntegrationPage() {
   const [hoursSaving, setHoursSaving] = useState(false);
   const [hoursEditing, setHoursEditing] = useState(false);
   const [hoursDraft, setHoursDraft] = useState(null);
+  const [interruptionDraft, setInterruptionDraft] = useState(buildDefaultInterruptionDraft);
+  const [interruptionRemoving, setInterruptionRemoving] = useState(new Set());
   const [optStatusLoading, setOptStatusLoading] = useState(new Set());
   const [optPriceEditing, setOptPriceEditing] = useState({});
   const [optPriceLoading, setOptPriceLoading] = useState(new Set());
@@ -433,13 +437,19 @@ export default function IFoodIntegrationPage() {
       try {
         const response = await api.fetch('/marketplace/integrations/ifood/store/close', {
           method: 'POST',
-          body: JSON.stringify({ provider_id: providerId }),
+          body: JSON.stringify({
+            provider_id: providerId,
+            description: interruptionDraft.description,
+            start: toIFoodInterruptionDateTime(interruptionDraft.start),
+            end: toIFoodInterruptionDateTime(interruptionDraft.end),
+          }),
         });
         if (response?.result) setStoreStatus(response.result);
 
         if (String(response?.result?.errno ?? '') === '0') {
           showInfo('Loja fechada para pedidos no iFood.');
           applyDetailResponse(response);
+          setInterruptionDraft(buildDefaultInterruptionDraft());
         } else {
           showError(formatIFoodApiError(response?.result || response));
         }
@@ -447,7 +457,46 @@ export default function IFoodIntegrationPage() {
         showError(formatIFoodApiError(error));
       }
     });
-  }, [applyDetailResponse, providerId, showError, showInfo, withAction]);
+  }, [applyDetailResponse, interruptionDraft, providerId, showError, showInfo, withAction]);
+
+  const handleInterruptionDraftChange = useCallback((field, value) => {
+    setInterruptionDraft(current => ({ ...current, [field]: value }));
+  }, []);
+
+  const handleRemoveInterruption = useCallback(async interruption => {
+    if (!providerId) return;
+
+    const interruptionId = String(interruption?.id || '').trim();
+    if (!interruptionId) {
+      showError('Pausa iFood sem identificador para remocao.');
+      return;
+    }
+
+    setInterruptionRemoving(current => new Set([...current, interruptionId]));
+    try {
+      const response = await api.fetch(`/marketplace/integrations/ifood/store/interruptions/${encodeURIComponent(interruptionId)}`, {
+        method: 'DELETE',
+        body: JSON.stringify({ provider_id: providerId }),
+      });
+
+      if (response?.result) setStoreStatus(response.result);
+
+      if (String(response?.result?.errno ?? '') === '0') {
+        showInfo('Pausa removida no iFood.');
+        applyDetailResponse(response);
+      } else {
+        showError(formatIFoodApiError(response?.result || response));
+      }
+    } catch (error) {
+      showError(formatIFoodApiError(error));
+    } finally {
+      setInterruptionRemoving(current => {
+        const next = new Set(current);
+        next.delete(interruptionId);
+        return next;
+      });
+    }
+  }, [applyDetailResponse, providerId, showError, showInfo]);
 
   const handleConnect = useCallback(async () => {
     if (!providerId) return;
@@ -842,8 +891,8 @@ export default function IFoodIntegrationPage() {
   const sectionTabs = [
     { key: 'overview', label: 'Resumo' },
     { key: 'store', label: 'Loja', badge: stores.length },
-    { key: 'operations', label: 'Operacao' },
-    { key: 'catalog', label: 'Cardapio', badge: selectedEligible.length },
+    { key: 'operations', label: 'Operação' },
+    { key: 'catalog', label: 'Cardápio', badge: selectedEligible.length },
   ];
 
   return (
@@ -858,8 +907,8 @@ export default function IFoodIntegrationPage() {
           shadowStyle={integrationCardShadowStyle}
           accentColor={brandColors.primary}
           eyebrow="Marketplace"
-          title="Integracao iFood"
-          description="Gerencie vinculacao da loja, operacao diaria e publicacao do cardapio em blocos menores."
+          title="Integração iFood"
+          description="Gerencie vinculação da loja, operação diária e publicação do cardápio em blocos menores."
           logo={logo}
           iconName="shopping-bag"
         />
@@ -909,6 +958,10 @@ export default function IFoodIntegrationPage() {
             storeStatus={storeStatus}
             activeInterruptions={activeInterruptions}
             actionLoading={actionLoading}
+            interruptionDraft={interruptionDraft}
+            interruptionRemoving={interruptionRemoving}
+            onInterruptionDraftChange={handleInterruptionDraftChange}
+            onRemoveInterruption={handleRemoveInterruption}
             onStoreOpen={handleStoreOpen}
             onStoreClose={handleStoreClose}
             onRefreshStatus={loadStoreStatus}

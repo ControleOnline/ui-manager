@@ -39,6 +39,7 @@ import {
   isPdvPrinterEnabled,
   normalizeDeviceId,
 } from '@controleonline/ui-common/src/react/utils/paymentDevices';
+import {getRuntimeFooterDebugInfo} from '@controleonline/ui-common/src/react/utils/runtimeFooter';
 import {resolveThemePalette, withOpacity} from '@controleonline/../../src/styles/branding';
 import {colors} from '@controleonline/../../src/styles/colors';
 import Icon from 'react-native-vector-icons/Feather';
@@ -193,6 +194,12 @@ const getDeviceDetailRoute = type => {
 
   return 'DeviceDetail';
 };
+
+const getDeviceListIdentifier = deviceConfig =>
+  getRuntimeFooterDebugInfo({
+    device: deviceConfig?.device || {},
+    deviceConfig,
+  }).runtimeDetail || String(deviceConfig?.device?.device || '').trim();
 
 const buildDeviceListParams = ({
   companyId,
@@ -533,6 +540,7 @@ export const createDeviceTypeTab = ({
         );
         const accent = getDeviceTypeAccent(normalizedType);
         const badgeText = getDeviceBadgeLabel(normalizedType, deviceConfig);
+        const deviceIdentifier = getDeviceListIdentifier(deviceConfig);
         const metaChips = [];
 
         if (isPdv) {
@@ -570,7 +578,7 @@ export const createDeviceTypeTab = ({
                   {alias}
                 </Text>
                 <Text style={styles.deviceSub} numberOfLines={1}>
-                  {`${getDeviceItemTypeLabel(normalizedType)} • ${deviceConfig.device?.device || ''}`}
+                  {`${getDeviceItemTypeLabel(normalizedType)} • ${deviceIdentifier}`}
                 </Text>
                 {metaChips.length > 0 ? (
                   <View style={styles.deviceMetaRow}>

@@ -764,8 +764,8 @@ export default function Food99IntegrationPage() {
   const sectionTabs = [
     { key: 'overview', label: 'Resumo' },
     { key: 'store', label: 'Loja' },
-    { key: 'settings', label: 'Operacao' },
-    { key: 'catalog', label: 'Cardapio', badge: selectedEligibleProducts.length },
+    { key: 'settings', label: 'Operação' },
+    { key: 'catalog', label: 'Cardápio', badge: selectedEligibleProducts.length },
   ];
 
   if (!providerId) {
@@ -775,7 +775,7 @@ export default function Food99IntegrationPage() {
           <Icon name="building" size={32} color="#94A3B8" />
           <Text style={styles.centerStateTitle}>Selecione uma empresa para continuar</Text>
           <Text style={styles.centerStateText}>
-            A integracao 99Food sempre trabalha com a empresa ativa no filtro.
+            A integração 99Food sempre trabalha com a empresa ativa no filtro.
           </Text>
         </View>
       </SafeAreaView>
@@ -787,9 +787,9 @@ export default function Food99IntegrationPage() {
       <SafeAreaView style={styles.container} edges={['bottom']}>
         <View style={styles.centerState}>
           <ActivityIndicator size="large" color={brandColors.primary} />
-          <Text style={styles.centerStateTitle}>Carregando integracoes</Text>
+          <Text style={styles.centerStateTitle}>Carregando integrações</Text>
           <Text style={styles.centerStateText}>
-            Estamos buscando o status da loja e os produtos disponiveis.
+            Estamos buscando o status da loja e os produtos disponíveis.
           </Text>
         </View>
       </SafeAreaView>
@@ -808,7 +808,7 @@ export default function Food99IntegrationPage() {
           shadowStyle={integrationCardShadowStyle}
           accentColor={brandColors.primary}
           eyebrow="Marketplace"
-          title="Integracao 99Food"
+          title="Integração 99Food"
           description="Separei leitura geral, vínculo da loja, configuração operacional e catálogo para reduzir a complexidade da tela."
           logo={logo}
           iconName="cpu"

@@ -6,6 +6,7 @@ import IncomeStatement from '@controleonline/ui-financial/src/react/pages/report
 import Payables from '@controleonline/ui-financial/src/react/pages/Payables';
 import Receivables from '@controleonline/ui-financial/src/react/pages/Receivables';
 import OwnTransfers from '@controleonline/ui-financial/src/react/pages/OwnTransfers';
+import InvoiceDetailsPage from '@controleonline/ui-financial/src/react/pages/InvoiceDetailsPage';
 import WalletsPage from '@controleonline/ui-financial/src/react/pages/WalletsPage';
 import InvoiceCategoriesPage from '@controleonline/ui-financial/src/react/pages/InvoiceCategoriesPage';
 
@@ -14,6 +15,7 @@ import DeviceDetailPage from '@controleonline/ui-manager/src/react/pages/DeviceD
 import PrinterDeviceDetailPage from '@controleonline/ui-manager/src/react/pages/PrinterDeviceDetailPage';
 import PrinterDeviceFormPage from '@controleonline/ui-manager/src/react/pages/PrinterDeviceFormPage';
 import ConfiguratorPage from '@controleonline/ui-manager/src/react/pages/ConfiguratorPage';
+import ManagerOrderNotificationsPage from '@controleonline/ui-manager/src/react/pages/ManagerOrderNotificationsPage';
 import TranslationsReviewPage from '@controleonline/ui-manager/src/react/pages/TranslationsReviewPage';
 import {
   IP_CAMERA_DEVICE_TYPE,
@@ -26,8 +28,9 @@ import IFoodIntegrationPage from '@controleonline/ui-manager/src/react/pages/IFo
 import IntegrationsPage from '@controleonline/ui-manager/src/react/pages/Integrations';
 import ManagerCategoriesPage from '@controleonline/ui-manager/src/react/pages/ManagerCategoriesPage';
 import MenuCostsPage from '@controleonline/ui-manager/src/react/pages/MenuCostsPage';
+import MenuAccessConfigPage from '@controleonline/ui-manager/src/react/pages/MenuAccessConfigPage';
+import LabelsPage from '@controleonline/ui-manager/src/react/pages/LabelsPage';
 import ModelTemplatesPage from '@controleonline/ui-manager/src/react/pages/ModelTemplatesPage';
-import OrderHistoryPage from '@controleonline/ui-manager/src/react/pages/OrderHistoryPage';
 import WhatsAppConnectionPage from '@controleonline/ui-manager/src/react/pages/WhatsAppConnectionPage';
 import DisplayList from '@controleonline/ui-ppc/src/react/pages/displays/displayPage';
 import DisplayDetails from '@controleonline/ui-ppc/src/react/pages/displays/DisplayDetails';
@@ -98,12 +101,34 @@ const managerRoutes = [
     },
   },
   {
+    name: 'MenuAccessConfigPage',
+    component: MenuAccessConfigPage,
+    options: {
+      headerShown: true,
+      headerBackVisible: true,
+      title: 'Menus por perfil',
+      showCompanyFilter: true,
+      companyFilterMode: 'icon',
+    },
+  },
+  {
+    name: 'ManagerOrderNotificationsPage',
+    component: ManagerOrderNotificationsPage,
+    options: {
+      headerShown: true,
+      headerBackVisible: true,
+      title: 'Notificações de pedidos',
+      showBottomToolBar: true,
+      showCompanyFilter: false,
+    },
+  },
+  {
     name: 'TranslationsReviewPage',
     component: TranslationsReviewPage,
     options: {
       headerShown: true,
       headerBackVisible: true,
-      title: 'Revisao de traducoes',
+      title: 'Revisão de traduções',
       showCompanyFilter: true,
       companyFilterMode: 'icon',
     },
@@ -164,6 +189,17 @@ const managerRoutes = [
     },
   },
   {
+    name: 'LabelsPage',
+    component: LabelsPage,
+    options: {
+      headerShown: true,
+      headerBackVisible: true,
+      title: 'Etiquetas',
+      showCompanyFilter: true,
+      companyFilterMode: 'icon',
+    },
+  },
+  {
     name: 'Food99IntegrationPage',
     component: Food99IntegrationPage,
     options: {
@@ -205,17 +241,6 @@ const managerRoutes = [
       headerBackVisible: true,
       title: global.t?.t('orders', 'title', 'linkedOrderSettlement'),
       showBottomToolBar: true,
-      showCompanyFilter: true,
-      companyFilterMode: 'icon',
-    },
-  },
-  {
-    name: 'OrderHistoryPage',
-    component: OrderHistoryPage,
-    options: {
-      headerShown: true,
-      headerBackVisible: true,
-      title: global.t?.t("configs", "title", "orderHistory"),
       showCompanyFilter: true,
       companyFilterMode: 'icon',
     },
@@ -330,6 +355,17 @@ const managerRoutes = [
       title: global.t?.t("configs", "title", "ownTransfers"),
       showCompanyFilter: true,
       companyFilterMode: 'icon',
+    },
+    initialParams: { store: 'invoice' },
+  },
+  {
+    name: 'InvoiceDetailsPage',
+    component: InvoiceDetailsPage,
+    options: {
+      headerShown: true,
+      headerBackVisible: true,
+      title: 'Detalhe da invoice',
+      showCompanyFilter: false,
     },
     initialParams: { store: 'invoice' },
   },
