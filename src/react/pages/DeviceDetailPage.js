@@ -690,46 +690,68 @@ const DeviceDetailPage = () => {
   }, [alias]);
 
   const cancelEditAlias = useCallback(() => {
-    setEditingAlias(false);
     setAliasInput(alias);
+    setEditingAlias(false);
   }, [alias]);
 
   const saveAlias = useCallback(async () => {
-    const trimmed = aliasInput.trim();
-    if (!trimmed || trimmed === alias || !deviceId) {
-      cancelEditAlias();
+    if (!deviceId || savingAlias) {
       return;
     }
+
+    const nextAlias = aliasInput.trim();
+    if (!nextAlias || nextAlias === alias) {
+      setEditingAlias(false);
+      setAliasInput(alias);
+      return;
+    }
+
     setSavingAlias(true);
     try {
-      const savedDevice = await actionsRef.current.deviceActions.save({
+      const saved = await actionsRef.current.deviceActions.save({
         id: deviceId,
-        alias: trimmed,
+        alias: nextAlias,
       });
-      const nextAlias = String(savedDevice?.alias || trimmed).trim();
-      setAlias(nextAlias);
-      setAliasInput(nextAlias);
-      navigation.setParams({alias: nextAlias});
+      const normalizedAlias = String(saved?.alias || nextAlias).trim();
+      setAlias(normalizedAlias);
+      setAliasInput(normalizedAlias);
       setEditingAlias(false);
     } catch {
-      // silencioso — mantém o valor anterior
-      cancelEditAlias();
+      setAliasInput(alias);
+      setEditingAlias(false);
     } finally {
       setSavingAlias(false);
     }
-  }, [aliasInput, alias, deviceId, cancelEditAlias, navigation]);
+  }, [alias, aliasInput, deviceId, savingAlias]);
 
-  const saveDevicePaymentTarget = useCallback(async () => {
-    if (!currentCompany?.id || !deviceString) {
+  const savePosOperationMode = useCallback(async () => {
+    if (!currentCompany?.id || !deviceString || savingPosOperationMode) {
       return;
     }
 
-    setSavingPaymentTarget(true);
+    setSavingPosOperationMode(true);
     try {
       await actionsRef.current.deviceConfigActions.addDeviceConfigs({
         device: deviceString,
         configs: JSON.stringify({
-          [ORDER_PAYMENT_DEVICE_CONFIG_KEY]: devicePaymentTarget || '',
+          [POS_OPERATION_MODE_CONFIG_KEY]: posOperationMode,
+          [POS_AUTO_PRINT_ENABLED_CONFIG_KEY]:
+            counterAutoPrintEnabled ? '1' : '0',
+          [POS_CASH_MANAGEMENT_MODE_CONFIG_KEY]: counterCashManagementMode,
+          [POS_CHECK_ORDER_TYPE_CONFIG_KEY]: checkOrderType,
+          [POS_CHECK_ORDER_MANAGEMENT_MODE_CONFIG_KEY]:
+            checkOrderType === POS_CHECK_ORDER_TYPE_NONE
+              ? POS_CHECK_ORDER_MANAGEMENT_MODE_MANAGE
+              : checkOrderManagementMode,
+          ...(counterAutoPrintEnabled
+            ? {[DISPLAY_DEVICE_LINK_CONFIG_KEY]: linkedDisplayId}
+            : {}),
+          ...(counterAutoPrintEnabled
+            ? {[DISPLAY_DEVICE_PRINTER_CONFIG_KEY]: displayPrinterId}
+            : {}),
+          ...(counterAutoPrintEnabled
+            ? {print_mode: counterPrintMode}
+            : {print_mode: POS_PRINT_MODE_ORDER}),
         }),
         people: '/people/' + currentCompany.id,
         type: deviceType,
@@ -738,17 +760,26 @@ const DeviceDetailPage = () => {
     } catch {
       // silencioso
     } finally {
-      setSavingPaymentTarget(false);
+      setSavingPosOperationMode(false);
     }
-  }, [currentCompany?.id, devicePaymentTarget, deviceString, deviceType, refreshCurrentConfig]);
+  }, [
+    checkOrderManagementMode,
+    checkOrderType,
+    counterAutoPrintEnabled,
+    counterCashManagementMode,
+    counterPrintMode,
+    currentCompany?.id,
+    deviceString,
+    deviceType,
+    displayPrinterId,
+    linkedDisplayId,
+    posOperationMode,
+    refreshCurrentConfig,
+    savingPosOperationMode,
+  ]);
 
   const savePdvSettings = useCallback(async () => {
-    if (
-      !isPdvDevice ||
-      !currentCompany?.id ||
-      !deviceString ||
-      savingPdvSettings
-    ) {
+    if (!currentCompany?.id || !deviceString || savingPdvSettings) {
       return;
     }
 
@@ -757,7 +788,7 @@ const DeviceDetailPage = () => {
       await actionsRef.current.deviceConfigActions.addDeviceConfigs({
         device: deviceString,
         configs: JSON.stringify({
-          [POS_GATEWAY_CONFIG_KEY]: pdvGateway || '',
+          [POS_GATEWAY_CONFIG_KEY]: pdvGateway,
           [PDV_PRINTER_ENABLED_CONFIG_KEY]: pdvPrinterEnabled ? '1' : '0',
         }),
         people: '/people/' + currentCompany.id,
@@ -773,99 +804,43 @@ const DeviceDetailPage = () => {
     currentCompany?.id,
     deviceString,
     deviceType,
-    isPdvDevice,
     pdvGateway,
     pdvPrinterEnabled,
     refreshCurrentConfig,
     savingPdvSettings,
   ]);
 
-  const savePosOperationMode = useCallback(async () => {
-    if (
-      !isPdvDevice ||
-      !currentCompany?.id ||
-      !deviceString ||
-      savingPosOperationMode
-    ) {
+  const saveDevicePaymentTarget = useCallback(async () => {
+    if (!currentCompany?.id || !deviceString || savingPaymentTarget) {
       return;
     }
 
-    setSavingPosOperationMode(true);
-    try {
-      const nextOperationConfigs = {
-        [POS_OPERATION_MODE_CONFIG_KEY]: posOperationMode,
-        [POS_CHECK_ORDER_TYPE_CONFIG_KEY]: checkOrderType,
-        [POS_CHECK_ORDER_MANAGEMENT_MODE_CONFIG_KEY]:
-          checkOrderType === POS_CHECK_ORDER_TYPE_NONE
-            ? POS_CHECK_ORDER_MANAGEMENT_MODE_MANAGE
-            : checkOrderManagementMode,
-      };
-
-      if (posOperationMode === POS_OPERATION_MODE_COUNTER) {
-        nextOperationConfigs[POS_AUTO_PRINT_ENABLED_CONFIG_KEY] =
-          counterAutoPrintEnabled ? '1' : '0';
-        nextOperationConfigs['print-mode'] = counterPrintMode;
-        nextOperationConfigs[POS_CASH_MANAGEMENT_MODE_CONFIG_KEY] =
-          counterCashManagementMode;
-      }
-
-      await actionsRef.current.deviceConfigActions.addDeviceConfigs({
-        device: deviceString,
-        configs: JSON.stringify(nextOperationConfigs),
-        people: '/people/' + currentCompany.id,
-        type: deviceType,
-      });
-      await refreshCurrentConfig();
-    } catch {
-      // silencioso
-    } finally {
-      setSavingPosOperationMode(false);
-    }
-  }, [
-    currentCompany?.id,
-    checkOrderManagementMode,
-    checkOrderType,
-    counterAutoPrintEnabled,
-    counterCashManagementMode,
-    counterPrintMode,
-    deviceString,
-    deviceType,
-    isPdvDevice,
-    posOperationMode,
-    refreshCurrentConfig,
-    savingPosOperationMode,
-  ]);
-
-  const saveDeviceAlertSoundConfig = useCallback(async () => {
-    if (!currentCompany?.id || !deviceString || savingAlertSound) {
-      return;
-    }
-
-    setSavingAlertSound(true);
+    setSavingPaymentTarget(true);
     try {
       await actionsRef.current.deviceConfigActions.addDeviceConfigs({
         device: deviceString,
         configs: JSON.stringify({
-          [DEVICE_ALERT_SOUND_ENABLED_KEY]: deviceAlertSoundEnabled ? '1' : '0',
-          [DEVICE_ALERT_SOUND_URL_KEY]: deviceAlertSoundUrl.trim(),
+          [ORDER_PAYMENT_DEVICE_CONFIG_KEY]:
+            normalizeDeviceId(devicePaymentTarget),
         }),
         people: '/people/' + currentCompany.id,
         type: deviceType,
       });
       await refreshCurrentConfig();
+      await loadCompanyConfigs();
     } catch {
       // silencioso
     } finally {
-      setSavingAlertSound(false);
+      setSavingPaymentTarget(false);
     }
   }, [
     currentCompany?.id,
-    deviceAlertSoundEnabled,
-    deviceAlertSoundUrl,
+    devicePaymentTarget,
     deviceString,
     deviceType,
+    loadCompanyConfigs,
     refreshCurrentConfig,
-    savingAlertSound,
+    savingPaymentTarget,
   ]);
 
   const saveDeviceOrderVisibility = useCallback(async () => {
@@ -878,7 +853,7 @@ const DeviceDetailPage = () => {
       await actionsRef.current.deviceConfigActions.addDeviceConfigs({
         device: deviceString,
         configs: JSON.stringify({
-          [DEVICE_ORDER_VISIBILITY_KEY]: deviceOrderVisibility || DEVICE_ORDER_VISIBILITY_DEVICE,
+          [DEVICE_ORDER_VISIBILITY_KEY]: deviceOrderVisibility,
         }),
         people: '/people/' + currentCompany.id,
         type: deviceType,
@@ -932,8 +907,51 @@ const DeviceDetailPage = () => {
     savingDeviceDeliverySettings,
   ]);
 
+  const saveDeviceAlertSoundConfig = useCallback(async () => {
+    if (
+      !currentCompany?.id ||
+      !deviceString ||
+      savingAlertSound ||
+      !shouldShowDeviceBehavior
+    ) {
+      return;
+    }
+
+    setSavingAlertSound(true);
+    try {
+      await actionsRef.current.deviceConfigActions.addDeviceConfigs({
+        device: deviceString,
+        configs: JSON.stringify({
+          [DEVICE_ALERT_SOUND_ENABLED_KEY]: deviceAlertSoundEnabled ? '1' : '0',
+          [DEVICE_ALERT_SOUND_URL_KEY]: String(deviceAlertSoundUrl || '').trim(),
+        }),
+        people: '/people/' + currentCompany.id,
+        type: deviceType,
+      });
+      await refreshCurrentConfig();
+    } catch {
+      // silencioso
+    } finally {
+      setSavingAlertSound(false);
+    }
+  }, [
+    currentCompany?.id,
+    deviceAlertSoundEnabled,
+    deviceAlertSoundUrl,
+    deviceString,
+    deviceType,
+    refreshCurrentConfig,
+    savingAlertSound,
+    shouldShowDeviceBehavior,
+  ]);
+
   const saveDeviceRuntimeDebugInfo = useCallback(async () => {
-    if (!currentCompany?.id || !deviceString || savingRuntimeDebugInfo) {
+    if (
+      !currentCompany?.id ||
+      !deviceString ||
+      savingRuntimeDebugInfo ||
+      !shouldShowDeviceBehavior
+    ) {
       return;
     }
 
@@ -961,6 +979,7 @@ const DeviceDetailPage = () => {
     deviceType,
     refreshCurrentConfig,
     savingRuntimeDebugInfo,
+    shouldShowDeviceBehavior,
   ]);
 
   const saveDisplayPrintingConfig = useCallback(async () => {
@@ -1500,9 +1519,9 @@ const DeviceDetailPage = () => {
             <View style={styles.configCard}>
               <Text style={styles.configTitle}>Gateway e impressora</Text>
               <Text style={styles.configDescription}>
-                O tipo do PDV define qual carteira da empresa sera usada no
-                caixa e no pagamento remoto. Ative a opcao de impressora apenas
-                quando este PDV puder receber impressoes.
+                O tipo do PDV define qual carteira da empresa será usada no
+                caixa e no pagamento remoto. Ative a opção de impressora apenas
+                quando este PDV puder receber impressões.
               </Text>
 
               <View style={styles.textInputWrap}>
@@ -1549,7 +1568,7 @@ const DeviceDetailPage = () => {
                   ? `Gateway atual: ${getPaymentGatewayLabel(pdvGateway)}.`
                   : 'Escolha Cielo ou Infinite Pay para que o PDV use a carteira correta da empresa.'}{' '}
                 Quando a impressora estiver desativada, este PDV deixa de ser
-                oferecido como destino padrao de impressao.
+                oferecido como destino padrão de impressão.
               </Text>
 
               <TouchableOpacity
@@ -1625,11 +1644,11 @@ const DeviceDetailPage = () => {
 
             <View style={styles.configCard}>
               <Text style={styles.configTitle}>
-                {tt('title', 'deliveryOnDevice') || 'Delivery neste device'}
+                {tt('title', 'deliveryOnDevice') || 'Delivery neste equipamento'}
               </Text>
               <Text style={styles.configDescription}>
                 {tt('description', 'deliveryOnDeviceDescription') ||
-                  'Ative quando este equipamento precisa operar pedidos com cliente, endereço e observações de entrega. Desative para simplificar a conferência em devices que não trabalham com delivery.'}
+                  'Ative quando este equipamento precisa operar pedidos com cliente, endereço e observações de entrega. Desative para simplificar a conferência em equipamentos que não trabalham com delivery.'}
               </Text>
 
               <TouchableOpacity
@@ -1695,10 +1714,10 @@ const DeviceDetailPage = () => {
             <View style={styles.configCard}>
               <Text style={styles.configTitle}>Display vinculado e impressora da fila</Text>
               <Text style={styles.configDescription}>
-                Este bloco e usado na impressao automatica disparada pelo app
+                Este bloco é usado na impressão automática disparada pelo app
                 DISPLAY. O device DISPLAY precisa apontar qual display/fila
-                representa e qual impressora deve receber a copia separada por
-                fila. Nesta mesma configuracao voce pode ajustar o tamanho dos
+                representa e qual impressora deve receber a cópia separada por
+                fila. Nesta mesma configuração você pode ajustar o tamanho dos
                 cards do KDS e ativar a quebra lateral para pedidos grandes.
               </Text>
 
@@ -1987,15 +2006,15 @@ const DeviceDetailPage = () => {
         {shouldShowDeviceBehavior && (
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>
-            <Icon name="activity" size={13} /> {'  '}Rodape do Sistema
+            <Icon name="activity" size={13} /> {'  '}Rodapé do Sistema
           </Text>
 
           <View style={styles.configCard}>
-            <Text style={styles.configTitle}>Debug do socket no rodape</Text>
+            <Text style={styles.configTitle}>Debug do socket no rodapé</Text>
             <Text style={styles.configDescription}>
               Quando habilitado, este device troca a bolinha discreta do socket
-              pelos detalhes de debug publicados pelos servicos do runtime no
-              rodape global do sistema.
+              pelos detalhes de debug publicados pelos serviços do runtime no
+              rodapé global do sistema.
             </Text>
 
             <TouchableOpacity
@@ -2039,7 +2058,7 @@ const DeviceDetailPage = () => {
               ) : (
                 <>
                   <Icon name="save" size={14} color="#fff" />
-                  <Text style={styles.configButtonText}>Salvar debug do rodape</Text>
+                  <Text style={styles.configButtonText}>Salvar debug do rodapé</Text>
                 </>
               )}
             </TouchableOpacity>
@@ -2058,9 +2077,9 @@ const DeviceDetailPage = () => {
               <Text style={styles.configDescription}>
                 Esse destino funciona como fallback desta origem quando a
                 empresa não definiu uma ordem padrão no configurador geral.
-                Quando a empresa tiver devices padrao para pagamento remoto,
+                Quando a empresa tiver devices padrão para pagamento remoto,
                 essa ordem global tem prioridade. Quando vazio, o sistema usa a
-                regra da empresa ou cai para os PDVs remotos disponiveis.
+                regra da empresa ou cai para os PDVs remotos disponíveis.
               </Text>
 
               <View style={styles.pickerWrap}>
@@ -2069,7 +2088,7 @@ const DeviceDetailPage = () => {
                   mode={pickerMode}
                   onValueChange={value => setDevicePaymentTarget(value || '')}>
                   <Picker.Item
-                    label="Usar devices padrao da empresa"
+                    label="Usar devices padrão da empresa"
                     value=""
                   />
                   {paymentDeviceOptions.map(option => (
@@ -2256,7 +2275,7 @@ const DeviceDetailPage = () => {
               <View style={styles.emptyBox}>
                 <Icon name="inbox" size={24} color="#CBD5E1" style={inlineStyle_1301_61} />
                 <Text style={styles.emptyText}>
-                  {search ? 'Nenhum produto encontrado para esta busca' : 'Nenhum produto registrado neste device'}
+                  {search ? 'Nenhum produto encontrado para esta busca' : 'Nenhum produto registrado neste equipamento'}
                 </Text>
               </View>
             )}
