@@ -52,31 +52,14 @@ export const INTEGRATION_CONFIGS = {
     label: 'Uber',
     accent: '#111827',
     icon: 'truck',
-    description: 'Credenciais usadas para solicitar motoboy no pedido atual.',
-    saveLabel: 'Salvar Uber',
+    description: 'Conecte sua conta Uber para descobrir e provisionar a store automaticamente.',
+    oauthConnect: true,
+    authorizationEndpoint: '/marketplace/integrations/uber/store/authorization-page',
+    connectLabel: 'Conectar Uber',
     requiredKeys: [
-      'OAUTH_UBER_APP_ID',
-      'OAUTH_UBER_CLIENT_SECRET',
       'OAUTH_UBER_STORE_ID',
     ],
-    fields: [
-      {
-        key: 'OAUTH_UBER_APP_ID',
-        label: 'App ID',
-        placeholder: 'Informe o App ID do Uber',
-      },
-      {
-        key: 'OAUTH_UBER_CLIENT_SECRET',
-        label: 'Client Secret',
-        placeholder: 'Informe o Client Secret do Uber',
-        secureTextEntry: true,
-      },
-      {
-        key: 'OAUTH_UBER_STORE_ID',
-        label: 'Store ID',
-        placeholder: 'Informe o Store ID do Uber',
-      },
-    ],
+    fields: [],
   },
   asaas: {
     key: 'asaas',

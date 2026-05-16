@@ -38,6 +38,15 @@ import {
   wait,
 } from './utils';
 
+const openAuthorizationUrl = async authUrl => {
+  if (typeof window !== 'undefined' && typeof window.location?.assign === 'function') {
+    window.location.assign(authUrl);
+    return;
+  }
+
+  await Linking.openURL(authUrl);
+};
+
 // Página principal da integração 99Food com separação por contexto.
 export default function Food99IntegrationPage() {
   const peopleStore = useStore('people');
@@ -452,7 +461,7 @@ export default function Food99IntegrationPage() {
           null;
 
         if (authUrl) {
-          await Linking.openURL(authUrl);
+          await openAuthorizationUrl(authUrl);
           showInfo('Abrindo fluxo de integracao da loja.');
           return;
         }

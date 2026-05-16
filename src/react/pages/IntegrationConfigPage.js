@@ -1,5 +1,5 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Platform, RefreshControl, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { ActivityIndicator, Linking, Platform, RefreshControl, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/Feather';
@@ -37,6 +37,11 @@ const shadowStyle = Platform.select({
   web: { boxShadow: '0 10px 24px rgba(15,23,42,0.08)' },
 });
 
+const routeNameToPath = routeName =>
+  String(routeName || '')
+    .replace(/([a-z])([A-Z])/g, '$1-$2')
+    .toLowerCase();
+
 const formatApiError = error => {
   if (!error) return 'Nao foi possivel carregar a configuracao da integracao.';
   if (typeof error === 'string') return error;
@@ -62,6 +67,12 @@ const normalizeSourceConfigs = source => {
 };
 
 const normalizeTextValue = value => String(value ?? '').trim();
+
+const isConnectedValue = value =>
+  value === true ||
+  value === 1 ||
+  value === '1' ||
+  String(value).trim().toLowerCase() === 'true';
 
 const toConfigRequestValue = value => {
   if (value === undefined) {
@@ -95,6 +106,44 @@ const buildFieldValues = (providerConfig, source) => {
   }, {});
 };
 
+const extractAuthorizationUrl = response => {
+  const candidate =
+    response?.member?.[0]?.authorization_url ||
+    response?.member?.[0]?.auth_url ||
+    response?.member?.[0]?.url ||
+    response?.authorization_url ||
+    response?.auth_url ||
+    response?.url ||
+    response?.data?.authorization_url ||
+    response?.data?.auth_url ||
+    response?.data?.url;
+
+  return normalizeTextValue(candidate);
+};
+
+const formatUberOAuthError = error => {
+  const normalized = normalizeTextValue(error).toLowerCase();
+
+  if (normalized === 'invalid_scope') {
+    return 'O Uber nao liberou o scope pos_provisioning para este app. Esse app precisa estar aprovado/whitelisted no dashboard do Uber.';
+  }
+
+  if (normalized === 'access_denied') {
+    return 'O login do Uber foi cancelado.';
+  }
+
+  return normalizeTextValue(error) || 'Nao foi possivel concluir a conexao com o Uber.';
+};
+
+const openAuthorizationUrl = async authUrl => {
+  if (Platform.OS === 'web' && typeof window !== 'undefined' && typeof window.location?.assign === 'function') {
+    window.location.assign(authUrl);
+    return;
+  }
+
+  await Linking.openURL(authUrl);
+};
+
 export default function IntegrationConfigPage({ route }) {
   const peopleStore = useStore('people');
   const themeStore = useStore('theme');
@@ -104,6 +153,7 @@ export default function IntegrationConfigPage({ route }) {
   const configActions = configsStore.actions;
   const { isSaving } = configsStore.getters;
   const { showError, showSuccess } = useToastMessage();
+  const oauthNoticeRef = useRef('');
 
   const providerKey = useMemo(
     () =>
@@ -116,6 +166,18 @@ export default function IntegrationConfigPage({ route }) {
     () => getIntegrationConfig(providerKey),
     [providerKey],
   );
+  const returnPath = useMemo(() => {
+    const routePath = normalizeTextValue(
+      route?.params?.return_path || route?.params?.returnPath || '',
+    );
+
+    if (routePath) {
+      return routePath.startsWith('/') ? routePath : `/${routePath}`;
+    }
+
+    const normalizedRoutePath = routeNameToPath(route?.name);
+    return normalizedRoutePath ? `/${normalizedRoutePath}` : '/uber-integration-page';
+  }, [route?.name, route?.params?.returnPath, route?.params?.return_path]);
 
   const brandColors = useMemo(
     () =>
@@ -131,6 +193,7 @@ export default function IntegrationConfigPage({ route }) {
 
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [authLoading, setAuthLoading] = useState(false);
   const [configValues, setConfigValues] = useState({});
   const [integrationSummary, setIntegrationSummary] = useState(null);
 
@@ -156,6 +219,27 @@ export default function IntegrationConfigPage({ route }) {
     syncConfigValues(currentCompany?.configs);
   }, [currentCompany?.configs, syncConfigValues]);
 
+  useEffect(() => {
+    const oauthStatus = normalizeTextValue(route?.params?.oauth_status).toLowerCase();
+    const oauthError = normalizeTextValue(route?.params?.oauth_error);
+    const oauthKey = `${oauthStatus}|${oauthError}`;
+
+    if (!oauthStatus || oauthNoticeRef.current === oauthKey) {
+      return;
+    }
+
+    oauthNoticeRef.current = oauthKey;
+
+    if (oauthStatus === 'success') {
+      showSuccess('Uber conectado com sucesso.');
+      return;
+    }
+
+    if (oauthStatus === 'error') {
+      showError(formatUberOAuthError(oauthError));
+    }
+  }, [route?.params?.oauth_error, route?.params?.oauth_status, showError, showSuccess]);
+
   const loadPageData = useCallback(async ({ showLoading = true } = {}) => {
     if (!providerIri || !providerConfig) {
       setIntegrationSummary(null);
@@ -168,20 +252,30 @@ export default function IntegrationConfigPage({ route }) {
     }
 
     try {
-      const [configResponse, integrationResponse] = await Promise.all([
-        api.fetch('/configs', {
-          params: {
-            people: providerIri,
-          },
-        }),
-        api.fetch('/marketplace/integrations', {
-          params: {
-            provider_id: providerId,
-          },
-        }),
-      ]);
+      const integrationPromise = api.fetch('/marketplace/integrations', {
+        params: {
+          provider_id: providerId,
+        },
+      });
 
-      syncConfigValues(parseIntegrationCollection(configResponse));
+      if ((providerConfig.fields || []).length > 0) {
+        const [configResponse, integrationResponse] = await Promise.all([
+          api.fetch('/configs', {
+            params: {
+              people: providerIri,
+            },
+          }),
+          integrationPromise,
+        ]);
+
+        syncConfigValues(parseIntegrationCollection(configResponse));
+        setIntegrationSummary(
+          getIntegrationByKey(integrationResponse, providerConfig.key),
+        );
+        return;
+      }
+
+      const integrationResponse = await integrationPromise;
       setIntegrationSummary(
         getIntegrationByKey(integrationResponse, providerConfig.key),
       );
@@ -225,18 +319,51 @@ export default function IntegrationConfigPage({ route }) {
     }));
   }, []);
 
+  const handleOAuthConnect = useCallback(async () => {
+    if (!providerIri || !providerConfig || !providerConfig.oauthConnect) {
+      showError('Nao foi possivel identificar a integracao selecionada.');
+      return;
+    }
+
+    setAuthLoading(true);
+    try {
+      const response = await api.fetch(providerConfig.authorizationEndpoint, {
+        method: 'POST',
+        body: {
+          provider_id: providerId,
+          return_path: returnPath,
+        },
+      });
+
+      const authUrl = extractAuthorizationUrl(response);
+      if (!authUrl) {
+        showError('Nao foi possivel iniciar o login do Uber.');
+        return;
+      }
+
+      await openAuthorizationUrl(authUrl);
+      showSuccess('Abrindo login do Uber.');
+    } catch (error) {
+      showError(error?.message || 'Nao foi possivel iniciar o login do Uber.');
+    } finally {
+      setAuthLoading(false);
+    }
+  }, [providerConfig, providerId, providerIri, returnPath, showError, showSuccess]);
+
   const requiredKeys = providerConfig?.requiredKeys || [];
-  const connected = typeof integrationSummary?.connected === 'boolean'
-    ? Boolean(integrationSummary.connected)
+  const connected = integrationSummary && typeof integrationSummary.connected !== 'undefined'
+    ? isConnectedValue(integrationSummary.connected)
     : requiredKeys.length > 0
       ? requiredKeys.every(fieldKey => normalizeTextValue(configValues[fieldKey]) !== '')
       : false;
   const statusTone = connected ? '#16A34A' : '#F59E0B';
   const statusText = connected ? 'Conectado' : 'Pendente';
-  const editable = Boolean(providerIri && providerConfig && !isSaving && !loading);
+  const editable = Boolean(providerIri && providerConfig && !isSaving && !loading && !providerConfig.oauthConnect);
+  const actionLoading = providerConfig?.oauthConnect ? authLoading : isSaving;
+  const actionDisabled = providerConfig?.oauthConnect ? authLoading || loading : !editable;
 
   const saveIntegration = useCallback(async () => {
-    if (!providerIri || !providerConfig) {
+    if (!providerIri || !providerConfig || providerConfig.oauthConnect) {
       showError('Nao foi possivel identificar a integracao selecionada.');
       return;
     }
@@ -337,8 +464,9 @@ export default function IntegrationConfigPage({ route }) {
             <View style={styles.statusCopy}>
               <Text style={styles.sectionTitle}>Status</Text>
               <Text style={styles.sectionSubtitle}>
-                A integracao so aparece como conectada quando todos os campos
-                obrigatorios foram salvos na empresa ativa.
+                {providerConfig.oauthConnect
+                  ? 'A integracao fica conectada quando o login do Uber termina e o store e salvo automaticamente.'
+                  : 'A integracao so aparece como conectada quando todos os campos obrigatorios foram salvos na empresa ativa.'}
               </Text>
             </View>
 
@@ -355,50 +483,66 @@ export default function IntegrationConfigPage({ route }) {
         </View>
 
         <View style={[styles.formCard, shadowStyle]}>
-          <Text style={styles.cardTitle}>Credenciais</Text>
+          <Text style={styles.cardTitle}>
+            {providerConfig.oauthConnect ? 'Conexao' : 'Credenciais'}
+          </Text>
           <Text style={styles.cardSubtitle}>
-            Salve as credenciais na empresa ativa. O hub de integracoes volta a
-            mostrar o status correto quando voce retornar para a lista.
+            {providerConfig.oauthConnect
+              ? 'Use o login oficial do Uber. A store sera localizada e gravada automaticamente na empresa ativa.'
+              : 'Salve as credenciais na empresa ativa. O hub de integracoes volta a mostrar o status correto quando voce retornar para a lista.'}
           </Text>
 
-          <View style={styles.fieldList}>
-            {providerConfig.fields.map(field => (
-              <View key={field.key} style={styles.fieldGroup}>
-                <Text style={styles.fieldLabel}>{field.label}</Text>
-                <Text style={styles.fieldKey}>{field.key}</Text>
-                <TextInput
-                  style={[
-                    styles.input,
-                    !editable && styles.inputDisabled,
-                  ]}
-                  value={configValues[field.key] || ''}
-                  onChangeText={value => updateField(field.key, value)}
-                  editable={editable}
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                  secureTextEntry={Boolean(field.secureTextEntry)}
-                  placeholder={field.placeholder}
-                />
+          {providerConfig.oauthConnect ? (
+            <View style={styles.fieldList}>
+              <View style={styles.fieldGroup}>
+                <Text style={styles.fieldLabel}>Uber OAuth</Text>
+                <Text style={styles.fieldKey}>
+                  Nao ha campos manuais. O login autoriza o app e salva o store automaticamente.
+                </Text>
               </View>
-            ))}
-          </View>
+            </View>
+          ) : (
+            <View style={styles.fieldList}>
+              {providerConfig.fields.map(field => (
+                <View key={field.key} style={styles.fieldGroup}>
+                  <Text style={styles.fieldLabel}>{field.label}</Text>
+                  <Text style={styles.fieldKey}>{field.key}</Text>
+                  <TextInput
+                    style={[
+                      styles.input,
+                      !editable && styles.inputDisabled,
+                    ]}
+                    value={configValues[field.key] || ''}
+                    onChangeText={value => updateField(field.key, value)}
+                    editable={editable}
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    secureTextEntry={Boolean(field.secureTextEntry)}
+                    placeholder={field.placeholder}
+                  />
+                </View>
+              ))}
+            </View>
+          )}
 
           <TouchableOpacity
             style={[
               styles.saveButton,
               { backgroundColor: providerConfig.accent },
-              !editable && styles.saveButtonDisabled,
+              actionDisabled && styles.saveButtonDisabled,
             ]}
-            disabled={!editable}
+            disabled={actionDisabled}
             activeOpacity={0.9}
-            onPress={saveIntegration}>
-            {isSaving ? (
+            onPress={providerConfig.oauthConnect ? handleOAuthConnect : saveIntegration}>
+            {actionLoading ? (
               <ActivityIndicator color="#FFFFFF" />
             ) : (
-              <Icon name="save" size={16} color="#FFFFFF" />
+              <Icon name={providerConfig.oauthConnect ? 'log-in' : 'save'} size={16} color="#FFFFFF" />
             )}
             <Text style={styles.saveButtonText}>
-              {providerConfig.saveLabel}
+              {providerConfig.oauthConnect
+                ? providerConfig.connectLabel || 'Conectar'
+                : providerConfig.saveLabel}
             </Text>
           </TouchableOpacity>
         </View>

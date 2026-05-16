@@ -33,6 +33,12 @@ const formatApiError = error => {
   return error?.message || error?.description || error?.errmsg || 'Nao foi possivel carregar as integracoes.';
 };
 
+const isConnectedValue = value =>
+  value === true ||
+  value === 1 ||
+  value === '1' ||
+  String(value).trim().toLowerCase() === 'true';
+
 const renderIntegrationIcon = integration => {
   if (integration.logo) {
     return <Image source={integration.logo} style={styles.integrationLogo} resizeMode="contain" />;
@@ -76,7 +82,7 @@ export default function IntegrationsPage({ navigation }) {
 
       return {
         ...item,
-        connected: Boolean(responseItem?.connected),
+        connected: isConnectedValue(responseItem?.connected),
       };
     });
   }, [integrationItems]);
