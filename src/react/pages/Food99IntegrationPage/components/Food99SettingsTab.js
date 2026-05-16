@@ -1,5 +1,6 @@
 import React from 'react';
-import { ActivityIndicator, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Platform, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Picker } from '@react-native-picker/picker';
 import Icon from 'react-native-vector-icons/Feather';
 
 import { withOpacity } from '@controleonline/../../src/styles/branding';
@@ -19,7 +20,10 @@ export default function Food99SettingsTab({
   settingsSummaryRows,
   storeSettingsDraft,
   setStoreSettingsDraft,
+  wallets,
+  walletLoading,
   actionLoading,
+  onQuickCreateWallet,
   onSave,
 }) {
   return (
@@ -28,7 +32,7 @@ export default function Food99SettingsTab({
         <View>
           <Text style={styles.panelTitle}>Configuracoes operacionais</Text>
           <Text style={styles.panelSubtitle}>
-            Ajuste raio, horario, metodo de entrega e confirmacao sem misturar isso com a conexão da loja.
+            Ajuste raio, horario, metodo de entrega, confirmacao e carteira de repasse sem misturar isso com a conexão da loja.
           </Text>
         </View>
       </View>
@@ -150,6 +154,56 @@ export default function Food99SettingsTab({
             style={styles.formInput}
             placeholderTextColor="#94A3B8"
           />
+        </View>
+
+        <View style={styles.formField}>
+          <View style={styles.formFieldHeaderRow}>
+            <Text style={styles.formLabel}>Carteira de repasse</Text>
+            <TouchableOpacity
+              onPress={onQuickCreateWallet}
+              style={[
+                styles.inlineAction,
+                {
+                  borderWidth: 1,
+                  borderColor: withOpacity(accentColor, 0.22),
+                  backgroundColor: withOpacity(accentColor, 0.08),
+                },
+              ]}>
+              <Icon name="plus" size={14} color={accentColor} />
+              <Text style={[styles.inlineActionText, { color: accentColor }]}>Cadastro rapido</Text>
+            </TouchableOpacity>
+          </View>
+          <View style={styles.pickerWrap}>
+            <Picker
+              selectedValue={storeSettingsDraft.settlementWalletId}
+              mode={Platform.OS === 'android' ? 'dropdown' : undefined}
+              onValueChange={value =>
+                setStoreSettingsDraft(current => ({ ...current, settlementWalletId: String(value || '') }))
+              }
+              enabled={!walletLoading && Array.isArray(wallets) && wallets.length > 0}
+              style={styles.picker}>
+              <Picker.Item
+                label={
+                  walletLoading
+                    ? 'Carregando carteiras...'
+                    : Array.isArray(wallets) && wallets.length === 0
+                      ? 'Nenhuma carteira cadastrada'
+                      : 'Selecione uma carteira'
+                }
+                value=""
+              />
+              {(Array.isArray(wallets) ? wallets : []).map(wallet => (
+                <Picker.Item
+                  key={wallet.id}
+                  label={`${wallet.wallet || 'Carteira'} (#${wallet.id})`}
+                  value={String(wallet.id)}
+                />
+              ))}
+            </Picker>
+          </View>
+          <Text style={styles.formHint}>
+            A carteira selecionada recebe o repasse semanal do 99Food e precisa pertencer a empresa ativa.
+          </Text>
         </View>
       </View>
 

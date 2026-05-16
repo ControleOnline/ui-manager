@@ -14,6 +14,8 @@
 - A tela React `OrderHistoryPage` pertence ao modulo `ui-orders`. O `MANAGER` pode navegar para ela, mas nao deve manter uma copia da tela em `ui-manager`.
 - `OrderHistoryPage` do `MANAGER` nao deve abrir `OrderDetails` com `kds=true`. Esse param pertence apenas a origens reais de `PPC`/KDS.
 - Quando a configuracao alterar comportamento do `POS`, documente a regra tambem no `AGENTS.md` do modulo dono do fluxo operacional.
+- Em `Food99IntegrationPage`, a carteira de repasse da loja precisa ser escolhida na tela de integracao a partir das carteiras da empresa ativa e persistida como `settlement_wallet_id`; nao permitir selecao fora do contexto da empresa.
+- Quando `Food99IntegrationPage` precisar cadastrar uma carteira nova para repasse, usar o store `wallet` com `people: '/people/<empresa ativa>'` e selecionar imediatamente a carteira criada no formulario, sem criar fluxo paralelo ou buscar carteiras fora da empresa ativa.
 
 ## Menus
 - `MenuAccessConfigPage` e a tela administrativa para configurar menus por `APP_TYPE` e vinculos humanos de `people_link.link_type`; `client`, `provider` e `franchisee` sao comerciais e nao entram como perfis de menu.

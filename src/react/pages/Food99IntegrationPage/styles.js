@@ -250,6 +250,13 @@ const styles = StyleSheet.create({
     width: '100%',
     gap: 6,
   },
+  formFieldHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+    flexWrap: 'wrap',
+  },
   formFieldHalf: {
     width: '48%',
   },
@@ -268,6 +275,21 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     fontSize: 13,
     color: '#0F172A',
+  },
+  pickerWrap: {
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 12,
+    overflow: 'hidden',
+    backgroundColor: '#F8FAFC',
+  },
+  picker: {
+    minHeight: 42,
+  },
+  formHint: {
+    fontSize: 12,
+    lineHeight: 18,
+    color: '#64748B',
   },
   optionGroup: {
     flexDirection: 'row',

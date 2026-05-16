@@ -122,6 +122,7 @@ export const createEmptyStoreSettingsDraft = () => ({
   deliveryMethod: '',
   confirmMethod: '',
   deliveryAreaId: '',
+  settlementWalletId: '',
 });
 
 export const isErrnoSuccess = errno => String(errno ?? '').trim() === '0';

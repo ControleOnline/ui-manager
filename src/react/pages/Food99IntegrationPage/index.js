@@ -18,6 +18,7 @@ import Food99CatalogTab from './components/Food99CatalogTab';
 import Food99OverviewTab from './components/Food99OverviewTab';
 import Food99PreviewModal from './components/Food99PreviewModal';
 import Food99SettingsTab from './components/Food99SettingsTab';
+import Food99QuickWalletModal from './components/Food99QuickWalletModal';
 import Food99StoreTab from './components/Food99StoreTab';
 import styles from './styles';
 import {
@@ -50,8 +51,10 @@ const openAuthorizationUrl = async authUrl => {
 // Página principal da integração 99Food com separação por contexto.
 export default function Food99IntegrationPage() {
   const peopleStore = useStore('people');
+  const walletStore = useStore('wallet');
   const themeStore = useStore('theme');
   const { currentCompany } = peopleStore.getters;
+  const { items: wallets = [], isLoading: isLoadingWallets } = walletStore.getters;
   const { colors: themeColors } = themeStore.getters;
   const { showError, showInfo, showSuccess } = useToastMessage();
 
@@ -87,6 +90,8 @@ export default function Food99IntegrationPage() {
   const [storeSettingsResponse, setStoreSettingsResponse] = useState(null);
   const [storeSettingsDraft, setStoreSettingsDraft] = useState(createEmptyStoreSettingsDraft);
   const [manualShopId, setManualShopId] = useState('');
+  const [quickWalletModalVisible, setQuickWalletModalVisible] = useState(false);
+  const [quickWalletName, setQuickWalletName] = useState('');
   const hasHydratedSelection = useRef(false);
 
   const products = useMemo(
@@ -160,6 +165,21 @@ export default function Food99IntegrationPage() {
   const currentCloseTime = resolveSettingDisplay(storeSettings?.close_time);
   const currentDeliveryMethod = formatDeliveryMethodLabel(storeSettings?.delivery_method);
   const currentConfirmMethod = resolveSettingDisplay(storeSettings?.confirm_method);
+  const currentSettlementWalletId = String(storeSettings?.settlement_wallet_id || '').trim();
+  const currentSettlementWalletLabel = useMemo(() => {
+    if (!currentSettlementWalletId) {
+      return '-';
+    }
+
+    const selectedWallet = wallets.find(wallet => String(wallet.id) === currentSettlementWalletId);
+    if (selectedWallet) {
+      const walletLabel = String(selectedWallet.wallet || '').trim() || `Carteira #${selectedWallet.id}`;
+
+      return `${walletLabel} (#${selectedWallet.id})`;
+    }
+
+    return `#${currentSettlementWalletId}`;
+  }, [currentSettlementWalletId, wallets]);
 
   const filteredProducts = useMemo(() => {
     const normalizedSearch = String(search || '').trim().toLowerCase();
@@ -266,6 +286,7 @@ export default function Food99IntegrationPage() {
     { label: 'Metodo atual', value: currentDeliveryMethod },
     { label: 'Abertura atual', value: currentOpenTime },
     { label: 'Fechamento atual', value: currentCloseTime },
+    { label: 'Carteira de repasse', value: currentSettlementWalletLabel, wide: true },
     { label: 'Metodo de confirmacao atual', value: currentConfirmMethod, wide: true },
     { label: 'Fonte dos valores atuais', value: settingsSourceLabel, wide: true, small: true },
   ];
@@ -325,6 +346,7 @@ export default function Food99IntegrationPage() {
       deliveryMethod: normalizeDeliveryMethodCode(settings?.delivery_method),
       confirmMethod: settings?.confirm_method ? sanitizeConfirmMethodInput(String(settings.confirm_method)) : '',
       deliveryAreaId: settings?.delivery_area_id ? String(settings.delivery_area_id) : '',
+      settlementWalletId: settings?.settlement_wallet_id ? String(settings.settlement_wallet_id) : '',
     });
   }, []);
 
@@ -342,11 +364,19 @@ export default function Food99IntegrationPage() {
       const detailParams = { provider_id: providerId };
       if (refreshRemote) detailParams.refresh_remote = 1;
 
+      const walletLoadPromise = walletStore.actions?.getItems
+        ? walletStore.actions.getItems({
+            people: providerId,
+            itemsPerPage: 200,
+          }).catch(() => null)
+        : Promise.resolve(null);
+
       const [detailResponse, settingsResponse] = await Promise.all([
         api.fetch('/marketplace/integrations/99food/detail', { params: detailParams }),
         api.fetch('/marketplace/integrations/99food/store/settings', {
           params: { provider_id: providerId },
         }),
+        walletLoadPromise,
       ]);
 
       applyDetailResponse(detailResponse);
@@ -356,7 +386,7 @@ export default function Food99IntegrationPage() {
     } finally {
       setLoading(false);
     }
-  }, [applyDetailResponse, applyStoreSettingsResponse, providerId, showError]);
+  }, [applyDetailResponse, applyStoreSettingsResponse, providerId, showError, walletStore.actions]);
 
   const fetchMenuTaskStatus = useCallback(async (taskId, { poll = false } = {}) => {
     if (!providerId || !taskId) return null;
@@ -534,6 +564,7 @@ export default function Food99IntegrationPage() {
         const deliveryMethod = String(storeSettingsDraft?.deliveryMethod || '').trim();
         const confirmMethod = String(storeSettingsDraft?.confirmMethod || '').trim();
         const deliveryAreaId = String(storeSettingsDraft?.deliveryAreaId || '').trim();
+        const settlementWalletId = String(storeSettingsDraft?.settlementWalletId || '').trim();
 
         if (deliveryRadius && !/^\d+(\.\d{1,2})?$/.test(deliveryRadius)) {
           showError('Raio de atendimento invalido. Use numero positivo (ex.: 5 ou 5.5).');
@@ -555,6 +586,17 @@ export default function Food99IntegrationPage() {
           return;
         }
 
+        if (!settlementWalletId) {
+          showError('Selecione a carteira de repasse da loja.');
+          return;
+        }
+
+        const walletMatch = wallets.some(wallet => String(wallet.id) === settlementWalletId);
+        if (!walletMatch) {
+          showError('Selecione uma carteira valida da empresa ativa.');
+          return;
+        }
+
         const payload = { provider_id: providerId };
         if (deliveryRadius) payload.delivery_radius_km = deliveryRadius;
         if (openTime) payload.open_time = openTime;
@@ -562,6 +604,7 @@ export default function Food99IntegrationPage() {
         if (deliveryMethod) payload.delivery_method = deliveryMethod;
         if (confirmMethod) payload.confirm_method = confirmMethod;
         if (deliveryAreaId) payload.delivery_area_id = deliveryAreaId;
+        payload.settlement_wallet_id = settlementWalletId;
 
         const response = await api.fetch('/marketplace/integrations/99food/store/settings', {
           method: 'POST',
@@ -589,6 +632,70 @@ export default function Food99IntegrationPage() {
     showError,
     showSuccess,
     storeSettingsDraft,
+    wallets,
+    withAction,
+  ]);
+
+  const openQuickWalletModal = useCallback(() => {
+    setQuickWalletName('');
+    setQuickWalletModalVisible(true);
+  }, []);
+
+  const closeQuickWalletModal = useCallback(() => {
+    setQuickWalletModalVisible(false);
+    setQuickWalletName('');
+  }, []);
+
+  const handleCreateQuickWallet = useCallback(async () => {
+    if (!providerId) {
+      return;
+    }
+
+    const walletName = String(quickWalletName || '').trim();
+    if (!walletName) {
+      showError('Informe o nome da carteira.');
+      return;
+    }
+
+    await withAction('create-wallet', async () => {
+      try {
+        const savedWallet = await walletStore.actions.save({
+          people: `/people/${providerId}`,
+          wallet: walletName,
+        });
+
+        const savedWalletId = String(savedWallet?.id || '').trim();
+        const resolvedWallet =
+          (Array.isArray(walletStore.getters.items)
+            ? walletStore.getters.items.find(wallet => {
+                return String(wallet?.wallet || '').trim().toLowerCase() === walletName.toLowerCase();
+              })
+            : null) || savedWallet;
+        const resolvedWalletId = String(savedWalletId || resolvedWallet?.id || '').trim();
+
+        if (resolvedWalletId) {
+          setStoreSettingsDraft(current => ({
+            ...current,
+            settlementWalletId: resolvedWalletId,
+          }));
+          showSuccess('Carteira criada e selecionada no repasse.');
+        } else {
+          showSuccess('Carteira criada. Selecione-a no repasse.');
+        }
+        closeQuickWalletModal();
+      } catch (error) {
+        showError(formatFood99ApiError(error));
+      }
+    });
+  }, [
+    closeQuickWalletModal,
+    formatFood99ApiError,
+    providerId,
+    quickWalletName,
+    setStoreSettingsDraft,
+    showError,
+    showSuccess,
+    walletStore.actions,
     withAction,
   ]);
 
@@ -875,7 +982,10 @@ export default function Food99IntegrationPage() {
             settingsSummaryRows={settingsSummaryRows}
             storeSettingsDraft={storeSettingsDraft}
             setStoreSettingsDraft={setStoreSettingsDraft}
+            wallets={wallets}
+            walletLoading={isLoadingWallets}
             actionLoading={actionLoading}
+            onQuickCreateWallet={openQuickWalletModal}
             onSave={handleSaveStoreSettings}
           />
         )}
@@ -909,6 +1019,16 @@ export default function Food99IntegrationPage() {
         accentColor={brandColors.primary}
         onClose={() => setPreviewVisible(false)}
         onUpload={handleUpload}
+      />
+
+      <Food99QuickWalletModal
+        visible={quickWalletModalVisible}
+        walletName={quickWalletName}
+        setWalletName={setQuickWalletName}
+        actionLoading={actionLoading}
+        accentColor={brandColors.primary}
+        onClose={closeQuickWalletModal}
+        onCreate={handleCreateQuickWallet}
       />
     </SafeAreaView>
   );
