@@ -1276,6 +1276,8 @@ const DeviceDetailPage = () => {
                   <Picker
                     selectedValue={posOperationMode}
                     mode={pickerMode}
+                    style={styles.picker}
+                    dropdownIconColor="#64748B"
                     onValueChange={value =>
                       setPosOperationMode(resolvePosOperationMode({
                         [POS_OPERATION_MODE_CONFIG_KEY]: value,
@@ -1308,6 +1310,8 @@ const DeviceDetailPage = () => {
                   <Picker
                     selectedValue={checkOrderType}
                     mode={pickerMode}
+                    style={styles.picker}
+                    dropdownIconColor="#64748B"
                     onValueChange={value =>
                       setCheckOrderType(
                         value === POS_CHECK_ORDER_TYPE_TAB
@@ -1346,6 +1350,8 @@ const DeviceDetailPage = () => {
                     <Picker
                       selectedValue={checkOrderManagementMode}
                       mode={pickerMode}
+                      style={styles.picker}
+                      dropdownIconColor="#64748B"
                       onValueChange={value =>
                         setCheckOrderManagementMode(
                           value ===
@@ -1421,6 +1427,8 @@ const DeviceDetailPage = () => {
                         <Picker
                           selectedValue={counterPrintMode}
                           mode={pickerMode}
+                          style={styles.picker}
+                          dropdownIconColor="#64748B"
                           onValueChange={value =>
                             setCounterPrintMode(
                               value === POS_PRINT_MODE_FORM
@@ -1449,6 +1457,8 @@ const DeviceDetailPage = () => {
                       <Picker
                         selectedValue={counterCashManagementMode}
                         mode={pickerMode}
+                        style={styles.picker}
+                        dropdownIconColor="#64748B"
                         onValueChange={value =>
                           setCounterCashManagementMode(
                             value === POS_CASH_MANAGEMENT_MODE_DAILY
@@ -1511,6 +1521,8 @@ const DeviceDetailPage = () => {
                   <Picker
                     selectedValue={pdvGateway || ''}
                     mode={pickerMode}
+                    style={styles.picker}
+                    dropdownIconColor="#64748B"
                     onValueChange={value => setPdvGateway(String(value || ''))}>
                     <Picker.Item
                       label="Selecione o tipo do PDV"
@@ -1590,6 +1602,8 @@ const DeviceDetailPage = () => {
                 <Picker
                   selectedValue={deviceOrderVisibility}
                   mode={pickerMode}
+                  style={styles.picker}
+                  dropdownIconColor="#64748B"
                   onValueChange={value =>
                     setDeviceOrderVisibility(value || DEVICE_ORDER_VISIBILITY_DEVICE)
                   }>
@@ -1713,6 +1727,8 @@ const DeviceDetailPage = () => {
                     <Picker
                       selectedValue={linkedDisplayId || ''}
                       mode={pickerMode}
+                      style={styles.picker}
+                      dropdownIconColor="#64748B"
                       onValueChange={value => setLinkedDisplayId(String(value || '').trim())}>
                       <Picker.Item
                         label="Nenhum display vinculado"
@@ -1735,6 +1751,8 @@ const DeviceDetailPage = () => {
                     <Picker
                       selectedValue={displayPrinterId || ''}
                       mode={pickerMode}
+                      style={styles.picker}
+                      dropdownIconColor="#64748B"
                       onValueChange={value =>
                         setDisplayPrinterId(normalizeDeviceId(value))
                       }>
@@ -1763,6 +1781,8 @@ const DeviceDetailPage = () => {
                     <Picker
                       selectedValue={displaySize}
                       mode={pickerMode}
+                      style={styles.picker}
+                      dropdownIconColor="#64748B"
                       onValueChange={value =>
                         setDisplaySize(normalizeDisplaySize(value))
                       }>
@@ -2067,6 +2087,8 @@ const DeviceDetailPage = () => {
                 <Picker
                   selectedValue={devicePaymentTarget || ''}
                   mode={pickerMode}
+                  style={styles.picker}
+                  dropdownIconColor="#64748B"
                   onValueChange={value => setDevicePaymentTarget(value || '')}>
                   <Picker.Item
                     label="Usar devices padrão da empresa"

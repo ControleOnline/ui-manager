@@ -936,6 +936,8 @@ const PrinterDeviceDetailPage = () => {
                   <Picker
                     selectedValue={protocol || DEFAULT_NETWORK_CAMERA_PROTOCOL}
                     mode={pickerMode}
+                    style={styles.picker}
+                    dropdownIconColor="#64748B"
                     onValueChange={value =>
                       setProtocol(String(value || DEFAULT_NETWORK_CAMERA_PROTOCOL))
                     }>
@@ -1025,6 +1027,8 @@ const PrinterDeviceDetailPage = () => {
               <Picker
                 selectedValue={managerDeviceId || ''}
                 mode={pickerMode}
+                style={styles.picker}
+                dropdownIconColor="#64748B"
                 onValueChange={value =>
                   setManagerDeviceId(String(value || '').trim())
                 }>

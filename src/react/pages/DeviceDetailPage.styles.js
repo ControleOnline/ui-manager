@@ -146,6 +146,12 @@ const styles = StyleSheet.create({
     backgroundColor: '#F8FAFC',
     overflow: 'hidden',
   },
+  picker: {
+    minHeight: 44,
+    color: '#0F172A',
+    backgroundColor: '#F8FAFC',
+    fontSize: 14,
+  },
   configButton: {
     alignSelf: 'flex-start',
     flexDirection: 'row',

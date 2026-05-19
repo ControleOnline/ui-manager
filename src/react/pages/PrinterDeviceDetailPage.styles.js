@@ -141,6 +141,12 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     backgroundColor: '#F8FAFC',
   },
+  picker: {
+    minHeight: 44,
+    color: '#0F172A',
+    backgroundColor: '#F8FAFC',
+    fontSize: 14,
+  },
   toggleRow: {
     borderWidth: 1,
     borderColor: '#E2E8F0',
