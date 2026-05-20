@@ -25,6 +25,10 @@ import styles from './TranslationsReviewPage.styles';
 
 const { resolveConfiguredLanguage } = require('@controleonline/ui-common/src/react/utils/runtimeLanguage');
 const {
+  resolveActiveCompany,
+  resolveInitialLanguage,
+} = require('./TranslationsReviewPage.logic');
+const {
   buildOverviewFromTranslateCollections,
   isNotFoundError,
   normalizeCollectionItems,
@@ -99,12 +103,16 @@ export default function TranslationsReviewPage() {
   const { colors: themeColors } = themeStore.getters;
   const { showError, showSuccess } = useToastMessage();
 
-  const currentCompanyId = currentCompany?.id;
+  const activeCompany = useMemo(
+    () => resolveActiveCompany(currentCompany, defaultCompany),
+    [currentCompany, defaultCompany],
+  );
+  const activeCompanyId = activeCompany?.id;
   const resolvedLanguage = useMemo(
     () => getConfigLanguage({ currentCompany, defaultCompany }),
     [currentCompany, defaultCompany],
   );
-  const syncedCompanyIdRef = useRef(currentCompanyId || null);
+  const syncedCompanyIdRef = useRef(activeCompanyId || null);
   const lastSyncedLanguageRef = useRef(resolvedLanguage);
   const overviewLoadModeRef = useRef('overview');
 
@@ -113,11 +121,11 @@ export default function TranslationsReviewPage() {
       resolveThemePalette(
         {
           ...themeColors,
-          ...(currentCompany?.theme?.colors || {}),
+          ...(activeCompany?.theme?.colors || {}),
         },
         colors,
       ),
-    [themeColors, currentCompany?.id],
+    [themeColors, activeCompany?.id],
   );
 
   const [loading, setLoading] = useState(true);
@@ -137,7 +145,7 @@ export default function TranslationsReviewPage() {
   }));
 
   useEffect(() => {
-    const normalizedCompanyId = currentCompanyId || null;
+    const normalizedCompanyId = activeCompanyId || null;
     const companyChanged = syncedCompanyIdRef.current !== normalizedCompanyId;
 
     // Keep the review language aligned with the active company unless the user changed it manually.
@@ -159,7 +167,7 @@ export default function TranslationsReviewPage() {
     });
 
     syncedCompanyIdRef.current = normalizedCompanyId;
-  }, [currentCompanyId, resolvedLanguage]);
+  }, [activeCompanyId, resolvedLanguage]);
 
   const languageOptions = useMemo(() => {
     const uniqueLanguages = new Map();
@@ -196,8 +204,8 @@ export default function TranslationsReviewPage() {
 
   const hasMainFallback = useMemo(() => {
     const mainCompanyId = summary?.mainCompany?.id || defaultCompany?.id;
-    return Boolean(currentCompanyId && mainCompanyId && String(currentCompanyId) !== String(mainCompanyId));
-  }, [currentCompanyId, defaultCompany?.id, summary?.mainCompany?.id]);
+    return Boolean(activeCompanyId && mainCompanyId && String(activeCompanyId) !== String(mainCompanyId));
+  }, [activeCompanyId, defaultCompany?.id, summary?.mainCompany?.id]);
 
   const mainCompanyLabel =
     summary?.mainCompany?.name
@@ -268,16 +276,17 @@ export default function TranslationsReviewPage() {
       const languageItems = Array.isArray(response?.member) ? response.member : [];
       setLanguages(languageItems);
 
-      if (!filters.language) {
-        const fallbackLanguage = resolvedLanguage || languageItems[0]?.language || 'pt-br';
-        if (fallbackLanguage) {
-          setFilters(previous => (
-            previous.language
-              ? previous
-              : { ...previous, language: fallbackLanguage }
-          ));
-        }
-      }
+      setFilters(previous => {
+        const nextLanguage = resolveInitialLanguage({
+          previousLanguage: previous.language,
+          languageItems,
+          configLanguage: resolvedLanguage || 'pt-br',
+        });
+
+        return nextLanguage === previous.language
+          ? previous
+          : { ...previous, language: nextLanguage };
+      });
     } catch {
       setLanguages([]);
       if (!filters.language) {
@@ -292,10 +301,10 @@ export default function TranslationsReviewPage() {
 
   const loadOverview = useCallback(async () => {
     const activeLanguage = filters.language || resolvedLanguage;
-    const mainCompany = defaultCompany || currentCompany;
+    const mainCompany = defaultCompany || activeCompany;
     const mainCompanyId = mainCompany?.id;
 
-    if (!currentCompanyId || !activeLanguage) {
+    if (!activeCompanyId || !activeLanguage) {
       setItems([]);
       setSummary({});
       setDrafts({});
@@ -304,7 +313,7 @@ export default function TranslationsReviewPage() {
     }
 
     const overviewParams = {
-      people: currentCompanyId,
+      people: activeCompanyId,
       'language.language': activeLanguage,
       ...(filters.store ? { store: filters.store } : {}),
       ...(filters.type ? { type: filters.type } : {}),
@@ -357,17 +366,17 @@ export default function TranslationsReviewPage() {
     const loadOverviewFromCollections = async () => {
       const shouldLoadMainFallback =
         Boolean(mainCompanyId)
-        && String(mainCompanyId) !== String(currentCompanyId);
+        && String(mainCompanyId) !== String(activeCompanyId);
 
       const [companyTranslations, fallbackTranslations] = await Promise.all([
-        loadAllTranslates(currentCompanyId),
+        loadAllTranslates(activeCompanyId),
         shouldLoadMainFallback ? loadAllTranslates(mainCompanyId) : Promise.resolve([]),
       ]);
 
       return buildOverviewFromTranslateCollections({
         companyTranslations,
         fallbackTranslations,
-        selectedCompany: currentCompany,
+        selectedCompany: activeCompany,
         mainCompany,
         activeLanguage,
         search: filters.search,
@@ -407,8 +416,8 @@ export default function TranslationsReviewPage() {
       setLoading(false);
     }
   }, [
-    currentCompany,
-    currentCompanyId,
+    activeCompany,
+    activeCompanyId,
     defaultCompany,
     filters.language,
     filters.pendingOnly,
@@ -488,7 +497,7 @@ export default function TranslationsReviewPage() {
         {
           method: row.translateId ? 'PUT' : 'POST',
           body: {
-            people: `/people/${currentCompanyId}`,
+            people: `/people/${activeCompanyId}`,
             language: row.language?.['@id'] || `/languages/${row.language?.id}`,
             store: row.store,
             type: row.type,
@@ -509,9 +518,9 @@ export default function TranslationsReviewPage() {
         [row.rowId]: false,
       }));
     }
-  }, [currentCompanyId, drafts, loadOverview, showError, showSuccess]);
+  }, [activeCompanyId, drafts, loadOverview, showError, showSuccess]);
 
-  if (!currentCompanyId) {
+  if (!activeCompanyId) {
     return (
       <SafeAreaView style={styles.container} edges={['bottom']}>
         <View style={styles.centerState}>
