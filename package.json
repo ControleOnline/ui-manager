@@ -1,18 +1,20 @@
 {
-    "name": "@controleonline/ui-manager",
-    "version": "1.0.12",
-    "author": "Controle Online",
-    "description": "Controle Online Manager Quasar UI Component",
-    "license": "MIT",
-    "main": "src/vue/index.js",
-    "scripts": {},
-    "repository": {
-      "type": "git",
-      "url": "https://github.com/ControleOnline/conline-quasar-ui"
-    },
-    "bugs": "",
-    "homepage": "https://www.controleonline.com/devs/plugins",
-    "browserslist": [
-      "last 1 version, not dead, ie >= 11"
-    ]  
-  }
+  "name": "@controleonline/ui-manager",
+  "version": "1.0.12",
+  "author": "Controle Online",
+  "description": "Controle Online Manager Quasar UI Component",
+  "license": "MIT",
+  "main": "src/vue/index.js",
+  "scripts": {
+    "test:translations-review-page-logic": "node --test src/tests/react/pages/TranslationsReviewPage.logic.test.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ControleOnline/conline-quasar-ui"
+  },
+  "bugs": "",
+  "homepage": "https://www.controleonline.com/devs/plugins",
+  "browserslist": [
+    "last 1 version, not dead, ie >= 11"
+  ]
+}
