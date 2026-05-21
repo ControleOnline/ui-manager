@@ -4,6 +4,7 @@ const test = require('node:test')
 const {
   buildOverviewFromTranslateCollections,
   isNotFoundError,
+  shouldPreferCollectionOverview,
 } = require('../../../react/pages/TranslationsReviewPage.data')
 
 test('builds overview rows with fallback and company override data', () => {
@@ -94,6 +95,21 @@ test('keeps summary based on the searched collection when pending filter is acti
   assert.equal(result.summary.total, 2)
   assert.equal(result.summary.pendingReview, 1)
   assert.equal(result.summary.reviewed, 1)
+})
+
+test('prefers collection overview when company translations depend on main-company fallback', () => {
+  assert.equal(
+    shouldPreferCollectionOverview({ currentCompanyId: 5, mainCompanyId: 1 }),
+    true,
+  )
+  assert.equal(
+    shouldPreferCollectionOverview({ currentCompanyId: 5, mainCompanyId: 5 }),
+    false,
+  )
+  assert.equal(
+    shouldPreferCollectionOverview({ currentCompanyId: 5, mainCompanyId: null }),
+    false,
+  )
 })
 
 test('detects 404 errors for the overview fallback path', () => {
