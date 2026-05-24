@@ -27,7 +27,6 @@ import {
   normalizeNotificationTargets,
   useGeneralSettingsConfig,
 } from '@controleonline/ui-crm/src/react/pages/settings/GeneralSettings.shared';
-import {DEFAULT_NOTIFICATION_SOUND_FILE} from '@controleonline/ui-common/src/react/utils/notificationSound';
 import {colors} from '@controleonline/../../src/styles/colors';
 
 const permissionStatusLabels = {
@@ -56,10 +55,6 @@ export default function ManagerOrderNotificationsPage() {
   );
 
   const [pushEnabled, setPushEnabled] = useState(currentPreferences.pushEnabled);
-  const [soundEnabled, setSoundEnabled] = useState(
-    currentPreferences.soundEnabled,
-  );
-  const [soundUrl, setSoundUrl] = useState(currentPreferences.soundUrl);
   const [cashClosePushEnabled, setCashClosePushEnabled] = useState(
     financialPreferences.cashClosePushEnabled,
   );
@@ -90,8 +85,6 @@ export default function ManagerOrderNotificationsPage() {
 
   useEffect(() => {
     setPushEnabled(currentPreferences.pushEnabled);
-    setSoundEnabled(currentPreferences.soundEnabled);
-    setSoundUrl(currentPreferences.soundUrl);
   }, [currentPreferences]);
 
   useEffect(() => {
@@ -127,8 +120,6 @@ export default function ManagerOrderNotificationsPage() {
       return;
     }
 
-    const normalizedSoundUrl = String(soundUrl || '').trim();
-
     setIsSaving(true);
 
     try {
@@ -150,8 +141,6 @@ export default function ManagerOrderNotificationsPage() {
       authActions.logIn(
         applyManagerOrderNotificationPreferences(user, {
           pushEnabled,
-          soundEnabled,
-          soundUrl: normalizedSoundUrl,
         }),
       );
 
@@ -174,8 +163,6 @@ export default function ManagerOrderNotificationsPage() {
     pushEnabled,
     showError,
     showSuccess,
-    soundEnabled,
-    soundUrl,
     user,
   ]);
 
@@ -238,9 +225,8 @@ export default function ManagerOrderNotificationsPage() {
           <Text style={styles.heroEyebrow}>PERFIL DO GESTOR</Text>
           <Text style={styles.heroTitle}>Notificações de pedidos</Text>
           <Text style={styles.heroDescription}>
-            Cada pedido novo recebido no Gestor pode abrir uma notificação local.
-            Se quiser, junto do push você também define um áudio remoto para tocar
-            no mesmo gatilho do websocket.
+            Os pedidos novos do Gestor chegam por push nativo do Firebase, com
+            som padrão do sistema e abertura direta da tela de detalhes.
           </Text>
         </View>
 
@@ -281,8 +267,8 @@ export default function ManagerOrderNotificationsPage() {
             <View style={styles.sectionHeaderCopy}>
               <Text style={styles.sectionTitle}>Push de novos pedidos</Text>
               <Text style={styles.sectionDescription}>
-                Já vem habilitado por padrão, mas você pode desligar quando não
-                quiser receber avisos no Gestor.
+                O push usa o som padrão do Android e abre a tela do pedido
+                quando você toca na notificação.
               </Text>
             </View>
           </View>
@@ -295,61 +281,6 @@ export default function ManagerOrderNotificationsPage() {
               </Text>
             </View>
             <Switch value={pushEnabled} onValueChange={setPushEnabled} />
-          </View>
-        </View>
-
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <View style={styles.sectionIconWrap}>
-              <Icon name="volume-up" size={20} color={colors.primary} />
-            </View>
-            <View style={styles.sectionHeaderCopy}>
-              <Text style={styles.sectionTitle}>Aviso sonoro opcional</Text>
-              <Text style={styles.sectionDescription}>
-                Se a URL estiver vazia, o Gestor usa o som padrão embutido
-                no app (`{DEFAULT_NOTIFICATION_SOUND_FILE}`).
-              </Text>
-            </View>
-          </View>
-
-          <View
-            style={[
-              styles.soundCard,
-              !pushEnabled && styles.soundCardDisabled,
-            ]}>
-            <View style={styles.toggleCard}>
-              <View style={styles.toggleCopy}>
-                <Text style={styles.toggleLabel}>Tocar áudio junto do push</Text>
-                <Text style={styles.toggleHint}>
-                  Só funciona quando as notificações do gestor estiverem ligadas.
-                </Text>
-              </View>
-              <Switch
-                value={soundEnabled}
-                disabled={!pushEnabled}
-                onValueChange={setSoundEnabled}
-              />
-            </View>
-
-            <Text style={styles.inputLabel}>URL do audio personalizado</Text>
-            <TextInput
-              value={soundUrl}
-              onChangeText={setSoundUrl}
-              placeholder="https://exemplo.com/alerta.mp3 (opcional)"
-              placeholderTextColor="#94A3B8"
-              autoCapitalize="none"
-              autoCorrect={false}
-              keyboardType="url"
-              editable={pushEnabled && soundEnabled}
-              style={[
-                styles.input,
-                (!pushEnabled || !soundEnabled) && styles.inputDisabled,
-              ]}
-            />
-            <Text style={styles.toggleHint}>
-              Se você não informar uma URL, o alerta toca com o áudio padrão
-              do app.
-            </Text>
           </View>
         </View>
 
