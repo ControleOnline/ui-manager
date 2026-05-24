@@ -27,6 +27,7 @@ import {
   normalizeNotificationTargets,
   useGeneralSettingsConfig,
 } from '@controleonline/ui-crm/src/react/pages/settings/GeneralSettings.shared';
+import {DEFAULT_NOTIFICATION_SOUND_FILE} from '@controleonline/ui-common/src/react/utils/notificationSound';
 import {colors} from '@controleonline/../../src/styles/colors';
 
 const permissionStatusLabels = {
@@ -127,11 +128,6 @@ export default function ManagerOrderNotificationsPage() {
     }
 
     const normalizedSoundUrl = String(soundUrl || '').trim();
-
-    if (pushEnabled && soundEnabled && !normalizedSoundUrl) {
-      showError?.('Informe a URL do áudio para tocar junto da notificação.');
-      return;
-    }
 
     setIsSaving(true);
 
@@ -310,8 +306,8 @@ export default function ManagerOrderNotificationsPage() {
             <View style={styles.sectionHeaderCopy}>
               <Text style={styles.sectionTitle}>Aviso sonoro opcional</Text>
               <Text style={styles.sectionDescription}>
-                O som usa a URL informada abaixo e dispara no mesmo evento
-                `order.created` que gera a notificação.
+                Se a URL estiver vazia, o Gestor usa o som padrão embutido
+                no app (`{DEFAULT_NOTIFICATION_SOUND_FILE}`).
               </Text>
             </View>
           </View>
@@ -335,11 +331,11 @@ export default function ManagerOrderNotificationsPage() {
               />
             </View>
 
-            <Text style={styles.inputLabel}>URL do audio</Text>
+            <Text style={styles.inputLabel}>URL do audio personalizado</Text>
             <TextInput
               value={soundUrl}
               onChangeText={setSoundUrl}
-              placeholder="https://exemplo.com/alerta.mp3"
+              placeholder="https://exemplo.com/alerta.mp3 (opcional)"
               placeholderTextColor="#94A3B8"
               autoCapitalize="none"
               autoCorrect={false}
@@ -350,6 +346,10 @@ export default function ManagerOrderNotificationsPage() {
                 (!pushEnabled || !soundEnabled) && styles.inputDisabled,
               ]}
             />
+            <Text style={styles.toggleHint}>
+              Se você não informar uma URL, o alerta toca com o áudio padrão
+              do app.
+            </Text>
           </View>
         </View>
 
