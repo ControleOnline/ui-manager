@@ -23,6 +23,7 @@ export default function Food99StoreTab({
   onRefresh,
   onConnect,
   onToggleStatus,
+  onSyncOrders,
   manualShopId,
   setManualShopId,
   onManualBind,
@@ -155,6 +156,33 @@ export default function Food99StoreTab({
             </View>
           )}
         </View>
+
+        {connected && (
+          <View style={styles.formRow}>
+            <TouchableOpacity
+              style={[
+                styles.secondaryActionButton,
+                {
+                  flex: 1,
+                  borderColor: accentColor,
+                  backgroundColor: withOpacity(accentColor, 0.08),
+                },
+              ]}
+              onPress={onSyncOrders}
+              disabled={actionLoading === 'sync-orders'}>
+              {actionLoading === 'sync-orders' ? (
+                <ActivityIndicator size="small" color={accentColor} />
+              ) : (
+                <>
+                  <Icon name="refresh-cw" size={15} color={accentColor} />
+                  <Text style={[styles.secondaryActionButtonText, { color: accentColor }]}>
+                    Sincronizar pedidos
+                  </Text>
+                </>
+              )}
+            </TouchableOpacity>
+          </View>
+        )}
       </View>
 
       <View style={[styles.panel, shadowStyle]}>

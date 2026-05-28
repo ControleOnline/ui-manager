@@ -880,6 +880,48 @@ export default function Food99IntegrationPage() {
     });
   }, [fetchMenuTaskStatus, lastMenuTaskId, loadData, withAction]);
 
+  const handleSyncOrders = useCallback(async () => {
+    if (!providerId) return;
+
+    await withAction('sync-orders', async () => {
+      try {
+        const response = await api.fetch('/marketplace/integrations/99food/orders/sync', {
+          method: 'POST',
+          body: {
+            provider_id: providerId,
+          },
+        });
+
+        if (!isErrnoSuccess(response?.errno)) {
+          showError(response?.errmsg || 'Nao foi possivel sincronizar os pedidos da 99Food.');
+          return;
+        }
+
+        const processedCount = Number(response?.data?.processed_order_count || 0);
+        const failedCount = Number(response?.data?.failed_order_count || 0);
+        const acknowledgedCount = Number(response?.data?.acknowledged_event_count || 0);
+        const failedAckCount = Number(response?.data?.failed_acknowledged_count || 0);
+        const ackSummary = acknowledgedCount > 0 ? `, ${acknowledgedCount} evento(s) reconhecido(s)` : '';
+
+        if (processedCount > 0) {
+          if (failedCount > 0 || failedAckCount > 0) {
+            showInfo(
+              `Sincronizacao executada com pendencias: ${processedCount} pedido(s) importado(s), ${failedCount} falha(s)${ackSummary}.`,
+            );
+          } else {
+            showSuccess(`Sincronizacao concluida: ${processedCount} pedido(s) importado(s)${ackSummary}.`);
+          }
+        } else {
+          showInfo(`Sincronizacao executada, mas nenhum pedido novo foi importado${ackSummary}.`);
+        }
+
+        await loadData({ silent: true });
+      } catch (error) {
+        showError(formatFood99ApiError(error));
+      }
+    });
+  }, [loadData, providerId, showError, showInfo, showSuccess, withAction]);
+
   const selectionSummaryTone =
     selectedEligibleProducts.length >= MINIMUM_REQUIRED_ITEMS ? '#10B981' : '#F59E0B';
 
@@ -976,6 +1018,7 @@ export default function Food99IntegrationPage() {
             onRefresh={handleRefreshStoreStatus}
             onConnect={handleConnectStore}
             onToggleStatus={() => handleStoreStatusChange(isOnline ? 2 : 1)}
+            onSyncOrders={handleSyncOrders}
             manualShopId={manualShopId}
             setManualShopId={setManualShopId}
             onManualBind={handleManualBindStore}
