@@ -124,6 +124,7 @@ export default function Food99IntegrationPage() {
 
   const connected = Boolean(integrationItem?.connected);
   const remoteConnected = Boolean(integrationItem?.remote_connected);
+  const needsReconnect = connected && !remoteConnected;
   const storeBizStatus = Number(integrationItem?.biz_status ?? 0);
   const storeSubStatus = Number(integrationItem?.sub_biz_status ?? 0);
   const isOnline = Boolean(integrationItem?.online);
@@ -211,18 +212,20 @@ export default function Food99IntegrationPage() {
       {
         key: 'connection',
         label: 'Loja 99',
-        value: connected ? 'Conectada' : 'Pendente',
+        value: needsReconnect ? 'Reconexão necessária' : connected ? 'Conectada' : 'Pendente',
         icon: 'link',
-        color: connected ? '#10B981' : '#F59E0B',
+        color: needsReconnect ? '#F59E0B' : connected ? '#10B981' : '#F59E0B',
       },
       {
         key: 'status',
         label: 'Status',
         value: remoteConnected
           ? integrationItem?.biz_status_label || statusLabelMap[storeBizStatus] || 'Indefinido'
-          : connected
-            ? 'Aguardando sync'
-            : 'Pendente',
+          : needsReconnect
+            ? 'Reconexão necessária'
+            : connected
+              ? 'Aguardando sync'
+              : 'Pendente',
         icon: isOnline ? 'wifi' : 'wifi-off',
         color: isOnline ? brandColors.primary : '#64748B',
       },
@@ -244,6 +247,7 @@ export default function Food99IntegrationPage() {
     [
       brandColors.primary,
       connected,
+      needsReconnect,
       remoteConnected,
       integrationItem?.biz_status_label,
       isOnline,
@@ -258,9 +262,11 @@ export default function Food99IntegrationPage() {
       label: 'Business status',
       value: remoteConnected
         ? integrationItem?.biz_status_label || statusLabelMap[storeBizStatus] || 'Indefinido'
-        : connected
-          ? 'Aguardando sync'
-          : 'Nao conectado',
+        : needsReconnect
+          ? 'Reconexão necessária'
+          : connected
+            ? 'Aguardando sync'
+            : 'Não conectado',
     },
     {
       label: 'Substatus',
@@ -943,6 +949,7 @@ export default function Food99IntegrationPage() {
             currentCompany={currentCompany}
             providerId={providerId}
             connected={connected}
+            needsReconnect={needsReconnect}
             summaryCards={summaryCards}
             lastMenuPublishState={lastMenuPublishState}
             publicationTone={publicationTone}
@@ -964,6 +971,7 @@ export default function Food99IntegrationPage() {
             lastErrorMessage={lastErrorMessage}
             actionLoading={actionLoading}
             connected={connected}
+            needsReconnect={needsReconnect}
             isOnline={isOnline}
             onRefresh={handleRefreshStoreStatus}
             onConnect={handleConnectStore}

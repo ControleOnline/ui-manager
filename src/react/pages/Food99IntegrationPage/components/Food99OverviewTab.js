@@ -10,6 +10,7 @@ import styles from '../styles';
 export default function Food99OverviewTab({
   shadowStyle,
   connected,
+  needsReconnect,
   summaryCards,
   lastMenuPublishState,
   publicationTone,
@@ -17,20 +18,37 @@ export default function Food99OverviewTab({
   lastMenuTaskMessage,
   lastErrorMessage,
 }) {
+  const reconnectRequired = Boolean(needsReconnect);
+  const pillBackgroundColor = reconnectRequired
+    ? '#FEF3C7'
+    : connected
+      ? '#DCFCE7'
+      : '#FEF3C7';
+  const pillTextColor = reconnectRequired
+    ? '#92400E'
+    : connected
+      ? '#166534'
+      : '#92400E';
+  const pillLabel = reconnectRequired
+    ? 'Reconexão necessária'
+    : connected
+      ? '99Food conectado'
+      : 'Integração pendente';
+
   return (
     <>
       <View style={styles.companyRow}>
         <View
           style={[
             styles.statusPill,
-            { backgroundColor: connected ? '#DCFCE7' : '#FEF3C7' },
+            { backgroundColor: pillBackgroundColor },
           ]}>
           <Text
             style={[
               styles.statusPillText,
-              { color: connected ? '#166534' : '#92400E' },
+              { color: pillTextColor },
             ]}>
-            {connected ? '99Food conectado' : 'Integracao pendente'}
+            {pillLabel}
           </Text>
         </View>
       </View>
@@ -84,14 +102,21 @@ export default function Food99OverviewTab({
           </View>
         )}
 
-        {!lastMenuPublishState && !lastErrorMessage && (
+        {reconnectRequired && !lastMenuPublishState && !lastErrorMessage ? (
+          <View style={[styles.infoBanner, { backgroundColor: '#FEF3C7' }]}>
+            <Icon name="alert-triangle" size={14} color="#B45309" />
+            <Text style={[styles.infoBannerText, { color: '#B45309' }]}>
+              A loja está vinculada localmente, mas a conexão remota caiu. Use a aba Loja para reconectar e retomar os webhooks.
+            </Text>
+          </View>
+        ) : !lastMenuPublishState && !lastErrorMessage ? (
           <View style={[styles.infoBanner, { backgroundColor: '#EFF6FF' }]}>
             <Icon name="info" size={14} color="#2563EB" />
             <Text style={[styles.infoBannerText, { color: '#1D4ED8' }]}>
               A aba de loja concentra status remoto e ações de conexão. A aba de cardápio cuida somente dos produtos.
             </Text>
           </View>
-        )}
+        ) : null}
       </View>
     </>
   );

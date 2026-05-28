@@ -18,6 +18,7 @@ export default function Food99StoreTab({
   lastErrorMessage,
   actionLoading,
   connected,
+  needsReconnect,
   isOnline,
   onRefresh,
   onConnect,
@@ -68,6 +69,15 @@ export default function Food99StoreTab({
           </View>
         )}
 
+        {needsReconnect && (
+          <View style={[styles.infoBanner, { backgroundColor: withOpacity('#F59E0B', 0.12) }]}>
+            <Icon name="alert-triangle" size={14} color="#B45309" />
+            <Text style={[styles.infoBannerText, { color: '#B45309' }]}>
+              A conexão remota da loja caiu. Refaça a reconexão para restaurar os webhooks.
+            </Text>
+          </View>
+        )}
+
         <View style={styles.statusRows}>
           {statusRows.map(row => (
             <View
@@ -98,24 +108,51 @@ export default function Food99StoreTab({
               )}
             </TouchableOpacity>
           ) : (
-            <TouchableOpacity
-              style={[
-                styles.primaryButton,
-                { backgroundColor: isOnline ? '#F97316' : accentColor },
-              ]}
-              onPress={onToggleStatus}
-              disabled={actionLoading === 'online' || actionLoading === 'offline'}>
-              {actionLoading === 'online' || actionLoading === 'offline' ? (
-                <ActivityIndicator size="small" color="#FFFFFF" />
-              ) : (
-                <>
-                  <Icon name={isOnline ? 'pause-circle' : 'play-circle'} size={16} color="#FFFFFF" />
-                  <Text style={styles.primaryButtonText}>
-                    {isOnline ? 'Colocar offline' : 'Colocar online'}
-                  </Text>
-                </>
+            <View style={styles.formRow}>
+              {needsReconnect && (
+                <TouchableOpacity
+                  style={[
+                    styles.secondaryActionButton,
+                    {
+                      flex: 1,
+                      borderColor: '#F59E0B',
+                      backgroundColor: withOpacity('#F59E0B', 0.08),
+                    },
+                  ]}
+                  onPress={onConnect}
+                  disabled={actionLoading === 'connect'}>
+                  {actionLoading === 'connect' ? (
+                    <ActivityIndicator size="small" color="#B45309" />
+                  ) : (
+                    <>
+                      <Icon name="refresh-cw" size={15} color="#B45309" />
+                      <Text style={[styles.secondaryActionButtonText, { color: '#B45309' }]}>
+                        Reconectar loja
+                      </Text>
+                    </>
+                  )}
+                </TouchableOpacity>
               )}
-            </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.primaryButton,
+                  { flex: 1, backgroundColor: isOnline ? '#F97316' : accentColor },
+                ]}
+                onPress={onToggleStatus}
+                disabled={actionLoading === 'online' || actionLoading === 'offline'}>
+                {actionLoading === 'online' || actionLoading === 'offline' ? (
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                ) : (
+                  <>
+                    <Icon name={isOnline ? 'pause-circle' : 'play-circle'} size={16} color="#FFFFFF" />
+                    <Text style={styles.primaryButtonText}>
+                      {isOnline ? 'Colocar offline' : 'Colocar online'}
+                    </Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            </View>
           )}
         </View>
       </View>
