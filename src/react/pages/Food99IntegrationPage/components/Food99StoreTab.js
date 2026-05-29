@@ -24,6 +24,7 @@ export default function Food99StoreTab({
   onConnect,
   onToggleStatus,
   onSyncOrders,
+  onSyncTodayHistory,
   manualShopId,
   setManualShopId,
   onManualBind,
@@ -177,6 +178,29 @@ export default function Food99StoreTab({
                   <Icon name="refresh-cw" size={15} color={accentColor} />
                   <Text style={[styles.secondaryActionButtonText, { color: accentColor }]}>
                     Sincronizar pedidos
+                  </Text>
+                </>
+              )}
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[
+                styles.secondaryActionButton,
+                {
+                  flex: 1,
+                  borderColor: '#0F766E',
+                  backgroundColor: withOpacity('#0F766E', 0.08),
+                },
+              ]}
+              onPress={onSyncTodayHistory}
+              disabled={actionLoading === 'sync-history'}>
+              {actionLoading === 'sync-history' ? (
+                <ActivityIndicator size="small" color="#0F766E" />
+              ) : (
+                <>
+                  <Icon name="clock" size={15} color="#0F766E" />
+                  <Text style={[styles.secondaryActionButtonText, { color: '#0F766E' }]}>
+                    Histórico de hoje
                   </Text>
                 </>
               )}

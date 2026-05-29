@@ -32,6 +32,7 @@ import {
   normalizeDeliveryMethodCode,
   normalizeTaskId,
   publishStateToneMap,
+  resolveFood99HistoryFromTime,
   sanitizeConfirmMethodInput,
   sanitizeTimeInput,
   statusLabelMap,
@@ -922,6 +923,50 @@ export default function Food99IntegrationPage() {
     });
   }, [loadData, providerId, showError, showInfo, showSuccess, withAction]);
 
+  const handleSyncTodayHistory = useCallback(async () => {
+    if (!providerId) return;
+
+    await withAction('sync-history', async () => {
+      try {
+        const fromTime = resolveFood99HistoryFromTime();
+        const response = await api.fetch('/marketplace/integrations/99food/orders/sync', {
+          method: 'POST',
+          body: {
+            provider_id: providerId,
+            ...(fromTime ? { from_time: fromTime } : {}),
+          },
+        });
+
+        if (!isErrnoSuccess(response?.errno)) {
+          showError(response?.errmsg || 'Nao foi possivel sincronizar o historico de pedidos da 99Food.');
+          return;
+        }
+
+        const processedCount = Number(response?.data?.processed_order_count || 0);
+        const failedCount = Number(response?.data?.failed_order_count || 0);
+        const acknowledgedCount = Number(response?.data?.acknowledged_event_count || 0);
+        const failedAckCount = Number(response?.data?.failed_acknowledged_count || 0);
+        const ackSummary = acknowledgedCount > 0 ? `, ${acknowledgedCount} evento(s) reconhecido(s)` : '';
+
+        if (processedCount > 0) {
+          if (failedCount > 0 || failedAckCount > 0) {
+            showInfo(
+              `Historico de hoje executado com pendencias: ${processedCount} pedido(s) importado(s), ${failedCount} falha(s)${ackSummary}.`,
+            );
+          } else {
+            showSuccess(`Historico de hoje concluido: ${processedCount} pedido(s) importado(s)${ackSummary}.`);
+          }
+        } else {
+          showInfo(`Historico de hoje executado, mas nenhum pedido novo foi importado${ackSummary}.`);
+        }
+
+        await loadData({ silent: true });
+      } catch (error) {
+        showError(formatFood99ApiError(error));
+      }
+    });
+  }, [loadData, providerId, showError, showInfo, showSuccess, withAction]);
+
   const selectionSummaryTone =
     selectedEligibleProducts.length >= MINIMUM_REQUIRED_ITEMS ? '#10B981' : '#F59E0B';
 
@@ -1019,6 +1064,7 @@ export default function Food99IntegrationPage() {
             onConnect={handleConnectStore}
             onToggleStatus={() => handleStoreStatusChange(isOnline ? 2 : 1)}
             onSyncOrders={handleSyncOrders}
+            onSyncTodayHistory={handleSyncTodayHistory}
             manualShopId={manualShopId}
             setManualShopId={setManualShopId}
             onManualBind={handleManualBindStore}

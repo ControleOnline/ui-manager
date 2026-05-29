@@ -61,6 +61,33 @@ export const normalizeTaskId = value => {
   return String(value);
 };
 
+export const resolveFood99HistoryFromTime = () => {
+  try {
+    const parts = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'America/Sao_Paulo',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    })
+      .formatToParts(new Date())
+      .reduce((accumulator, part) => {
+        if (part.type !== 'literal') {
+          accumulator[part.type] = part.value;
+        }
+
+        return accumulator;
+      }, {});
+
+    if (!parts.year || !parts.month || !parts.day) {
+      return null;
+    }
+
+    return `${parts.year}-${parts.month}-${parts.day}T00:00:00-03:00`;
+  } catch {
+    return null;
+  }
+};
+
 export const sanitizeTimeInput = value => {
   const digits = String(value || '')
     .replace(/\D/g, '')
