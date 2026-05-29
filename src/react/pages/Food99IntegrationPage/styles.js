@@ -1,5 +1,5 @@
-import { Platform, StyleSheet } from 'react-native';
-import { colors } from '@controleonline/../../src/styles/colors';
+import {Platform, StyleSheet} from 'react-native';
+import {colors} from '@controleonline/../../src/styles/colors';
 
 const styles = StyleSheet.create({
   container: {
@@ -468,6 +468,85 @@ const styles = StyleSheet.create({
     color: '#DC2626',
     fontWeight: '700',
     marginTop: 4,
+  },
+  productDisclosureButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    gap: 6,
+    borderRadius: 999,
+    borderWidth: 1,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    marginTop: 8,
+  },
+  productDisclosureButtonText: {
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  childrenSection: {
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#E2E8F0',
+    gap: 10,
+  },
+  childrenSectionLabel: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#64748B',
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
+  },
+  childGroupCard: {
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 16,
+    backgroundColor: '#F8FAFC',
+    padding: 12,
+    gap: 10,
+  },
+  childGroupHeader: {
+    gap: 4,
+  },
+  childGroupTitle: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#0F172A',
+  },
+  childGroupMeta: {
+    fontSize: 11,
+    color: '#64748B',
+    fontWeight: '700',
+  },
+  childItemsList: {
+    gap: 8,
+  },
+  childItemRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  childItemContent: {
+    flex: 1,
+    minWidth: 0,
+    gap: 2,
+  },
+  childItemName: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#0F172A',
+  },
+  childItemMeta: {
+    fontSize: 11,
+    color: '#64748B',
+    lineHeight: 15,
+  },
+  childItemPrice: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#0F172A',
   },
   emptyProducts: {
     borderRadius: 12,

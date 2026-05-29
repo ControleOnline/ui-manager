@@ -1,19 +1,26 @@
-import React, { useCallback, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Linking, RefreshControl, ScrollView, Text, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { useFocusEffect } from '@react-navigation/native';
+import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
+import {
+  ActivityIndicator,
+  Linking,
+  RefreshControl,
+  ScrollView,
+  Text,
+  View,
+} from 'react-native';
+import {SafeAreaView} from 'react-native-safe-area-context';
+import {useFocusEffect} from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/Feather';
 
-import { api } from '@controleonline/ui-common/src/api';
+import {api} from '@controleonline/ui-common/src/api';
 import useToastMessage from '@controleonline/ui-crm/src/react/hooks/useToastMessage';
-import { useStore } from '@store';
-import { colors } from '@controleonline/../../src/styles/colors';
-import { resolveThemePalette } from '@controleonline/../../src/styles/branding';
-import { getOrderChannelLogo } from '@assets/ppc/channels';
+import {useStore} from '@store';
+import {colors} from '@controleonline/../../src/styles/colors';
+import {resolveThemePalette} from '@controleonline/../../src/styles/branding';
+import {getOrderChannelLogo} from '@assets/ppc/channels';
 
 import IntegrationHero from '../../components/integrations/IntegrationHero';
 import IntegrationTabs from '../../components/integrations/IntegrationTabs';
-import { integrationCardShadowStyle } from '../../utils/integrationPage';
+import {integrationCardShadowStyle} from '../../utils/integrationPage';
 import Food99CatalogTab from './components/Food99CatalogTab';
 import Food99OverviewTab from './components/Food99OverviewTab';
 import Food99PreviewModal from './components/Food99PreviewModal';
@@ -41,7 +48,10 @@ import {
 } from './utils';
 
 const openAuthorizationUrl = async authUrl => {
-  if (typeof window !== 'undefined' && typeof window.location?.assign === 'function') {
+  if (
+    typeof window !== 'undefined' &&
+    typeof window.location?.assign === 'function'
+  ) {
     window.location.assign(authUrl);
     return;
   }
@@ -54,10 +64,11 @@ export default function Food99IntegrationPage() {
   const peopleStore = useStore('people');
   const walletStore = useStore('wallet');
   const themeStore = useStore('theme');
-  const { currentCompany } = peopleStore.getters;
-  const { items: wallets = [], isLoading: isLoadingWallets } = walletStore.getters;
-  const { colors: themeColors } = themeStore.getters;
-  const { showError, showInfo, showSuccess } = useToastMessage();
+  const {currentCompany} = peopleStore.getters;
+  const {items: wallets = [], isLoading: isLoadingWallets} =
+    walletStore.getters;
+  const {colors: themeColors} = themeStore.getters;
+  const {showError, showInfo, showSuccess} = useToastMessage();
 
   const brandColors = useMemo(
     () =>
@@ -72,7 +83,7 @@ export default function Food99IntegrationPage() {
   );
 
   const providerId = currentCompany?.id;
-  const logo = getOrderChannelLogo({ app: '99Food' });
+  const logo = getOrderChannelLogo({app: '99Food'});
 
   const [activeTab, setActiveTab] = useState('overview');
   const [loading, setLoading] = useState(true);
@@ -89,14 +100,25 @@ export default function Food99IntegrationPage() {
   const [actionLoading, setActionLoading] = useState('');
   const [lastUploadResult, setLastUploadResult] = useState(null);
   const [storeSettingsResponse, setStoreSettingsResponse] = useState(null);
-  const [storeSettingsDraft, setStoreSettingsDraft] = useState(createEmptyStoreSettingsDraft);
+  const [storeSettingsDraft, setStoreSettingsDraft] = useState(
+    createEmptyStoreSettingsDraft,
+  );
   const [manualShopId, setManualShopId] = useState('');
   const [quickWalletModalVisible, setQuickWalletModalVisible] = useState(false);
   const [quickWalletName, setQuickWalletName] = useState('');
   const hasHydratedSelection = useRef(false);
+  const ignoreNextProductCardPressRef = useRef(false);
+  const hasLoadedOnceRef = useRef(false);
+
+  useEffect(() => {
+    hasLoadedOnceRef.current = false;
+  }, [providerId]);
 
   const products = useMemo(
-    () => (Array.isArray(productsResponse?.products) ? productsResponse.products : []),
+    () =>
+      Array.isArray(productsResponse?.products)
+        ? productsResponse.products
+        : [],
     [productsResponse],
   );
 
@@ -114,7 +136,8 @@ export default function Food99IntegrationPage() {
   }, [products]);
 
   const selectedProducts = useMemo(
-    () => selectedProductIds.map(id => productMap.get(String(id))).filter(Boolean),
+    () =>
+      selectedProductIds.map(id => productMap.get(String(id))).filter(Boolean),
     [productMap, selectedProductIds],
   );
 
@@ -132,8 +155,12 @@ export default function Food99IntegrationPage() {
   const menuCount = Number(integrationItem?.menu_count || 0);
   const menuItemCount = Number(integrationItem?.menu_item_count || 0);
   const deliveryAreaCount = Number(integrationItem?.delivery_area_count || 0);
-  const publishedProductCount = Number(integrationItem?.published_product_count || 0);
-  const remoteOnlyItemCount = Number(integrationItem?.remote_only_item_count || 0);
+  const publishedProductCount = Number(
+    integrationItem?.published_product_count || 0,
+  );
+  const remoteOnlyItemCount = Number(
+    integrationItem?.remote_only_item_count || 0,
+  );
   const lastSyncAt = integrationItem?.last_sync_at || null;
   const lastErrorMessage = integrationItem?.last_error_message || null;
   const lastMenuTaskId =
@@ -144,38 +171,58 @@ export default function Food99IntegrationPage() {
     null;
   const lastMenuTaskStatus = integrationItem?.last_menu_task_status || null;
   const lastMenuTaskMessage = integrationItem?.last_menu_task_message || null;
-  const lastMenuTaskCheckedAt = integrationItem?.last_menu_task_checked_at || null;
+  const lastMenuTaskCheckedAt =
+    integrationItem?.last_menu_task_checked_at || null;
   const lastMenuPublishState = integrationItem?.last_menu_publish_state || null;
   const lastReconcileAt = integrationItem?.last_reconcile_at || null;
-  const lastWebhookReceivedAt = integrationItem?.last_webhook_received_at || null;
-  const publicationTone = publishStateToneMap[lastMenuPublishState] || '#64748B';
+  const lastWebhookReceivedAt =
+    integrationItem?.last_webhook_received_at || null;
+  const publicationTone =
+    publishStateToneMap[lastMenuPublishState] || '#64748B';
   const storeSettings = storeSettingsResponse?.settings || {};
-  const settingsSource = String(storeSettingsResponse?.settings_source || 'unavailable');
+  const settingsSource = String(
+    storeSettingsResponse?.settings_source || 'unavailable',
+  );
   const settingsSourceLabelMap = {
     remote: 'Remoto',
     mixed: 'Remoto + fallback local',
     fallback: 'Fallback local',
     unavailable: 'Indisponivel',
   };
-  const settingsSourceLabel = settingsSourceLabelMap[settingsSource] || settingsSource;
+  const settingsSourceLabel =
+    settingsSourceLabelMap[settingsSource] || settingsSource;
 
   const resolveSettingDisplay = value =>
-    value === null || value === undefined || String(value).trim() === '' ? '-' : String(value);
+    value === null || value === undefined || String(value).trim() === ''
+      ? '-'
+      : String(value);
 
-  const currentDeliveryRadius = resolveSettingDisplay(storeSettings?.delivery_radius);
+  const currentDeliveryRadius = resolveSettingDisplay(
+    storeSettings?.delivery_radius,
+  );
   const currentOpenTime = resolveSettingDisplay(storeSettings?.open_time);
   const currentCloseTime = resolveSettingDisplay(storeSettings?.close_time);
-  const currentDeliveryMethod = formatDeliveryMethodLabel(storeSettings?.delivery_method);
-  const currentConfirmMethod = resolveSettingDisplay(storeSettings?.confirm_method);
-  const currentSettlementWalletId = String(storeSettings?.settlement_wallet_id || '').trim();
+  const currentDeliveryMethod = formatDeliveryMethodLabel(
+    storeSettings?.delivery_method,
+  );
+  const currentConfirmMethod = resolveSettingDisplay(
+    storeSettings?.confirm_method,
+  );
+  const currentSettlementWalletId = String(
+    storeSettings?.settlement_wallet_id || '',
+  ).trim();
   const currentSettlementWalletLabel = useMemo(() => {
     if (!currentSettlementWalletId) {
       return '-';
     }
 
-    const selectedWallet = wallets.find(wallet => String(wallet.id) === currentSettlementWalletId);
+    const selectedWallet = wallets.find(
+      wallet => String(wallet.id) === currentSettlementWalletId,
+    );
     if (selectedWallet) {
-      const walletLabel = String(selectedWallet.wallet || '').trim() || `Carteira #${selectedWallet.id}`;
+      const walletLabel =
+        String(selectedWallet.wallet || '').trim() ||
+        `Carteira #${selectedWallet.id}`;
 
       return `${walletLabel} (#${selectedWallet.id})`;
     }
@@ -184,12 +231,18 @@ export default function Food99IntegrationPage() {
   }, [currentSettlementWalletId, wallets]);
 
   const filteredProducts = useMemo(() => {
-    const normalizedSearch = String(search || '').trim().toLowerCase();
+    const normalizedSearch = String(search || '')
+      .trim()
+      .toLowerCase();
 
     return products.filter(product => {
       if (filterKey === 'eligible' && !product.eligible) return false;
       if (filterKey === 'blocked' && product.eligible) return false;
-      if (filterKey === 'selected' && !selectedProductSet.has(String(product.id))) return false;
+      if (
+        filterKey === 'selected' &&
+        !selectedProductSet.has(String(product.id))
+      )
+        return false;
 
       if (!normalizedSearch) return true;
 
@@ -213,7 +266,11 @@ export default function Food99IntegrationPage() {
       {
         key: 'connection',
         label: 'Loja 99',
-        value: needsReconnect ? 'Reconexão necessária' : connected ? 'Conectada' : 'Pendente',
+        value: needsReconnect
+          ? 'Reconexão necessária'
+          : connected
+            ? 'Conectada'
+            : 'Pendente',
         icon: 'link',
         color: needsReconnect ? '#F59E0B' : connected ? '#10B981' : '#F59E0B',
       },
@@ -221,7 +278,9 @@ export default function Food99IntegrationPage() {
         key: 'status',
         label: 'Status',
         value: remoteConnected
-          ? integrationItem?.biz_status_label || statusLabelMap[storeBizStatus] || 'Indefinido'
+          ? integrationItem?.biz_status_label ||
+            statusLabelMap[storeBizStatus] ||
+            'Indefinido'
           : needsReconnect
             ? 'Reconexão necessária'
             : connected
@@ -242,7 +301,10 @@ export default function Food99IntegrationPage() {
         label: 'Selecionados',
         value: String(selectedEligibleProducts.length),
         icon: 'check-circle',
-        color: selectedEligibleProducts.length >= MINIMUM_REQUIRED_ITEMS ? '#10B981' : '#F59E0B',
+        color:
+          selectedEligibleProducts.length >= MINIMUM_REQUIRED_ITEMS
+            ? '#10B981'
+            : '#F59E0B',
       },
     ],
     [
@@ -262,7 +324,9 @@ export default function Food99IntegrationPage() {
     {
       label: 'Business status',
       value: remoteConnected
-        ? integrationItem?.biz_status_label || statusLabelMap[storeBizStatus] || 'Indefinido'
+        ? integrationItem?.biz_status_label ||
+          statusLabelMap[storeBizStatus] ||
+          'Indefinido'
         : needsReconnect
           ? 'Reconexão necessária'
           : connected
@@ -272,30 +336,65 @@ export default function Food99IntegrationPage() {
     {
       label: 'Substatus',
       value: remoteConnected
-        ? integrationItem?.sub_biz_status_label || subStatusLabelMap[storeSubStatus] || 'Indefinido'
+        ? integrationItem?.sub_biz_status_label ||
+          subStatusLabelMap[storeSubStatus] ||
+          'Indefinido'
         : '-',
     },
-    { label: 'Menus remotos', value: String(menuCount) },
-    { label: 'Itens remotos', value: String(menuItemCount) },
-    { label: 'Produtos publicados', value: String(publishedProductCount) },
-    { label: 'Itens remotos sem local', value: String(remoteOnlyItemCount) },
-    { label: 'Areas de entrega', value: String(deliveryAreaCount) },
-    { label: 'Ultimo task ID', value: lastMenuTaskId || '-' },
-    { label: 'Status da task', value: lastMenuTaskStatus || '-' },
-    { label: 'Ultima verificacao da task', value: lastMenuTaskCheckedAt || 'Ainda nao verificada', wide: true, small: true },
-    { label: 'Ultima sincronizacao', value: lastSyncAt || 'Ainda nao sincronizado', wide: true, small: true },
-    { label: 'Ultimo webhook recebido', value: lastWebhookReceivedAt || 'Ainda nao recebido', wide: true, small: true },
-    { label: 'Ultima reconciliacao', value: lastReconcileAt || 'Ainda nao reconciliado', wide: true, small: true },
+    {label: 'Menus remotos', value: String(menuCount)},
+    {label: 'Itens remotos', value: String(menuItemCount)},
+    {label: 'Produtos publicados', value: String(publishedProductCount)},
+    {label: 'Itens remotos sem local', value: String(remoteOnlyItemCount)},
+    {label: 'Areas de entrega', value: String(deliveryAreaCount)},
+    {label: 'Ultimo task ID', value: lastMenuTaskId || '-'},
+    {label: 'Status da task', value: lastMenuTaskStatus || '-'},
+    {
+      label: 'Ultima verificacao da task',
+      value: lastMenuTaskCheckedAt || 'Ainda nao verificada',
+      wide: true,
+      small: true,
+    },
+    {
+      label: 'Ultima sincronizacao',
+      value: lastSyncAt || 'Ainda nao sincronizado',
+      wide: true,
+      small: true,
+    },
+    {
+      label: 'Ultimo webhook recebido',
+      value: lastWebhookReceivedAt || 'Ainda nao recebido',
+      wide: true,
+      small: true,
+    },
+    {
+      label: 'Ultima reconciliacao',
+      value: lastReconcileAt || 'Ainda nao reconciliado',
+      wide: true,
+      small: true,
+    },
   ];
 
   const settingsSummaryRows = [
-    { label: 'Raio atual', value: currentDeliveryRadius },
-    { label: 'Metodo atual', value: currentDeliveryMethod },
-    { label: 'Abertura atual', value: currentOpenTime },
-    { label: 'Fechamento atual', value: currentCloseTime },
-    { label: 'Carteira de repasse', value: currentSettlementWalletLabel, wide: true },
-    { label: 'Metodo de confirmacao atual', value: currentConfirmMethod, wide: true },
-    { label: 'Fonte dos valores atuais', value: settingsSourceLabel, wide: true, small: true },
+    {label: 'Raio atual', value: currentDeliveryRadius},
+    {label: 'Metodo atual', value: currentDeliveryMethod},
+    {label: 'Abertura atual', value: currentOpenTime},
+    {label: 'Fechamento atual', value: currentCloseTime},
+    {
+      label: 'Carteira de repasse',
+      value: currentSettlementWalletLabel,
+      wide: true,
+    },
+    {
+      label: 'Metodo de confirmacao atual',
+      value: currentConfirmMethod,
+      wide: true,
+    },
+    {
+      label: 'Fonte dos valores atuais',
+      value: settingsSourceLabel,
+      wide: true,
+      small: true,
+    },
   ];
 
   const tabCounts = {
@@ -309,7 +408,9 @@ export default function Food99IntegrationPage() {
     if (hasHydratedSelection.current) return;
 
     const preselected = productList
-      .filter(product => product?.eligible && Boolean(product.published_remotely))
+      .filter(
+        product => product?.eligible && Boolean(product.published_remotely),
+      )
       .map(product => String(product.id));
 
     if (preselected.length > 0) {
@@ -328,16 +429,21 @@ export default function Food99IntegrationPage() {
     hasHydratedSelection.current = true;
   }, []);
 
-  const applyDetailResponse = useCallback((detailResponse, { syncPublishedSelection = false } = {}) => {
-    setIntegrationItem(detailResponse?.integration || null);
-    setProductsResponse(detailResponse?.products || null);
+  const applyDetailResponse = useCallback(
+    (detailResponse, {syncPublishedSelection = false} = {}) => {
+      setIntegrationItem(detailResponse?.integration || null);
+      setProductsResponse(detailResponse?.products || null);
 
-    if (syncPublishedSelection) {
-      syncSelectionWithPublishedProducts(detailResponse?.products?.products || []);
-    } else {
-      hydrateSelection(detailResponse?.products?.products || []);
-    }
-  }, [hydrateSelection, syncSelectionWithPublishedProducts]);
+      if (syncPublishedSelection) {
+        syncSelectionWithPublishedProducts(
+          detailResponse?.products?.products || [],
+        );
+      } else {
+        hydrateSelection(detailResponse?.products?.products || []);
+      }
+    },
+    [hydrateSelection, syncSelectionWithPublishedProducts],
+  );
 
   const applyStoreSettingsResponse = useCallback(response => {
     const settings = response?.settings || {};
@@ -345,108 +451,149 @@ export default function Food99IntegrationPage() {
     setStoreSettingsResponse(response || null);
     setStoreSettingsDraft({
       deliveryRadiusKm:
-        settings?.delivery_radius === null || settings?.delivery_radius === undefined
+        settings?.delivery_radius === null ||
+        settings?.delivery_radius === undefined
           ? ''
           : String(settings.delivery_radius),
-      openTime: settings?.open_time ? sanitizeTimeInput(String(settings.open_time)) : '',
-      closeTime: settings?.close_time ? sanitizeTimeInput(String(settings.close_time)) : '',
+      openTime: settings?.open_time
+        ? sanitizeTimeInput(String(settings.open_time))
+        : '',
+      closeTime: settings?.close_time
+        ? sanitizeTimeInput(String(settings.close_time))
+        : '',
       deliveryMethod: normalizeDeliveryMethodCode(settings?.delivery_method),
-      confirmMethod: settings?.confirm_method ? sanitizeConfirmMethodInput(String(settings.confirm_method)) : '',
-      deliveryAreaId: settings?.delivery_area_id ? String(settings.delivery_area_id) : '',
-      settlementWalletId: settings?.settlement_wallet_id ? String(settings.settlement_wallet_id) : '',
+      confirmMethod: settings?.confirm_method
+        ? sanitizeConfirmMethodInput(String(settings.confirm_method))
+        : '',
+      deliveryAreaId: settings?.delivery_area_id
+        ? String(settings.delivery_area_id)
+        : '',
+      settlementWalletId: settings?.settlement_wallet_id
+        ? String(settings.settlement_wallet_id)
+        : '',
     });
   }, []);
 
-  const loadData = useCallback(async ({ silent = false, refreshRemote = false } = {}) => {
-    if (!providerId) {
-      setLoading(false);
-      return;
-    }
+  const loadData = useCallback(
+    async ({silent = false, refreshRemote = false} = {}) => {
+      if (!providerId) {
+        setLoading(false);
+        return;
+      }
 
-    if (!silent) {
-      setLoading(true);
-    }
+      if (!silent) {
+        setLoading(true);
+      }
 
-    try {
-      const detailParams = { provider_id: providerId };
-      if (refreshRemote) detailParams.refresh_remote = 1;
+      try {
+        const detailParams = {provider_id: providerId};
+        if (refreshRemote) detailParams.refresh_remote = 1;
 
-      const walletLoadPromise = walletStore.actions?.getItems
-        ? walletStore.actions.getItems({
-            people: providerId,
-            itemsPerPage: 200,
-          }).catch(() => null)
-        : Promise.resolve(null);
+        const walletLoadPromise = walletStore.actions?.getItems
+          ? walletStore.actions
+              .getItems({
+                people: providerId,
+                itemsPerPage: 200,
+              })
+              .catch(() => null)
+          : Promise.resolve(null);
 
-      const [detailResponse, settingsResponse] = await Promise.all([
-        api.fetch('/marketplace/integrations/99food/detail', { params: detailParams }),
-        api.fetch('/marketplace/integrations/99food/store/settings', {
-          params: { provider_id: providerId },
-        }),
-        walletLoadPromise,
-      ]);
+        const [detailResponse, settingsResponse] = await Promise.all([
+          api.fetch('/marketplace/integrations/99food/detail', {
+            params: detailParams,
+          }),
+          api.fetch('/marketplace/integrations/99food/store/settings', {
+            params: {provider_id: providerId},
+          }),
+          walletLoadPromise,
+        ]);
 
-      applyDetailResponse(detailResponse);
-      applyStoreSettingsResponse(settingsResponse);
-    } catch (error) {
-      showError(formatFood99ApiError(error));
-    } finally {
-      setLoading(false);
-    }
-  }, [applyDetailResponse, applyStoreSettingsResponse, providerId, showError, walletStore.actions]);
+        applyDetailResponse(detailResponse);
+        applyStoreSettingsResponse(settingsResponse);
+      } catch (error) {
+        showError(formatFood99ApiError(error));
+      } finally {
+        setLoading(false);
+      }
+    },
+    [
+      applyDetailResponse,
+      applyStoreSettingsResponse,
+      providerId,
+      showError,
+      walletStore.actions,
+    ],
+  );
 
-  const fetchMenuTaskStatus = useCallback(async (taskId, { poll = false } = {}) => {
-    if (!providerId || !taskId) return null;
+  const fetchMenuTaskStatus = useCallback(
+    async (taskId, {poll = false} = {}) => {
+      if (!providerId || !taskId) return null;
 
-    let lastResponse = null;
-    const maxAttempts = poll ? 6 : 1;
+      let lastResponse = null;
+      const maxAttempts = poll ? 6 : 1;
 
-    for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
-      const response = await api.fetch(`/marketplace/integrations/99food/menu/task/${taskId}`, {
-        params: { provider_id: providerId },
-      });
-
-      lastResponse = response;
-
-      if (response?.integration || response?.products) {
-        applyDetailResponse(
+      for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+        const response = await api.fetch(
+          `/marketplace/integrations/99food/menu/task/${taskId}`,
           {
-            integration: response?.integration,
-            products: response?.products,
+            params: {provider_id: providerId},
           },
-          { syncPublishedSelection: response?.publish_state === 'published' },
         );
-      } else {
-        await loadData({ silent: true });
+
+        lastResponse = response;
+
+        if (response?.integration || response?.products) {
+          applyDetailResponse(
+            {
+              integration: response?.integration,
+              products: response?.products,
+            },
+            {syncPublishedSelection: response?.publish_state === 'published'},
+          );
+        } else {
+          await loadData({silent: true});
+        }
+
+        if (
+          ['published', 'failed', 'sync_error'].includes(
+            response?.publish_state,
+          )
+        ) {
+          break;
+        }
+
+        if (!poll || attempt === maxAttempts - 1) {
+          break;
+        }
+
+        await wait(3000);
       }
 
-      if (['published', 'failed', 'sync_error'].includes(response?.publish_state)) {
-        break;
-      }
-
-      if (!poll || attempt === maxAttempts - 1) {
-        break;
-      }
-
-      await wait(3000);
-    }
-
-    return lastResponse;
-  }, [applyDetailResponse, loadData, providerId]);
+      return lastResponse;
+    },
+    [applyDetailResponse, loadData, providerId],
+  );
 
   useFocusEffect(
     useCallback(() => {
+      if (!providerId || hasLoadedOnceRef.current) {
+        return undefined;
+      }
+
+      hasLoadedOnceRef.current = true;
       loadData();
-    }, [loadData]),
+
+      return undefined;
+    }, [loadData, providerId]),
   );
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     try {
       if (lastMenuTaskId) {
-        await fetchMenuTaskStatus(lastMenuTaskId, { poll: false });
+        await fetchMenuTaskStatus(lastMenuTaskId, {poll: false});
       } else {
-        await loadData({ silent: true, refreshRemote: true });
+        await loadData({silent: true, refreshRemote: true});
       }
     } catch (error) {
       showError(formatFood99ApiError(error));
@@ -464,30 +611,65 @@ export default function Food99IntegrationPage() {
     }
   }, []);
 
-  const handleToggleProduct = useCallback(product => {
-    if (!product?.eligible) {
-      showError(product?.blockers?.[0] || 'Produto indisponivel para a integracao.');
+  const handleToggleProduct = useCallback(
+    product => {
+      if (!product?.eligible) {
+        showError(
+          product?.blockers?.[0] || 'Produto indisponivel para a integracao.',
+        );
+        return;
+      }
+
+      setSelectedProductIds(currentIds => {
+        const productId = String(product.id);
+        if (currentIds.includes(productId)) {
+          return currentIds.filter(id => id !== productId);
+        }
+        return [...currentIds, productId];
+      });
+    },
+    [showError],
+  );
+
+  const markNextProductCardPressAsHandled = useCallback(() => {
+    ignoreNextProductCardPressRef.current = true;
+
+    const release = () => {
+      ignoreNextProductCardPressRef.current = false;
+    };
+
+    if (typeof requestAnimationFrame === 'function') {
+      requestAnimationFrame(release);
       return;
     }
 
-    setSelectedProductIds(currentIds => {
-      const productId = String(product.id);
-      if (currentIds.includes(productId)) {
-        return currentIds.filter(id => id !== productId);
+    setTimeout(release, 0);
+  }, []);
+
+  const handleProductCardPress = useCallback(
+    product => {
+      if (ignoreNextProductCardPressRef.current) {
+        ignoreNextProductCardPressRef.current = false;
+        return;
       }
-      return [...currentIds, productId];
-    });
-  }, [showError]);
+
+      handleToggleProduct(product);
+    },
+    [handleToggleProduct],
+  );
 
   const handleConnectStore = useCallback(async () => {
     if (!providerId) return;
 
     await withAction('connect', async () => {
       try {
-        const response = await api.fetch('/marketplace/integrations/99food/store/authorization-page', {
-          method: 'POST',
-          body: { provider_id: providerId },
-        });
+        const response = await api.fetch(
+          '/marketplace/integrations/99food/store/authorization-page',
+          {
+            method: 'POST',
+            body: {provider_id: providerId},
+          },
+        );
 
         const authUrl =
           response?.data?.url ||
@@ -508,39 +690,54 @@ export default function Food99IntegrationPage() {
           return;
         }
 
-        showError(response?.errmsg || 'Nao foi possivel iniciar a integracao da loja.');
+        showError(
+          response?.errmsg || 'Nao foi possivel iniciar a integracao da loja.',
+        );
       } catch (error) {
         showError(formatFood99ApiError(error));
       }
     });
   }, [providerId, showError, showInfo, showSuccess, withAction]);
 
-  const handleStoreStatusChange = useCallback(async nextStatus => {
-    if (!providerId) return;
+  const handleStoreStatusChange = useCallback(
+    async nextStatus => {
+      if (!providerId) return;
 
-    await withAction(nextStatus === 1 ? 'online' : 'offline', async () => {
-      try {
-        const response = await api.fetch('/marketplace/integrations/99food/store/status', {
-          method: 'POST',
-          body: {
-            provider_id: providerId,
-            biz_status: nextStatus,
-            auto_switch: 2,
-          },
-        });
+      await withAction(nextStatus === 1 ? 'online' : 'offline', async () => {
+        try {
+          const response = await api.fetch(
+            '/marketplace/integrations/99food/store/status',
+            {
+              method: 'POST',
+              body: {
+                provider_id: providerId,
+                biz_status: nextStatus,
+                auto_switch: 2,
+              },
+            },
+          );
 
-        if (!isErrnoSuccess(response?.errno)) {
-          showError(response?.errmsg || 'Nao foi possivel atualizar o status da loja.');
-          return;
+          if (!isErrnoSuccess(response?.errno)) {
+            showError(
+              response?.errmsg ||
+                'Nao foi possivel atualizar o status da loja.',
+            );
+            return;
+          }
+
+          showSuccess(
+            nextStatus === 1
+              ? 'Loja enviada para online.'
+              : 'Loja enviada para offline.',
+          );
+          await loadData({silent: true});
+        } catch (error) {
+          showError(formatFood99ApiError(error));
         }
-
-        showSuccess(nextStatus === 1 ? 'Loja enviada para online.' : 'Loja enviada para offline.');
-        await loadData({ silent: true });
-      } catch (error) {
-        showError(formatFood99ApiError(error));
-      }
-    });
-  }, [loadData, providerId, showError, showSuccess, withAction]);
+      });
+    },
+    [loadData, providerId, showError, showSuccess, withAction],
+  );
 
   const getFirstOperationError = useCallback(response => {
     if (!response || typeof response !== 'object') return null;
@@ -565,26 +762,43 @@ export default function Food99IntegrationPage() {
 
     await withAction('save-settings', async () => {
       try {
-        const deliveryRadius = String(storeSettingsDraft?.deliveryRadiusKm || '').trim();
+        const deliveryRadius = String(
+          storeSettingsDraft?.deliveryRadiusKm || '',
+        ).trim();
         const openTime = String(storeSettingsDraft?.openTime || '').trim();
         const closeTime = String(storeSettingsDraft?.closeTime || '').trim();
-        const deliveryMethod = String(storeSettingsDraft?.deliveryMethod || '').trim();
-        const confirmMethod = String(storeSettingsDraft?.confirmMethod || '').trim();
-        const deliveryAreaId = String(storeSettingsDraft?.deliveryAreaId || '').trim();
-        const settlementWalletId = String(storeSettingsDraft?.settlementWalletId || '').trim();
+        const deliveryMethod = String(
+          storeSettingsDraft?.deliveryMethod || '',
+        ).trim();
+        const confirmMethod = String(
+          storeSettingsDraft?.confirmMethod || '',
+        ).trim();
+        const deliveryAreaId = String(
+          storeSettingsDraft?.deliveryAreaId || '',
+        ).trim();
+        const settlementWalletId = String(
+          storeSettingsDraft?.settlementWalletId || '',
+        ).trim();
 
         if (deliveryRadius && !/^\d+(\.\d{1,2})?$/.test(deliveryRadius)) {
-          showError('Raio de atendimento invalido. Use numero positivo (ex.: 5 ou 5.5).');
+          showError(
+            'Raio de atendimento invalido. Use numero positivo (ex.: 5 ou 5.5).',
+          );
           return;
         }
 
-        if ((openTime || closeTime) && (!isValidTimeInput(openTime) || !isValidTimeInput(closeTime))) {
+        if (
+          (openTime || closeTime) &&
+          (!isValidTimeInput(openTime) || !isValidTimeInput(closeTime))
+        ) {
           showError('Horario invalido. Use o formato HH:mm (ex.: 08:00).');
           return;
         }
 
         if (deliveryMethod && !['1', '2'].includes(deliveryMethod)) {
-          showError('Metodo de entrega invalido. Selecione Loja (2) ou Entrega 99 (1).');
+          showError(
+            'Metodo de entrega invalido. Selecione Loja (2) ou Entrega 99 (1).',
+          );
           return;
         }
 
@@ -598,13 +812,15 @@ export default function Food99IntegrationPage() {
           return;
         }
 
-        const walletMatch = wallets.some(wallet => String(wallet.id) === settlementWalletId);
+        const walletMatch = wallets.some(
+          wallet => String(wallet.id) === settlementWalletId,
+        );
         if (!walletMatch) {
           showError('Selecione uma carteira valida da empresa ativa.');
           return;
         }
 
-        const payload = { provider_id: providerId };
+        const payload = {provider_id: providerId};
         if (deliveryRadius) payload.delivery_radius_km = deliveryRadius;
         if (openTime) payload.open_time = openTime;
         if (closeTime) payload.close_time = closeTime;
@@ -613,19 +829,26 @@ export default function Food99IntegrationPage() {
         if (deliveryAreaId) payload.delivery_area_id = deliveryAreaId;
         payload.settlement_wallet_id = settlementWalletId;
 
-        const response = await api.fetch('/marketplace/integrations/99food/store/settings', {
-          method: 'POST',
-          body: payload,
-        });
+        const response = await api.fetch(
+          '/marketplace/integrations/99food/store/settings',
+          {
+            method: 'POST',
+            body: payload,
+          },
+        );
 
         const operationError = getFirstOperationError(response);
         if (response?.error || operationError) {
-          showError(response?.error || operationError || 'Nao foi possivel salvar as configuracoes.');
+          showError(
+            response?.error ||
+              operationError ||
+              'Nao foi possivel salvar as configuracoes.',
+          );
           return;
         }
 
         applyStoreSettingsResponse(response);
-        await loadData({ silent: true });
+        await loadData({silent: true});
         showSuccess('Configuracoes da loja atualizadas.');
       } catch (error) {
         showError(formatFood99ApiError(error));
@@ -675,10 +898,16 @@ export default function Food99IntegrationPage() {
         const resolvedWallet =
           (Array.isArray(walletStore.getters.items)
             ? walletStore.getters.items.find(wallet => {
-                return String(wallet?.wallet || '').trim().toLowerCase() === walletName.toLowerCase();
+                return (
+                  String(wallet?.wallet || '')
+                    .trim()
+                    .toLowerCase() === walletName.toLowerCase()
+                );
               })
             : null) || savedWallet;
-        const resolvedWalletId = String(savedWalletId || resolvedWallet?.id || '').trim();
+        const resolvedWalletId = String(
+          savedWalletId || resolvedWallet?.id || '',
+        ).trim();
 
         if (resolvedWalletId) {
           setStoreSettingsDraft(current => ({
@@ -717,22 +946,29 @@ export default function Food99IntegrationPage() {
 
     await withAction('bind-manual', async () => {
       try {
-        const response = await api.fetch('/marketplace/integrations/99food/store/connect', {
-          method: 'POST',
-          body: {
-            provider_id: providerId,
-            shop_id: shopId,
+        const response = await api.fetch(
+          '/marketplace/integrations/99food/store/connect',
+          {
+            method: 'POST',
+            body: {
+              provider_id: providerId,
+              shop_id: shopId,
+            },
           },
-        });
+        );
 
         const operationError = getFirstOperationError(response);
         if (response?.error || operationError) {
-          showError(response?.error || operationError || 'Nao foi possivel vincular a loja.');
+          showError(
+            response?.error ||
+              operationError ||
+              'Nao foi possivel vincular a loja.',
+          );
           return;
         }
 
         applyStoreSettingsResponse(response);
-        await loadData({ silent: true });
+        await loadData({silent: true});
         showSuccess('Loja vinculada manualmente com sucesso.');
       } catch (error) {
         showError(formatFood99ApiError(error));
@@ -754,20 +990,27 @@ export default function Food99IntegrationPage() {
 
     await withAction('disconnect', async () => {
       try {
-        const response = await api.fetch('/marketplace/integrations/99food/store/disconnect', {
-          method: 'POST',
-          body: { provider_id: providerId },
-        });
+        const response = await api.fetch(
+          '/marketplace/integrations/99food/store/disconnect',
+          {
+            method: 'POST',
+            body: {provider_id: providerId},
+          },
+        );
 
         const operationError = getFirstOperationError(response);
         if (response?.error || operationError) {
-          showError(response?.error || operationError || 'Nao foi possivel desconectar a loja.');
+          showError(
+            response?.error ||
+              operationError ||
+              'Nao foi possivel desconectar a loja.',
+          );
           return;
         }
 
         setManualShopId('');
         applyStoreSettingsResponse(response);
-        await loadData({ silent: true });
+        await loadData({silent: true});
         showSuccess('Loja desconectada da 99Food.');
       } catch (error) {
         showError(formatFood99ApiError(error));
@@ -787,19 +1030,24 @@ export default function Food99IntegrationPage() {
     if (!providerId) return;
 
     if (selectedEligibleProducts.length < MINIMUM_REQUIRED_ITEMS) {
-      showError(`Selecione pelo menos ${MINIMUM_REQUIRED_ITEMS} produtos elegiveis para publicar.`);
+      showError(
+        `Selecione pelo menos ${MINIMUM_REQUIRED_ITEMS} produtos elegiveis para publicar.`,
+      );
       return;
     }
 
     setPreviewLoading(true);
     try {
-      const response = await api.fetch('/marketplace/integrations/99food/menu/preview', {
-        method: 'POST',
-        body: {
-          provider_id: providerId,
-          product_ids: selectedEligibleProducts.map(product => product.id),
+      const response = await api.fetch(
+        '/marketplace/integrations/99food/menu/preview',
+        {
+          method: 'POST',
+          body: {
+            provider_id: providerId,
+            product_ids: selectedEligibleProducts.map(product => product.id),
+          },
         },
-      });
+      );
 
       if (Array.isArray(response?.errors) && response.errors.length > 0) {
         showError(response.errors[0]);
@@ -820,16 +1068,22 @@ export default function Food99IntegrationPage() {
 
     setUploading(true);
     try {
-      const response = await api.fetch('/marketplace/integrations/99food/menu/upload', {
-        method: 'POST',
-        body: {
-          provider_id: providerId,
-          product_ids: selectedEligibleProducts.map(product => product.id),
+      const response = await api.fetch(
+        '/marketplace/integrations/99food/menu/upload',
+        {
+          method: 'POST',
+          body: {
+            provider_id: providerId,
+            product_ids: selectedEligibleProducts.map(product => product.id),
+          },
         },
-      });
+      );
 
       if (!isErrnoSuccess(response?.result?.errno)) {
-        showError(response?.result?.errmsg || 'Nao foi possivel publicar o menu no 99Food.');
+        showError(
+          response?.result?.errmsg ||
+            'Nao foi possivel publicar o menu no 99Food.',
+        );
         return;
       }
 
@@ -840,7 +1094,7 @@ export default function Food99IntegrationPage() {
           products: response?.products,
         });
       } else {
-        await loadData({ silent: true });
+        await loadData({silent: true});
       }
 
       showInfo('Cardapio enviado para processamento na 99Food.');
@@ -852,16 +1106,24 @@ export default function Food99IntegrationPage() {
         normalizeTaskId(response?.result?.data?.taskId);
 
       if (taskId) {
-        const taskResponse = await fetchMenuTaskStatus(taskId, { poll: true });
+        const taskResponse = await fetchMenuTaskStatus(taskId, {poll: true});
 
         if (taskResponse?.publish_state === 'published') {
           showSuccess('Cardapio publicado com sucesso na 99Food.');
         } else if (taskResponse?.publish_state === 'failed') {
-          showError(taskResponse?.task_message || 'A publicacao do cardapio falhou na 99Food.');
+          showError(
+            taskResponse?.task_message ||
+              'A publicacao do cardapio falhou na 99Food.',
+          );
         } else if (taskResponse?.publish_state === 'sync_error') {
-          showError(taskResponse?.task_message || 'A task foi concluida, mas o catalogo remoto ainda nao foi confirmado.');
+          showError(
+            taskResponse?.task_message ||
+              'A task foi concluida, mas o catalogo remoto ainda nao foi confirmado.',
+          );
         } else {
-          showInfo('A publicacao do cardapio segue em processamento na 99Food.');
+          showInfo(
+            'A publicacao do cardapio segue em processamento na 99Food.',
+          );
         }
       }
     } catch (error) {
@@ -869,15 +1131,24 @@ export default function Food99IntegrationPage() {
     } finally {
       setUploading(false);
     }
-  }, [applyDetailResponse, fetchMenuTaskStatus, loadData, providerId, selectedEligibleProducts, showError, showInfo, showSuccess]);
+  }, [
+    applyDetailResponse,
+    fetchMenuTaskStatus,
+    loadData,
+    providerId,
+    selectedEligibleProducts,
+    showError,
+    showInfo,
+    showSuccess,
+  ]);
 
   const handleRefreshStoreStatus = useCallback(async () => {
     await withAction('refresh', async () => {
       if (lastMenuTaskId) {
-        await fetchMenuTaskStatus(lastMenuTaskId, { poll: false });
+        await fetchMenuTaskStatus(lastMenuTaskId, {poll: false});
         return;
       }
-      await loadData({ silent: true });
+      await loadData({silent: true});
     });
   }, [fetchMenuTaskStatus, lastMenuTaskId, loadData, withAction]);
 
@@ -886,23 +1157,38 @@ export default function Food99IntegrationPage() {
 
     await withAction('sync-orders', async () => {
       try {
-        const response = await api.fetch('/marketplace/integrations/99food/orders/sync', {
-          method: 'POST',
-          body: {
-            provider_id: providerId,
+        const response = await api.fetch(
+          '/marketplace/integrations/99food/orders/sync',
+          {
+            method: 'POST',
+            body: {
+              provider_id: providerId,
+            },
           },
-        });
+        );
 
         if (!isErrnoSuccess(response?.errno)) {
-          showError(response?.errmsg || 'Nao foi possivel sincronizar os pedidos da 99Food.');
+          showError(
+            response?.errmsg ||
+              'Nao foi possivel sincronizar os pedidos da 99Food.',
+          );
           return;
         }
 
-        const processedCount = Number(response?.data?.processed_order_count || 0);
+        const processedCount = Number(
+          response?.data?.processed_order_count || 0,
+        );
         const failedCount = Number(response?.data?.failed_order_count || 0);
-        const acknowledgedCount = Number(response?.data?.acknowledged_event_count || 0);
-        const failedAckCount = Number(response?.data?.failed_acknowledged_count || 0);
-        const ackSummary = acknowledgedCount > 0 ? `, ${acknowledgedCount} evento(s) reconhecido(s)` : '';
+        const acknowledgedCount = Number(
+          response?.data?.acknowledged_event_count || 0,
+        );
+        const failedAckCount = Number(
+          response?.data?.failed_acknowledged_count || 0,
+        );
+        const ackSummary =
+          acknowledgedCount > 0
+            ? `, ${acknowledgedCount} evento(s) reconhecido(s)`
+            : '';
 
         if (processedCount > 0) {
           if (failedCount > 0 || failedAckCount > 0) {
@@ -910,13 +1196,17 @@ export default function Food99IntegrationPage() {
               `Sincronizacao executada com pendencias: ${processedCount} pedido(s) importado(s), ${failedCount} falha(s)${ackSummary}.`,
             );
           } else {
-            showSuccess(`Sincronizacao concluida: ${processedCount} pedido(s) importado(s)${ackSummary}.`);
+            showSuccess(
+              `Sincronizacao concluida: ${processedCount} pedido(s) importado(s)${ackSummary}.`,
+            );
           }
         } else {
-          showInfo(`Sincronizacao executada, mas nenhum pedido novo foi importado${ackSummary}.`);
+          showInfo(
+            `Sincronizacao executada, mas nenhum pedido novo foi importado${ackSummary}.`,
+          );
         }
 
-        await loadData({ silent: true });
+        await loadData({silent: true});
       } catch (error) {
         showError(formatFood99ApiError(error));
       }
@@ -929,24 +1219,39 @@ export default function Food99IntegrationPage() {
     await withAction('sync-history', async () => {
       try {
         const fromTime = resolveFood99HistoryFromTime();
-        const response = await api.fetch('/marketplace/integrations/99food/orders/sync', {
-          method: 'POST',
-          body: {
-            provider_id: providerId,
-            ...(fromTime ? { from_time: fromTime } : {}),
+        const response = await api.fetch(
+          '/marketplace/integrations/99food/orders/sync',
+          {
+            method: 'POST',
+            body: {
+              provider_id: providerId,
+              ...(fromTime ? {from_time: fromTime} : {}),
+            },
           },
-        });
+        );
 
         if (!isErrnoSuccess(response?.errno)) {
-          showError(response?.errmsg || 'Nao foi possivel sincronizar o historico de pedidos da 99Food.');
+          showError(
+            response?.errmsg ||
+              'Nao foi possivel sincronizar o historico de pedidos da 99Food.',
+          );
           return;
         }
 
-        const processedCount = Number(response?.data?.processed_order_count || 0);
+        const processedCount = Number(
+          response?.data?.processed_order_count || 0,
+        );
         const failedCount = Number(response?.data?.failed_order_count || 0);
-        const acknowledgedCount = Number(response?.data?.acknowledged_event_count || 0);
-        const failedAckCount = Number(response?.data?.failed_acknowledged_count || 0);
-        const ackSummary = acknowledgedCount > 0 ? `, ${acknowledgedCount} evento(s) reconhecido(s)` : '';
+        const acknowledgedCount = Number(
+          response?.data?.acknowledged_event_count || 0,
+        );
+        const failedAckCount = Number(
+          response?.data?.failed_acknowledged_count || 0,
+        );
+        const ackSummary =
+          acknowledgedCount > 0
+            ? `, ${acknowledgedCount} evento(s) reconhecido(s)`
+            : '';
 
         if (processedCount > 0) {
           if (failedCount > 0 || failedAckCount > 0) {
@@ -954,13 +1259,17 @@ export default function Food99IntegrationPage() {
               `Historico de hoje executado com pendencias: ${processedCount} pedido(s) importado(s), ${failedCount} falha(s)${ackSummary}.`,
             );
           } else {
-            showSuccess(`Historico de hoje concluido: ${processedCount} pedido(s) importado(s)${ackSummary}.`);
+            showSuccess(
+              `Historico de hoje concluido: ${processedCount} pedido(s) importado(s)${ackSummary}.`,
+            );
           }
         } else {
-          showInfo(`Historico de hoje executado, mas nenhum pedido novo foi importado${ackSummary}.`);
+          showInfo(
+            `Historico de hoje executado, mas nenhum pedido novo foi importado${ackSummary}.`,
+          );
         }
 
-        await loadData({ silent: true });
+        await loadData({silent: true});
       } catch (error) {
         showError(formatFood99ApiError(error));
       }
@@ -968,13 +1277,15 @@ export default function Food99IntegrationPage() {
   }, [loadData, providerId, showError, showInfo, showSuccess, withAction]);
 
   const selectionSummaryTone =
-    selectedEligibleProducts.length >= MINIMUM_REQUIRED_ITEMS ? '#10B981' : '#F59E0B';
+    selectedEligibleProducts.length >= MINIMUM_REQUIRED_ITEMS
+      ? '#10B981'
+      : '#F59E0B';
 
   const sectionTabs = [
-    { key: 'overview', label: 'Resumo' },
-    { key: 'store', label: 'Loja' },
-    { key: 'settings', label: 'Operação' },
-    { key: 'catalog', label: 'Cardápio', badge: selectedEligibleProducts.length },
+    {key: 'overview', label: 'Resumo'},
+    {key: 'store', label: 'Loja'},
+    {key: 'settings', label: 'Operação'},
+    {key: 'catalog', label: 'Cardápio', badge: selectedEligibleProducts.length},
   ];
 
   if (!providerId) {
@@ -982,7 +1293,9 @@ export default function Food99IntegrationPage() {
       <SafeAreaView style={styles.container} edges={['bottom']}>
         <View style={styles.centerState}>
           <Icon name="building" size={32} color="#94A3B8" />
-          <Text style={styles.centerStateTitle}>Selecione uma empresa para continuar</Text>
+          <Text style={styles.centerStateTitle}>
+            Selecione uma empresa para continuar
+          </Text>
           <Text style={styles.centerStateText}>
             A integração 99Food sempre trabalha com a empresa ativa no filtro.
           </Text>
@@ -1006,12 +1319,18 @@ export default function Food99IntegrationPage() {
   }
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: brandColors.background }]} edges={['bottom']}>
+    <SafeAreaView
+      style={[styles.container, {backgroundColor: brandColors.background}]}
+      edges={['bottom']}>
       <ScrollView
         contentContainerStyle={styles.scroll}
         showsVerticalScrollIndicator={false}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={brandColors.primary} />
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={brandColors.primary}
+          />
         }>
         <IntegrationHero
           shadowStyle={integrationCardShadowStyle}
@@ -1103,7 +1422,8 @@ export default function Food99IntegrationPage() {
             onPreview={handlePreview}
             filteredProducts={filteredProducts}
             selectedProductSet={selectedProductSet}
-            onToggleProduct={handleToggleProduct}
+            onToggleProduct={handleProductCardPress}
+            onMarkCardPressHandled={markNextProductCardPressAsHandled}
           />
         )}
       </ScrollView>

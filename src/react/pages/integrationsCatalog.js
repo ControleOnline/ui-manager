@@ -1,8 +1,8 @@
-import { getOrderChannelLogo } from '@assets/ppc/channels';
+import {getOrderChannelLogo} from '@assets/ppc/channels';
 
 const buildLogo = app => {
   try {
-    return getOrderChannelLogo({ app });
+    return getOrderChannelLogo({app});
   } catch {
     return null;
   }
@@ -12,14 +12,20 @@ export const INTEGRATION_LIST = [
   {
     key: '99food',
     label: '99Food',
-    route: 'Food99IntegrationPage',
+    route: 'MarketplaceIntegrationPage',
+    routeParams: {
+      providerKey: '99food',
+    },
     accent: '#F97316',
     logo: buildLogo('99Food'),
   },
   {
     key: 'ifood',
     label: 'iFood',
-    route: 'IFoodIntegrationPage',
+    route: 'MarketplaceIntegrationPage',
+    routeParams: {
+      providerKey: 'ifood',
+    },
     accent: '#EA580C',
     logo: buildLogo('iFood'),
   },
@@ -52,13 +58,13 @@ export const INTEGRATION_CONFIGS = {
     label: 'Uber',
     accent: '#111827',
     icon: 'truck',
-    description: 'Conecte sua conta Uber para descobrir e provisionar a store automaticamente.',
+    description:
+      'Conecte sua conta Uber para descobrir e provisionar a store automaticamente.',
     oauthConnect: true,
-    authorizationEndpoint: '/marketplace/integrations/uber/store/authorization-page',
+    authorizationEndpoint:
+      '/marketplace/integrations/uber/store/authorization-page',
     connectLabel: 'Conectar Uber',
-    requiredKeys: [
-      'OAUTH_UBER_STORE_ID',
-    ],
+    requiredKeys: ['OAUTH_UBER_STORE_ID'],
     fields: [],
   },
   asaas: {
@@ -68,10 +74,7 @@ export const INTEGRATION_CONFIGS = {
     icon: 'credit-card',
     description: 'Chaves da conta usada para cobranca e PIX da empresa atual.',
     saveLabel: 'Salvar Asaas',
-    requiredKeys: [
-      'asaas-key',
-      'asaas-receiver-pix-key',
-    ],
+    requiredKeys: ['asaas-key', 'asaas-receiver-pix-key'],
     fields: [
       {
         key: 'asaas-key',
@@ -92,11 +95,10 @@ export const INTEGRATION_CONFIGS = {
     label: 'ClickSign',
     accent: '#0F172A',
     icon: 'file-text',
-    description: 'Chave usada pelo fluxo de assinatura e webhook da empresa atual.',
+    description:
+      'Chave usada pelo fluxo de assinatura e webhook da empresa atual.',
     saveLabel: 'Salvar ClickSign',
-    requiredKeys: [
-      'clicksign-key',
-    ],
+    requiredKeys: ['clicksign-key'],
     fields: [
       {
         key: 'clicksign-key',
@@ -134,7 +136,9 @@ export const parseIntegrationCollection = response => {
 };
 
 export const getIntegrationByKey = (response, key) => {
-  const normalizedKey = String(key || '').trim().toLowerCase();
+  const normalizedKey = String(key || '')
+    .trim()
+    .toLowerCase();
 
   if (!normalizedKey) {
     return null;
@@ -142,7 +146,10 @@ export const getIntegrationByKey = (response, key) => {
 
   return (
     parseIntegrationCollection(response).find(
-      item => String(item?.key || '').trim().toLowerCase() === normalizedKey,
+      item =>
+        String(item?.key || '')
+          .trim()
+          .toLowerCase() === normalizedKey,
     ) || null
   );
 };

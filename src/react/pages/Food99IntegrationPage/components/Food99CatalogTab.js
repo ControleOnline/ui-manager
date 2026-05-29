@@ -1,40 +1,69 @@
 import React from 'react';
-import { ActivityIndicator, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 import Icon from 'react-native-vector-icons/Feather';
 
-import { withOpacity } from '@controleonline/../../src/styles/branding';
+import {withOpacity} from '@controleonline/../../src/styles/branding';
 import CompactFilterSelector from '@controleonline/ui-default/src/react/components/filters/CompactFilterSelector';
 
+import {
+  normalizeMarketplaceCatalogProduct,
+  normalizeMarketplaceCatalogTabProps,
+} from '../../MarketplaceIntegrationPage/utils';
+import MarketplaceProductCard from '../../MarketplaceIntegrationPage/components/MarketplaceProductCard';
 import styles from '../styles';
-import { filterTabs, MINIMUM_REQUIRED_ITEMS } from '../utils';
-import Food99ProductCard from './Food99ProductCard';
+import {
+  filterTabs,
+  MINIMUM_REQUIRED_ITEMS as DEFAULT_MINIMUM_REQUIRED_ITEMS,
+} from '../utils';
 
 // Aba separada para seleção e publicação do catálogo 99Food.
-export default function Food99CatalogTab({
-  shadowStyle,
-  accentColor,
-  selectionSummaryTone,
-  search,
-  setSearch,
-  filterKey,
-  setFilterKey,
-  tabCounts,
-  productsResponse,
-  selectedEligibleProducts,
-  previewLoading,
-  onPreview,
-  filteredProducts,
-  selectedProductSet,
-  onToggleProduct,
-}) {
+export default function Food99CatalogTab(props) {
+  const {
+    shadowStyle,
+    accentColor,
+    providerKey,
+    selectionSummaryTone,
+    search,
+    setSearch,
+    filterKey,
+    setFilterKey,
+    tabCounts,
+    productsResponse,
+    selectedEligibleProducts,
+    previewLoading,
+    onPreview,
+    filteredProducts,
+    selectedProductSet,
+    onToggleProduct,
+    onMarkCardPressHandled,
+    minimumRequiredItems,
+  } = normalizeMarketplaceCatalogTabProps(props, {
+    providerKey: props?.providerKey || '99food',
+    defaultMinimumRequiredItems: DEFAULT_MINIMUM_REQUIRED_ITEMS,
+  });
+
+  const normalizedProducts = React.useMemo(
+    () =>
+      filteredProducts.map(product =>
+        normalizeMarketplaceCatalogProduct(product, providerKey),
+      ),
+    [filteredProducts, providerKey],
+  );
+
   const filterOptions = filterTabs.map(tab => ({
     key: tab.key,
     label: `${tab.label} (${tabCounts[tab.key] || 0})`,
   }));
   const selectedFilterLabel =
-    filterOptions.find(option => option.key === filterKey)?.label
-    || filterOptions[0]?.label
-    || 'Todos';
+    filterOptions.find(option => option.key === filterKey)?.label ||
+    filterOptions[0]?.label ||
+    'Todos';
 
   return (
     <View style={[styles.panel, shadowStyle]}>
@@ -42,16 +71,18 @@ export default function Food99CatalogTab({
         <View>
           <Text style={styles.panelTitle}>Selecao de produtos</Text>
           <Text style={styles.panelSubtitle}>
-            Escolha pelo menos {MINIMUM_REQUIRED_ITEMS} produtos elegiveis para o menu do 99Food.
+            Escolha pelo menos {minimumRequiredItems} produtos elegiveis para o
+            catalogo.
           </Text>
         </View>
         <View
           style={[
             styles.selectionBadge,
-            { backgroundColor: withOpacity(selectionSummaryTone, 0.12) },
+            {backgroundColor: withOpacity(selectionSummaryTone, 0.12)},
           ]}>
-          <Text style={[styles.selectionBadgeText, { color: selectionSummaryTone }]}>
-            {selectedEligibleProducts.length}/{MINIMUM_REQUIRED_ITEMS}
+          <Text
+            style={[styles.selectionBadgeText, {color: selectionSummaryTone}]}>
+            {selectedEligibleProducts.length}/{minimumRequiredItems}
           </Text>
         </View>
       </View>
@@ -83,18 +114,24 @@ export default function Food99CatalogTab({
 
       <View style={styles.selectionSummaryRow}>
         <Text style={styles.selectionSummaryText}>
-          {productsResponse?.eligible_product_count || 0} produtos aptos no cadastro atual
+          {productsResponse?.eligible_product_count || 0} produtos aptos no
+          cadastro atual
         </Text>
         <TouchableOpacity
           style={[
             styles.previewButton,
             {
               backgroundColor:
-                selectedEligibleProducts.length >= MINIMUM_REQUIRED_ITEMS ? accentColor : '#CBD5E1',
+                selectedEligibleProducts.length >= minimumRequiredItems
+                  ? accentColor
+                  : '#CBD5E1',
             },
           ]}
           onPress={onPreview}
-          disabled={previewLoading || selectedEligibleProducts.length < MINIMUM_REQUIRED_ITEMS}>
+          disabled={
+            previewLoading ||
+            selectedEligibleProducts.length < minimumRequiredItems
+          }>
           {previewLoading ? (
             <ActivityIndicator size="small" color="#FFFFFF" />
           ) : (
@@ -106,21 +143,24 @@ export default function Food99CatalogTab({
         </TouchableOpacity>
       </View>
 
-      {filteredProducts.length > 0 ? (
+      {normalizedProducts.length > 0 ? (
         <View style={styles.productsList}>
-          {filteredProducts.map(product => (
-            <Food99ProductCard
+          {normalizedProducts.map(product => (
+            <MarketplaceProductCard
               key={product.id}
               product={product}
               accentColor={accentColor}
               selected={selectedProductSet.has(String(product.id))}
               onPress={onToggleProduct}
+              onMarkCardPressHandled={onMarkCardPressHandled}
             />
           ))}
         </View>
       ) : (
         <View style={styles.emptyProducts}>
-          <Text style={styles.emptyProductsText}>Nenhum produto encontrado para este filtro.</Text>
+          <Text style={styles.emptyProductsText}>
+            Nenhum produto encontrado para este filtro.
+          </Text>
         </View>
       )}
     </View>

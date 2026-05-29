@@ -23,9 +23,8 @@ import {
 } from '@controleonline/ui-common/src/react/utils/printerDevices';
 import ConnectionsPage from '@controleonline/ui-manager/src/react/pages/Connections';
 import FinancialHubPage from '@controleonline/ui-manager/src/react/pages/FinancialHubPage';
-import Food99IntegrationPage from '@controleonline/ui-manager/src/react/pages/Food99IntegrationPage';
+import MarketplaceIntegrationPage from '@controleonline/ui-manager/src/react/pages/MarketplaceIntegrationPage';
 import IntegrationConfigPage from '@controleonline/ui-manager/src/react/pages/IntegrationConfigPage';
-import IFoodIntegrationPage from '@controleonline/ui-manager/src/react/pages/IFoodIntegrationPage';
 import IntegrationsPage from '@controleonline/ui-manager/src/react/pages/Integrations';
 import ManagerCategoriesPage from '@controleonline/ui-manager/src/react/pages/ManagerCategoriesPage';
 import MenuCostsPage from '@controleonline/ui-manager/src/react/pages/MenuCostsPage';
@@ -46,7 +45,7 @@ const managerRoutes = [
     options: {
       headerShown: true,
       headerBackVisible: false,
-      title: global.t?.t("configs", "title", "displays"),
+      title: global.t?.t('configs', 'title', 'displays'),
       showBottomToolBar: false,
       showCompanyFilter: true,
       companyFilterMode: 'icon',
@@ -58,7 +57,7 @@ const managerRoutes = [
     options: {
       headerShown: true,
       headerBackVisible: true,
-      title: global.t?.t("configs", "title", "displayDetails"),
+      title: global.t?.t('configs', 'title', 'displayDetails'),
       showBottomToolBar: true,
       showCompanyFilter: true,
       companyFilterMode: 'icon',
@@ -68,7 +67,7 @@ const managerRoutes = [
     name: 'DisplayForm',
     component: DisplayForm,
     options: {
-      title: global.t?.t("configs", "title", "displayForm"),
+      title: global.t?.t('configs', 'title', 'displayForm'),
     },
   },
   {
@@ -76,7 +75,7 @@ const managerRoutes = [
     component: QueueAddProducts,
     options: {
       headerShown: true,
-      title: global.t?.t("configs", "title", "queueAddProducts"),
+      title: global.t?.t('configs', 'title', 'queueAddProducts'),
     },
   },
   {
@@ -140,7 +139,7 @@ const managerRoutes = [
     options: {
       headerShown: true,
       headerBackVisible: true,
-      title: global.t?.t("configs", "title", "connections"),
+      title: global.t?.t('configs', 'title', 'connections'),
       showCompanyFilter: true,
       companyFilterMode: 'icon',
     },
@@ -151,7 +150,7 @@ const managerRoutes = [
     options: {
       headerShown: true,
       headerBackVisible: true,
-      title: global.t?.t("configs", "title", "whatsApp"),
+      title: global.t?.t('configs', 'title', 'whatsApp'),
       showCompanyFilter: true,
       companyFilterMode: 'icon',
     },
@@ -162,7 +161,7 @@ const managerRoutes = [
     options: {
       headerShown: true,
       headerBackVisible: true,
-      title: global.t?.t("configs", "title", "integrations"),
+      title: global.t?.t('configs', 'title', 'integrations'),
       showCompanyFilter: true,
       companyFilterMode: 'icon',
     },
@@ -201,8 +200,19 @@ const managerRoutes = [
     },
   },
   {
+    name: 'MarketplaceIntegrationPage',
+    component: MarketplaceIntegrationPage,
+    options: {
+      headerShown: true,
+      headerBackVisible: true,
+      title: 'Marketplace',
+      showCompanyFilter: true,
+      companyFilterMode: 'icon',
+    },
+  },
+  {
     name: 'Food99IntegrationPage',
-    component: Food99IntegrationPage,
+    component: MarketplaceIntegrationPage,
     options: {
       headerShown: true,
       headerBackVisible: true,
@@ -213,7 +223,7 @@ const managerRoutes = [
   },
   {
     name: 'IFoodIntegrationPage',
-    component: IFoodIntegrationPage,
+    component: MarketplaceIntegrationPage,
     options: {
       headerShown: true,
       headerBackVisible: true,
@@ -289,7 +299,7 @@ const managerRoutes = [
       showCompanyFilter: true,
       companyFilterMode: 'icon',
     },
-    initialParams: { store: 'device_config' },
+    initialParams: {store: 'device_config'},
   },
   {
     name: 'DeviceDetail',
@@ -300,7 +310,7 @@ const managerRoutes = [
       title: 'Detalhes do Device',
       showCompanyFilter: false,
     },
-    initialParams: { store: 'invoice' },
+    initialParams: {store: 'invoice'},
   },
   {
     name: 'PrinterDeviceDetail',
@@ -352,9 +362,9 @@ const managerRoutes = [
     options: {
       headerShown: true,
       headerBackVisible: true,
-      title: global.t?.t("configs", "title", "incomeStatement"),
+      title: global.t?.t('configs', 'title', 'incomeStatement'),
     },
-    initialParams: { store: 'invoice' },
+    initialParams: {store: 'invoice'},
   },
   {
     name: 'Payables',
@@ -362,11 +372,11 @@ const managerRoutes = [
     options: {
       headerShown: true,
       headerBackVisible: true,
-      title: global.t?.t("configs", "title", "payables"),
+      title: global.t?.t('configs', 'title', 'payables'),
       showCompanyFilter: true,
       companyFilterMode: 'icon',
     },
-    initialParams: { store: 'invoice' },
+    initialParams: {store: 'invoice'},
   },
   {
     name: 'Receivables',
@@ -374,11 +384,11 @@ const managerRoutes = [
     options: {
       headerShown: true,
       headerBackVisible: true,
-      title: global.t?.t("configs", "title", "receivables"),
+      title: global.t?.t('configs', 'title', 'receivables'),
       showCompanyFilter: true,
       companyFilterMode: 'icon',
     },
-    initialParams: { store: 'invoice' },
+    initialParams: {store: 'invoice'},
   },
   {
     name: 'OwnTransfers',
@@ -386,11 +396,11 @@ const managerRoutes = [
     options: {
       headerShown: true,
       headerBackVisible: true,
-      title: global.t?.t("configs", "title", "ownTransfers"),
+      title: global.t?.t('configs', 'title', 'ownTransfers'),
       showCompanyFilter: true,
       companyFilterMode: 'icon',
     },
-    initialParams: { store: 'invoice' },
+    initialParams: {store: 'invoice'},
   },
   {
     name: 'InvoiceDetailsPage',
@@ -401,7 +411,7 @@ const managerRoutes = [
       title: 'Detalhe da invoice',
       showCompanyFilter: false,
     },
-    initialParams: { store: 'invoice' },
+    initialParams: {store: 'invoice'},
   },
   {
     name: 'WalletsPage',
@@ -413,7 +423,7 @@ const managerRoutes = [
       showCompanyFilter: true,
       companyFilterMode: 'icon',
     },
-    initialParams: { store: 'wallet' },
+    initialParams: {store: 'wallet'},
   },
   {
     name: 'InvoiceCategoriesPage',
@@ -425,7 +435,7 @@ const managerRoutes = [
       showCompanyFilter: true,
       companyFilterMode: 'icon',
     },
-    initialParams: { store: 'categories' },
+    initialParams: {store: 'categories'},
   },
   {
     name: 'PurchasingSuggestion',
@@ -437,7 +447,7 @@ const managerRoutes = [
       showCompanyFilter: true,
       companyFilterMode: 'icon',
     },
-    initialParams: { store: 'product_inventories' },
+    initialParams: {store: 'product_inventories'},
   },
   {
     name: 'MenuCostsPage',
@@ -456,11 +466,10 @@ const managerRoutes = [
     options: {
       headerShown: true,
       headerBackVisible: true,
-      title: global.t?.t("configs", "title", "inventory"),
+      title: global.t?.t('configs', 'title', 'inventory'),
     },
-    initialParams: { store: 'products' },
+    initialParams: {store: 'products'},
   },
 ];
 
 export default managerRoutes;
-
