@@ -9,7 +9,7 @@ const BottomToolbar = ({navigation}) => {
   const state = useNavigationState(state => state);
   const currentRoute = state.routes[state.index]?.name || 'HomePage';
   const activeTab =
-    currentRoute === 'EmployeesIndex' || currentRoute === 'ClientDetails'
+    currentRoute === 'EmployeesIndex' || currentRoute === 'ClientDetails' || currentRoute === 'FranchiseesIndex'
       ? 'ClientsIndex'
       : currentRoute;
   const peopleStore = useStore('people');
