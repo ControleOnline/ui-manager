@@ -1,1216 +1,944 @@
-export const MISSING_TEXT = 'FALTA INFORMAÇÃO';
+import seedData from './gyros-custos-cardapio.json';
 
-export const TAB_DEFINITIONS = [
-  {
-    key: 'dashboard',
-    label: 'Dashboard',
-    description: 'Visão geral do custo, do cardápio ativo e do rateio fixo.',
-  },
-  {
-    key: 'catalog',
-    label: 'Catálogo',
-    description: 'Itens finais do cardápio, combos e composição por camadas.',
-  },
-  {
-    key: 'ledger',
-    label: 'Lançamentos',
-    description: 'Compras organizadas por data, período e evidência.',
-  },
-  {
-    key: 'resources',
-    label: 'Cadastros',
-    description: 'Ingredientes, preparos, embalagens, custos e parâmetros.',
-  },
+export const STORAGE_KEY = 'controleonline:menu-costs-page:gyros-engineering:v1';
+
+export const MAIN_TABS = [
+  { key: 'dashboard', label: 'Dashboard', icon: 'bar-chart-2' },
+  { key: 'products', label: 'Produtos de venda', icon: 'shopping-bag' },
+  { key: 'ingredients', label: 'Ingredientes', icon: 'package' },
+  { key: 'recipes', label: 'Preparos', icon: 'git-branch' },
+  { key: 'packaging', label: 'Embalagens', icon: 'archive' },
+  { key: 'resale', label: 'Revenda', icon: 'repeat' },
+  { key: 'purchases', label: 'Compras e evidências', icon: 'file-text' },
+  { key: 'processes', label: 'Processos', icon: 'activity' },
+  { key: 'suppliers', label: 'Fornecedores', icon: 'truck' },
+  { key: 'pending', label: 'Pendências', icon: 'alert-circle' },
+  { key: 'settings', label: 'Parâmetros', icon: 'sliders' },
 ];
 
-export const LEDGER_MODES = [
-  { key: 'timeline', label: 'Linha do tempo' },
-  { key: 'map', label: 'Mapa de compras' },
+export const PRODUCT_DETAIL_TABS = [
+  { key: 'summary', label: 'Ficha' },
+  { key: 'composition', label: 'Composição' },
+  { key: 'addons', label: 'Grupos e adicionais' },
+  { key: 'packaging', label: 'Embalagens' },
+  { key: 'purchases', label: 'Compras' },
+  { key: 'operation', label: 'Operação' },
 ];
 
-export const CATALOG_SEGMENTS = [
-  { key: 'all', label: 'Tudo', accent: '#9AA9C2' },
-  { key: 'ingredients', label: 'Ingredientes', accent: '#22C55E' },
-  { key: 'recipes', label: 'Preparos', accent: '#F97316' },
-  { key: 'packaging', label: 'Embalagens', accent: '#38BDF8' },
-  { key: 'finalItems', label: 'Itens finais/combos', accent: '#FBBF24' },
-];
-
-export const SOURCE_STATUS = {
-  AVAILABLE: 'available',
-  EMPTY: 'empty',
-  MISSING: 'missing',
+export const RESOURCE_META = {
+  ingredients: {
+    singular: 'Ingrediente',
+    plural: 'Ingredientes',
+    refType: 'ingredient',
+    collection: 'ingredients',
+    description: 'Itens comprados ou controlados como insumo de estoque e custo.',
+  },
+  recipes: {
+    singular: 'Preparo',
+    plural: 'Preparos',
+    refType: 'recipe',
+    collection: 'recipes',
+    description: 'Itens com composição, rendimento ou custo técnico próprio.',
+  },
+  packaging: {
+    singular: 'Embalagem',
+    plural: 'Embalagens',
+    refType: 'packaging',
+    collection: 'packaging',
+    description: 'Descartáveis, potes, sacolas e embalagens que entram na ficha ou repasse.',
+  },
+  products: {
+    singular: 'Produto de venda',
+    plural: 'Produtos de venda',
+    refType: 'product',
+    collection: 'products',
+    description: 'Itens finais publicados no cardápio, com preço, ficha, grupos e margem.',
+  },
 };
 
-const DEFAULT_EMPTY_MESSAGE = 'Sem registros';
-const DEFAULT_PAGE_SIZE = 100;
-const DETAIL_FETCH_CONCURRENCY = 6;
-
-const normalizeText = value => String(value || '').trim();
-
-const safeArray = value => (Array.isArray(value) ? value : []);
-
-const normalizeLookupKey = value => String(value || '')
-  .normalize('NFD')
-  .replace(/[\u0300-\u036f]/g, '')
-  .replace(/[^a-z0-9]+/gi, ' ')
-  .trim()
-  .toLowerCase();
-
-export const createSourceState = (items, emptyMessage = DEFAULT_EMPTY_MESSAGE) => {
-  const normalizedItems = safeArray(items);
-
-  if (normalizedItems.length > 0) {
-    return {
-      status: SOURCE_STATUS.AVAILABLE,
-      items: normalizedItems,
-      message: '',
-    };
-  }
-
-  return {
-    status: SOURCE_STATUS.EMPTY,
-    items: [],
-    message: emptyMessage,
-  };
+export const EVIDENCE_LABELS = {
+  documented: 'Comprovado',
+  review: 'Revisar',
+  estimated: 'Estimado',
+  manual: 'Manual',
 };
 
-export const createMissingSource = (message = MISSING_TEXT) => ({
-  status: SOURCE_STATUS.MISSING,
-  items: [],
-  message,
-});
-
-export const getCollectionItems = response => {
-  if (Array.isArray(response)) return response;
-  if (Array.isArray(response?.member)) return response.member;
-  if (Array.isArray(response?.['hydra:member'])) return response['hydra:member'];
-  return [];
+export const PAYMENT_LABELS = {
+  paid: 'Pago',
+  pago: 'Pago',
+  scheduled: 'Agendado',
+  agendado: 'Agendado',
+  pending: 'Pendente',
+  pendente: 'Pendente',
 };
 
-const getCollectionTotal = response => {
-  if (typeof response?.totalItems === 'number') return response.totalItems;
-  if (typeof response?.['hydra:totalItems'] === 'number') return response['hydra:totalItems'];
-  if (Array.isArray(response)) return response.length;
-  return null;
+export const INPUT_TYPE_LABELS = {
+  invoice: 'Nota fiscal',
+  purchase_list: 'Lista de compras',
+  quote: 'Orçamento',
+  payment_receipt: 'Comprovante',
+  order: 'Pedido',
+  screenshot: 'Captura',
+  other: 'Outro',
 };
 
-const toNumber = value => {
-  const number = Number.parseFloat(String(value ?? '').replace(',', '.'));
-  return Number.isFinite(number) ? number : null;
+export const EXPENSE_CATEGORY_LABELS = {
+  rent: 'Aluguel',
+  payroll: 'Folha / pró-labore',
+  utilities: 'Energia / água / gás',
+  taxes: 'Impostos / taxas',
+  logistics: 'Frete / logística',
+  maintenance: 'Manutenção',
+  marketing: 'Marketing',
+  software: 'Software / serviços',
+  supplier_purchase: 'Compra sem itemização',
+  other: 'Outro gasto',
 };
 
-const toPositiveNumber = value => {
-  const number = toNumber(value);
-  return number !== null && number > 0 ? number : null;
+const MASS_UNITS = ['g', 'kg'];
+const VOLUME_UNITS = ['ml', 'l'];
+
+export const cloneSeedData = () => JSON.parse(JSON.stringify(seedData));
+
+export const safeArray = value => (Array.isArray(value) ? value : []);
+
+export const num = value => {
+  const parsed = Number.parseFloat(String(value ?? '').replace(',', '.'));
+  return Number.isFinite(parsed) ? parsed : 0;
 };
 
-const toId = value => {
-  if (typeof value === 'number' && Number.isFinite(value)) return value;
-  if (typeof value === 'string') {
-    const matches = value.match(/\d+/g);
-    return matches ? Number(matches[matches.length - 1]) : null;
-  }
-  if (typeof value === 'object' && value !== null) {
-    if (value.id) return toId(value.id);
-    if (value['@id']) return toId(value['@id']);
-  }
-  return null;
+export const normalizeText = value => String(value || '').trim();
+
+export const normalizeSearch = value =>
+  String(value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/gi, ' ')
+    .trim()
+    .toLowerCase();
+
+export const money = value =>
+  num(value).toLocaleString('pt-BR', {
+    style: 'currency',
+    currency: 'BRL',
+  });
+
+export const preciseMoney = value =>
+  num(value).toLocaleString('pt-BR', {
+    style: 'currency',
+    currency: 'BRL',
+    minimumFractionDigits: 4,
+    maximumFractionDigits: 4,
+  });
+
+export const csvEscape = value => {
+  const text = String(value ?? '');
+  if (!/[",;\n\r]/.test(text)) return text;
+  return `"${text.replace(/"/g, '""')}"`;
 };
 
-const toIri = (resource, value) => {
-  if (!value) return null;
-  if (typeof value === 'string' && value.startsWith('/')) return value;
-  const id = toId(value);
-  return id ? `/${resource}/${id}` : null;
-};
+export const csvLine = values => values.map(csvEscape).join(';');
 
-const getCompanyLabel = company =>
-  normalizeText(company?.alias || company?.name || company?.company || company?.fantasy_name || '');
+export const percent = value => `${num(value).toLocaleString('pt-BR', {
+  minimumFractionDigits: 0,
+  maximumFractionDigits: 1,
+})}%`;
 
-export const getPeopleLabel = people =>
-  normalizeText(
-    people?.alias ||
-    people?.name ||
-    people?.company ||
-    people?.fantasy_name ||
-    people?.document ||
-    ''
-  );
-
-export const getProductLabel = product =>
-  normalizeText(product?.product || product?.name || product?.description || '');
-
-export const getInventoryLabel = inventory =>
-  normalizeText(inventory?.inventory || inventory?.name || '');
+export const decimal = (value, digits = 2) =>
+  num(value).toLocaleString('pt-BR', {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: digits,
+  });
 
 export const formatDate = value => {
-  if (!value) return '';
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return '';
-  return new Intl.DateTimeFormat('pt-BR', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-  }).format(date);
+  if (!value) return 'Sem data';
+  const [year, month, day] = String(value).split('-');
+  if (!year || !month || !day) return String(value);
+  return `${day}/${month}/${year}`;
 };
 
-export const formatDateTime = value => {
-  if (!value) return '';
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return '';
-  return new Intl.DateTimeFormat('pt-BR', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  }).format(date);
+export const evidenceLabel = value => EVIDENCE_LABELS[value] || EVIDENCE_LABELS.review;
+
+export const paymentLabel = value => PAYMENT_LABELS[value] || PAYMENT_LABELS.pending;
+
+export const inputTypeLabel = value => INPUT_TYPE_LABELS[value] || INPUT_TYPE_LABELS.other;
+
+export const expenseCategoryLabel = value => EXPENSE_CATEGORY_LABELS[value] || EXPENSE_CATEGORY_LABELS.other;
+
+export const getById = (db, collection, id) =>
+  safeArray(db?.[collection]).find(item => String(item.id) === String(id)) || null;
+
+export const categoryName = (db, categoryId) =>
+  getById(db, 'categories', categoryId)?.name || 'Sem categoria';
+
+export const resourceCollectionForRef = refType => {
+  if (refType === 'ingredient') return 'ingredients';
+  if (refType === 'recipe') return 'recipes';
+  if (refType === 'packaging') return 'packaging';
+  if (refType === 'product') return 'products';
+  return '';
 };
 
-export const formatMoney = value => {
-  const number = toPositiveNumber(value);
-  if (number === null) return null;
-  return number.toLocaleString('pt-BR', {
-    style: 'currency',
-    currency: 'BRL',
-  });
+export const resourceTypeLabel = refType => {
+  if (refType === 'ingredient') return 'Ingrediente';
+  if (refType === 'recipe') return 'Preparo';
+  if (refType === 'packaging') return 'Embalagem';
+  if (refType === 'product') return 'Produto';
+  return 'Outro';
 };
 
-export const formatQuantity = (value, maxDigits = 2) => {
-  const number = toNumber(value);
-  if (number === null) return '';
-  return number.toLocaleString('pt-BR', {
-    minimumFractionDigits: 0,
-    maximumFractionDigits: maxDigits,
-  });
+export const resourceName = (db, refType, refId) => {
+  const collection = resourceCollectionForRef(refType);
+  const record = collection ? getById(db, collection, refId) : null;
+  return record?.name || record?.title || record?.label || refId || 'Item';
 };
 
-const formatPercentValue = value => {
-  const number = toNumber(value);
-  if (number === null) return null;
-  return `${formatQuantity(number, 2)}%`;
+export const baseUnitForRef = (db, refType, refId) => {
+  const collection = resourceCollectionForRef(refType);
+  const record = collection ? getById(db, collection, refId) : null;
+  if (refType === 'recipe') return record?.yieldUnit || 'un';
+  if (refType === 'packaging') return 'un';
+  return record?.baseUnit || record?.erpUnit || 'un';
 };
 
-const formatMoneyValue = value => {
-  const number = toNumber(value);
-  if (number === null) return null;
-  return number.toLocaleString('pt-BR', {
-    style: 'currency',
-    currency: 'BRL',
-  });
+export const comparableUnitForBase = baseUnit => {
+  const unit = String(baseUnit || '').toLowerCase();
+  if (MASS_UNITS.includes(unit)) return 'kg';
+  if (VOLUME_UNITS.includes(unit)) return 'L';
+  return 'un';
 };
 
-const parseConfigValue = value => {
-  if (typeof value !== 'string') return value;
+export const convertQty = (qty, fromUnit, toUnit) => {
+  const value = num(qty);
+  const from = String(fromUnit || '').toLowerCase();
+  const to = String(toUnit || '').toLowerCase();
+  if (!from || !to || from === to) return value;
+  if (from === 'kg' && to === 'g') return value * 1000;
+  if (from === 'g' && to === 'kg') return value / 1000;
+  if (from === 'l' && to === 'ml') return value * 1000;
+  if (from === 'ml' && to === 'l') return value / 1000;
+  return value;
+};
 
-  const trimmedValue = value.trim();
-  if (!trimmedValue) return '';
+export const ingredientUnitCost = item => {
+  const packageQty = Math.max(1, num(item?.purchaseQty));
+  const rawUnitCost = num(item?.purchaseCost) / packageQty;
+  const wasteFactor = 1 + num(item?.wastePct) / 100;
+  return rawUnitCost * wasteFactor;
+};
 
-  try {
-    return JSON.parse(trimmedValue);
-  } catch {
-    return value;
+export const packagingUnitCost = item => {
+  const packageQty = Math.max(1, num(item?.purchaseQty));
+  return num(item?.purchaseCost) / packageQty;
+};
+
+export const activeCostMode = item => normalizeText(item?.activeCostMode || item?.costMode || 'purchase');
+
+export const activeCostModeLabel = mode => ({
+  purchase: 'Cadastro',
+  manual: 'Manual',
+  selected: 'Compra escolhida',
+  latest: 'Última compra',
+  average: 'Média histórica',
+  calculated: 'Calculado',
+  review: 'Revisão',
+}[mode] || mode || 'Cadastro');
+
+export const activeCostOptionsForRef = refType => {
+  if (refType === 'recipe') {
+    return [
+      { value: 'calculated', label: 'Receita calculada' },
+      { value: 'manual', label: 'Manual' },
+      { value: 'review', label: 'Revisar' },
+    ];
   }
-};
-
-const prettifyConfigKey = configKey =>
-  String(configKey || '')
-    .replace(/[_-]+/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
-
-const formatConfigValue = value => {
-  if (value === null || value === undefined) return '';
-
-  if (typeof value === 'boolean') {
-    return value ? 'Sim' : 'Não';
-  }
-
-  if (typeof value === 'number') {
-    return value.toLocaleString('pt-BR', {
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 2,
-    });
-  }
-
-  if (typeof value === 'string') {
-    return value.trim();
-  }
-
-  if (Array.isArray(value)) {
-    const preview = value
-      .slice(0, 3)
-      .map(item => formatConfigValue(item))
-      .filter(Boolean)
-      .join(', ');
-
-    return preview || JSON.stringify(value);
-  }
-
-  if (typeof value === 'object') {
-    const preview = Object.entries(value)
-      .slice(0, 3)
-      .map(([key, itemValue]) => `${prettifyConfigKey(key)}: ${formatConfigValue(itemValue)}`)
-      .join(' • ');
-
-    return preview || JSON.stringify(value);
-  }
-
-  return String(value);
-};
-
-const createConfigEntry = ({
-  id,
-  label,
-  configKey,
-  visibility = '',
-  parsedValue,
-  parentConfigKey = '',
-  pathSegments = [],
-  rootConfigKey = '',
-  rootParsedValue = undefined,
-}) => ({
-  id,
-  label,
-  configKey,
-  parentConfigKey,
-  pathSegments,
-  rootConfigKey: rootConfigKey || configKey,
-  rootParsedValue: rootParsedValue === undefined ? parsedValue : rootParsedValue,
-  visibility,
-  parsedValue,
-  valueLabel: formatConfigValue(parsedValue),
-  normalizedKey: normalizeLookupKey(
-    [configKey, parentConfigKey, label]
-      .filter(Boolean)
-      .join(' '),
-  ),
-});
-
-const buildConfigEntries = (configItems = [], configMap = {}) => {
-  const indexedEntries = new Map();
-
-  safeArray(configItems).forEach(config => {
-    const configKey = normalizeText(config?.configKey || '');
-    if (!configKey) return;
-
-    const parsedValue = parseConfigValue(config?.configValue);
-    indexedEntries.set(configKey, createConfigEntry({
-      id: toId(config) || `config-${configKey}`,
-      label: prettifyConfigKey(configKey),
-      configKey,
-      visibility: normalizeText(config?.visibility || ''),
-      parsedValue,
-      pathSegments: [],
-      rootConfigKey: configKey,
-      rootParsedValue: parsedValue,
-    }));
-  });
-
-  Object.entries(configMap || {}).forEach(([configKey, configValue]) => {
-    const normalizedKey = normalizeText(configKey);
-    if (!normalizedKey || indexedEntries.has(normalizedKey)) return;
-
-    const parsedValue = parseConfigValue(configValue);
-    indexedEntries.set(normalizedKey, createConfigEntry({
-      id: `company-config-${normalizedKey}`,
-      label: prettifyConfigKey(normalizedKey),
-      configKey: normalizedKey,
-      visibility: 'public',
-      parsedValue,
-      pathSegments: [],
-      rootConfigKey: normalizedKey,
-      rootParsedValue: parsedValue,
-    }));
-  });
-
-  return Array.from(indexedEntries.values()).sort((left, right) => left.label.localeCompare(right.label, 'pt-BR', { sensitivity: 'base' }));
-};
-
-const buildNestedConfigEntries = (entries, maxDepth = 3) => {
-  const nestedEntries = [];
-
-  const pushEntry = (baseEntry, path, value) => {
-    if (!path.length) return;
-
-    const pathKey = path.join('.');
-    nestedEntries.push(createConfigEntry({
-      id: `${baseEntry.id}:${pathKey}`,
-      label: `${baseEntry.label} / ${path.map(prettifyConfigKey).join(' / ')}`,
-      configKey: `${baseEntry.configKey}.${pathKey}`,
-      visibility: baseEntry.visibility,
-      parsedValue: value,
-      parentConfigKey: baseEntry.configKey,
-      pathSegments: path,
-      rootConfigKey: baseEntry.rootConfigKey || baseEntry.configKey,
-      rootParsedValue: baseEntry.rootParsedValue,
-    }));
-  };
-
-  const walkValue = (baseEntry, value, path = [], depth = 0) => {
-    if (value === null || value === undefined) {
-      pushEntry(baseEntry, path, value);
-      return;
-    }
-
-    if (depth >= maxDepth) {
-      pushEntry(baseEntry, path, value);
-      return;
-    }
-
-    if (Array.isArray(value)) {
-      if (!value.length) {
-        pushEntry(baseEntry, path, value);
-        return;
-      }
-
-      value.forEach((item, index) => {
-        walkValue(baseEntry, item, [...path, String(index + 1)], depth + 1);
-      });
-      return;
-    }
-
-    if (typeof value === 'object') {
-      const objectEntries = Object.entries(value);
-      if (!objectEntries.length) {
-        pushEntry(baseEntry, path, value);
-        return;
-      }
-
-      objectEntries.forEach(([key, itemValue]) => {
-        walkValue(baseEntry, itemValue, [...path, key], depth + 1);
-      });
-      return;
-    }
-
-    pushEntry(baseEntry, path, value);
-  };
-
-  entries.forEach(entry => {
-    walkValue(entry, entry.parsedValue);
-  });
-
-  return nestedEntries;
-};
-
-const buildDisplayConfigEntries = (configEntries, nestedEntries) => {
-  const nestedParents = new Set(
-    nestedEntries
-      .map(entry => normalizeText(entry?.parentConfigKey || ''))
-      .filter(Boolean),
-  );
-
   return [
-    ...configEntries.filter(entry => !nestedParents.has(normalizeText(entry?.configKey || ''))),
-    ...nestedEntries,
-  ].sort((left, right) => left.label.localeCompare(right.label, 'pt-BR', { sensitivity: 'base' }));
+    { value: 'purchase', label: 'Cadastro' },
+    { value: 'selected', label: 'Compra escolhida' },
+    { value: 'latest', label: 'Última compra' },
+    { value: 'average', label: 'Média histórica' },
+    { value: 'manual', label: 'Manual' },
+    { value: 'review', label: 'Revisar' },
+  ];
 };
 
-const findConfigEntry = (entries, candidates = [], keywordGroups = []) => {
-  const normalizedCandidates = candidates
-    .map(candidate => normalizeText(candidate))
-    .filter(Boolean);
+export const activeCostCollectionForRef = refType => {
+  if (refType === 'ingredient') return 'ingredients';
+  if (refType === 'recipe') return 'recipes';
+  if (refType === 'packaging') return 'packaging';
+  return '';
+};
 
-  if (normalizedCandidates.length) {
-    const exactMatch = entries.find(entry => normalizedCandidates.includes(entry.configKey));
-    if (exactMatch) return exactMatch;
+export const canonicalCostInfoForRecord = (db, refType, record = {}) => {
+  if (refType === 'ingredient') {
+    const baseUnit = String(record.baseUnit || 'un').toLowerCase();
+    const primaryUnit = comparableUnitForBase(baseUnit);
+    const baseCost = ingredientUnitCost(record);
+    const primaryCost = primaryUnit === 'kg' || primaryUnit === 'L' ? baseCost * 1000 : baseCost;
+    return { baseUnit, baseCost, primaryUnit, primaryCost };
   }
-
-  if (!keywordGroups.length) return null;
-
-  return entries.find(entry =>
-    keywordGroups.every(keywordGroup =>
-      keywordGroup.some(keyword => entry.normalizedKey.includes(normalizeLookupKey(keyword))),
-    ),
-  ) || null;
+  if (refType === 'packaging') {
+    const baseCost = packagingUnitCost(record);
+    return { baseUnit: 'un', baseCost, primaryUnit: 'un', primaryCost: baseCost };
+  }
+  if (refType === 'recipe') {
+    const baseUnit = String(record.yieldUnit || 'un').toLowerCase();
+    const primaryUnit = comparableUnitForBase(baseUnit);
+    const baseCost = recipeUnitCost(db, record);
+    const primaryCost = primaryUnit === 'kg' || primaryUnit === 'L' ? baseCost * 1000 : baseCost;
+    return { baseUnit, baseCost, primaryUnit, primaryCost };
+  }
+  return { baseUnit: 'un', baseCost: 0, primaryUnit: 'un', primaryCost: 0 };
 };
 
-const filterConfigEntries = (entries, keywordGroups = []) => {
-  if (!keywordGroups.length) return [];
+export const purchaseComparableCost = (row = {}, baseUnit = 'un') => {
+  const unit = String(row.unit || baseUnit || 'un').toLowerCase();
+  const unitPrice = num(row.unitPrice);
+  if (!unitPrice) return 0;
+  if (unit === baseUnit) return unitPrice;
+  return unitPrice / Math.max(1, convertQty(1, baseUnit, unit));
+};
 
-  return entries.filter(entry =>
-    keywordGroups.some(keywordGroup =>
-      keywordGroup.every(keyword => entry.normalizedKey.includes(normalizeLookupKey(keyword))),
-    ),
+const primaryMultiplierForCost = (primaryUnit, baseUnit) => {
+  if (primaryUnit === baseUnit) return 1;
+  return Math.max(1, convertQty(1, primaryUnit, baseUnit));
+};
+
+export const selectedPurchaseForRecord = (db, refType, record = {}) => {
+  const rows = purchaseItemsForResource(db, refType, record.id);
+  const selectedId = record.activePurchaseItemId || record.selectedPurchaseItemId;
+  if (selectedId) return rows.find(row => String(row.id) === String(selectedId)) || null;
+  return null;
+};
+
+export const activeUnitCost = (db, refType, record = {}) => {
+  const mode = activeCostMode(record);
+  const baseInfo = canonicalCostInfoForRecord(db, refType, record);
+  if (mode === 'manual') return num(record.manualUnitCost || record.fixedUnitCost || record.overrideUnitCost) || baseInfo.primaryCost;
+  if (mode === 'selected') {
+    const selected = selectedPurchaseForRecord(db, refType, record);
+    return selected ? purchaseComparableCost(selected, baseInfo.baseUnit) * primaryMultiplierForCost(baseInfo.primaryUnit, baseInfo.baseUnit) : baseInfo.primaryCost;
+  }
+  if (mode === 'latest') {
+    const latest = purchaseItemsForResource(db, refType, record.id)
+      .find(row => purchaseComparableCost(row, baseInfo.baseUnit) > 0);
+    return latest ? purchaseComparableCost(latest, baseInfo.baseUnit) * primaryMultiplierForCost(baseInfo.primaryUnit, baseInfo.baseUnit) : baseInfo.primaryCost;
+  }
+  if (mode === 'average') {
+    const rows = purchaseItemsForResource(db, refType, record.id)
+      .map(row => purchaseComparableCost(row, baseInfo.baseUnit))
+      .filter(value => value > 0);
+    const average = rows.length ? rows.reduce((sum, value) => sum + value, 0) / rows.length : 0;
+    return average ? average * primaryMultiplierForCost(baseInfo.primaryUnit, baseInfo.baseUnit) : baseInfo.primaryCost;
+  }
+  return baseInfo.primaryCost;
+};
+
+export const activeCostSummary = (db, refType, record = {}) => {
+  const baseInfo = canonicalCostInfoForRecord(db, refType, record);
+  const mode = activeCostMode(record);
+  const purchases = purchaseItemsForResource(db, refType, record.id);
+  const activePrimaryCost = activeUnitCost(db, refType, record);
+  const selected = selectedPurchaseForRecord(db, refType, record);
+  const latest = purchases[0] || null;
+  const source =
+    mode === 'selected' && selected
+      ? `${formatDate(selected.date)} · ${selected.supplierName}`
+      : mode === 'latest' && latest
+        ? `${formatDate(latest.date)} · ${latest.supplierName}`
+        : mode === 'average'
+          ? `${purchases.length} compra(s)`
+          : record.activeCostNote || record.sourceReference || record.evidenceSource || 'Cadastro técnico';
+
+  return {
+    mode,
+    modeLabel: activeCostModeLabel(mode),
+    primaryUnit: baseInfo.primaryUnit,
+    baseUnit: baseInfo.baseUnit,
+    activePrimaryCost,
+    activeBaseCost: activePrimaryCost / primaryMultiplierForCost(baseInfo.primaryUnit, baseInfo.baseUnit),
+    registeredPrimaryCost: baseInfo.primaryCost,
+    registeredBaseCost: baseInfo.baseCost,
+    source,
+    purchaseCount: purchases.length,
+    selected,
+    latest,
+  };
+};
+
+export const recipeBatchCost = (db, recipe, stack = []) => {
+  if (!recipe || stack.includes(recipe.id)) return 0;
+  return safeArray(recipe.components).reduce((sum, component) => (
+    sum + componentCost(db, component, [...stack, recipe.id])
+  ), 0);
+};
+
+export const recipeUnitCost = (db, recipe, stack = []) => {
+  const batchCost = recipeBatchCost(db, recipe, stack);
+  return batchCost / Math.max(1, num(recipe?.yieldQty));
+};
+
+export const componentCost = (db, component, stack = []) => {
+  const refType = component?.refType;
+  const refId = component?.refId;
+  const qty = num(component?.qty);
+  const collection = resourceCollectionForRef(refType);
+  const record = collection ? getById(db, collection, refId) : null;
+  if (!record) return 0;
+
+  if (refType === 'ingredient') return ingredientUnitCost(record) * qty;
+  if (refType === 'packaging') return packagingUnitCost(record) * qty;
+  if (refType === 'recipe') {
+    const unitCost = recipeUnitCost(db, record, stack);
+    const baseUnit = record?.yieldUnit || 'un';
+    const requestedUnit = component?.unit || baseUnit;
+    return unitCost * convertQty(qty, requestedUnit, baseUnit);
+  }
+  if (refType === 'product') return computeProduct(db, refId, stack)?.directCost || 0;
+  return 0;
+};
+
+export const resolveComponentNode = (db, component, stack = []) => {
+  const collection = resourceCollectionForRef(component?.refType);
+  const record = collection ? getById(db, collection, component?.refId) : null;
+  const children = component?.refType === 'recipe' && record && !stack.includes(record.id)
+    ? safeArray(record.components).map(child => resolveComponentNode(db, child, [...stack, record.id]))
+    : [];
+
+  return {
+    key: `${component?.refType}:${component?.refId}:${stack.join('/')}:${component?.qty}`,
+    refType: component?.refType,
+    refId: component?.refId,
+    record,
+    name: record?.name || component?.refId || 'Item',
+    qty: num(component?.qty),
+    unit: component?.unit || baseUnitForRef(db, component?.refType, component?.refId),
+    cost: componentCost(db, component, stack),
+    pricingMode: component?.pricingMode || 'markup',
+    children,
+  };
+};
+
+export const flattenNodes = nodes => safeArray(nodes).flatMap(node => [node, ...flattenNodes(node.children)]);
+
+export const defaultMarkupPct = db => num(db?.settings?.defaultMarkupPct || 200);
+
+export const targetMarginPct = db => num(db?.settings?.targetMarginPct || 68);
+
+export const activeProducts = db =>
+  safeArray(db?.products).filter(product => product.active !== false && product.scope !== 'greguinho');
+
+export const computeAddon = (db, addon = {}, stack = []) => {
+  const nodes = safeArray(addon.components).map(component => resolveComponentNode(db, component, stack));
+  const directCost = nodes.reduce((sum, node) => sum + node.cost, 0);
+  return {
+    ...addon,
+    nodes,
+    directCost,
+    salePriceDelta: num(addon.salePriceDelta),
+    required: addon.required === true,
+    minimum: num(addon.minimum ?? (addon.required ? 1 : 0)),
+  };
+};
+
+export const computeProduct = (db, productId, stack = []) => {
+  const product = getById(db, 'products', productId);
+  if (!product || stack.includes(product.id)) return null;
+
+  const nodes = safeArray(product.components).map(component => resolveComponentNode(db, component, [...stack, product.id]));
+  const baseDirectCost = nodes.reduce((sum, node) => sum + node.cost, 0);
+  const addons = safeArray(product.addons).map(addon => computeAddon(db, addon, [...stack, product.id]));
+
+  const requiredGroups = Object.values(addons.reduce((accumulator, addon) => {
+    const group = addon.group || 'Obrigatórios';
+    if (!addon.required && addon.minimum <= 0) return accumulator;
+    if (!accumulator[group]) accumulator[group] = [];
+    accumulator[group].push(addon);
+    return accumulator;
+  }, {}));
+
+  const requiredCost = requiredGroups.reduce((sum, group) => {
+    const sorted = [...group].sort((left, right) => left.directCost - right.directCost);
+    const minimum = Math.max(1, num(sorted[0]?.minimum));
+    return sum + sorted.slice(0, minimum).reduce((groupSum, addon) => groupSum + addon.directCost, 0);
+  }, 0);
+
+  const directCost = baseDirectCost + requiredCost;
+  const autoSalePrice = directCost * (1 + defaultMarkupPct(db) / 100);
+  const salePrice = num(product.salePrice || product.price || autoSalePrice);
+  const ifoodSalePrice = salePrice * 1.27;
+  const marginPct = salePrice > 0 ? ((salePrice - directCost) / salePrice) * 100 : 0;
+  const passThroughCost = nodes.reduce((sum, node) => (
+    sum + (node.pricingMode === 'pass_through' ? node.cost : 0)
+  ), 0);
+  const markupBaseCost = Math.max(0, directCost - passThroughCost);
+
+  return {
+    product,
+    nodes,
+    addons,
+    baseDirectCost,
+    requiredCost,
+    directCost,
+    passThroughCost,
+    markupBaseCost,
+    autoSalePrice,
+    salePrice,
+    ifoodSalePrice,
+    marginPct,
+  };
+};
+
+export const computeAllProducts = db =>
+  activeProducts(db)
+    .map(product => computeProduct(db, product.id))
+    .filter(Boolean)
+    .sort((left, right) => left.product.name.localeCompare(right.product.name, 'pt-BR'));
+
+export const purchaseItemsForResource = (db, refType, refId) =>
+  safeArray(db?.purchaseItems)
+    .filter(item => item.resourceType === refType && item.resourceId === refId)
+    .map(item => {
+      const order = getById(db, 'purchaseOrders', item.orderId);
+      const supplier = getById(db, 'suppliers', item.supplierId || order?.supplierId);
+      const inputs = linkedInputsForOrder(db, order);
+      return {
+        ...item,
+        order,
+        supplier,
+        inputs,
+        date: order?.date || '',
+        supplierName: supplier?.name || order?.supplierName || 'Fornecedor não vinculado',
+        paymentStatus: order?.paymentStatus || item.paymentStatus,
+      };
+    })
+    .sort((left, right) => String(right.date || '').localeCompare(String(left.date || '')));
+
+export const linkedInputsForOrder = (db, order) => {
+  const explicitIds = safeArray(order?.inputIds);
+  const explicit = explicitIds.map(id => getById(db, 'inputs', id)).filter(Boolean);
+  const byDocument = safeArray(db?.inputs).filter(input =>
+    order?.documentNumber &&
+    input.documentNumber &&
+    normalizeSearch(input.documentNumber) === normalizeSearch(order.documentNumber)
   );
+  return uniqueById([...explicit, ...byDocument]);
 };
 
-const buildConfigMetric = (entries, { key, label, candidates = [], keywordGroups = [], formatter = null }) => {
-  const configEntry = findConfigEntry(entries, candidates, keywordGroups);
-  const fallbackConfigKey = normalizeText(candidates[0] || key);
+export const uniqueById = items => {
+  const seen = new Set();
+  return safeArray(items).filter(item => {
+    const id = item?.id || item?.filePath || item?.title;
+    if (!id || seen.has(id)) return false;
+    seen.add(id);
+    return true;
+  });
+};
 
-  if (!configEntry) {
+export const productPurchaseRows = (db, computedProduct) => {
+  const nodes = flattenNodes(computedProduct?.nodes || []);
+  return nodes
+    .filter(node => ['ingredient', 'packaging'].includes(node.refType))
+    .flatMap(node =>
+      purchaseItemsForResource(db, node.refType, node.refId).slice(0, 3).map(row => ({
+        ...row,
+        resourceName: node.name,
+        resourceType: node.refType,
+      }))
+    )
+    .sort((left, right) => String(right.date || '').localeCompare(String(left.date || '')));
+};
+
+export const purchaseFamilyKey = row =>
+  [
+    row.resourceType || 'other',
+    row.resourceId || '',
+    normalizeSearch(row.description || row.resourceName || ''),
+  ].join(':');
+
+export const purchaseFamilyEntries = db => {
+  const entries = safeArray(db?.purchaseItems).map(item => {
+    const order = getById(db, 'purchaseOrders', item.orderId);
+    const supplier = getById(db, 'suppliers', item.supplierId || order?.supplierId);
+    const resource = item.resourceType && item.resourceId
+      ? getById(db, resourceCollectionForRef(item.resourceType), item.resourceId)
+      : null;
+    const inputs = linkedInputsForOrder(db, order);
+    const row = {
+      ...item,
+      date: order?.date || '',
+      orderLabel: order?.label || item.orderId,
+      documentNumber: order?.documentNumber || '',
+      paymentStatus: order?.paymentStatus || item.paymentStatus,
+      supplierName: supplier?.name || order?.supplierName || 'Fornecedor não vinculado',
+      resourceName: resource?.name || item.description || 'Item comprado',
+      inputs,
+    };
+    return row;
+  });
+
+  const grouped = groupBy(entries, purchaseFamilyKey);
+  return Object.entries(grouped).map(([key, rows]) => {
+    const sorted = [...rows].sort((left, right) => String(right.date || '').localeCompare(String(left.date || '')));
+    const latest = sorted[0] || {};
+    const prices = sorted.map(row => num(row.unitPrice)).filter(value => value > 0);
+    const totalAmount = sorted.reduce((sum, row) => sum + num(row.totalPrice || row.totalAmount), 0);
+    const suppliers = Array.from(new Set(sorted.map(row => row.supplierName).filter(Boolean)));
+    const evidenceCount = sorted.reduce((sum, row) => sum + safeArray(row.inputs).length, 0);
     return {
       key,
-      label,
-      value: '',
-      message: 'Sem configuração',
-      accent: '#9AA9C2',
-      missing: true,
-      editor: {
-        label,
-        configKey: fallbackConfigKey,
-        rootConfigKey: fallbackConfigKey,
-        parentConfigKey: '',
-        pathSegments: [],
-        parsedValue: '',
-        rootParsedValue: '',
-      },
-    };
-  }
-
-  const formattedValue = formatter
-    ? formatter(configEntry.parsedValue, configEntry)
-    : configEntry.valueLabel;
-
-  return {
-    key,
-    label,
-    value: formattedValue || '—',
-    message: configEntry.configKey,
-    accent: '#FBBF24',
-    missing: false,
-    editor: {
-      label,
-      configKey: configEntry.configKey,
-      rootConfigKey: configEntry.rootConfigKey || configEntry.configKey,
-      parentConfigKey: configEntry.parentConfigKey || '',
-      pathSegments: configEntry.pathSegments || [],
-      parsedValue: configEntry.parsedValue,
-      rootParsedValue: configEntry.rootParsedValue,
-    },
-  };
-};
-
-const getProductSegmentKey = type => {
-  switch (type) {
-    case 'feedstock':
-      return 'ingredients';
-    case 'manufactured':
-      return 'recipes';
-    case 'package':
-      return 'packaging';
-    case 'product':
-    case 'custom':
-    case 'service':
-    case 'component':
-      return 'finalItems';
-    default:
-      return 'finalItems';
-  }
-};
-
-export const getProductSegmentMeta = type => (
-  CATALOG_SEGMENTS.find(segment => segment.key === getProductSegmentKey(type))
-  || CATALOG_SEGMENTS[CATALOG_SEGMENTS.length - 1]
-);
-
-const getProductTypeLabel = type => {
-  switch (type) {
-    case 'feedstock':
-      return 'Ingrediente';
-    case 'manufactured':
-      return 'Preparo';
-    case 'package':
-      return 'Embalagem';
-    case 'product':
-      return 'Produto';
-    case 'custom':
-      return 'Combo';
-    case 'service':
-      return 'Serviço';
-    case 'component':
-      return 'Componente';
-    default:
-      return 'Outro';
-  }
-};
-
-export async function fetchAllPages(apiClient, endpoint, params = {}, options = {}) {
-  const itemsPerPage = options.itemsPerPage || DEFAULT_PAGE_SIZE;
-  const maxPages = options.maxPages || 40;
-  let currentPage = 1;
-  let items = [];
-
-  while (currentPage <= maxPages) {
-    const response = await apiClient.fetch(endpoint, {
-      params: {
-        ...params,
-        itemsPerPage,
-        page: currentPage,
-      },
-    });
-
-    const chunk = getCollectionItems(response);
-    const totalItems = getCollectionTotal(response);
-
-    items = items.concat(chunk);
-
-    if (chunk.length < itemsPerPage) break;
-    if (totalItems !== null && items.length >= totalItems) break;
-
-    currentPage += 1;
-  }
-
-  return items;
-}
-
-async function mapWithConcurrency(items, mapper, concurrency = DETAIL_FETCH_CONCURRENCY) {
-  const results = new Array(items.length);
-  let cursor = 0;
-
-  const workers = new Array(Math.min(concurrency, items.length)).fill(null).map(async () => {
-    while (cursor < items.length) {
-      const index = cursor;
-      cursor += 1;
-      results[index] = await mapper(items[index], index);
-    }
-  });
-
-  await Promise.all(workers);
-  return results;
-}
-
-const sortByName = (left, right, extractor) =>
-  extractor(left).localeCompare(extractor(right), 'pt-BR', { sensitivity: 'base' });
-
-const buildCategoriesByProductId = productCategories => {
-  const categoriesByProductId = {};
-
-  productCategories.forEach(relation => {
-    const productId = toId(relation?.product);
-    const categoryName = normalizeText(relation?.category?.name || relation?.category?.category || '');
-
-    if (!productId || !categoryName) return;
-
-    if (!categoriesByProductId[productId]) {
-      categoriesByProductId[productId] = [];
-    }
-
-    categoriesByProductId[productId].push({
-      id: toId(relation?.category),
-      name: categoryName,
-      color: normalizeText(relation?.category?.color || ''),
-    });
-  });
-
-  Object.keys(categoriesByProductId).forEach(productId => {
-    categoriesByProductId[productId].sort((left, right) => sortByName(left, right, item => item.name));
-  });
-
-  return categoriesByProductId;
-};
-
-const buildGroupsByProductId = productGroups => {
-  const groupsByProductId = {};
-
-  productGroups.forEach(group => {
-    const productId = toId(group?.parentProduct);
-
-    if (!productId) return;
-
-    if (!groupsByProductId[productId]) {
-      groupsByProductId[productId] = [];
-    }
-
-    groupsByProductId[productId].push({
-      id: toId(group),
-      iri: toIri('product_groups', group),
-      name: normalizeText(group?.productGroup || ''),
-      minimum: group?.minimum,
-      maximum: group?.maximum,
-      required: Boolean(group?.required),
-      priceCalculation: normalizeText(group?.priceCalculation || ''),
-      groupOrder: toNumber(group?.groupOrder) ?? 0,
-      active: group?.active !== false,
-    });
-  });
-
-  Object.keys(groupsByProductId).forEach(productId => {
-    groupsByProductId[productId].sort((left, right) => {
-      if (left.groupOrder !== right.groupOrder) return left.groupOrder - right.groupOrder;
-      return sortByName(left, right, item => item.name);
-    });
-  });
-
-  return groupsByProductId;
-};
-
-const extractProductSuppliers = product => {
-  const relations = safeArray(product?.productPeople)
-    .filter(relation => relation?.people)
-    .map(relation => ({
-      id: toId(relation?.people),
-      label: getPeopleLabel(relation?.people),
-      role: normalizeText(relation?.role || ''),
-      priority: toNumber(relation?.priority) ?? 0,
-      costPriceLabel: formatMoney(relation?.costPrice),
-      supplierSku: normalizeText(relation?.supplierSku || ''),
-      leadTimeDays: toNumber(relation?.leadTimeDays),
-    }))
-    .filter(relation => relation.id && relation.label);
-
-  relations.sort((left, right) => {
-    if (left.priority !== right.priority) return left.priority - right.priority;
-    return left.label.localeCompare(right.label, 'pt-BR', { sensitivity: 'base' });
-  });
-
-  return relations;
-};
-
-const extractPricingSnapshot = product => {
-  const pricing = product?.extraData?.pricing;
-  if (!pricing || typeof pricing !== 'object') {
-    return null;
-  }
-
-  const channelSuggestedByMargin = safeArray(pricing?.channelSimulations)
-    .map(simulation => toNumber(simulation?.suggestedByMarginWithFees))
-    .find(value => value !== null);
-
-  const costBreakdown = pricing?.costBreakdown || {};
-
-  const snapshot = {
-    source: normalizeText(pricing?.source || ''),
-    syncMode: normalizeText(pricing?.syncMode || ''),
-    marginTarget: toNumber(pricing?.marginTarget),
-    marginTargetLabel: formatPercentValue(pricing?.marginTarget),
-    simulatedByMargin: toNumber(pricing?.simulatedByMargin),
-    simulatedByMarginLabel: formatMoneyValue(pricing?.simulatedByMargin),
-    suggestedByMarginWithFees: channelSuggestedByMargin,
-    suggestedByMarginWithFeesLabel: formatMoneyValue(channelSuggestedByMargin),
-    totalUnitCost: toNumber(costBreakdown?.totalUnitCost),
-    totalUnitCostLabel: formatMoneyValue(costBreakdown?.totalUnitCost),
-    operationalCost: toNumber(costBreakdown?.operationalCost),
-    operationalCostLabel: formatMoneyValue(costBreakdown?.operationalCost),
-    packagingCost: toNumber(costBreakdown?.packagingCost),
-    packagingCostLabel: formatMoneyValue(costBreakdown?.packagingCost),
-    logisticsCost: toNumber(costBreakdown?.logisticsCost),
-    logisticsCostLabel: formatMoneyValue(costBreakdown?.logisticsCost),
-    lossPct: toNumber(pricing?.lossPct),
-    lossPctLabel: formatPercentValue(pricing?.lossPct),
-  };
-
-  const hasAnyValue = Object.values(snapshot).some(value =>
-    value !== null && value !== undefined && value !== '',
-  );
-
-  return hasAnyValue ? snapshot : null;
-};
-
-const buildCatalogItems = ({ products, categoriesByProductId, groupsByProductId }) => {
-  const items = products.map(product => {
-    const productId = toId(product);
-    const productName = getProductLabel(product) || `Produto #${productId || '-'}`;
-    const categories = categoriesByProductId[productId] || [];
-    const productGroups = groupsByProductId[productId] || [];
-    const suppliers = extractProductSuppliers(product);
-    const segment = getProductSegmentMeta(product?.type);
-    const pricing = extractPricingSnapshot(product);
-
-    return {
-      id: productId,
-      iri: toIri('products', product),
-      name: productName,
-      description: normalizeText(product?.description || ''),
-      sku: normalizeText(product?.sku || ''),
-      type: normalizeText(product?.type || ''),
-      typeLabel: getProductTypeLabel(product?.type),
-      segmentKey: segment.key,
-      segmentLabel: segment.label,
-      segmentAccent: segment.accent,
-      active: product?.active !== false,
-      featured: Boolean(product?.featured),
-      price: toPositiveNumber(product?.price),
-      priceLabel: formatMoney(product?.price),
-      unitLabel: normalizeText(product?.productUnit?.productUnit || ''),
-      queueLabel: normalizeText(product?.queue?.queue || ''),
-      categories,
-      categoryNames: categories.map(category => category.name),
-      suppliers,
+      resourceType: latest.resourceType,
+      resourceId: latest.resourceId,
+      familyName: latest.resourceName || latest.description || 'Item comprado',
+      latest,
+      rows: sorted,
+      occurrenceCount: sorted.length,
+      supplierSummary: suppliers.slice(0, 3).join(', '),
       supplierCount: suppliers.length,
-      groupCount: productGroups.length,
-      groups: productGroups,
-      defaultInInventory: getInventoryLabel(product?.defaultInInventory),
-      defaultOutInventory: getInventoryLabel(product?.defaultOutInventory),
-      pricing,
+      evidenceCount,
+      totalAmount,
+      minUnitPrice: prices.length ? Math.min(...prices) : 0,
+      maxUnitPrice: prices.length ? Math.max(...prices) : 0,
+      avgUnitPrice: prices.length ? prices.reduce((sum, value) => sum + value, 0) / prices.length : 0,
+      unit: latest.unit || 'un',
     };
-  });
-
-  items.sort((left, right) => {
-    if (left.active !== right.active) return left.active ? -1 : 1;
-    return sortByName(left, right, item => item.name);
-  });
-
-  return items;
+  }).sort((left, right) => String(left.familyName).localeCompare(String(right.familyName), 'pt-BR'));
 };
 
-const buildPurchaseOrderItem = orderProduct => {
-  const productId = toId(orderProduct?.product);
-  const productType = normalizeText(orderProduct?.product?.type || '');
-
-  return {
-    id: toId(orderProduct),
-    productId,
-    productKey: `${productId || 'x'}:${productType || 'unknown'}`,
-    productType,
-    productTypeLabel: getProductTypeLabel(productType),
-    productName: getProductLabel(orderProduct?.product) || `Produto #${productId || '-'}`,
-    sku: normalizeText(orderProduct?.product?.sku || ''),
-    quantity: toNumber(orderProduct?.quantity) ?? 0,
-    quantityLabel: formatQuantity(orderProduct?.quantity, 3) || '0',
-    inInventoryLabel: getInventoryLabel(orderProduct?.inInventory),
-    price: toPositiveNumber(orderProduct?.price),
-    priceLabel: formatMoney(orderProduct?.price),
-    total: toPositiveNumber(orderProduct?.total),
-    totalLabel: formatMoney(orderProduct?.total),
-    comment: normalizeText(orderProduct?.comment || ''),
-    hasPrice: toPositiveNumber(orderProduct?.price) !== null,
-    hasTotal: toPositiveNumber(orderProduct?.total) !== null,
-  };
-};
-
-const buildLedgerOrders = purchaseOrders => {
-  const orders = purchaseOrders.map(order => {
-    const topLevelItems = safeArray(order?.orderProducts).filter(item => !item?.orderProduct);
-    const items = topLevelItems.map(buildPurchaseOrderItem);
-    const supplierLabel = getPeopleLabel(order?.client);
-
-    return {
-      id: toId(order),
-      iri: toIri('orders', order),
-      date: order?.orderDate,
-      dateLabel: formatDate(order?.orderDate),
-      dateTimeLabel: formatDateTime(order?.orderDate),
-      supplierLabel,
-      supplierMissing: !supplierLabel,
-      comments: normalizeText(order?.comments || ''),
-      statusLabel: normalizeText(order?.status?.status || ''),
-      statusColor: normalizeText(order?.status?.color || ''),
-      totalLabel: formatMoney(order?.price),
-      orderPrice: toPositiveNumber(order?.price),
-      itemCount: items.length,
-      totalQuantity: items.reduce((sum, item) => sum + (item.quantity || 0), 0),
-      items,
-      itemsPreview: items.slice(0, 3).map(item => item.productName),
-      evidence: createMissingSource(),
-      documentNumber: createMissingSource(),
-      paymentStatus: createMissingSource(),
-    };
+export const productUsesForResource = (db, refType, refId) => {
+  const uses = [];
+  safeArray(db?.recipes).forEach(recipe => {
+    const nodes = flattenNodes(safeArray(recipe.components).map(component => resolveComponentNode(db, component, [recipe.id])));
+    if (nodes.some(node => node.refType === refType && node.refId === refId)) {
+      uses.push({
+        key: `recipe:${recipe.id}`,
+        type: 'recipe',
+        title: recipe.name,
+        meta: `Preparo com ${safeArray(recipe.components).length} componente(s)`,
+      });
+    }
   });
-
-  orders.sort((left, right) => new Date(right.date || 0).getTime() - new Date(left.date || 0).getTime());
-
-  return orders;
-};
-
-const buildPurchaseMapRows = ledgerOrders => {
-  const grouped = new Map();
-
-  ledgerOrders.forEach(order => {
-    order.items.forEach(item => {
-      if (!grouped.has(item.productKey)) {
-        grouped.set(item.productKey, {
-          key: item.productKey,
-          productId: item.productId,
-          productName: item.productName,
-          productType: item.productType,
-          productTypeLabel: item.productTypeLabel,
-          sku: item.sku,
-          quantity: 0,
-          total: 0,
-          hasAnyTotal: false,
-          hasAnyPrice: false,
-          latestPrice: null,
-          occurrences: [],
-          suppliers: new Set(),
-          inventories: new Set(),
-          lastOrderDate: order.date,
+  safeArray(db?.products).forEach(product => {
+    const productComponents = safeArray(product.components);
+    const productNodes = flattenNodes(productComponents.map(component => resolveComponentNode(db, component, [product.id])));
+    if (productNodes.some(node => node.refType === refType && node.refId === refId)) {
+      uses.push({
+        key: `product:${product.id}`,
+        type: 'product',
+        title: product.name,
+        meta: categoryName(db, product.categoryId),
+      });
+    }
+    safeArray(product.addons).forEach(addon => {
+      const addonNodes = flattenNodes(safeArray(addon.components).map(component => resolveComponentNode(db, component, [product.id, addon.id])));
+      if (addonNodes.some(node => node.refType === refType && node.refId === refId)) {
+        uses.push({
+          key: `addon:${product.id}:${addon.id}`,
+          type: 'addon',
+          title: `${addon.name} em ${product.name}`,
+          meta: addon.group || 'Adicional',
         });
       }
+    });
+  });
+  return uniqueById(uses);
+};
 
-      const row = grouped.get(item.productKey);
+export const resourceUsageCountMap = db => {
+  const map = new Map();
+  const add = (refType, refId, ownerKey) => {
+    if (!refType || !refId || !ownerKey) return;
+    const key = `${refType}:${refId}`;
+    if (!map.has(key)) map.set(key, new Set());
+    map.get(key).add(ownerKey);
+  };
 
-      row.quantity += item.quantity || 0;
-      row.total += item.total || 0;
-      row.hasAnyTotal = row.hasAnyTotal || item.total !== null;
-      row.hasAnyPrice = row.hasAnyPrice || item.price !== null;
-      row.latestPrice = row.latestPrice ?? item.price;
-      row.lastOrderDate = new Date(order.date || 0) > new Date(row.lastOrderDate || 0)
-        ? order.date
-        : row.lastOrderDate;
+  safeArray(db?.recipes).forEach(recipe => {
+    safeArray(recipe.components).forEach(component => {
+      flattenNodes([resolveComponentNode(db, component, [recipe.id])])
+        .forEach(node => add(node.refType, node.refId, `recipe:${recipe.id}`));
+    });
+  });
 
-      if (order.supplierLabel) row.suppliers.add(order.supplierLabel);
-      if (item.inInventoryLabel) row.inventories.add(item.inInventoryLabel);
-
-      row.occurrences.push({
-        orderId: order.id,
-        date: order.date,
-        dateLabel: order.dateLabel,
-        supplierLabel: order.supplierLabel,
-        quantityLabel: item.quantityLabel,
-        totalLabel: item.totalLabel,
-        priceLabel: item.priceLabel,
-        inInventoryLabel: item.inInventoryLabel,
+  safeArray(db?.products).forEach(product => {
+    safeArray(product.components).forEach(component => {
+      flattenNodes([resolveComponentNode(db, component, [product.id])])
+        .forEach(node => add(node.refType, node.refId, `product:${product.id}`));
+    });
+    safeArray(product.addons).forEach(addon => {
+      safeArray(addon.components).forEach(component => {
+        flattenNodes([resolveComponentNode(db, component, [product.id, addon.id])])
+          .forEach(node => add(node.refType, node.refId, `addon:${product.id}:${addon.id}`));
       });
     });
   });
 
-  return Array.from(grouped.values())
-    .map(row => ({
-      key: row.key,
-      productId: row.productId,
-      productName: row.productName,
-      productTypeLabel: row.productTypeLabel,
-      sku: row.sku,
-      quantityLabel: formatQuantity(row.quantity, 3) || '0',
-      totalLabel: row.hasAnyTotal ? formatMoney(row.total) : null,
-      latestPriceLabel: row.hasAnyPrice ? formatMoney(row.latestPrice) : null,
-      suppliers: Array.from(row.suppliers.values()),
-      inventories: Array.from(row.inventories.values()),
-      lastOrderDate: row.lastOrderDate,
-      lastOrderDateLabel: formatDate(row.lastOrderDate),
-      occurrences: row.occurrences.sort(
-        (left, right) => new Date(right.date || 0).getTime() - new Date(left.date || 0).getTime(),
-      ),
-    }))
-    .sort((left, right) => new Date(right.lastOrderDate || 0).getTime() - new Date(left.lastOrderDate || 0).getTime());
+  return Array.from(map.entries()).reduce((accumulator, [key, owners]) => {
+    accumulator[key] = owners.size;
+    return accumulator;
+  }, {});
 };
 
-const buildRegisterSections = ({ catalogItems, suppliers, ledgerOrders }) => {
-  const sectionFromItems = (items, title) => ({
-    title,
-    ...createSourceState(items),
-  });
-
-  return {
-    ingredients: sectionFromItems(catalogItems.filter(item => item.segmentKey === 'ingredients'), 'Ingredientes'),
-    recipes: sectionFromItems(catalogItems.filter(item => item.segmentKey === 'recipes'), 'Preparos'),
-    packaging: sectionFromItems(catalogItems.filter(item => item.segmentKey === 'packaging'), 'Embalagens'),
-    suppliers: sectionFromItems(
-      suppliers.map(supplier => ({
-        id: toId(supplier),
-        label: getPeopleLabel(supplier),
-        document: normalizeText(supplier?.document || ''),
-        email: normalizeText(supplier?.email || ''),
-      })),
-      'Fornecedores',
-    ),
-    purchases: sectionFromItems(ledgerOrders, 'Compras'),
-    inputs: {
-      title: 'Inputs',
-      ...createMissingSource(),
-    },
-    operationalExpenses: {
-      title: 'Gastos operacionais',
-      ...createMissingSource(),
-    },
-    fixedCosts: {
-      title: 'Custos fixos',
-      ...createMissingSource(),
-    },
-    settings: {
-      title: 'Parâmetros',
-      ...createMissingSource(),
-    },
-  };
-};
-
-const buildRegisterSectionsFromConfigs = (
-  configEntries,
-  displayEntries = configEntries,
-) => ({
-  settings: createSourceState(
-    displayEntries.map(entry => ({
-      id: entry.id,
-      label: entry.label,
-      configKey: entry.configKey,
-      rootConfigKey: entry.rootConfigKey || entry.configKey,
-      parentConfigKey: entry.parentConfigKey || '',
-      pathSegments: entry.pathSegments || [],
-      parsedValue: entry.parsedValue,
-      rootParsedValue: entry.rootParsedValue,
-      isConfig: true,
-      valueLabel: entry.valueLabel || 'Sem valor configurado',
-    })),
-    'Sem configurações da empresa',
-  ),
-  inputs: createSourceState(
-    filterConfigEntries(displayEntries, [
-      ['input'],
-      ['insumo'],
-      ['ingrediente'],
-    ]).map(entry => ({
-      id: entry.id,
-      label: entry.label,
-      configKey: entry.configKey,
-      rootConfigKey: entry.rootConfigKey || entry.configKey,
-      parentConfigKey: entry.parentConfigKey || '',
-      pathSegments: entry.pathSegments || [],
-      parsedValue: entry.parsedValue,
-      rootParsedValue: entry.rootParsedValue,
-      isConfig: true,
-      valueLabel: entry.valueLabel || 'Sem valor configurado',
-    })),
-    'Sem configurações de inputs',
-  ),
-  operationalExpenses: createSourceState(
-    filterConfigEntries(displayEntries, [
-      ['gasto'],
-      ['despesa'],
-      ['operacional'],
-      ['expense'],
-    ]).map(entry => ({
-      id: entry.id,
-      label: entry.label,
-      configKey: entry.configKey,
-      rootConfigKey: entry.rootConfigKey || entry.configKey,
-      parentConfigKey: entry.parentConfigKey || '',
-      pathSegments: entry.pathSegments || [],
-      parsedValue: entry.parsedValue,
-      rootParsedValue: entry.rootParsedValue,
-      isConfig: true,
-      valueLabel: entry.valueLabel || 'Sem valor configurado',
-    })),
-    'Sem configurações de gastos operacionais',
-  ),
-  fixedCosts: createSourceState(
-    filterConfigEntries(displayEntries, [
-      ['fixo'],
-      ['fixed'],
-      ['rateio'],
-      ['custo', 'fixo'],
-    ]).map(entry => ({
-      id: entry.id,
-      label: entry.label,
-      configKey: entry.configKey,
-      rootConfigKey: entry.rootConfigKey || entry.configKey,
-      parentConfigKey: entry.parentConfigKey || '',
-      pathSegments: entry.pathSegments || [],
-      parsedValue: entry.parsedValue,
-      rootParsedValue: entry.rootParsedValue,
-      isConfig: true,
-      valueLabel: entry.valueLabel || 'Sem valor configurado',
-    })),
-    'Sem configurações de custos fixos',
-  ),
-});
-
-export async function loadProductComposition(apiClient, productGroups = []) {
-  if (!productGroups.length) {
-    return createSourceState([], 'Sem composição cadastrada');
-  }
-
-  const groupsWithProducts = await mapWithConcurrency(productGroups, async group => {
-    const response = await fetchAllPages(apiClient, '/product_group_products', {
-      productGroup: group.iri,
-    }, { itemsPerPage: 100, maxPages: 10 });
-
-    const components = response.map(item => {
-      const product = item?.productChild || item?.product;
-      return {
-        id: toId(item),
-        productId: toId(product),
-        productName: getProductLabel(product) || `Produto #${toId(product) || '-'}`,
-        sku: normalizeText(product?.sku || ''),
-        typeLabel: getProductTypeLabel(item?.productType || product?.type),
-        quantityLabel: formatQuantity(item?.quantity, 3) || '0',
-        priceLabel: formatMoney(item?.price),
-      };
-    });
-
-    return {
-      ...group,
-      components: components.sort((left, right) => sortByName(left, right, item => item.productName)),
-      componentsState: createSourceState(components, 'Sem componentes vinculados'),
-    };
-  });
-
-  return createSourceState(groupsWithProducts, 'Sem composição cadastrada');
-}
-
-export async function loadMenuCostsViewModel(apiClient, currentCompany) {
-  if (!currentCompany?.id) {
-    return null;
-  }
-
-  const companyId = currentCompany.id;
-  const companyIri = toIri('people', companyId);
-
-  const [
-    products,
-    suppliers,
-    purchaseSuggestionsResponse,
-    purchaseOrdersResponse,
-    categories,
-    productCategories,
-    productGroups,
-    configs,
-  ] = await Promise.all([
-    fetchAllPages(apiClient, '/products', { company: companyId }, { itemsPerPage: 100, maxPages: 50 }),
-    fetchAllPages(apiClient, '/people', {
-      'link.company': companyIri,
-      'link.linkType': 'provider',
-    }, { itemsPerPage: 100, maxPages: 20 }),
-    apiClient.fetch('/products/purchasing-suggestion', { params: { company: companyId } }),
-    fetchAllPages(apiClient, '/orders', {
-      provider: companyId,
-      orderType: 'purchase',
-    }, { itemsPerPage: 100, maxPages: 30 }),
-    fetchAllPages(apiClient, '/categories', {
-      company: companyId,
-      context: 'product',
-    }, { itemsPerPage: 100, maxPages: 20 }),
-    fetchAllPages(apiClient, '/product_categories', {
-      'category.company': companyIri,
-      'category.context': 'product',
-    }, { itemsPerPage: 100, maxPages: 50 }),
-    fetchAllPages(apiClient, '/product_groups', {
-      'parentProduct.company': companyIri,
-    }, { itemsPerPage: 100, maxPages: 30 }),
-    fetchAllPages(apiClient, '/configs', {
-      people: companyIri,
-    }, { itemsPerPage: 100, maxPages: 30 }),
-  ]);
-
-  const purchaseSuggestions = getCollectionItems(purchaseSuggestionsResponse)
-    .map(item => ({
-      id: toId(item?.product_id),
-      productName: normalizeText(item?.product_name || ''),
-      productType: normalizeText(item?.type || ''),
-      productTypeLabel: getProductTypeLabel(item?.type),
-      stockLabel: formatQuantity(item?.stock, 3) || '0',
-      minimumLabel: formatQuantity(item?.minimum, 3) || '0',
-      neededLabel: formatQuantity(item?.needed, 3) || '0',
-      neededValue: toNumber(item?.needed) ?? 0,
-      unity: normalizeText(item?.unity || ''),
-    }))
-    .sort((left, right) => right.neededValue - left.neededValue);
-
-  const detailedPurchaseOrders = await mapWithConcurrency(
-    purchaseOrdersResponse,
-    async purchaseOrder => {
-      const orderId = toId(purchaseOrder);
-
-      if (!orderId) return purchaseOrder;
-
-      try {
-        return await apiClient.fetch(`/orders/${orderId}`);
-      } catch {
-        return purchaseOrder;
-      }
-    },
+export const resaleItems = db =>
+  safeArray(db?.products).filter(product =>
+    product.type === 'drink' ||
+    normalizeSearch(`${product.name} ${categoryName(db, product.categoryId)} ${product.notes}`).match(/\b(bebida|coca|agua|h2o|bud|heineken|fanta|sprite|guarana|suco|cha|ice tea)\b/)
   );
 
-  const categoriesByProductId = buildCategoriesByProductId(productCategories);
-  const groupsByProductId = buildGroupsByProductId(productGroups);
-  const catalogItems = buildCatalogItems({
-    products,
-    categoriesByProductId,
-    groupsByProductId,
-  });
-  const ledgerOrders = buildLedgerOrders(detailedPurchaseOrders);
-  const purchaseMap = buildPurchaseMapRows(ledgerOrders);
-  const configEntries = buildConfigEntries(configs, currentCompany?.configs || {});
-  const nestedConfigEntries = buildNestedConfigEntries(configEntries);
-  const searchableConfigEntries = [...configEntries, ...nestedConfigEntries];
-  const displayConfigEntries = buildDisplayConfigEntries(configEntries, nestedConfigEntries);
-  const registerSections = buildRegisterSections({
-    catalogItems,
-    suppliers,
-    ledgerOrders,
-  });
-  const configSections = buildRegisterSectionsFromConfigs(configEntries, displayConfigEntries);
+export const pendingItems = db => {
+  const resourceRows = [
+    ...safeArray(db?.ingredients).map(item => ({ ...item, kind: 'Ingrediente', refType: 'ingredient' })),
+    ...safeArray(db?.recipes).map(item => ({ ...item, kind: 'Preparo', refType: 'recipe' })),
+    ...safeArray(db?.packaging).map(item => ({ ...item, kind: 'Embalagem', refType: 'packaging' })),
+  ];
 
-  const activeProductsCount = catalogItems.filter(item => item.active).length;
-  const supplierRelationsCount = suppliers.length;
-  const purchaseOrdersCount = ledgerOrders.length;
-  const replenishmentCount = purchaseSuggestions.length;
+  return resourceRows.filter(item => {
+    const evidence = item.evidenceType || item.sourceType;
+    return (
+      item.active === false ||
+      ['review', 'estimated', 'manual'].includes(evidence) ||
+      normalizeSearch(`${item.name} ${item.notes} ${item.sourceReference}`).includes('revis')
+    );
+  });
+};
 
-  const finalItemsCount = catalogItems.filter(item => item.segmentKey === 'finalItems').length;
-  const ingredientsCount = catalogItems.filter(item => item.segmentKey === 'ingredients').length;
-  const recipesCount = catalogItems.filter(item => item.segmentKey === 'recipes').length;
-  const packagingCount = catalogItems.filter(item => item.segmentKey === 'packaging').length;
+export const processRows = db => {
+  const usageCount = resourceUsageCountMap(db);
+  const productRows = activeProducts(db).map(product => ({
+    key: `product:${product.id}`,
+    refType: 'product',
+    refId: product.id,
+    title: product.name,
+    typeLabel: 'Produto de venda',
+    purchase: 'Ficha técnica',
+    receiving: `${safeArray(product.components).length} componente(s)`,
+    storage: categoryName(db, product.categoryId),
+    handling: safeArray(product.addons).length ? `${safeArray(product.addons).length} grupo(s)` : 'Sem adicionais',
+    portion: product.erpUnit || 'UN',
+    usage: money(computeProduct(db, product.id)?.directCost || 0),
+    evidence: product.sourceReference || product.notes || '',
+  }));
+
+  const recipeRows = safeArray(db?.recipes).map(recipe => ({
+    key: `recipe:${recipe.id}`,
+    refType: 'recipe',
+    refId: recipe.id,
+    title: recipe.name,
+    typeLabel: 'Preparo',
+    purchase: `${safeArray(recipe.components).length} insumo(s)`,
+    receiving: 'Receita padrão',
+    storage: recipe.storage || 'Não mapeado',
+    handling: recipe.notes || recipe.description || 'Processo a revisar',
+    portion: `${decimal(recipe.yieldQty)} ${recipe.yieldUnit || 'un'}`,
+    usage: money(recipeBatchCost(db, recipe)),
+    evidence: recipe.evidenceSource || recipe.sourceReference || '',
+  }));
+
+  const ingredientRows = safeArray(db?.ingredients).map(item => ({
+    key: `ingredient:${item.id}`,
+    refType: 'ingredient',
+    refId: item.id,
+    title: item.name,
+    typeLabel: 'Ingrediente',
+    purchase: `${money(item.purchaseCost)} / ${decimal(item.purchaseQty)} ${item.baseUnit || 'un'}`,
+    receiving: item.supplier || 'Fornecedor não informado',
+    storage: item.storage || 'Estoque',
+    handling: item.notes || 'Uso direto ou em preparo',
+    portion: comparableCostLabel('ingredient', item),
+    usage: `${usageCount[`ingredient:${item.id}`] || 0} uso(s)`,
+    evidence: item.evidenceSource || item.sourceReference || '',
+  }));
+
+  return [...productRows, ...recipeRows, ...ingredientRows];
+};
+
+export const comparableCostLabel = (refType, record) => {
+  if (refType === 'ingredient') {
+    const unit = String(record?.baseUnit || 'un').toLowerCase();
+    const unitCost = ingredientUnitCost(record);
+    if (unit === 'g') return `${money(unitCost * 1000)} / kg`;
+    if (unit === 'ml') return `${money(unitCost * 1000)} / L`;
+    return `${money(unitCost)} / ${unit}`;
+  }
+  if (refType === 'packaging') return `${money(packagingUnitCost(record))} / un`;
+  if (refType === 'recipe') {
+    const unit = String(record?.yieldUnit || 'un').toLowerCase();
+    return unit === 'g' ? 'por kg' : unit === 'ml' ? 'por L' : `por ${unit}`;
+  }
+  return '';
+};
+
+export const dashboardMetrics = db => {
+  const products = computeAllProducts(db);
+  const directCost = products.reduce((sum, item) => sum + item.directCost, 0);
+  const salePrice = products.reduce((sum, item) => sum + item.salePrice, 0);
+  const purchaseTotal = safeArray(db?.purchaseOrders).reduce((sum, order) => sum + num(order.totalAmount), 0);
+  const evidenceCount = safeArray(db?.inputs).length;
+  return [
+    { key: 'products', label: 'Produtos ativos', value: String(products.length), tone: 'neutral' },
+    { key: 'margin', label: 'Margem média', value: percent(salePrice ? ((salePrice - directCost) / salePrice) * 100 : 0), tone: 'good' },
+    { key: 'purchases', label: 'Compras registradas', value: money(purchaseTotal), tone: 'neutral' },
+    { key: 'evidence', label: 'Evidências', value: String(evidenceCount), tone: 'neutral' },
+    { key: 'pending', label: 'Pendências', value: String(pendingItems(db).length), tone: 'warn' },
+  ];
+};
+
+export const filterBySearch = (items, query, fields) => {
+  const search = normalizeSearch(query);
+  if (!search) return items;
+  return safeArray(items).filter(item =>
+    normalizeSearch(fields.map(field => field(item)).join(' ')).includes(search)
+  );
+};
+
+export const groupBy = (items, keyGetter) =>
+  safeArray(items).reduce((accumulator, item) => {
+    const key = keyGetter(item) || 'Outros';
+    if (!accumulator[key]) accumulator[key] = [];
+    accumulator[key].push(item);
+    return accumulator;
+  }, {});
+
+export const buildExportPayload = db => ({
+  ...db,
+  meta: {
+    ...(db.meta || {}),
+    exportedAt: new Date().toISOString(),
+    sourceApp: 'ERP MenuCostsPage',
+  },
+});
+
+export const buildErpExportPayload = db => {
+  const products = computeAllProducts(db);
+  const componentRows = products.flatMap(computed =>
+    flattenNodes(computed.nodes).map(node => ({
+      product_code: computed.product.code || computed.product.id,
+      product_name: computed.product.name,
+      component_type: node.refType,
+      component_code: node.record?.code || node.refId,
+      component_name: node.name,
+      quantity: node.qty,
+      unit: node.unit,
+      pricing_mode: node.pricingMode,
+      cost: node.cost,
+    }))
+  );
+  const addonRows = products.flatMap(computed =>
+    computed.addons.map(addon => ({
+      product_code: computed.product.code || computed.product.id,
+      product_name: computed.product.name,
+      addon_code: addon.code || addon.id,
+      addon_name: addon.name,
+      group: addon.group,
+      required: addon.required,
+      minimum: addon.minimum,
+      maximum: addon.maximum,
+      price_calculation: addon.priceCalculation || addon.salePriceMode || 'sum',
+      sale_price_delta: addon.salePriceDelta,
+      direct_cost: addon.directCost,
+    }))
+  );
 
   return {
-    company: {
-      id: companyId,
-      label: getCompanyLabel(currentCompany),
+    meta: {
+      ...(db?.meta || {}),
+      exportedAt: new Date().toISOString(),
+      sourceApp: 'ERP MenuCostsPage',
+      mode: 'local-readonly-migration',
     },
-    dashboard: {
-      heroTitle: 'Custos do Cardápio',
-      heroSubtitle: 'Leitura consolidada de catálogo, compras, composição e lacunas do backend atual.',
-      actualMetrics: [
-        { key: 'activeProducts', label: 'Produtos ativos', value: String(activeProductsCount) },
-        { key: 'suppliers', label: 'Fornecedores com vínculo', value: String(supplierRelationsCount) },
-        { key: 'orders', label: 'Compras registradas', value: String(purchaseOrdersCount) },
-        { key: 'suggestions', label: 'Itens com reposição sugerida', value: String(replenishmentCount) },
-      ],
-      configMetrics: [
-        buildConfigMetric(searchableConfigEntries, {
-          key: 'targetMargin',
-          label: 'Margem alvo',
-          candidates: ['target-margin', 'margem-alvo', 'margem_alvo'],
-          keywordGroups: [['margem', 'margin'], ['alvo', 'target']],
-          formatter: value => formatPercentValue(value) || formatConfigValue(value),
-        }),
-        buildConfigMetric(searchableConfigEntries, {
-          key: 'cmv',
-          label: 'CMV consolidado',
-          candidates: ['cmv', 'food-cost-percent', 'food_cost_percent'],
-          keywordGroups: [['cmv']],
-          formatter: value => formatPercentValue(value) || formatConfigValue(value),
-        }),
-        buildConfigMetric(searchableConfigEntries, {
-          key: 'suggestedPrice',
-          label: 'Preço sugerido',
-          candidates: ['suggested-price', 'preco-sugerido', 'preco_sugerido'],
-          keywordGroups: [['preco', 'price'], ['sugerido', 'suggested']],
-          formatter: value => formatMoneyValue(value) || formatConfigValue(value),
-        }),
-        buildConfigMetric(searchableConfigEntries, {
-          key: 'fixedAllocation',
-          label: 'Rateio fixo mensal',
-          candidates: ['fixed-monthly-allocation', 'rateio-fixo-mensal', 'rateio_fixo_mensal'],
-          keywordGroups: [['rateio', 'allocation'], ['fixo', 'fixed']],
-          formatter: value => formatMoneyValue(value) || formatConfigValue(value),
-        }),
-      ],
-      suggestionSource: createSourceState(purchaseSuggestions, 'Sem itens com reposição sugerida'),
-      recentPurchaseSource: createSourceState(ledgerOrders.slice(0, 6), 'Sem compras registradas'),
-    },
-    catalog: {
-      source: createSourceState(catalogItems, 'Sem produtos cadastrados'),
-      items: catalogItems,
-      segmentSummary: [
-        { key: 'ingredients', label: 'Ingredientes', value: String(ingredientsCount), accent: '#22C55E' },
-        { key: 'recipes', label: 'Preparos', value: String(recipesCount), accent: '#F97316' },
-        { key: 'packaging', label: 'Embalagens', value: String(packagingCount), accent: '#38BDF8' },
-        { key: 'finalItems', label: 'Itens finais/combos', value: String(finalItemsCount), accent: '#FBBF24' },
-      ],
-      categoriesSource: createSourceState(
-        categories.map(category => ({
-          id: toId(category),
-          name: normalizeText(category?.name || category?.category || ''),
-        })),
-        'Sem categorias cadastradas',
-      ),
-      groupsByProductId,
-      categoriesByProductId,
-    },
-    ledger: {
-      source: createSourceState(ledgerOrders, 'Sem compras registradas'),
-      orders: ledgerOrders,
-      purchaseMapSource: createSourceState(purchaseMap, 'Sem itens comprados para consolidar'),
-      purchaseMap,
-    },
-    resources: {
-      ...registerSections,
-      inputs: configSections.inputs,
-      operationalExpenses: configSections.operationalExpenses,
-      fixedCosts: configSections.fixedCosts,
-      settings: configSections.settings,
-    },
+    products: products.map(computed => ({
+      code: computed.product.code || computed.product.id,
+      name: computed.product.name,
+      category: categoryName(db, computed.product.categoryId),
+      sale_price: computed.salePrice,
+      direct_cost: computed.directCost,
+      base_direct_cost: computed.baseDirectCost,
+      required_cost: computed.requiredCost,
+      margin_pct: computed.marginPct,
+      ifood_price: computed.ifoodSalePrice,
+      erp_unit: computed.product.erpUnit || 'UN',
+      erp_type: computed.product.erpProductType || computed.product.type || 'product',
+      active: computed.product.active !== false,
+    })),
+    components: componentRows,
+    addons: addonRows,
+    ingredients: safeArray(db?.ingredients).map(item => ({
+      code: item.code || item.id,
+      name: item.name,
+      erp_type: 'feedstock',
+      erp_unit: item.erpUnit || item.baseUnit,
+      canonical_cost: comparableCostLabel('ingredient', item),
+      purchase_qty: num(item.purchaseQty),
+      purchase_cost: num(item.purchaseCost),
+      waste_pct: num(item.wastePct),
+      supplier: item.supplier,
+      evidence_type: item.evidenceType || item.sourceType,
+      source: item.sourceReference || item.evidenceSource,
+    })),
+    recipes: safeArray(db?.recipes).map(item => ({
+      code: item.code || item.id,
+      name: item.name,
+      erp_type: 'component',
+      erp_unit: item.erpUnit || item.yieldUnit,
+      yield_qty: num(item.yieldQty),
+      yield_unit: item.yieldUnit,
+      batch_cost: recipeBatchCost(db, item),
+      unit_cost: recipeUnitCost(db, item),
+      components_count: safeArray(item.components).length,
+      evidence_type: item.evidenceType || item.sourceType,
+    })),
+    packaging: safeArray(db?.packaging).map(item => ({
+      code: item.code || item.id,
+      name: item.name,
+      erp_type: 'package',
+      erp_unit: item.erpUnit || 'UN',
+      unit_cost: packagingUnitCost(item),
+      purchase_qty: num(item.purchaseQty),
+      purchase_cost: num(item.purchaseCost),
+      supplier: item.supplier,
+      evidence_type: item.evidenceType || item.sourceType,
+    })),
+    purchase_orders: safeArray(db?.purchaseOrders),
+    purchase_items: safeArray(db?.purchaseItems),
+    inputs: safeArray(db?.inputs),
+    suppliers: safeArray(db?.suppliers),
   };
-}
+};
+
+export const buildErpCatalogCsv = db => {
+  const header = [
+    'codigo',
+    'produto',
+    'categoria',
+    'preco_venda',
+    'custo_direto',
+    'custo_obrigatorio',
+    'margem_pct',
+    'preco_ifood',
+    'unidade_erp',
+    'tipo_erp',
+    'ativo',
+  ];
+  const rows = computeAllProducts(db).map(computed => [
+    computed.product.code || computed.product.id,
+    computed.product.name,
+    categoryName(db, computed.product.categoryId),
+    num(computed.salePrice).toFixed(2),
+    num(computed.directCost).toFixed(4),
+    num(computed.requiredCost).toFixed(4),
+    num(computed.marginPct).toFixed(2),
+    num(computed.ifoodSalePrice).toFixed(2),
+    computed.product.erpUnit || 'UN',
+    computed.product.erpProductType || computed.product.type || 'product',
+    computed.product.active !== false ? '1' : '0',
+  ]);
+  return [csvLine(header), ...rows.map(csvLine)].join('\n');
+};
+
+export const validateImportedDb = value => {
+  if (!value || typeof value !== 'object') throw new Error('Arquivo inválido.');
+  ['categories', 'ingredients', 'recipes', 'products'].forEach(key => {
+    if (!Array.isArray(value[key])) throw new Error(`Arquivo sem coleção ${key}.`);
+  });
+  return value;
+};

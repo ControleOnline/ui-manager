@@ -1,7 +1,9 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+/* eslint-disable no-unused-vars */
+import React, { useCallback, useEffect, useState } from 'react';
 import {
-  ActivityIndicator,
-  RefreshControl,
+  Image,
+  Modal,
+  Pressable,
   ScrollView,
   Text,
   TextInput,
@@ -9,1452 +11,1352 @@ import {
   View,
   useWindowDimensions,
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useFocusEffect } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/Feather';
-import { useStore } from '@store';
-import { api } from '@controleonline/ui-common/src/api';
 import { useMessage } from '@controleonline/ui-common/src/react/components/MessageService';
-import AddCompanyModal from '@controleonline/ui-people/src/react/components/AddCompanyModal';
-import { resolveThemePalette } from '@controleonline/../../src/styles/branding';
-import { colors as baseColors } from '@controleonline/../../src/styles/colors';
-import styles, { SCREEN_COLORS } from './index.styles';
+import styles, { MENU_COLORS } from './index.styles';
 import {
-  CATALOG_SEGMENTS,
-  LEDGER_MODES,
-  MISSING_TEXT,
-  SOURCE_STATUS,
-  TAB_DEFINITIONS,
-  createSourceState,
+  MAIN_TABS,
+  PRODUCT_DETAIL_TABS,
+  RESOURCE_META,
+  STORAGE_KEY,
+  activeCostOptionsForRef,
+  activeCostSummary,
+  buildErpCatalogCsv,
+  buildErpExportPayload,
+  buildExportPayload,
+  categoryName,
+  cloneSeedData,
+  comparableCostLabel,
+  componentCost,
+  computeAllProducts,
+  computeProduct,
+  dashboardMetrics,
+  decimal,
+  defaultMarkupPct,
+  evidenceLabel,
+  filterBySearch,
   formatDate,
-  formatMoney,
-  formatQuantity,
-  loadMenuCostsViewModel,
-  loadProductComposition,
+  getById,
+  groupBy,
+  ingredientUnitCost,
+  inputTypeLabel,
+  linkedInputsForOrder,
+  money,
+  num,
+  packagingUnitCost,
+  paymentLabel,
+  pendingItems,
+  percent,
+  preciseMoney,
+  processRows,
+  productPurchaseRows,
+  productUsesForResource,
+  purchaseFamilyEntries,
+  purchaseItemsForResource,
+  recipeBatchCost,
+  recipeUnitCost,
+  resaleItems,
+  resourceCollectionForRef,
+  resourceName,
+  resourceTypeLabel,
+  safeArray,
+  targetMarginPct,
+  validateImportedDb,
 } from './viewModel';
+import {
+  ADDON_IMAGE_ASSETS,
+  CATEGORY_IMAGE_ASSETS,
+  PRODUCT_IMAGE_ASSETS,
+  RESOURCE_IMAGE_ASSETS,
+} from './visualAssets';
 
-const alpha = (hex, opacity) => {
-  const sanitizedHex = String(hex || '').replace('#', '');
-
-  if (sanitizedHex.length !== 6) return hex;
-
-  const normalizedOpacity = Math.max(0, Math.min(1, opacity));
-  const alphaHex = Math.round(normalizedOpacity * 255).toString(16).padStart(2, '0');
-  return `#${sanitizedHex}${alphaHex}`;
+const getSectionDefaultSelection = (db, tab) => {
+  if (tab === 'products') return computeAllProducts(db)[0]?.product?.id || null;
+  if (tab === 'resale') return resaleItems(db)[0]?.id || null;
+  if (tab === 'purchases') return safeArray(db.purchaseOrders)[0]?.id || null;
+  if (tab === 'processes') return processRows(db)[0]?.key || null;
+  if (tab === 'pending') return pendingItems(db)[0]?.id || null;
+  return safeArray(db[tab])[0]?.id || null;
 };
 
-const MissingInfo = ({ label, message = MISSING_TEXT }) => (
-  <View style={[styles.missingBlock, { borderColor: alpha(SCREEN_COLORS.bad, 0.55) }]}>
-    <Text style={[styles.missingLabel, { color: '#FCA5A5' }]}>{label}</Text>
-    <Text style={[styles.missingText, { color: '#FECACA' }]}>{message}</Text>
+const getToneStyle = tone => {
+  if (tone === 'good') return styles.toneGood;
+  if (tone === 'warn') return styles.toneWarn;
+  if (tone === 'bad') return styles.toneBad;
+  return styles.toneNeutral;
+};
+
+const Badge = ({ children, tone = 'neutral' }) => (
+  <View style={[styles.badge, getToneStyle(tone)]}>
+    <Text style={styles.badgeText}>{children}</Text>
   </View>
 );
 
-const EmptyState = ({ message }) => (
-  <View style={styles.emptyBlock}>
-    <Text style={styles.emptyText}>{message}</Text>
-  </View>
-);
-
-const MetricCard = ({ label, value, accent, missing, message, onPress }) => {
-  const content = (
-    <View style={[styles.metricCard, missing && { borderColor: alpha(SCREEN_COLORS.bad, 0.55) }]}>
-      {onPress ? <Icon name="edit-3" size={14} color={accent || SCREEN_COLORS.brand} style={styles.metricActionIcon} /> : null}
-      {missing ? (
-        <MissingInfo label={label} message={message} />
-      ) : (
-        <>
-          <Text style={[styles.metricValue, accent ? { color: accent } : null]}>{value || '—'}</Text>
-          <Text style={styles.metricLabel}>{label}</Text>
-          {message ? <Text style={styles.metricHelperText}>{message}</Text> : null}
-        </>
-      )}
-    </View>
-  );
-
-  if (!onPress) return content;
-
-  return (
-    <TouchableOpacity activeOpacity={0.86} onPress={onPress}>
-      {content}
-    </TouchableOpacity>
-  );
-};
-
-const Badge = ({ label, accent = SCREEN_COLORS.brand, outline = true }) => (
-  <View style={[
-    styles.badge,
-    {
-      borderColor: outline ? alpha(accent, 0.55) : 'transparent',
-      backgroundColor: alpha(accent, 0.14),
-    },
-  ]}>
-    <Text style={[styles.badgeText, { color: accent }]}>{label}</Text>
-  </View>
-);
-
-const FieldCard = ({ label, value, missing }) => (
-  <View style={styles.fieldCard}>
-    <Text style={styles.fieldLabel}>{label}</Text>
-    {missing ? <MissingInfo label={label} /> : <Text style={styles.fieldValue}>{value}</Text>}
-  </View>
-);
-
-const ListState = ({ source }) => {
-  if (!source || source.status === SOURCE_STATUS.AVAILABLE) return null;
-  if (source.status === SOURCE_STATUS.MISSING) return <MissingInfo label="Fonte" message={source.message} />;
-  return <EmptyState message={source.message} />;
-};
-
-const getStatusAccent = statusColor => {
-  if (statusColor) return statusColor;
-  return SCREEN_COLORS.brand;
-};
-
-const getPreviewText = items => items.filter(Boolean).slice(0, 3).join(' • ');
-
-const toConfigRequestValue = value => {
-  if (value === undefined) {
-    return JSON.stringify('');
-  }
-
-  if (typeof value === 'string') {
-    const trimmedValue = value.trim();
-
-    if (trimmedValue === '') {
-      return JSON.stringify('');
-    }
-
-    try {
-      JSON.parse(trimmedValue);
-      return value;
-    } catch {
-      return JSON.stringify(value);
-    }
-  }
-
-  return JSON.stringify(value);
-};
-
-const parseBooleanInput = value => {
-  const normalizedValue = String(value || '').trim().toLowerCase();
-
-  if (['1', 'true', 'sim', 'yes'].includes(normalizedValue)) return true;
-  if (['0', 'false', 'nao', 'não', 'no'].includes(normalizedValue)) return false;
-
-  return null;
-};
-
-const coerceConfigInputValue = (rawValue, currentValue) => {
-  if (typeof currentValue === 'number') {
-    const parsedNumber = Number.parseFloat(String(rawValue || '').replace(',', '.'));
-    return Number.isFinite(parsedNumber) ? parsedNumber : currentValue;
-  }
-
-  if (typeof currentValue === 'boolean') {
-    const parsedBoolean = parseBooleanInput(rawValue);
-    return parsedBoolean === null ? currentValue : parsedBoolean;
-  }
-
-  return rawValue;
-};
-
-const cloneConfigTree = value => {
-  if (Array.isArray(value)) {
-    return value.map(item => cloneConfigTree(item));
-  }
-
-  if (value && typeof value === 'object') {
-    return Object.entries(value).reduce((accumulator, [key, itemValue]) => {
-      accumulator[key] = cloneConfigTree(itemValue);
-      return accumulator;
-    }, {});
-  }
-
-  return value;
-};
-
-const isNumericPathSegment = segment => /^\d+$/.test(String(segment || '').trim());
-
-const setConfigValueAtPath = (sourceValue, pathSegments = [], nextValue) => {
-  if (!Array.isArray(pathSegments) || pathSegments.length === 0) {
-    return nextValue;
-  }
-
-  const rootContainer = cloneConfigTree(sourceValue);
-  const initialContainer = Array.isArray(rootContainer)
-    ? [...rootContainer]
-    : rootContainer && typeof rootContainer === 'object'
-      ? { ...rootContainer }
-      : (isNumericPathSegment(pathSegments[0]) ? [] : {});
-
-  let cursor = initialContainer;
-
-  for (let index = 0; index < pathSegments.length; index += 1) {
-    const rawSegment = String(pathSegments[index]);
-    const isLeaf = index === pathSegments.length - 1;
-    const numericIndex = isNumericPathSegment(rawSegment) ? Number(rawSegment) - 1 : null;
-    const targetKey = Array.isArray(cursor) && numericIndex !== null ? numericIndex : rawSegment;
-
-    if (isLeaf) {
-      cursor[targetKey] = nextValue;
-      break;
-    }
-
-    const nextSegment = String(pathSegments[index + 1]);
-    const shouldCreateArray = isNumericPathSegment(nextSegment);
-    const currentValue = cursor[targetKey];
-
-    if (Array.isArray(currentValue)) {
-      cursor[targetKey] = [...currentValue];
-    } else if (currentValue && typeof currentValue === 'object') {
-      cursor[targetKey] = { ...currentValue };
-    } else {
-      cursor[targetKey] = shouldCreateArray ? [] : {};
-    }
-
-    cursor = cursor[targetKey];
-  }
-
-  return initialContainer;
-};
-
-const formatPromptConfigValue = value => {
-  if (value === null || value === undefined) return '';
-  if (typeof value === 'string') return value;
-  if (typeof value === 'number' || typeof value === 'boolean') return String(value);
-
-  try {
-    return JSON.stringify(value, null, 2);
-  } catch {
-    return String(value);
-  }
-};
-
-const inferConfigInputValue = (rawValue, currentValue) => {
-  const normalizedRawValue = String(rawValue ?? '');
-  const trimmedRawValue = normalizedRawValue.trim();
-
-  if (Array.isArray(currentValue) || (currentValue && typeof currentValue === 'object')) {
-    if (!trimmedRawValue) {
-      return Array.isArray(currentValue) ? [] : {};
-    }
-
-    try {
-      return JSON.parse(trimmedRawValue);
-    } catch {
-      return currentValue;
-    }
-  }
-
-  if (typeof currentValue === 'number' || typeof currentValue === 'boolean') {
-    return coerceConfigInputValue(normalizedRawValue, currentValue);
-  }
-
-  if (typeof currentValue === 'string' && currentValue !== '') {
-    return rawValue;
-  }
-
-  if (!trimmedRawValue) {
-    return '';
-  }
-
-  const parsedBoolean = parseBooleanInput(trimmedRawValue);
-  if (parsedBoolean !== null) return parsedBoolean;
-
-  if (/^-?\d+(?:[.,]\d+)?$/.test(trimmedRawValue)) {
-    return Number.parseFloat(trimmedRawValue.replace(',', '.'));
-  }
-
-  try {
-    return JSON.parse(trimmedRawValue);
-  } catch {
-    return rawValue;
-  }
-};
-
-const ActionButton = ({ label, onPress, accent = SCREEN_COLORS.brand, iconName = 'plus' }) => (
+const IconButton = ({ icon, label, onPress, active, tone = 'neutral' }) => (
   <TouchableOpacity
-    style={[styles.actionButton, { borderColor: alpha(accent, 0.55) }]}
-    activeOpacity={0.84}
+    style={[styles.iconButton, active && styles.iconButtonActive, tone === 'danger' && styles.iconButtonDanger]}
+    activeOpacity={0.82}
     onPress={onPress}
   >
-    <Icon name={iconName} size={15} color={accent} />
-    {label ? <Text style={[styles.actionButtonText, { color: accent }]}>{label}</Text> : null}
+    <Icon name={icon} size={16} color={active ? MENU_COLORS.brandText : MENU_COLORS.muted} />
+    {label ? <Text style={[styles.iconButtonText, active && styles.iconButtonTextActive]}>{label}</Text> : null}
   </TouchableOpacity>
 );
 
-export default function MenuCostsPage({ navigation }) {
-  const peopleStore = useStore('people');
-  const configsStore = useStore('configs');
-  const themeStore = useStore('theme');
+const normalizeAssetSearch = value =>
+  String(value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase();
+
+const imageForProduct = product =>
+  PRODUCT_IMAGE_ASSETS[product?.id] || CATEGORY_IMAGE_ASSETS[product?.categoryId] || null;
+
+const imageForResource = (refType, refId) =>
+  RESOURCE_IMAGE_ASSETS[`${refType}:${refId}`] || null;
+
+const imageForAddon = addon => {
+  const fromNode = safeArray(addon?.nodes)
+    .map(node => imageForResource(node.refType, node.refId))
+    .find(Boolean);
+  if (fromNode) return fromNode;
+  const text = normalizeAssetSearch(`${addon?.id || ''} ${addon?.name || ''}`);
+  const key = Object.keys(ADDON_IMAGE_ASSETS).find(token => text.includes(normalizeAssetSearch(token)));
+  return key ? ADDON_IMAGE_ASSETS[key] : null;
+};
+
+const VisualThumb = ({ source, label, size = 'md' }) => (
+  <View style={[styles.visualThumb, size === 'lg' && styles.visualThumbLarge, size === 'sm' && styles.visualThumbSmall]}>
+    {source ? (
+      <Image source={source} style={styles.visualImage} resizeMode="cover" />
+    ) : (
+      <Text style={styles.visualInitial}>{String(label || 'GY').slice(0, 2).toUpperCase()}</Text>
+    )}
+  </View>
+);
+
+const MetricCard = ({ label, value, tone }) => (
+  <View style={styles.metricCard}>
+    <Text style={[styles.metricValue, tone === 'warn' && styles.metricValueWarn, tone === 'good' && styles.metricValueGood]}>
+      {value}
+    </Text>
+    <Text style={styles.metricLabel}>{label}</Text>
+  </View>
+);
+
+const SearchBox = ({ value, onChangeText, placeholder }) => (
+  <View style={styles.searchBox}>
+    <Icon name="search" size={16} color={MENU_COLORS.muted} />
+    <TextInput
+      value={value}
+      onChangeText={onChangeText}
+      placeholder={placeholder}
+      placeholderTextColor={MENU_COLORS.muted}
+      style={styles.searchInput}
+    />
+  </View>
+);
+
+const EmptyState = ({ text = 'Nenhum registro encontrado.' }) => (
+  <View style={styles.emptyState}>
+    <Icon name="inbox" size={24} color={MENU_COLORS.muted} />
+    <Text style={styles.emptyStateText}>{text}</Text>
+  </View>
+);
+
+const Field = ({ label, value, inputProps, onChangeText, multiline }) => (
+  <View style={[styles.modalField, multiline && styles.modalFieldWide]}>
+    <Text style={styles.modalLabel}>{label}</Text>
+    <TextInput
+      value={String(value ?? '')}
+      onChangeText={onChangeText}
+      style={[styles.modalInput, multiline && styles.modalTextarea]}
+      multiline={multiline}
+      placeholderTextColor={MENU_COLORS.muted}
+      {...inputProps}
+    />
+  </View>
+);
+
+const RowCard = ({ title, subtitle, meta, selected, onPress, right, badges, imageSource }) => (
+  <TouchableOpacity style={[styles.rowCard, selected && styles.rowCardActive]} activeOpacity={0.84} onPress={onPress}>
+    {imageSource ? <VisualThumb source={imageSource} label={title} size="sm" /> : null}
+    <View style={styles.rowContent}>
+      <Text style={styles.rowTitle} numberOfLines={2}>{title}</Text>
+      {subtitle ? <Text style={styles.rowSubtitle} numberOfLines={2}>{subtitle}</Text> : null}
+      {badges?.length ? <View style={styles.badgeLine}>{badges.map(badge => <Badge key={badge.label} tone={badge.tone}>{badge.label}</Badge>)}</View> : null}
+      {meta ? <Text style={styles.rowMeta} numberOfLines={2}>{meta}</Text> : null}
+    </View>
+    {right ? <View style={styles.rowRight}>{right}</View> : null}
+  </TouchableOpacity>
+);
+
+const DetailShell = ({ title, subtitle, badges, actions, children }) => (
+  <View style={styles.detailPanel}>
+    <View style={styles.detailHeader}>
+      <View style={styles.detailHeaderText}>
+        <View style={styles.badgeLine}>{safeArray(badges).map(badge => <Badge key={badge.label} tone={badge.tone}>{badge.label}</Badge>)}</View>
+        <Text style={styles.detailTitle}>{title}</Text>
+        {subtitle ? <Text style={styles.detailSubtitle}>{subtitle}</Text> : null}
+      </View>
+      {actions ? <View style={styles.detailActions}>{actions}</View> : null}
+    </View>
+    {children}
+  </View>
+);
+
+const InfoGrid = ({ rows }) => (
+  <View style={styles.infoGrid}>
+    {safeArray(rows).map(row => (
+      <View key={`${row.label}-${row.value}`} style={styles.infoCell}>
+        <Text style={styles.infoLabel}>{row.label}</Text>
+        <Text style={styles.infoValue} numberOfLines={2}>{row.value}</Text>
+        {row.helper ? <Text style={styles.infoHelper} numberOfLines={3}>{row.helper}</Text> : null}
+      </View>
+    ))}
+  </View>
+);
+
+const ComponentNode = ({ node, depth = 0 }) => (
+  <View style={[styles.nodeCard, depth > 0 && styles.nodeCardChild]}>
+    <View style={styles.nodeHeader}>
+      <VisualThumb source={imageForResource(node.refType, node.refId)} label={node.name} size="sm" />
+      <View style={styles.nodeTitleWrap}>
+        <Text style={styles.nodeTitle}>{node.name}</Text>
+        <Text style={styles.nodeMeta}>
+          {resourceTypeLabel(node.refType)} · {decimal(node.qty, 3)} {node.unit} · {node.pricingMode}
+        </Text>
+      </View>
+      <Text style={styles.nodeCost}>{money(node.cost)}</Text>
+    </View>
+    {safeArray(node.children).length ? (
+      <View style={styles.nodeChildren}>
+        {node.children.map(child => <ComponentNode key={child.key} node={child} depth={depth + 1} />)}
+      </View>
+    ) : null}
+  </View>
+);
+
+export default function MenuCostsPage() {
   const messageApi = useMessage() || {};
+  const { showError, showSuccess } = messageApi;
   const { width } = useWindowDimensions();
-  const { currentCompany } = peopleStore.getters;
-  const { colors: themeColors } = themeStore.getters;
-  const configActions = configsStore.actions;
-  const { showError, showPrompt, showSuccess } = messageApi;
-
-  const brandColors = useMemo(
-    () => resolveThemePalette({ ...themeColors, ...(currentCompany?.theme?.colors || {}) }, baseColors),
-    [themeColors, currentCompany?.id],
-  );
-
-  const isWide = width >= 1080;
-  const currentCompanyIri = useMemo(() => {
-    if (typeof currentCompany?.['@id'] === 'string' && currentCompany['@id'].startsWith('/')) {
-      return currentCompany['@id'];
-    }
-
-    return currentCompany?.id ? `/people/${currentCompany.id}` : '';
-  }, [currentCompany?.['@id'], currentCompany?.id]);
-
+  const isWide = width >= 1060;
+  const [db, setDb] = useState(() => cloneSeedData());
   const [activeTab, setActiveTab] = useState('dashboard');
-  const [ledgerMode, setLedgerMode] = useState('timeline');
-  const [catalogQuery, setCatalogQuery] = useState('');
-  const [catalogSegment, setCatalogSegment] = useState('all');
-  const [ledgerQuery, setLedgerQuery] = useState('');
-  const [state, setState] = useState({
-    loading: true,
-    refreshing: false,
-    error: '',
-    viewModel: null,
-  });
-  const [selectedProductId, setSelectedProductId] = useState(null);
-  const [selectedOrderId, setSelectedOrderId] = useState(null);
-  const [selectedMapKey, setSelectedMapKey] = useState(null);
-  const [compositionCache, setCompositionCache] = useState({});
-  const [loadingCompositionId, setLoadingCompositionId] = useState(null);
-  const [showProviderModal, setShowProviderModal] = useState(false);
-
-  const providerContext = useMemo(() => ({
-    context: 'provider',
-    title: global.t?.t('people', 'title', 'providers'),
-    searchPlaceholder: global.t?.t('people', 'searchPlaceholder', 'searchProvider'),
-    modalTitle: 'Cadastro de Fornecedor',
-    emptyTitle: global.t?.t('people', 'title', 'emptyProvider'),
-    emptySearchTitle: global.t?.t('people', 'title', 'emptySearchProvider'),
-    emptySubtitle: global.t?.t('people', 'title', 'addFirstProvider'),
-  }), []);
-
-  const loadScreen = useCallback(async (refreshing = false) => {
-    if (!currentCompany?.id) return;
-
-    setState(previous => ({
-      ...previous,
-      loading: refreshing ? previous.loading : true,
-      refreshing,
-      error: '',
-    }));
-
-    try {
-      const viewModel = await loadMenuCostsViewModel(api, currentCompany);
-
-      setState({
-        loading: false,
-        refreshing: false,
-        error: '',
-        viewModel,
-      });
-    } catch {
-      setState(previous => ({
-        ...previous,
-        loading: false,
-        refreshing: false,
-        error: 'Não foi possível carregar os dados desta tela com as fontes atuais.',
-      }));
-    }
-  }, [currentCompany]);
-
-  useFocusEffect(useCallback(() => {
-    loadScreen(false);
-  }, [loadScreen]));
-
-  const viewModel = state.viewModel;
-
-  const openProductCreator = useCallback(initialProductType => {
-    const supplyTypes = ['feedstock', 'component', 'package'];
-    const context = supplyTypes.includes(initialProductType) ? 'supplies' : 'products';
-    navigation.push('ProductDetails', {
-      context,
-      initialProductType,
-    });
-  }, [navigation]);
-
-  const openPurchaseCreator = useCallback(() => {
-    navigation.push('PurchaseFormPage');
-  }, [navigation]);
-
-  const openProviderCreator = useCallback(() => {
-    setShowProviderModal(true);
-  }, []);
-
-  const openGeneralSettings = useCallback(() => {
-    navigation.push('GeneralSettings');
-  }, [navigation]);
-
-  const openSuppliersList = useCallback(() => {
-    navigation.push('ProvidersIndex');
-  }, [navigation]);
-
-  const openPurchaseList = useCallback(() => {
-    navigation.push('OrderHistoryPage', {
-      orderTypeFilter: 'purchase',
-      historyTitle: 'Compras',
-    });
-  }, [navigation]);
-
-  const openProductList = useCallback(productType => {
-    const supplyTypes = ['feedstock', 'component', 'package'];
-
-    navigation.push('ProductsPage', {
-      context: supplyTypes.includes(productType) ? 'supplies' : 'products',
-      interactionMode: 'manager',
-      showBottomCart: false,
-      showBottomToolBar: false,
-      ...(productType ? { typeFilter: productType } : {}),
-    });
-  }, [navigation]);
-
-  const handleEditConfig = useCallback(async configTarget => {
-    const configKey = String(configTarget?.rootConfigKey || configTarget?.configKey || '').trim();
-
-    if (!configKey) {
-      showError?.('Chave de configuração inválida.');
-      return;
-    }
-
-    if (!currentCompanyIri) {
-      showError?.('Empresa atual não encontrada para salvar configuração.');
-      return;
-    }
-
-    if (!showPrompt) {
-      openGeneralSettings();
-      return;
-    }
-
-    const currentValue = configTarget?.parsedValue;
-    const label = String(configTarget?.label || configTarget?.configKey || 'Configuração').trim();
-    const nextRawValue = await showPrompt({
-      title: label,
-      message: configTarget?.configKey ? `Chave: ${configTarget.configKey}` : 'Editar configuração da empresa',
-      defaultValue: formatPromptConfigValue(currentValue),
-      placeholder: 'Informe o novo valor',
-      confirmLabel: 'Salvar',
-      cancelLabel: 'Cancelar',
-    });
-
-    if (nextRawValue === null) {
-      return;
-    }
-
-    try {
-      const pathSegments = Array.isArray(configTarget?.pathSegments) ? configTarget.pathSegments : [];
-      const nextLeafValue = inferConfigInputValue(nextRawValue, currentValue);
-      const nextConfigValue = pathSegments.length
-        ? setConfigValueAtPath(configTarget?.rootParsedValue, pathSegments, nextLeafValue)
-        : nextLeafValue;
-
-      await configActions.addConfigs({
-        configKey,
-        configValue: toConfigRequestValue(nextConfigValue),
-        people: currentCompanyIri,
-        module: 4,
-        visibility: 'public',
-      });
-
-      showSuccess?.(`${label} atualizado.`);
-      await loadScreen(true);
-    } catch {
-      showError?.('Não foi possível salvar esta configuração.');
-    }
-  }, [configActions, currentCompanyIri, loadScreen, openGeneralSettings, showError, showPrompt, showSuccess]);
-
-  const catalogPrimaryAction = useMemo(() => {
-    switch (catalogSegment) {
-      case 'ingredients':
-        return { label: 'Ingrediente', onPress: () => openProductCreator('feedstock') };
-      case 'recipes':
-        return { label: 'Preparo', onPress: () => openProductCreator('manufactured') };
-      case 'packaging':
-        return { label: 'Embalagem', onPress: () => openProductCreator('package') };
-      case 'finalItems':
-      case 'all':
-      default:
-        return { label: 'Item', onPress: () => openProductCreator('product') };
-    }
-  }, [catalogSegment, openProductCreator]);
-
-  const resourceActions = useMemo(() => ({
-    ingredients: [
-      { label: '', onPress: () => openProductCreator('feedstock'), accent: SCREEN_COLORS.good, iconName: 'plus' },
-      { label: 'Lista', onPress: () => openProductList('feedstock'), accent: SCREEN_COLORS.good, iconName: 'list' },
-    ],
-    recipes: [
-      { label: '', onPress: () => openProductCreator('manufactured'), accent: SCREEN_COLORS.warn, iconName: 'plus' },
-      { label: 'Lista', onPress: () => openProductList('manufactured'), accent: SCREEN_COLORS.warn, iconName: 'list' },
-    ],
-    packaging: [
-      { label: '', onPress: () => openProductCreator('package'), accent: '#38BDF8', iconName: 'plus' },
-      { label: 'Lista', onPress: () => openProductList('package'), accent: '#38BDF8', iconName: 'list' },
-    ],
-    suppliers: [
-      { label: '', onPress: openProviderCreator, accent: SCREEN_COLORS.brand, iconName: 'plus' },
-      { label: 'Lista', onPress: openSuppliersList, accent: SCREEN_COLORS.brand, iconName: 'list' },
-    ],
-    purchases: [
-      { label: '', onPress: openPurchaseCreator, accent: SCREEN_COLORS.brand, iconName: 'plus' },
-      { label: 'Lista', onPress: openPurchaseList, accent: SCREEN_COLORS.brand, iconName: 'list' },
-    ],
-    inputs: [
-      { label: 'Config.', onPress: openGeneralSettings, accent: SCREEN_COLORS.brand, iconName: 'sliders' },
-    ],
-    operationalExpenses: [
-      { label: 'Config.', onPress: openGeneralSettings, accent: SCREEN_COLORS.brand, iconName: 'sliders' },
-    ],
-    fixedCosts: [
-      { label: 'Config.', onPress: openGeneralSettings, accent: SCREEN_COLORS.brand, iconName: 'sliders' },
-    ],
-    settings: [
-      { label: 'Config.', onPress: openGeneralSettings, accent: SCREEN_COLORS.brand, iconName: 'sliders' },
-    ],
-  }), [
-    openGeneralSettings,
-    openProductCreator,
-    openProductList,
-    openProviderCreator,
-    openPurchaseCreator,
-    openPurchaseList,
-    openSuppliersList,
-  ]);
-
-  const filteredCatalogItems = useMemo(() => {
-    const items = viewModel?.catalog?.items || [];
-    const normalizedQuery = String(catalogQuery || '').trim().toLowerCase();
-
-    return items.filter(item => {
-      const matchesSegment = catalogSegment === 'all' || item.segmentKey === catalogSegment;
-      if (!matchesSegment) return false;
-
-      if (!normalizedQuery) return true;
-
-      return [
-        item.name,
-        item.sku,
-        item.typeLabel,
-        item.segmentLabel,
-        item.description,
-        item.categoryNames.join(' '),
-      ].join(' ').toLowerCase().includes(normalizedQuery);
-    });
-  }, [catalogQuery, catalogSegment, viewModel?.catalog?.items]);
-
-  const filteredLedgerOrders = useMemo(() => {
-    const orders = viewModel?.ledger?.orders || [];
-    const normalizedQuery = String(ledgerQuery || '').trim().toLowerCase();
-
-    if (!normalizedQuery) return orders;
-
-    return orders.filter(order => [
-      order.id,
-      order.supplierLabel,
-      order.comments,
-      order.items.map(item => item.productName).join(' '),
-      order.items.map(item => item.sku).join(' '),
-    ].join(' ').toLowerCase().includes(normalizedQuery));
-  }, [ledgerQuery, viewModel?.ledger?.orders]);
-
-  const filteredPurchaseMap = useMemo(() => {
-    const source = viewModel?.ledger?.purchaseMap || [];
-    const normalizedQuery = String(ledgerQuery || '').trim().toLowerCase();
-
-    if (!normalizedQuery) return source;
-
-    return source.filter(row => [
-      row.productName,
-      row.productTypeLabel,
-      row.sku,
-      row.suppliers.join(' '),
-    ].join(' ').toLowerCase().includes(normalizedQuery));
-  }, [ledgerQuery, viewModel?.ledger?.purchaseMap]);
+  const [activeProductTab, setActiveProductTab] = useState('summary');
+  const [query, setQuery] = useState('');
+  const [selectedId, setSelectedId] = useState(() => getSectionDefaultSelection(cloneSeedData(), 'dashboard'));
+  const [modal, setModal] = useState(null);
 
   useEffect(() => {
-    if (!filteredCatalogItems.length) {
-      setSelectedProductId(null);
-      return;
-    }
-
-    const hasCurrentSelection = filteredCatalogItems.some(item => item.id === selectedProductId);
-    if (!hasCurrentSelection) {
-      setSelectedProductId(filteredCatalogItems[0].id);
-    }
-  }, [filteredCatalogItems, selectedProductId]);
-
-  useEffect(() => {
-    if (!filteredLedgerOrders.length) {
-      setSelectedOrderId(null);
-      return;
-    }
-
-    const hasCurrentSelection = filteredLedgerOrders.some(order => order.id === selectedOrderId);
-    if (!hasCurrentSelection) {
-      setSelectedOrderId(filteredLedgerOrders[0].id);
-    }
-  }, [filteredLedgerOrders, selectedOrderId]);
-
-  useEffect(() => {
-    if (!filteredPurchaseMap.length) {
-      setSelectedMapKey(null);
-      return;
-    }
-
-    const hasCurrentSelection = filteredPurchaseMap.some(row => row.key === selectedMapKey);
-    if (!hasCurrentSelection) {
-      setSelectedMapKey(filteredPurchaseMap[0].key);
-    }
-  }, [filteredPurchaseMap, selectedMapKey]);
-
-  const selectedProduct = useMemo(
-    () => filteredCatalogItems.find(item => item.id === selectedProductId) || filteredCatalogItems[0] || null,
-    [filteredCatalogItems, selectedProductId],
-  );
-
-  const selectedOrder = useMemo(
-    () => filteredLedgerOrders.find(item => item.id === selectedOrderId) || filteredLedgerOrders[0] || null,
-    [filteredLedgerOrders, selectedOrderId],
-  );
-
-  const selectedMapRow = useMemo(
-    () => filteredPurchaseMap.find(item => item.key === selectedMapKey) || filteredPurchaseMap[0] || null,
-    [filteredPurchaseMap, selectedMapKey],
-  );
-
-  const ensureCompositionLoaded = useCallback(async product => {
-    if (!product?.id || !product.groupCount || compositionCache[product.id] || loadingCompositionId === product.id) {
-      return;
-    }
-
-    setLoadingCompositionId(product.id);
-    try {
-      const composition = await loadProductComposition(api, product.groups || []);
-      setCompositionCache(previous => ({
-        ...previous,
-        [product.id]: composition,
-      }));
-    } catch {
-      setCompositionCache(previous => ({
-        ...previous,
-        [product.id]: createSourceState([], 'Não foi possível carregar a composição'),
-      }));
-    } finally {
-      setLoadingCompositionId(null);
-    }
-  }, [compositionCache, loadingCompositionId]);
-
-  useEffect(() => {
-    if (activeTab === 'catalog' && selectedProduct) {
-      ensureCompositionLoaded(selectedProduct);
-    }
-  }, [activeTab, ensureCompositionLoaded, selectedProduct]);
-
-  const renderHero = () => (
-    <View style={styles.heroCard}>
-      <View style={[styles.heroAccent, { backgroundColor: alpha(brandColors.primary || SCREEN_COLORS.brand, 0.75) }]} />
-      <Text style={styles.heroEyebrow}>Manager / Compras</Text>
-      <Text style={styles.heroTitle}>{viewModel?.dashboard?.heroTitle || 'Custos do Cardápio'}</Text>
-      <Text style={styles.heroSubtitle}>
-        {viewModel?.company?.label ? `${viewModel.company.label} • ` : ''}
-        {viewModel?.dashboard?.heroSubtitle}
-      </Text>
-      <Text style={styles.companyLine}>Fontes reais: products, orders, product groups, product categories, purchasing suggestion e configs.</Text>
-      <View style={styles.heroBadgeRow}>
-        <View style={[styles.heroBadge, { borderColor: alpha(brandColors.primary || SCREEN_COLORS.brand, 0.55) }]}>
-          <Text style={[styles.heroBadgeText, { color: brandColors.primary || SCREEN_COLORS.brand }]}>Leitura + atalhos</Text>
-        </View>
-        <View style={[styles.heroBadge, { borderColor: alpha(SCREEN_COLORS.bad, 0.55) }]}>
-          <Text style={[styles.heroBadgeText, { color: '#FCA5A5' }]}>{MISSING_TEXT}</Text>
-        </View>
-        <View style={[styles.heroBadge, { borderColor: alpha(SCREEN_COLORS.good, 0.45) }]}>
-          <Text style={[styles.heroBadgeText, { color: SCREEN_COLORS.good }]}>Composição atual mantida no backend</Text>
-        </View>
-      </View>
-    </View>
-  );
-
-  const renderTabs = () => (
-    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.tabScroll}>
-      <View style={styles.tabRow}>
-        {TAB_DEFINITIONS.map(tab => {
-          const isActive = tab.key === activeTab;
-          return (
-            <TouchableOpacity
-              key={tab.key}
-              style={[styles.tabButton, isActive && styles.tabButtonActive]}
-              activeOpacity={0.82}
-              onPress={() => setActiveTab(tab.key)}
-            >
-              <Text style={styles.tabLabel}>{tab.label}</Text>
-              <Text style={styles.tabDescription}>{tab.description}</Text>
-            </TouchableOpacity>
-          );
-        })}
-      </View>
-    </ScrollView>
-  );
-
-  const renderDashboard = () => (
-    (() => {
-      const actualMetrics = viewModel?.dashboard?.actualMetrics || [];
-      const configMetrics = viewModel?.dashboard?.configMetrics || [];
-      const suggestionSource = viewModel?.dashboard?.suggestionSource || createSourceState([], 'Sem itens com reposição sugerida');
-      const recentPurchaseSource = viewModel?.dashboard?.recentPurchaseSource || createSourceState([], 'Sem compras registradas');
-
-      return (
-        <>
-          <View style={styles.metricGrid}>
-            {actualMetrics.map(metric => (
-              <MetricCard
-                key={metric.key}
-                label={metric.label}
-                value={metric.value}
-                accent={metric.key === 'suggestions' ? SCREEN_COLORS.brand : SCREEN_COLORS.text}
-              />
-            ))}
-            {configMetrics.map(metric => (
-              <MetricCard
-                key={metric.key}
-                label={metric.label}
-                value={metric.value}
-                missing={metric.missing}
-                message={metric.message}
-                accent={metric.accent}
-                onPress={metric.editor ? () => handleEditConfig(metric.editor) : undefined}
-              />
-            ))}
-          </View>
-
-          <View style={styles.twoColumnRow}>
-            <View style={styles.sidePanel}>
-              <Text style={styles.panelTitle}>Reposição sugerida</Text>
-              <ListState source={suggestionSource} />
-              {suggestionSource.status === SOURCE_STATUS.AVAILABLE
-                ? suggestionSource.items.slice(0, 6).map(item => (
-                  <View key={`${item.id}-${item.productName}`} style={styles.listItemCard}>
-                    <View style={styles.listItemHeader}>
-                      <Text style={styles.listItemTitle}>{item.productName || `Produto #${item.id || '-'}`}</Text>
-                      <Badge label={item.productTypeLabel} accent={SCREEN_COLORS.good} />
-                    </View>
-                    <Text style={styles.listItemMeta}>
-                      Estoque {item.stockLabel} • Mínimo {item.minimumLabel} • Repor {item.neededLabel} {item.unity || ''}
-                    </Text>
-                  </View>
-                ))
-                : null}
-            </View>
-
-            <View style={styles.sidePanel}>
-              <Text style={styles.panelTitle}>Últimas compras</Text>
-              <ListState source={recentPurchaseSource} />
-              {recentPurchaseSource.status === SOURCE_STATUS.AVAILABLE
-                ? recentPurchaseSource.items.map(order => (
-                  <View key={order.id} style={styles.listItemCard}>
-                    <View style={styles.listItemHeader}>
-                      <Text style={styles.listItemTitle}>Pedido #{order.id}</Text>
-                      <Badge
-                        label={order.statusLabel || 'Compra'}
-                        accent={getStatusAccent(order.statusColor)}
-                      />
-                    </View>
-                    <Text style={styles.listItemMeta}>
-                      {order.dateLabel || MISSING_TEXT} • {order.supplierLabel || MISSING_TEXT}
-                    </Text>
-                    <Text style={styles.listItemMeta}>
-                      {order.itemsPreview.length ? getPreviewText(order.itemsPreview) : 'Sem itens detalhados'}
-                    </Text>
-                  </View>
-                ))
-                : null}
-            </View>
-          </View>
-        </>
-      );
-    })()
-  );
-
-  const renderCatalogTable = () => (
-    <View style={styles.tableWrap}>
-      <View style={styles.tableHeaderRow}>
-        <View style={{ flex: 1.8 }}>
-          <Text style={styles.tableHeaderCell}>Item</Text>
-        </View>
-        <View style={{ flex: 0.9 }}>
-          <Text style={styles.tableHeaderCell}>Tipo</Text>
-        </View>
-        <View style={{ flex: 0.8 }}>
-          <Text style={styles.tableHeaderCell}>Fornec.</Text>
-        </View>
-        <View style={{ flex: 0.8 }}>
-          <Text style={styles.tableHeaderCell}>Grupos</Text>
-        </View>
-        <View style={{ flex: 0.9 }}>
-          <Text style={styles.tableHeaderCell}>Preço</Text>
-        </View>
-      </View>
-
-      {filteredCatalogItems.map(item => {
-        const isActive = item.id === selectedProduct?.id;
-        return (
-          <TouchableOpacity
-            key={item.id}
-            style={[styles.tableRow, isActive && styles.tableRowActive]}
-            activeOpacity={0.84}
-            onPress={() => setSelectedProductId(item.id)}
-          >
-            <View style={{ flex: 1.8, paddingRight: 10 }}>
-              <Text style={styles.tableCellText}>{item.name}</Text>
-              <Text style={styles.mutedText}>{item.sku || item.segmentLabel}</Text>
-            </View>
-            <View style={{ flex: 0.9, paddingRight: 10 }}>
-              <Text style={styles.tableCellText}>{item.typeLabel}</Text>
-            </View>
-            <View style={{ flex: 0.8, paddingRight: 10 }}>
-              <Text style={styles.tableCellText}>{String(item.supplierCount)}</Text>
-            </View>
-            <View style={{ flex: 0.8, paddingRight: 10 }}>
-              <Text style={styles.tableCellText}>{String(item.groupCount)}</Text>
-            </View>
-            <View style={{ flex: 0.9 }}>
-              {item.priceLabel ? <Text style={styles.tableCellText}>{item.priceLabel}</Text> : <Text style={[styles.tableCellText, { color: '#FCA5A5' }]}>{MISSING_TEXT}</Text>}
-            </View>
-          </TouchableOpacity>
-        );
-      })}
-    </View>
-  );
-
-  const renderCatalogDetail = () => {
-    if (!selectedProduct) {
-      return <EmptyState message="Sem item selecionado." />;
-    }
-
-    const compositionState = compositionCache[selectedProduct.id];
-    const isCompositionLoading = loadingCompositionId === selectedProduct.id;
-    const pricing = selectedProduct.pricing || null;
-    const suggestedPriceLabel = pricing?.simulatedByMarginLabel || pricing?.suggestedByMarginWithFeesLabel || '';
-
-    return (
-      <View style={styles.detailCard}>
-        <View style={styles.detailHeader}>
-          <Text style={styles.detailTitle}>{selectedProduct.name}</Text>
-          <Text style={styles.detailSubtitle}>
-            {selectedProduct.description || 'Sem descrição cadastrada'}
-          </Text>
-          <View style={styles.badgesWrap}>
-            <Badge label={selectedProduct.segmentLabel} accent={selectedProduct.segmentAccent} />
-            <Badge label={selectedProduct.typeLabel} accent={SCREEN_COLORS.brand} />
-            {selectedProduct.active ? <Badge label="Ativo" accent={SCREEN_COLORS.good} /> : <Badge label="Inativo" accent={SCREEN_COLORS.bad} />}
-            {selectedProduct.featured ? <Badge label="Destaque" accent={SCREEN_COLORS.warn} /> : null}
-          </View>
-        </View>
-
-        <View style={styles.fieldGrid}>
-          <FieldCard label="SKU" value={selectedProduct.sku || MISSING_TEXT} missing={!selectedProduct.sku} />
-          <FieldCard label="Preço base" value={selectedProduct.priceLabel || MISSING_TEXT} missing={!selectedProduct.priceLabel} />
-          <FieldCard label="Unidade" value={selectedProduct.unitLabel || MISSING_TEXT} missing={!selectedProduct.unitLabel} />
-          <FieldCard label="Fila" value={selectedProduct.queueLabel || MISSING_TEXT} missing={!selectedProduct.queueLabel} />
-          <FieldCard label="Estoque entrada" value={selectedProduct.defaultInInventory || MISSING_TEXT} missing={!selectedProduct.defaultInInventory} />
-          <FieldCard label="Estoque saida" value={selectedProduct.defaultOutInventory || MISSING_TEXT} missing={!selectedProduct.defaultOutInventory} />
-        </View>
-
-        <View style={styles.divider} />
-
-        <Text style={styles.detailSectionTitle}>Categorias</Text>
-        {selectedProduct.categories.length
-          ? selectedProduct.categories.map(category => (
-            <View key={`${selectedProduct.id}-${category.id || category.name}`} style={styles.smallListItem}>
-              <Text style={styles.smallListTitle}>{category.name}</Text>
-              <Text style={styles.smallListMeta}>{category.color || 'Sem cor cadastrada'}</Text>
-            </View>
-          ))
-          : <EmptyState message="Sem categorias vinculadas." />}
-
-        <View style={styles.divider} />
-
-        <Text style={styles.detailSectionTitle}>Fornecedores vinculados</Text>
-        {selectedProduct.suppliers.length
-          ? selectedProduct.suppliers.map(supplier => (
-            <View key={`${selectedProduct.id}-${supplier.id}`} style={styles.smallListItem}>
-              <Text style={styles.smallListTitle}>{supplier.label}</Text>
-              <Text style={styles.smallListMeta}>
-                {supplier.role || 'supplier'}
-                {supplier.costPriceLabel ? ` • ${supplier.costPriceLabel}` : ` • ${MISSING_TEXT}`}
-                {supplier.leadTimeDays ? ` • ${supplier.leadTimeDays} dias` : ''}
-              </Text>
-            </View>
-          ))
-          : <EmptyState message="Sem fornecedores vinculados." />}
-
-        <View style={styles.divider} />
-
-        <Text style={styles.detailSectionTitle}>Composição por grupos</Text>
-        {!selectedProduct.groupCount ? <EmptyState message="Sem grupos de composição cadastrados." /> : null}
-        {isCompositionLoading ? (
-          <ActivityIndicator size="small" color={brandColors.primary || SCREEN_COLORS.brand} />
-        ) : null}
-        {compositionState?.status === SOURCE_STATUS.AVAILABLE
-          ? compositionState.items.map(group => (
-            <View key={`${selectedProduct.id}-${group.id}`} style={styles.smallListItem}>
-              <Text style={styles.smallListTitle}>{group.name}</Text>
-              <Text style={styles.smallListMeta}>
-                {group.required ? 'Obrigatório' : 'Opcional'}
-                {typeof group.minimum === 'number' ? ` • Min ${group.minimum}` : ''}
-                {typeof group.maximum === 'number' ? ` • Max ${group.maximum}` : ''}
-                {group.priceCalculation ? ` • ${group.priceCalculation}` : ''}
-              </Text>
-              <View style={{ marginTop: 8 }}>
-                {group.componentsState.status === SOURCE_STATUS.AVAILABLE
-                  ? group.components.map(component => (
-                    <View key={`${group.id}-${component.id}`} style={styles.smallListItem}>
-                      <Text style={styles.smallListTitle}>{component.productName}</Text>
-                      <Text style={styles.smallListMeta}>
-                        {component.typeLabel} • Qtde {component.quantityLabel}
-                        {component.priceLabel ? ` • ${component.priceLabel}` : ` • ${MISSING_TEXT}`}
-                      </Text>
-                    </View>
-                  ))
-                  : <ListState source={group.componentsState} />}
-              </View>
-            </View>
-          ))
-          : compositionState?.status === SOURCE_STATUS.EMPTY ? <EmptyState message={compositionState.message} /> : null}
-
-        <View style={styles.divider} />
-
-        <Text style={styles.detailSectionTitle}>Precificação atual</Text>
-        <View style={styles.fieldGrid}>
-          <FieldCard label="Margem alvo" value={pricing?.marginTargetLabel || MISSING_TEXT} missing={!pricing?.marginTargetLabel} />
-          <FieldCard label="Custo consolidado por rendimento" value={pricing?.totalUnitCostLabel || MISSING_TEXT} missing={!pricing?.totalUnitCostLabel} />
-          <FieldCard label="Preço sugerido por margem/CMV" value={suggestedPriceLabel || MISSING_TEXT} missing={!suggestedPriceLabel} />
-          <FieldCard label="Perda estimada" value={pricing?.lossPctLabel || MISSING_TEXT} missing={!pricing?.lossPctLabel} />
-          <FieldCard label="Custo operacional" value={pricing?.operationalCostLabel || MISSING_TEXT} missing={!pricing?.operationalCostLabel} />
-          <FieldCard label="Custo de embalagem" value={pricing?.packagingCostLabel || MISSING_TEXT} missing={!pricing?.packagingCostLabel} />
-          <FieldCard label="Custo logístico" value={pricing?.logisticsCostLabel || MISSING_TEXT} missing={!pricing?.logisticsCostLabel} />
-          <FieldCard label="Origem da precificação" value={pricing?.source || MISSING_TEXT} missing={!pricing?.source} />
-        </View>
-      </View>
-    );
-  };
-
-  const renderCatalog = () => {
-    const catalog = viewModel?.catalog || {
-      segmentSummary: [],
-      source: createSourceState([], 'Sem produtos cadastrados'),
+    let alive = true;
+    AsyncStorage.getItem(STORAGE_KEY)
+      .then(value => {
+        if (!alive || !value) return;
+        setDb(JSON.parse(value));
+      })
+      .catch(() => showError?.('Não foi possível ler os dados locais da Engenharia.'));
+    return () => {
+      alive = false;
     };
+  }, [showError]);
 
-    return (
-      <>
-        <View style={styles.metricGrid}>
-          {catalog.segmentSummary.map(metric => (
-            <MetricCard
-              key={metric.key}
-              label={metric.label}
-              value={metric.value}
-              accent={metric.accent}
-            />
-          ))}
-        </View>
-
-        <View style={styles.sectionBlock}>
-          <View style={styles.sectionHeaderRow}>
-            <View style={styles.sectionTitleWrap}>
-              <Text style={styles.sectionTitle}>Catálogo</Text>
-              <Text style={styles.sectionDescription}>
-                Produtos já cadastrados com atalho direto para novo ingrediente, preparo, embalagem ou item final.
-              </Text>
-            </View>
-            <ActionButton
-              label={catalogPrimaryAction.label}
-              onPress={catalogPrimaryAction.onPress}
-              accent={SCREEN_COLORS.brand}
-            />
-          </View>
-
-          <View style={styles.filterRow}>
-            {CATALOG_SEGMENTS.map(segment => {
-              const active = segment.key === catalogSegment;
-              return (
-                <TouchableOpacity
-                  key={segment.key}
-                  style={[styles.filterChip, active && styles.filterChipActive, active && { borderColor: segment.accent }]}
-                  activeOpacity={0.85}
-                  onPress={() => setCatalogSegment(segment.key)}
-                >
-                  <Text style={[styles.filterChipText, active && { color: segment.accent }]}>{segment.label}</Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-
-          <TextInput
-            value={catalogQuery}
-            onChangeText={setCatalogQuery}
-            placeholder="Buscar item, SKU, tipo ou categoria..."
-            placeholderTextColor={SCREEN_COLORS.muted}
-            style={styles.searchInput}
-          />
-
-          <ListState source={catalog.source.status === SOURCE_STATUS.AVAILABLE ? createSourceState(filteredCatalogItems, 'Nenhum item encontrado com este filtro') : catalog.source} />
-          {filteredCatalogItems.length ? (
-            <View style={[styles.splitLayout, !isWide && { flexDirection: 'column' }]}>
-              <View style={styles.splitPrimary}>{renderCatalogTable()}</View>
-              <View style={styles.splitSecondary}>{renderCatalogDetail()}</View>
-            </View>
-          ) : null}
-        </View>
-      </>
-    );
-  };
-
-  const renderLedgerTimeline = () => (
-    <View style={styles.tableWrap}>
-      <View style={styles.tableHeaderRow}>
-        <View style={{ flex: 1.2 }}>
-          <Text style={styles.tableHeaderCell}>Pedido</Text>
-        </View>
-        <View style={{ flex: 1.5 }}>
-          <Text style={styles.tableHeaderCell}>Fornecedor</Text>
-        </View>
-        <View style={{ flex: 1.1 }}>
-          <Text style={styles.tableHeaderCell}>Data</Text>
-        </View>
-        <View style={{ flex: 0.9 }}>
-          <Text style={styles.tableHeaderCell}>Itens</Text>
-        </View>
-        <View style={{ flex: 1 }}>
-          <Text style={styles.tableHeaderCell}>Total</Text>
-        </View>
-      </View>
-
-      {filteredLedgerOrders.map(order => (
-        <TouchableOpacity
-          key={order.id}
-          style={[styles.tableRow, order.id === selectedOrder?.id && styles.tableRowActive]}
-          activeOpacity={0.84}
-          onPress={() => setSelectedOrderId(order.id)}
-        >
-          <View style={{ flex: 1.2, paddingRight: 10 }}>
-            <Text style={styles.tableCellText}>#{order.id}</Text>
-            <Text style={styles.mutedText}>{order.statusLabel || 'Compra'}</Text>
-          </View>
-          <View style={{ flex: 1.5, paddingRight: 10 }}>
-            {order.supplierLabel ? <Text style={styles.tableCellText}>{order.supplierLabel}</Text> : <Text style={[styles.tableCellText, { color: '#FCA5A5' }]}>{MISSING_TEXT}</Text>}
-          </View>
-          <View style={{ flex: 1.1, paddingRight: 10 }}>
-            {order.dateLabel ? <Text style={styles.tableCellText}>{order.dateLabel}</Text> : <Text style={[styles.tableCellText, { color: '#FCA5A5' }]}>{MISSING_TEXT}</Text>}
-          </View>
-          <View style={{ flex: 0.9, paddingRight: 10 }}>
-            <Text style={styles.tableCellText}>{String(order.itemCount)}</Text>
-          </View>
-          <View style={{ flex: 1 }}>
-            {order.totalLabel ? <Text style={styles.tableCellText}>{order.totalLabel}</Text> : <Text style={[styles.tableCellText, { color: '#FCA5A5' }]}>{MISSING_TEXT}</Text>}
-          </View>
-        </TouchableOpacity>
-      ))}
-    </View>
-  );
-
-  const renderLedgerDetail = () => {
-    if (!selectedOrder) {
-      return <EmptyState message="Sem pedido selecionado." />;
+  const persistDb = useCallback(async nextDb => {
+    setDb(nextDb);
+    try {
+      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(nextDb));
+    } catch {
+      showError?.('Não foi possível salvar os dados locais desta tela.');
     }
+  }, [showError]);
 
-    return (
-      <View style={styles.detailCard}>
-        <View style={styles.detailHeader}>
-          <Text style={styles.detailTitle}>Pedido de compra #{selectedOrder.id}</Text>
-          <Text style={styles.detailSubtitle}>
-            {selectedOrder.dateTimeLabel || MISSING_TEXT}
-          </Text>
-          <View style={styles.badgesWrap}>
-            <Badge label={selectedOrder.statusLabel || 'Compra'} accent={getStatusAccent(selectedOrder.statusColor)} />
-            {selectedOrder.supplierLabel ? <Badge label={selectedOrder.supplierLabel} accent={SCREEN_COLORS.brand} /> : null}
-          </View>
-        </View>
+  const switchTab = useCallback(tab => {
+    setActiveTab(tab);
+    setActiveProductTab('summary');
+    setQuery('');
+    setSelectedId(getSectionDefaultSelection(db, tab));
+  }, [db]);
 
-        <View style={styles.fieldGrid}>
-          <FieldCard label="Fornecedor" value={selectedOrder.supplierLabel || MISSING_TEXT} missing={!selectedOrder.supplierLabel} />
-          <FieldCard label="Data" value={selectedOrder.dateLabel || MISSING_TEXT} missing={!selectedOrder.dateLabel} />
-          <FieldCard label="Itens" value={String(selectedOrder.itemCount)} />
-          <FieldCard label="Quantidade" value={formatQuantity(selectedOrder.totalQuantity, 3) || '0'} />
-        </View>
-
-        <View style={styles.divider} />
-
-        <Text style={styles.detailSectionTitle}>Itens comprados</Text>
-        {selectedOrder.items.length
-          ? selectedOrder.items.map(item => (
-            <View key={`${selectedOrder.id}-${item.id}`} style={styles.smallListItem}>
-              <Text style={styles.smallListTitle}>{item.productName}</Text>
-              <Text style={styles.smallListMeta}>
-                {item.productTypeLabel} • Qtde {item.quantityLabel}
-                {item.inInventoryLabel ? ` • Estoque ${item.inInventoryLabel}` : ` • Estoque ${MISSING_TEXT}`}
-              </Text>
-              <Text style={styles.smallListMeta}>
-                {item.priceLabel || MISSING_TEXT} • {item.totalLabel || MISSING_TEXT}
-              </Text>
-            </View>
-          ))
-          : <EmptyState message="Sem itens detalhados neste pedido." />}
-
-        <View style={styles.divider} />
-
-        <Text style={styles.detailSectionTitle}>Evidências e financeiro</Text>
-        <MissingInfo label="Comprovantes anexos" />
-        <View style={{ height: 10 }} />
-        <MissingInfo label="Número documental" />
-        <View style={{ height: 10 }} />
-        <MissingInfo label="Forma/status de pagamento" />
-      </View>
-    );
-  };
-
-  const renderPurchaseMap = () => (
-    <View style={styles.tableWrap}>
-      <View style={styles.tableHeaderRow}>
-        <View style={{ flex: 1.8 }}>
-          <Text style={styles.tableHeaderCell}>Familia comprada</Text>
-        </View>
-        <View style={{ flex: 0.9 }}>
-          <Text style={styles.tableHeaderCell}>Qtde</Text>
-        </View>
-        <View style={{ flex: 1 }}>
-          <Text style={styles.tableHeaderCell}>Último preço</Text>
-        </View>
-        <View style={{ flex: 1 }}>
-          <Text style={styles.tableHeaderCell}>Total</Text>
-        </View>
-      </View>
-
-      {filteredPurchaseMap.map(row => (
-        <TouchableOpacity
-          key={row.key}
-          style={[styles.tableRow, row.key === selectedMapRow?.key && styles.tableRowActive]}
-          activeOpacity={0.84}
-          onPress={() => setSelectedMapKey(row.key)}
-        >
-          <View style={{ flex: 1.8, paddingRight: 10 }}>
-            <Text style={styles.tableCellText}>{row.productName}</Text>
-            <Text style={styles.mutedText}>{row.productTypeLabel}</Text>
-          </View>
-          <View style={{ flex: 0.9, paddingRight: 10 }}>
-            <Text style={styles.tableCellText}>{row.quantityLabel}</Text>
-          </View>
-          <View style={{ flex: 1, paddingRight: 10 }}>
-            {row.latestPriceLabel ? <Text style={styles.tableCellText}>{row.latestPriceLabel}</Text> : <Text style={[styles.tableCellText, { color: '#FCA5A5' }]}>{MISSING_TEXT}</Text>}
-          </View>
-          <View style={{ flex: 1 }}>
-            {row.totalLabel ? <Text style={styles.tableCellText}>{row.totalLabel}</Text> : <Text style={[styles.tableCellText, { color: '#FCA5A5' }]}>{MISSING_TEXT}</Text>}
-          </View>
-        </TouchableOpacity>
-      ))}
-    </View>
-  );
-
-  const renderPurchaseMapDetail = () => {
-    if (!selectedMapRow) {
-      return <EmptyState message="Sem familia de compra selecionada." />;
-    }
-
-    return (
-      <View style={styles.detailCard}>
-        <View style={styles.detailHeader}>
-          <Text style={styles.detailTitle}>{selectedMapRow.productName}</Text>
-          <Text style={styles.detailSubtitle}>
-            {selectedMapRow.productTypeLabel}
-            {selectedMapRow.sku ? ` • ${selectedMapRow.sku}` : ''}
-          </Text>
-          <View style={styles.badgesWrap}>
-            <Badge label={`Última compra ${selectedMapRow.lastOrderDateLabel || MISSING_TEXT}`} accent={SCREEN_COLORS.brand} />
-            <Badge label={`${selectedMapRow.occurrences.length} ocorrências`} accent={SCREEN_COLORS.good} />
-          </View>
-        </View>
-
-        <View style={styles.fieldGrid}>
-          <FieldCard label="Quantidade comprada" value={selectedMapRow.quantityLabel} />
-          <FieldCard label="Último preço" value={selectedMapRow.latestPriceLabel || MISSING_TEXT} missing={!selectedMapRow.latestPriceLabel} />
-          <FieldCard label="Total acumulado" value={selectedMapRow.totalLabel || MISSING_TEXT} missing={!selectedMapRow.totalLabel} />
-          <FieldCard label="Fornecedores" value={selectedMapRow.suppliers.length ? selectedMapRow.suppliers.join(', ') : MISSING_TEXT} missing={!selectedMapRow.suppliers.length} />
-        </View>
-
-        <View style={styles.divider} />
-
-        <Text style={styles.detailSectionTitle}>Ocorrências</Text>
-        {selectedMapRow.occurrences.map((occurrence, index) => (
-          <View key={`${selectedMapRow.key}-${occurrence.orderId}-${index}`} style={styles.smallListItem}>
-            <Text style={styles.smallListTitle}>Pedido #{occurrence.orderId}</Text>
-            <Text style={styles.smallListMeta}>
-              {occurrence.dateLabel || MISSING_TEXT}
-              {occurrence.supplierLabel ? ` • ${occurrence.supplierLabel}` : ` • ${MISSING_TEXT}`}
-            </Text>
-            <Text style={styles.smallListMeta}>
-              Qtde {occurrence.quantityLabel}
-              {occurrence.priceLabel ? ` • ${occurrence.priceLabel}` : ` • ${MISSING_TEXT}`}
-              {occurrence.totalLabel ? ` • ${occurrence.totalLabel}` : ''}
-            </Text>
-          </View>
-        ))}
-
-        <View style={styles.divider} />
-
-        <Text style={styles.detailSectionTitle}>Campos ainda sem fonte</Text>
-        <MissingInfo label="Links de evidência" />
-      </View>
-    );
-  };
-
-  const renderLedger = () => {
-    const ledger = viewModel?.ledger || {
-      source: createSourceState([], 'Sem compras registradas'),
-      orders: [],
-      purchaseMapSource: createSourceState([], 'Sem itens comprados para consolidar'),
-      purchaseMap: [],
+  const patchCollectionItem = useCallback((collection, id, patch) => {
+    const nextDb = {
+      ...db,
+      [collection]: safeArray(db[collection]).map(item =>
+        String(item.id) === String(id) ? { ...item, ...patch } : item
+      ),
     };
-    const activeListSource = ledgerMode === 'timeline'
-      ? (ledger.source.status === SOURCE_STATUS.AVAILABLE
-        ? createSourceState(filteredLedgerOrders, 'Nenhum pedido encontrado com este filtro')
-        : ledger.source)
-      : (ledger.purchaseMapSource.status === SOURCE_STATUS.AVAILABLE
-        ? createSourceState(filteredPurchaseMap, 'Nenhuma familia encontrada com este filtro')
-        : ledger.purchaseMapSource);
+    persistDb(nextDb);
+    showSuccess?.('Registro atualizado nesta tela.');
+  }, [db, persistDb, showSuccess]);
 
-    return (
-      <>
-        <View style={styles.metricGrid}>
-          <MetricCard label="Compras" value={String(ledger.orders.length)} accent={SCREEN_COLORS.brand} />
-          <MetricCard label="Famílias compradas" value={String(ledger.purchaseMap.length)} accent={SCREEN_COLORS.good} />
-          <MetricCard
-            label="Comprovantes anexos"
-            missing
-          />
-          <MetricCard
-            label="Pagamento consolidado"
-            missing
-          />
-        </View>
+  const resetLocalData = useCallback(async () => {
+    const nextDb = cloneSeedData();
+    await AsyncStorage.removeItem(STORAGE_KEY);
+    setDb(nextDb);
+    setSelectedId(getSectionDefaultSelection(nextDb, activeTab));
+    showSuccess?.('Base local restaurada a partir do PWA.');
+  }, [activeTab, showSuccess]);
 
-        <View style={styles.sectionBlock}>
-          <View style={styles.sectionHeaderRow}>
-            <View style={styles.sectionTitleWrap}>
-              <Text style={styles.sectionTitle}>Lançamentos</Text>
-              <Text style={styles.sectionDescription}>
-                Timeline de pedidos de compra e consolidação por família comprada usando `productId + type`.
-              </Text>
-            </View>
-            <View style={styles.modeRow}>
-              <ActionButton
-                label="Compra"
-                onPress={openPurchaseCreator}
-                accent={SCREEN_COLORS.brand}
-              />
-              {LEDGER_MODES.map(mode => {
-                const active = ledgerMode === mode.key;
-                return (
-                  <TouchableOpacity
-                    key={mode.key}
-                    style={[styles.modeButton, active && styles.modeButtonActive]}
-                    activeOpacity={0.82}
-                    onPress={() => setLedgerMode(mode.key)}
-                  >
-                    <Text style={[styles.modeButtonText, active && { color: SCREEN_COLORS.brand }]}>{mode.label}</Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-          </View>
+  const downloadTextFile = useCallback((content, filename, type) => {
+    if (typeof document === 'undefined') {
+      showSuccess?.('Exportação preparada para ambiente web.');
+      return;
+    }
+    const blob = new Blob([content], { type });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    link.click();
+    URL.revokeObjectURL(url);
+  }, [showSuccess]);
 
-          <TextInput
-            value={ledgerQuery}
-            onChangeText={setLedgerQuery}
-            placeholder="Buscar por pedido, fornecedor, item ou SKU..."
-            placeholderTextColor={SCREEN_COLORS.muted}
-            style={styles.searchInput}
-          />
-
-          <ListState source={activeListSource} />
-          {(ledgerMode === 'timeline' ? filteredLedgerOrders.length : filteredPurchaseMap.length) ? (
-            <View style={[styles.splitLayout, !isWide && { flexDirection: 'column' }]}>
-              <View style={styles.splitPrimary}>
-                {ledgerMode === 'timeline' ? renderLedgerTimeline() : renderPurchaseMap()}
-              </View>
-              <View style={styles.splitSecondary}>
-                {ledgerMode === 'timeline' ? renderLedgerDetail() : renderPurchaseMapDetail()}
-              </View>
-            </View>
-          ) : null}
-        </View>
-      </>
+  const exportJson = useCallback(() => {
+    downloadTextFile(
+      JSON.stringify(buildExportPayload(db), null, 2),
+      'gyros-custos-cardapio-erp.json',
+      'application/json'
     );
-  };
+  }, [db, downloadTextFile]);
 
-  const renderRegisterCard = (sectionKey, section) => {
-    const actions = Array.isArray(resourceActions[sectionKey]) ? resourceActions[sectionKey] : [];
-    const normalizedSection = section || { title: '', ...createSourceState([]) };
-    const sectionItems = Array.isArray(normalizedSection.items) ? normalizedSection.items : [];
-    const renderHeaderActions = () => {
-      if (!actions.length) return null;
+  const exportErpJson = useCallback(() => {
+    downloadTextFile(
+      JSON.stringify(buildErpExportPayload(db), null, 2),
+      'gyros-engenharia-export-erp.json',
+      'application/json'
+    );
+  }, [db, downloadTextFile]);
 
-      return (
-        <View style={styles.registerActionsRow}>
-          {actions.map((action, index) => (
-            <View key={`${sectionKey}-action-${action.label || action.iconName || 'action'}-${index}`} style={styles.registerActionWrap}>
-              <ActionButton
-                label={action.label}
-                onPress={action.onPress}
-                accent={action.accent}
-                iconName={action.iconName}
-              />
-            </View>
-          ))}
-        </View>
-      );
+  const exportErpCsv = useCallback(() => {
+    downloadTextFile(
+      buildErpCatalogCsv(db),
+      'gyros-catalogo-erp.csv',
+      'text/csv;charset=utf-8'
+    );
+  }, [db, downloadTextFile]);
+
+  const importJson = useCallback(() => {
+    if (typeof document === 'undefined') {
+      showError?.('Importação local disponível apenas no navegador.');
+      return;
+    }
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'application/json,.json';
+    input.onchange = event => {
+      const file = event.target?.files?.[0];
+      if (!file) return;
+      const reader = new window.FileReader();
+      reader.onload = async readerEvent => {
+        try {
+          const imported = validateImportedDb(JSON.parse(String(readerEvent.target?.result || '{}')));
+          await persistDb(imported);
+          setSelectedId(getSectionDefaultSelection(imported, activeTab));
+          showSuccess?.('JSON importado para a base local da Engenharia.');
+        } catch (error) {
+          showError?.(error?.message || 'Não foi possível importar este JSON.');
+        }
+      };
+      reader.readAsText(file);
     };
+    input.click();
+  }, [activeTab, persistDb, showError, showSuccess]);
 
-    if (normalizedSection.status === SOURCE_STATUS.MISSING) {
-      return (
-        <View key={sectionKey} style={styles.registerCard}>
-          <View style={styles.registerCardHeader}>
-            <Text style={styles.registerCardTitle}>{normalizedSection.title}</Text>
-            {renderHeaderActions()}
-          </View>
-          <MissingInfo label={normalizedSection.title} message={normalizedSection.message} />
-        </View>
-      );
-    }
-
-    const previewItems = sectionItems.slice(0, 3);
-    return (
-      <View key={sectionKey} style={styles.registerCard}>
-        <View style={styles.registerCardHeader}>
-          <Text style={styles.registerCardTitle}>{normalizedSection.title}</Text>
-          {renderHeaderActions()}
-        </View>
-        <Text style={styles.registerCount}>{String(sectionItems.length)}</Text>
-        {normalizedSection.status === SOURCE_STATUS.EMPTY ? (
-          <EmptyState message={normalizedSection.message} />
-        ) : (
-          previewItems.map((item, index) => (
-            <TouchableOpacity
-              key={`${sectionKey}-${item.id || index}`}
-              style={styles.smallListItem}
-              activeOpacity={item.isConfig ? 0.82 : 1}
-              disabled={!item.isConfig}
-              onPress={item.isConfig ? () => handleEditConfig(item) : undefined}
-            >
-              <View style={styles.smallListHeaderRow}>
-                <Text style={[styles.smallListTitle, { flex: 1, marginRight: 8 }]}>
-                  {item.label || item.name || item.productName || `Registro ${index + 1}`}
-                </Text>
-                {item.isConfig ? (
-                  <View style={styles.smallListAction}>
-                    <Icon name="edit-3" size={13} color={SCREEN_COLORS.brand} />
-                    <Text style={styles.smallListActionText}>Editar</Text>
-                  </View>
-                ) : null}
-              </View>
-              <Text style={styles.smallListMeta}>
-                {item.valueLabel || item.document || item.email || item.dateLabel || item.segmentLabel || getPreviewText([item.supplierLabel, formatMoney(item.orderPrice), formatDate(item.date)]) || 'Registro disponível'}
-              </Text>
-            </TouchableOpacity>
-          ))
-        )}
-      </View>
-    );
-  };
-
-  const renderResources = () => {
-    const sections = viewModel?.resources || {};
-    const orderedSections = [
-      ['ingredients', sections.ingredients || { title: 'Ingredientes', ...createSourceState([]) }],
-      ['recipes', sections.recipes || { title: 'Preparos', ...createSourceState([]) }],
-      ['packaging', sections.packaging || { title: 'Embalagens', ...createSourceState([]) }],
-      ['suppliers', sections.suppliers || { title: 'Fornecedores', ...createSourceState([]) }],
-      ['purchases', sections.purchases || { title: 'Compras', ...createSourceState([]) }],
-      ['inputs', sections.inputs || { title: 'Inputs', ...createSourceState([]) }],
-      ['operationalExpenses', sections.operationalExpenses || { title: 'Gastos operacionais', ...createSourceState([]) }],
-      ['fixedCosts', sections.fixedCosts || { title: 'Custos fixos', ...createSourceState([]) }],
-      ['settings', sections.settings || { title: 'Parâmetros', ...createSourceState([]) }],
-    ];
-
-    return (
-      <View style={styles.registerGrid}>
-        {orderedSections.map(([key, section]) => renderRegisterCard(key, section))}
-      </View>
-    );
-  };
-
-  const renderActiveTab = () => {
-    switch (activeTab) {
-      case 'dashboard':
-        return renderDashboard();
-      case 'catalog':
-        return renderCatalog();
-      case 'ledger':
-        return renderLedger();
-      case 'resources':
-        return renderResources();
-      default:
-        return null;
-    }
-  };
-
-  if (!currentCompany || !themeColors || (state.loading && !viewModel)) {
-    return (
-      <SafeAreaView style={styles.safeArea}>
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={brandColors.primary || SCREEN_COLORS.brand} />
-        </View>
-      </SafeAreaView>
-    );
-  }
+  const activeTabMeta = MAIN_TABS.find(tab => tab.key === activeTab) || MAIN_TABS[0];
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <ScrollView
-        contentContainerStyle={styles.scrollContent}
-        refreshControl={
-          <RefreshControl
-            refreshing={state.refreshing}
-            onRefresh={() => loadScreen(true)}
-            tintColor={brandColors.primary || SCREEN_COLORS.brand}
-          />
-        }
-        showsVerticalScrollIndicator={false}
-      >
-        {renderHero()}
-        {renderTabs()}
-
-        {state.error ? (
-          <View style={styles.errorCard}>
-            <Text style={styles.errorTitle}>Falha ao montar a tela</Text>
-            <Text style={styles.errorText}>{state.error}</Text>
-            <TouchableOpacity style={styles.refreshButton} activeOpacity={0.82} onPress={() => loadScreen(false)}>
-              <Text style={styles.refreshButtonText}>Tentar novamente</Text>
-            </TouchableOpacity>
+    <SafeAreaView style={styles.safeArea} edges={['left', 'right']}>
+      <View style={styles.page}>
+        <View style={styles.toolbar}>
+          <View style={styles.titleBlock}>
+            <Text style={styles.eyebrow}>Gyros Greek Barbecue</Text>
+            <Text style={styles.pageTitle}>Engenharia de Produtos e Processos</Text>
           </View>
-        ) : null}
+          <View style={styles.toolbarActions}>
+            <IconButton icon="download" label="JSON" onPress={exportJson} />
+            <IconButton icon="database" label="ERP" onPress={exportErpJson} />
+            <IconButton icon="file-text" label="CSV ERP" onPress={exportErpCsv} />
+            <IconButton icon="upload" label="Importar" onPress={importJson} />
+            <IconButton icon="rotate-ccw" label="Restaurar" onPress={resetLocalData} tone="danger" />
+          </View>
+        </View>
 
-        {viewModel ? renderActiveTab() : null}
-      </ScrollView>
+        <View style={[styles.body, !isWide && styles.bodyCompact]}>
+          <View style={[styles.sidebar, !isWide && styles.sidebarCompact]}>
+            <ScrollView horizontal={!isWide} showsHorizontalScrollIndicator={false}>
+              <View style={[styles.menuList, !isWide && styles.menuListHorizontal]}>
+                {MAIN_TABS.map(tab => (
+                  <IconButton
+                    key={tab.key}
+                    icon={tab.icon}
+                    label={tab.label}
+                    active={activeTab === tab.key}
+                    onPress={() => switchTab(tab.key)}
+                  />
+                ))}
+              </View>
+            </ScrollView>
+          </View>
 
-      <AddCompanyModal
-        visible={showProviderModal}
-        onClose={() => setShowProviderModal(false)}
-        context={providerContext}
-        onSuccess={() => {
-          loadScreen(true);
+          <View style={styles.content}>
+            <View style={styles.sectionTop}>
+              <View>
+                <Text style={styles.sectionEyebrow}>{activeTabMeta.label}</Text>
+                <Text style={styles.sectionTitle}>{getSectionTitle(activeTab)}</Text>
+              </View>
+              {activeTab !== 'dashboard' && activeTab !== 'settings' ? (
+                <SearchBox value={query} onChangeText={setQuery} placeholder="Buscar na engenharia" />
+              ) : null}
+            </View>
+            <ScrollView style={styles.contentScroll} contentContainerStyle={styles.contentScrollBody}>
+              {renderContent({
+                activeTab,
+                db,
+                query,
+                selectedId,
+                setSelectedId,
+                activeProductTab,
+                setActiveProductTab,
+                openModal: setModal,
+                patchCollectionItem,
+                persistDb,
+              })}
+            </ScrollView>
+          </View>
+        </View>
+      </View>
+      <EditModal
+        modal={modal}
+        db={db}
+        onClose={() => setModal(null)}
+        onSave={(collection, id, patch) => {
+          patchCollectionItem(collection, id, patch);
+          setModal(null);
         }}
       />
     </SafeAreaView>
   );
+}
+
+function getSectionTitle(activeTab) {
+  if (activeTab === 'dashboard') return 'Resumo técnico da operação';
+  if (activeTab === 'purchases') return 'Mapa auditável de compras, notas e comprovantes';
+  if (activeTab === 'processes') return 'Matriz de processo operacional';
+  if (activeTab === 'pending') return 'Itens que pedem revisão';
+  if (activeTab === 'settings') return 'Parâmetros locais da engenharia';
+  return RESOURCE_META[activeTab]?.description || 'Engenharia';
+}
+
+function renderContent(props) {
+  const { activeTab } = props;
+  if (activeTab === 'dashboard') return <Dashboard {...props} />;
+  if (activeTab === 'products') return <ProductsView {...props} />;
+  if (['ingredients', 'recipes', 'packaging'].includes(activeTab)) return <ResourceView {...props} collection={activeTab} />;
+  if (activeTab === 'resale') return <ResaleView {...props} />;
+  if (activeTab === 'purchases') return <PurchasesView {...props} />;
+  if (activeTab === 'processes') return <ProcessesView {...props} />;
+  if (activeTab === 'suppliers') return <SuppliersView {...props} />;
+  if (activeTab === 'pending') return <PendingView {...props} />;
+  if (activeTab === 'settings') return <SettingsView {...props} />;
+  return <EmptyState />;
+}
+
+function Dashboard({ db, setSelectedId }) {
+  const metrics = dashboardMetrics(db);
+  const products = computeAllProducts(db);
+  const byMargin = [...products].sort((left, right) => left.marginPct - right.marginPct).slice(0, 8);
+  const purchases = safeArray(db.purchaseOrders)
+    .filter(order => order.date)
+    .sort((left, right) => String(right.date).localeCompare(String(left.date)))
+    .slice(0, 8);
+
+  return (
+    <View style={styles.stack}>
+      <View style={styles.metricGrid}>{metrics.map(metric => <MetricCard key={metric.key} {...metric} />)}</View>
+      <View style={styles.gridTwo}>
+        <View style={styles.panel}>
+          <Text style={styles.panelTitle}>Produtos que pedem atenção</Text>
+          {byMargin.map(item => (
+            <RowCard
+              key={item.product.id}
+              title={item.product.name}
+              subtitle={categoryName(db, item.product.categoryId)}
+              meta={`Custo ${money(item.directCost)} · Preço ${money(item.salePrice)}`}
+              onPress={() => setSelectedId(item.product.id)}
+              badges={[{ label: percent(item.marginPct), tone: item.marginPct >= targetMarginPct(db) ? 'good' : 'warn' }]}
+            />
+          ))}
+        </View>
+        <View style={styles.panel}>
+          <Text style={styles.panelTitle}>Últimas compras</Text>
+          {purchases.map(order => (
+            <RowCard
+              key={order.id}
+              title={order.label || 'Compra'}
+              subtitle={`${formatDate(order.date)} · ${getById(db, 'suppliers', order.supplierId)?.name || 'Fornecedor não vinculado'}`}
+              meta={order.evidenceSource || order.notes}
+              right={<Text style={styles.rowMoney}>{money(order.totalAmount)}</Text>}
+              badges={[{ label: paymentLabel(order.paymentStatus), tone: order.paymentStatus === 'paid' ? 'good' : 'warn' }]}
+            />
+          ))}
+        </View>
+      </View>
+    </View>
+  );
+}
+
+function ProductsView({ db, query, selectedId, setSelectedId, activeProductTab, setActiveProductTab, openModal }) {
+  const products = filterBySearch(computeAllProducts(db), query, [
+    item => item.product.name,
+    item => item.product.code,
+    item => categoryName(db, item.product.categoryId),
+  ]);
+  const selected = computeProduct(db, selectedId) || products[0] || null;
+  const grouped = groupBy(products, item => categoryName(db, item.product.categoryId));
+
+  return (
+    <View style={styles.splitLayout}>
+      <View style={styles.listPanel}>
+        {Object.entries(grouped).map(([category, rows]) => (
+          <View key={category} style={styles.listGroup}>
+            <Text style={styles.listGroupTitle}>{category}</Text>
+            {rows.map(item => (
+              <RowCard
+                key={item.product.id}
+                title={item.product.name}
+                subtitle={item.product.description || item.product.notes}
+                imageSource={imageForProduct(item.product)}
+                selected={selected?.product?.id === item.product.id}
+                onPress={() => setSelectedId(item.product.id)}
+                right={<Text style={styles.rowMoney}>{money(item.salePrice)}</Text>}
+                badges={[
+                  { label: `Custo ${money(item.directCost)}`, tone: 'neutral' },
+                  { label: percent(item.marginPct), tone: item.marginPct >= targetMarginPct(db) ? 'good' : 'warn' },
+                ]}
+              />
+            ))}
+          </View>
+        ))}
+      </View>
+      <ProductDetail
+        db={db}
+        computed={selected}
+        activeProductTab={activeProductTab}
+        setActiveProductTab={setActiveProductTab}
+        openModal={openModal}
+      />
+    </View>
+  );
+}
+
+function ProductDetail({ db, computed, activeProductTab, setActiveProductTab, openModal }) {
+  if (!computed) return <EmptyState text="Selecione um produto para ver a ficha." />;
+  const product = computed.product;
+  const purchases = productPurchaseRows(db, computed);
+
+  return (
+    <DetailShell
+      title={product.name}
+      subtitle={product.description || product.notes}
+      badges={[
+        { label: 'Produto de venda', tone: 'neutral' },
+        { label: categoryName(db, product.categoryId), tone: 'neutral' },
+        { label: product.active === false ? 'Inativo' : 'Ativo', tone: product.active === false ? 'warn' : 'good' },
+      ]}
+      actions={<IconButton icon="edit-3" label="Editar" onPress={() => openModal({ collection: 'products', id: product.id })} />}
+    >
+      <View style={styles.productHero}>
+        <VisualThumb source={imageForProduct(product)} label={product.name} size="lg" />
+        <View style={styles.productHeroText}>
+          <Text style={styles.productHeroTitle}>{categoryName(db, product.categoryId)}</Text>
+          <Text style={styles.productHeroSubtitle}>
+            {safeArray(product.components).length} componente(s) base · {safeArray(product.addons).length} grupo(s)/adicional(is) · {product.includeInCatalogCount === false ? 'fora da contagem' : 'conta no cardápio'}
+          </Text>
+        </View>
+      </View>
+      <View style={styles.detailTabs}>
+        {PRODUCT_DETAIL_TABS.map(tab => (
+          <TouchableOpacity
+            key={tab.key}
+            style={[styles.detailTabButton, activeProductTab === tab.key && styles.detailTabButtonActive]}
+            onPress={() => setActiveProductTab(tab.key)}
+          >
+            <Text style={[styles.detailTabText, activeProductTab === tab.key && styles.detailTabTextActive]}>{tab.label}</Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+      {activeProductTab === 'summary' ? (
+        <InfoGrid rows={[
+          { label: 'Preço praticado', value: money(computed.salePrice), helper: `iFood ${money(computed.ifoodSalePrice)}` },
+          { label: 'Custo técnico', value: money(computed.directCost), helper: `Base ${money(computed.baseDirectCost)}` },
+          { label: 'Obrigatórios mínimos', value: money(computed.requiredCost), helper: 'Menor combinação obrigatória' },
+          { label: 'Margem', value: percent(computed.marginPct), helper: `Meta ${percent(targetMarginPct(db))}` },
+          { label: 'Regra', value: product.pricingMode || 'auto', helper: `${defaultMarkupPct(db)}% sobre custo` },
+          { label: 'ERP', value: product.erpUnit || 'UN', helper: product.erpProductType || product.type || 'produto' },
+        ]} />
+      ) : null}
+      {activeProductTab === 'composition' ? (
+        <View style={styles.stack}>
+          {computed.nodes.map(node => <ComponentNode key={node.key} node={node} />)}
+        </View>
+      ) : null}
+      {activeProductTab === 'addons' ? (
+        <View style={styles.stack}>
+          {safeArray(computed.addons).length ? safeArray(computed.addons).map(addon => (
+            <View key={addon.id || addon.name} style={styles.addonCard}>
+              <View style={styles.nodeHeader}>
+                <VisualThumb source={imageForAddon(addon)} label={addon.name} size="sm" />
+                <View>
+                  <Text style={styles.nodeTitle}>{addon.name}</Text>
+                  <Text style={styles.nodeMeta}>
+                    {addon.group || 'Adicional'} · {addon.required ? 'obrigatório' : 'opcional'} · min {addon.minimum || 0} · max {addon.maximum || 'livre'}
+                  </Text>
+                </View>
+                <Text style={styles.nodeCost}>{money(addon.directCost)} / + {money(addon.salePriceDelta)}</Text>
+              </View>
+              <Text style={styles.infoHelper}>{addon.notes}</Text>
+              {addon.nodes.map(node => <ComponentNode key={node.key} node={node} />)}
+            </View>
+          )) : <EmptyState text="Produto sem grupos ou adicionais." />}
+        </View>
+      ) : null}
+      {activeProductTab === 'packaging' ? (
+        <View style={styles.stack}>
+          {computed.nodes.filter(node => node.refType === 'packaging').length ? computed.nodes
+            .filter(node => node.refType === 'packaging')
+            .map(node => <ComponentNode key={node.key} node={node} />) : <EmptyState text="Nenhuma embalagem mapeada neste produto." />}
+        </View>
+      ) : null}
+      {activeProductTab === 'purchases' ? (
+        <PurchaseRows rows={purchases} />
+      ) : null}
+      {activeProductTab === 'operation' ? (
+        <InfoGrid rows={[
+          { label: 'Compra', value: `${computed.nodes.length} vínculo(s)`, helper: 'Custo vem da composição técnica' },
+          { label: 'Recebimento', value: 'Conferir componentes', helper: 'Produto vendido não vira compra sozinho' },
+          { label: 'Estoque', value: categoryName(db, product.categoryId), helper: 'Camada comercial do cardápio' },
+          { label: 'Manipulação', value: safeArray(product.addons).length ? `${safeArray(product.addons).length} grupo(s)` : 'Ficha base', helper: 'Grupos obrigatórios e opcionais preservados' },
+          { label: 'Embalagem', value: computed.nodes.some(node => node.refType === 'packaging') ? 'Vinculada' : 'Revisar', helper: 'Precisa estar na ficha para entrar no custo' },
+          { label: 'Evidências', value: String(purchases.length), helper: 'Compras herdadas dos componentes' },
+        ]} />
+      ) : null}
+    </DetailShell>
+  );
+}
+
+function ResourceView({ db, query, selectedId, setSelectedId, collection, openModal }) {
+  const meta = RESOURCE_META[collection];
+  const rows = filterBySearch(safeArray(db[collection]), query, [
+    item => item.name,
+    item => item.code,
+    item => item.description,
+    item => item.notes,
+    item => item.sourceReference,
+    item => item.supplier,
+  ]);
+  const selected = getById(db, collection, selectedId) || rows[0] || null;
+
+  return (
+    <View style={styles.stack}>
+      <TechnicalSectionSummary db={db} collection={collection} rows={rows} />
+      <View style={styles.splitLayout}>
+        <View style={styles.listPanel}>
+          <View style={styles.panelIntro}>
+            <Text style={styles.panelTitle}>{meta.plural}</Text>
+            <Text style={styles.panelSubtitle}>{meta.description}</Text>
+          </View>
+          {rows.map(item => (
+            <RowCard
+              key={item.id}
+              title={item.name}
+              subtitle={item.description || item.notes}
+              imageSource={imageForResource(meta.refType, item.id)}
+              selected={selected?.id === item.id}
+              onPress={() => setSelectedId(item.id)}
+              right={<Text style={styles.rowMoney}>{resourceCostLabel(db, collection, item)}</Text>}
+              badges={[
+                { label: evidenceLabel(item.evidenceType || item.sourceType), tone: (item.evidenceType || item.sourceType) === 'documented' ? 'good' : 'warn' },
+                { label: item.erpUnit || item.baseUnit || item.yieldUnit || 'UN', tone: 'neutral' },
+              ]}
+            />
+          ))}
+        </View>
+        <ResourceDetail db={db} collection={collection} item={selected} openModal={openModal} />
+      </View>
+    </View>
+  );
+}
+
+function TechnicalSectionSummary({ db, collection, rows }) {
+  const meta = RESOURCE_META[collection];
+  const refType = meta.refType;
+  const summaries = safeArray(rows).map(item => activeCostSummary(db, refType, item));
+  const reviewCount = safeArray(rows).filter(item => ['review', 'estimated', 'manual'].includes(item.evidenceType || item.sourceType)).length;
+  const purchaseCount = summaries.reduce((sum, item) => sum + item.purchaseCount, 0);
+  const documentedCount = safeArray(rows).filter(item => (item.evidenceType || item.sourceType) === 'documented').length;
+
+  return (
+    <View style={styles.panel}>
+      <View style={styles.activeCostHeader}>
+        <View>
+          <Text style={styles.panelTitle}>Resumo técnico de {meta.plural.toLowerCase()}</Text>
+          <Text style={styles.panelSubtitle}>A lista escolhe o item. A ficha ao lado concentra custo ativo, usos, compras e composição.</Text>
+        </View>
+        <Badge>{rows.length} item(ns)</Badge>
+      </View>
+      <View style={styles.metricGrid}>
+        <MetricCard label="Itens técnicos" value={String(rows.length)} />
+        <MetricCard label="Comprovados" value={String(documentedCount)} tone="good" />
+        <MetricCard label="Compras vinculadas" value={String(purchaseCount)} />
+        <MetricCard label="Revisões" value={String(reviewCount)} tone={reviewCount ? 'warn' : 'good'} />
+      </View>
+    </View>
+  );
+}
+
+function ResourceDetail({ db, collection, item, openModal }) {
+  if (!item) return <EmptyState />;
+  const meta = RESOURCE_META[collection];
+  const refType = meta.refType;
+  const uses = productUsesForResource(db, refType, item.id);
+  const purchases = ['ingredients', 'packaging'].includes(collection)
+    ? purchaseItemsForResource(db, refType, item.id)
+    : [];
+
+  const costSummary = activeCostSummary(db, refType, item);
+  const rows = collection === 'ingredients'
+    ? [
+      { label: 'Compra', value: `${money(item.purchaseCost)} / ${decimal(item.purchaseQty)} ${item.baseUnit || 'un'}`, helper: item.supplier },
+      { label: 'Custo unitário', value: preciseMoney(ingredientUnitCost(item)), helper: `por ${item.baseUnit || 'un'}` },
+      { label: 'Custo canônico', value: comparableCostLabel('ingredient', item), helper: `Perda ${percent(item.wastePct)}` },
+      { label: 'Fonte ativa', value: costSummary.modeLabel, helper: costSummary.source },
+    ]
+    : collection === 'recipes'
+      ? [
+        { label: 'Rendimento', value: `${decimal(item.yieldQty)} ${item.yieldUnit || 'un'}`, helper: item.storage },
+        { label: 'Custo do lote', value: money(recipeBatchCost(db, item)), helper: `${safeArray(item.components).length} componente(s)` },
+        { label: 'Custo unitário', value: preciseMoney(recipeUnitCost(db, item)), helper: `por ${item.yieldUnit || 'un'}` },
+        { label: 'Fonte ativa', value: costSummary.modeLabel, helper: costSummary.source },
+      ]
+      : [
+        { label: 'Pacote', value: `${money(item.purchaseCost)} / ${decimal(item.purchaseQty)} un`, helper: item.supplier },
+        { label: 'Custo unitário', value: money(packagingUnitCost(item)), helper: item.costImpact || 'CMV/repasse' },
+        { label: 'ERP', value: item.erpUnit || 'UN', helper: item.sourceReference },
+        { label: 'Fonte ativa', value: costSummary.modeLabel, helper: costSummary.source },
+      ];
+
+  return (
+    <DetailShell
+      title={item.name}
+      subtitle={item.description || item.notes}
+      badges={[
+        { label: meta.singular, tone: 'neutral' },
+        { label: evidenceLabel(item.evidenceType || item.sourceType), tone: (item.evidenceType || item.sourceType) === 'documented' ? 'good' : 'warn' },
+        { label: item.code || item.id, tone: 'neutral' },
+      ]}
+      actions={<IconButton icon="edit-3" label="Editar" onPress={() => openModal({ collection, id: item.id })} />}
+    >
+      <ActiveCostPanel db={db} refType={refType} item={item} />
+      <InfoGrid rows={rows} />
+      {collection === 'recipes' ? (
+        <View style={styles.panelNested}>
+          <Text style={styles.panelTitle}>Componentes do preparo</Text>
+          {safeArray(item.components).map(component => (
+            <ComponentNode key={`${component.refType}-${component.refId}-${component.qty}`} node={{
+              key: `${component.refType}:${component.refId}:${component.qty}`,
+              refType: component.refType,
+              refId: component.refId,
+              name: resourceName(db, component.refType, component.refId),
+              qty: component.qty,
+              unit: component.unit || '',
+              cost: 0,
+              pricingMode: 'receita',
+              children: [],
+            }} />
+          ))}
+        </View>
+      ) : null}
+      <View style={styles.panelNested}>
+        <Text style={styles.panelTitle}>Usos diretos e indiretos</Text>
+        {uses.length ? uses.map(use => (
+          <RowCard key={use.key} title={use.title} subtitle={use.meta} badges={[{ label: use.type, tone: 'neutral' }]} />
+        )) : <EmptyState text="Nenhum uso encontrado ainda." />}
+      </View>
+      {purchases.length ? <PurchaseRows rows={purchases} /> : null}
+    </DetailShell>
+  );
+}
+
+function ActiveCostPanel({ db, refType, item }) {
+  const summary = activeCostSummary(db, refType, item);
+  const options = activeCostOptionsForRef(refType);
+  const selectedLabel = options.find(option => option.value === summary.mode)?.label || summary.modeLabel;
+  return (
+    <View style={styles.activeCostPanel}>
+      <View style={styles.activeCostHeader}>
+        <View>
+          <Text style={styles.panelTitle}>Custo ativo da Engenharia</Text>
+          <Text style={styles.panelSubtitle}>Valor que alimenta produtos, preparos, grupos e adicionais nesta base local.</Text>
+        </View>
+        <Badge tone={summary.mode === 'review' ? 'warn' : 'good'}>{selectedLabel}</Badge>
+      </View>
+      <InfoGrid rows={[
+        { label: 'Custo canônico ativo', value: `${money(summary.activePrimaryCost)} / ${summary.primaryUnit}`, helper: summary.source },
+        { label: 'Leitura de cálculo', value: `${preciseMoney(summary.activeBaseCost)} / ${summary.baseUnit}`, helper: 'Usado ao multiplicar quantidades da ficha' },
+        { label: 'Cadastro atual', value: `${money(summary.registeredPrimaryCost)} / ${summary.primaryUnit}`, helper: 'Valor base antes da decisão ativa' },
+        { label: 'Histórico vinculado', value: `${summary.purchaseCount} compra(s)`, helper: summary.latest ? `${formatDate(summary.latest.date)} · ${summary.latest.supplierName}` : 'Sem compra vinculada' },
+      ]} />
+    </View>
+  );
+}
+
+function resourceCostLabel(db, collection, item) {
+  if (collection === 'ingredients') return comparableCostLabel('ingredient', item);
+  if (collection === 'packaging') return money(packagingUnitCost(item));
+  if (collection === 'recipes') return money(recipeBatchCost(db, item));
+  return '';
+}
+
+function PurchaseRows({ rows }) {
+  if (!safeArray(rows).length) return <EmptyState text="Nenhuma compra vinculada." />;
+  return (
+    <View style={styles.panelNested}>
+      <Text style={styles.panelTitle}>Histórico de compra</Text>
+      {rows.map(row => (
+        <RowCard
+          key={row.id}
+          title={row.description || row.resourceName || 'Item comprado'}
+          subtitle={`${formatDate(row.date)} · ${row.supplierName || 'Fornecedor'}`}
+          meta={`${decimal(row.qty, 3)} ${row.unit || 'un'} · unit ${money(row.unitPrice)} · ${paymentLabel(row.paymentStatus)}`}
+          right={<Text style={styles.rowMoney}>{money(row.totalPrice || row.totalAmount)}</Text>}
+          badges={[{ label: `${safeArray(row.inputs).length} evid.`, tone: safeArray(row.inputs).length ? 'good' : 'warn' }]}
+        />
+      ))}
+    </View>
+  );
+}
+
+function ResaleView(props) {
+  const { db, query, selectedId, setSelectedId, openModal } = props;
+  const rows = filterBySearch(resaleItems(db), query, [item => item.name, item => item.description, item => item.notes]);
+  const selected = getById(db, 'products', selectedId) || rows[0] || null;
+  return (
+    <View style={styles.splitLayout}>
+      <View style={styles.listPanel}>
+        {rows.map(item => {
+          const computed = computeProduct(db, item.id);
+          return (
+            <RowCard
+              key={item.id}
+              title={item.name}
+              subtitle={categoryName(db, item.categoryId)}
+              imageSource={imageForProduct(item)}
+              selected={selected?.id === item.id}
+              onPress={() => setSelectedId(item.id)}
+              right={<Text style={styles.rowMoney}>{money(computed?.salePrice || item.salePrice)}</Text>}
+              badges={[{ label: 'Revenda', tone: 'neutral' }]}
+            />
+          );
+        })}
+      </View>
+      <ProductDetail db={db} computed={computeProduct(db, selected?.id)} activeProductTab="summary" setActiveProductTab={() => {}} openModal={openModal} />
+    </View>
+  );
+}
+
+function PurchasesView({ db, query, selectedId, setSelectedId, openModal }) {
+  const rows = filterBySearch(safeArray(db.purchaseOrders), query, [
+    item => item.label,
+    item => item.documentNumber,
+    item => getById(db, 'suppliers', item.supplierId)?.name,
+    item => item.notes,
+  ]).sort((left, right) => String(right.date || '').localeCompare(String(left.date || '')));
+  const selected = getById(db, 'purchaseOrders', selectedId) || rows[0] || null;
+  const items = safeArray(db.purchaseItems).filter(item => item.orderId === selected?.id);
+  const inputs = linkedInputsForOrder(db, selected);
+  const families = filterBySearch(purchaseFamilyEntries(db), query, [
+    item => item.familyName,
+    item => item.supplierSummary,
+    item => item.latest?.description,
+    item => item.latest?.documentNumber,
+    item => item.latest?.orderLabel,
+  ]);
+  const totalFamilyAmount = families.reduce((sum, family) => sum + num(family.totalAmount), 0);
+  const suppliersCount = new Set(families.flatMap(family => safeArray(family.rows).map(row => row.supplierName).filter(Boolean))).size;
+
+  return (
+    <View style={styles.stack}>
+      <View style={styles.panel}>
+        <View style={styles.activeCostHeader}>
+          <View>
+            <Text style={styles.panelTitle}>Mapa auditável de compras</Text>
+            <Text style={styles.panelSubtitle}>Resumo por família comparável. A compra selecionada abaixo mostra nota, itens e arquivos.</Text>
+          </View>
+          <Badge>{families.length} família(s)</Badge>
+        </View>
+        <View style={styles.metricGrid}>
+          <MetricCard label="Valor histórico filtrado" value={money(totalFamilyAmount)} />
+          <MetricCard label="Fornecedores no recorte" value={String(suppliersCount)} />
+          <MetricCard label="Compras visíveis" value={String(rows.length)} />
+        </View>
+        <View style={styles.familyPreviewGrid}>
+          {families.slice(0, 6).map(family => (
+            <View key={family.key} style={styles.familyPreviewCard}>
+              <View style={styles.familyPreviewHeader}>
+                <Text style={styles.nodeTitle}>{family.familyName}</Text>
+                <Text style={styles.rowMoney}>{money(family.avgUnitPrice)} / {family.unit}</Text>
+              </View>
+              <Text style={styles.rowSubtitle}>
+                {family.occurrenceCount} ocorrência(s) · {family.supplierSummary || 'Fornecedor não vinculado'}
+              </Text>
+              <View style={styles.badgeLine}>
+                <Badge tone={family.evidenceCount ? 'good' : 'warn'}>{family.evidenceCount} evid.</Badge>
+                <Badge>{family.latest?.date ? formatDate(family.latest.date) : 'Sem data'}</Badge>
+              </View>
+            </View>
+          ))}
+          {!families.length ? <EmptyState text="Nenhuma família de compra encontrada." /> : null}
+        </View>
+      </View>
+      <View style={styles.splitLayout}>
+        <View style={styles.listPanel}>
+          {rows.map(order => (
+            <RowCard
+              key={order.id}
+              title={order.label || 'Compra'}
+              subtitle={`${formatDate(order.date)} · ${getById(db, 'suppliers', order.supplierId)?.name || 'Fornecedor não vinculado'}`}
+              selected={selected?.id === order.id}
+              onPress={() => setSelectedId(order.id)}
+              right={<Text style={styles.rowMoney}>{money(order.totalAmount)}</Text>}
+              badges={[{ label: paymentLabel(order.paymentStatus), tone: order.paymentStatus === 'paid' ? 'good' : 'warn' }]}
+            />
+          ))}
+        </View>
+        {selected ? (
+          <DetailShell
+            title={selected.label || 'Compra'}
+            subtitle={selected.notes || selected.evidenceSource}
+            badges={[
+              { label: 'Compra/evidência', tone: 'neutral' },
+              { label: paymentLabel(selected.paymentStatus), tone: selected.paymentStatus === 'paid' ? 'good' : 'warn' },
+              { label: formatDate(selected.date), tone: 'neutral' },
+            ]}
+            actions={<IconButton icon="edit-3" label="Editar" onPress={() => openModal({ collection: 'purchaseOrders', id: selected.id })} />}
+          >
+            <InfoGrid rows={[
+              { label: 'Fornecedor', value: getById(db, 'suppliers', selected.supplierId)?.name || selected.supplierName || 'Não vinculado' },
+              { label: 'Documento', value: selected.documentNumber || 'Sem documento' },
+              { label: 'Total', value: money(selected.totalAmount) },
+              { label: 'Itens', value: String(items.length) },
+              { label: 'Evidências', value: String(inputs.length) },
+              { label: 'Fonte', value: evidenceLabel(selected.evidenceType), helper: selected.evidenceSource },
+            ]} />
+            <View style={styles.panelNested}>
+              <Text style={styles.panelTitle}>Itens comprados</Text>
+              {items.map(item => (
+                <RowCard
+                  key={item.id}
+                  title={item.description || resourceName(db, item.resourceType, item.resourceId)}
+                  subtitle={resourceTypeLabel(item.resourceType)}
+                  meta={`${decimal(item.qty, 3)} ${item.unit || 'un'} · unit ${money(item.unitPrice)}`}
+                  right={<Text style={styles.rowMoney}>{money(item.totalPrice)}</Text>}
+                />
+              ))}
+            </View>
+            <View style={styles.panelNested}>
+              <Text style={styles.panelTitle}>Arquivos e inputs vinculados</Text>
+              {inputs.length ? inputs.map(input => (
+                <RowCard
+                  key={input.id}
+                  title={input.title}
+                  subtitle={`${inputTypeLabel(input.inputType)} · ${formatDate(input.date)}`}
+                  meta={input.fileLabel || input.filePath || input.fileUrl || input.evidenceSource}
+                  right={<Text style={styles.rowMoney}>{input.totalAmount ? money(input.totalAmount) : '—'}</Text>}
+                />
+              )) : <EmptyState text="Nenhuma evidência vinculada automaticamente." />}
+            </View>
+          </DetailShell>
+        ) : <EmptyState />}
+      </View>
+    </View>
+  );
+}
+
+function ProcessesView({ db, query, selectedId, setSelectedId }) {
+  const rows = filterBySearch(processRows(db), query, [
+    item => item.title,
+    item => item.typeLabel,
+    item => item.purchase,
+    item => item.handling,
+    item => item.evidence,
+  ]);
+  const selected = rows.find(item => item.key === selectedId) || rows[0] || null;
+  return (
+    <View style={styles.splitLayout}>
+      <View style={styles.listPanel}>
+        <View style={styles.panelIntro}>
+          <Text style={styles.panelTitle}>Matriz operacional</Text>
+          <Text style={styles.panelSubtitle}>Fluxo físico separado do custo técnico.</Text>
+        </View>
+        {rows.map(row => (
+          <RowCard
+            key={row.key}
+            title={row.title}
+            subtitle={`${row.typeLabel} · ${row.storage}`}
+            selected={selected?.key === row.key}
+            onPress={() => setSelectedId(row.key)}
+            right={<Text style={styles.rowMoney}>{row.usage}</Text>}
+            badges={[
+              { label: row.purchase, tone: 'neutral' },
+              { label: row.evidence ? 'Evidência' : 'Revisar', tone: row.evidence ? 'good' : 'warn' },
+            ]}
+          />
+        ))}
+      </View>
+      <ProcessDetail db={db} row={selected} />
+    </View>
+  );
+}
+
+function ProcessDetail({ db, row }) {
+  if (!row) return <EmptyState />;
+  const collection = row.refType === 'product' ? 'products' : resourceCollectionForRef(row.refType);
+  const item = getById(db, collection, row.refId);
+  const computed = row.refType === 'product' ? computeProduct(db, row.refId) : null;
+  const uses = row.refType === 'product' ? [] : productUsesForResource(db, row.refType, row.refId);
+  const requiredAddonCount = safeArray(computed?.addons).filter(addon => addon.required || num(addon.minimum) > 0).length;
+
+  return (
+    <DetailShell
+      title={row.title}
+      subtitle={row.handling || row.evidence}
+      badges={[
+        { label: row.typeLabel, tone: 'neutral' },
+        { label: row.evidence ? 'Evidência mapeada' : 'Sem evidência visual', tone: row.evidence ? 'good' : 'warn' },
+      ]}
+    >
+      <InfoGrid rows={[
+        { label: 'Compra', value: row.purchase },
+        { label: 'Recebimento', value: row.receiving },
+        { label: 'Estoque', value: row.storage },
+        { label: 'Manipulação', value: row.handling },
+        { label: 'Porção/uso', value: row.portion, helper: row.usage },
+        { label: 'Evidência', value: row.evidence || 'Pendente' },
+      ]} />
+      {computed ? (
+        <View style={styles.panelNested}>
+          <Text style={styles.panelTitle}>Leitura operacional do produto</Text>
+          <View style={styles.productHero}>
+            <VisualThumb source={imageForProduct(computed.product)} label={computed.product.name} size="lg" />
+            <View style={styles.productHeroText}>
+              <Text style={styles.productHeroTitle}>{computed.product.name}</Text>
+              <Text style={styles.productHeroSubtitle}>{computed.product.description || categoryName(db, computed.product.categoryId)}</Text>
+            </View>
+          </View>
+          <InfoGrid rows={[
+            { label: 'Preço', value: money(computed.salePrice), helper: categoryName(db, computed.product.categoryId) },
+            { label: 'Custo direto', value: money(computed.directCost), helper: `${computed.nodes.length} componente(s)` },
+            { label: 'Obrigatórios', value: money(computed.requiredCost), helper: `${requiredAddonCount} linha(s)` },
+          ]} />
+        </View>
+      ) : null}
+      {row.refType === 'ingredient' && item ? <ActiveCostPanel db={db} refType="ingredient" item={item} /> : null}
+      {row.refType === 'recipe' && item ? (
+        <View style={styles.panelNested}>
+          <Text style={styles.panelTitle}>Componentes do preparo</Text>
+          {safeArray(item.components).map(component => (
+            <ComponentNode key={`${component.refType}-${component.refId}-${component.qty}`} node={{
+              key: `${component.refType}:${component.refId}:${component.qty}`,
+              refType: component.refType,
+              refId: component.refId,
+              name: resourceName(db, component.refType, component.refId),
+              qty: component.qty,
+              unit: component.unit || '',
+              cost: componentCost(db, component),
+              pricingMode: 'receita',
+              children: [],
+            }} />
+          ))}
+        </View>
+      ) : null}
+      {uses.length ? (
+        <View style={styles.panelNested}>
+          <Text style={styles.panelTitle}>Usos ligados ao processo</Text>
+          {uses.slice(0, 8).map(use => (
+            <RowCard key={use.key} title={use.title} subtitle={use.meta} badges={[{ label: use.type, tone: 'neutral' }]} />
+          ))}
+        </View>
+      ) : null}
+    </DetailShell>
+  );
+}
+
+function SuppliersView({ db, query, selectedId, setSelectedId, openModal }) {
+  const rows = filterBySearch(safeArray(db.suppliers), query, [
+    item => item.name,
+    item => item.legalName,
+    item => item.cnpj,
+    item => item.sellerName,
+    item => item.notes,
+  ]);
+  const selected = getById(db, 'suppliers', selectedId) || rows[0] || null;
+  const orders = safeArray(db.purchaseOrders).filter(order => order.supplierId === selected?.id);
+  const inputs = safeArray(db.inputs).filter(input => input.supplierId === selected?.id);
+
+  return (
+    <View style={styles.splitLayout}>
+      <View style={styles.listPanel}>
+        {rows.map(item => (
+          <RowCard
+            key={item.id}
+            title={item.name}
+            subtitle={item.legalName || item.cnpj}
+            selected={selected?.id === item.id}
+            onPress={() => setSelectedId(item.id)}
+            badges={[{ label: evidenceLabel(item.evidenceType), tone: item.evidenceType === 'documented' ? 'good' : 'warn' }]}
+          />
+        ))}
+      </View>
+      {selected ? (
+        <DetailShell
+          title={selected.name}
+          subtitle={selected.notes || selected.evidenceSource}
+          badges={[{ label: 'Fornecedor', tone: 'neutral' }, { label: evidenceLabel(selected.evidenceType), tone: selected.evidenceType === 'documented' ? 'good' : 'warn' }]}
+          actions={<IconButton icon="edit-3" label="Editar" onPress={() => openModal({ collection: 'suppliers', id: selected.id })} />}
+        >
+          <InfoGrid rows={[
+            { label: 'Razão social', value: selected.legalName || '—' },
+            { label: 'CNPJ', value: selected.cnpj || '—' },
+            { label: 'Contato', value: selected.sellerPhone || selected.sellerEmail || '—', helper: selected.sellerName },
+            { label: 'PIX', value: selected.pixKey || '—', helper: selected.pixKeyType },
+            { label: 'Compras', value: String(orders.length) },
+            { label: 'Inputs', value: String(inputs.length) },
+          ]} />
+          <PurchaseRows rows={orders.map(order => ({
+            ...order,
+            date: order.date,
+            supplierName: selected.name,
+            totalPrice: order.totalAmount,
+            description: order.label,
+          }))} />
+        </DetailShell>
+      ) : <EmptyState />}
+    </View>
+  );
+}
+
+function PendingView({ db, query, selectedId, setSelectedId }) {
+  const rows = filterBySearch(pendingItems(db), query, [
+    item => item.name,
+    item => item.kind,
+    item => item.notes,
+    item => item.sourceReference,
+  ]);
+  const selected = rows.find(item => item.id === selectedId) || rows[0] || null;
+  return (
+    <View style={styles.splitLayout}>
+      <View style={styles.listPanel}>
+        {rows.map(item => (
+          <RowCard
+            key={`${item.refType}-${item.id}`}
+            title={item.name}
+            subtitle={item.notes || item.sourceReference}
+            selected={selected?.id === item.id}
+            onPress={() => setSelectedId(item.id)}
+            badges={[
+              { label: item.kind, tone: 'neutral' },
+              { label: evidenceLabel(item.evidenceType || item.sourceType), tone: 'warn' },
+            ]}
+          />
+        ))}
+      </View>
+      {selected ? (
+        <DetailShell
+          title={selected.name}
+          subtitle={selected.notes || selected.description}
+          badges={[{ label: selected.kind, tone: 'neutral' }, { label: 'Revisar', tone: 'warn' }]}
+        >
+          <InfoGrid rows={[
+            { label: 'Fonte atual', value: evidenceLabel(selected.evidenceType || selected.sourceType), helper: selected.sourceReference || selected.evidenceSource },
+            { label: 'Código', value: selected.code || selected.id },
+            { label: 'Custo', value: selected.refType === 'ingredient' ? comparableCostLabel('ingredient', selected) : selected.refType === 'packaging' ? comparableCostLabel('packaging', selected) : 'Calculado pela ficha' },
+            { label: 'Usos', value: String(productUsesForResource(db, selected.refType, selected.id).length) },
+          ]} />
+        </DetailShell>
+      ) : <EmptyState />}
+    </View>
+  );
+}
+
+function SettingsView({ db, persistDb }) {
+  const [draft, setDraft] = useState(() => ({
+    defaultMarkupPct: String(defaultMarkupPct(db)),
+    targetMarginPct: String(targetMarginPct(db)),
+    customMonthlyUnits: String(db.settings?.customMonthlyUnits || ''),
+  }));
+
+  useEffect(() => {
+    setDraft({
+      defaultMarkupPct: String(defaultMarkupPct(db)),
+      targetMarginPct: String(targetMarginPct(db)),
+      customMonthlyUnits: String(db.settings?.customMonthlyUnits || ''),
+    });
+  }, [db]);
+
+  const save = () => {
+    persistDb({
+      ...db,
+      settings: {
+        ...(db.settings || {}),
+        defaultMarkupPct: num(draft.defaultMarkupPct),
+        targetMarginPct: num(draft.targetMarginPct),
+        customMonthlyUnits: num(draft.customMonthlyUnits),
+      },
+    });
+  };
+
+  return (
+    <View style={styles.panel}>
+      <Text style={styles.panelTitle}>Parâmetros locais</Text>
+      <Text style={styles.panelSubtitle}>Nesta primeira etapa, estes valores atualizam apenas a base local da rota.</Text>
+      <View style={styles.modalGrid}>
+        <Field label="Markup padrão (%)" value={draft.defaultMarkupPct} onChangeText={value => setDraft(prev => ({ ...prev, defaultMarkupPct: value }))} inputProps={{ keyboardType: 'numeric' }} />
+        <Field label="Margem alvo (%)" value={draft.targetMarginPct} onChangeText={value => setDraft(prev => ({ ...prev, targetMarginPct: value }))} inputProps={{ keyboardType: 'numeric' }} />
+        <Field label="Unidades mensais estimadas" value={draft.customMonthlyUnits} onChangeText={value => setDraft(prev => ({ ...prev, customMonthlyUnits: value }))} inputProps={{ keyboardType: 'numeric' }} />
+      </View>
+      <TouchableOpacity style={styles.primaryButton} onPress={save}>
+        <Icon name="save" size={16} color={MENU_COLORS.white} />
+        <Text style={styles.primaryButtonText}>Salvar parâmetros</Text>
+      </TouchableOpacity>
+    </View>
+  );
+}
+
+function EditModal({ modal, db, onClose, onSave }) {
+  const record = modal ? getById(db, modal.collection, modal.id) : null;
+  const [draft, setDraft] = useState({});
+
+  useEffect(() => {
+    setDraft(record ? { ...record } : {});
+  }, [record]);
+
+  if (!modal || !record) return null;
+
+  const fields = editableFieldsFor(modal.collection, draft);
+  const updateField = (field, value) => setDraft(prev => ({ ...prev, [field]: value }));
+
+  return (
+    <Modal visible transparent animationType="fade" onRequestClose={onClose}>
+      <Pressable style={styles.modalBackdrop} onPress={onClose}>
+        <Pressable style={styles.modalCard}>
+          <View style={styles.modalHeader}>
+            <View>
+              <Text style={styles.modalTitle}>Editar dados técnicos</Text>
+              <Text style={styles.modalSubtitle}>{record.name || record.label || record.title}</Text>
+            </View>
+            <TouchableOpacity style={styles.closeButton} onPress={onClose}>
+              <Icon name="x" size={18} color={MENU_COLORS.text} />
+            </TouchableOpacity>
+          </View>
+          <ScrollView contentContainerStyle={styles.modalBody}>
+            <View style={styles.modalGrid}>
+              {fields.map(field => (
+                <Field
+                  key={field.key}
+                  label={field.label}
+                  value={draft[field.key]}
+                  multiline={field.multiline}
+                  inputProps={field.inputProps}
+                  onChangeText={value => updateField(field.key, value)}
+                />
+              ))}
+            </View>
+          </ScrollView>
+          <View style={styles.modalFooter}>
+            <TouchableOpacity style={styles.secondaryButton} onPress={onClose}>
+              <Text style={styles.secondaryButtonText}>Cancelar</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.primaryButton} onPress={() => onSave(modal.collection, modal.id, normalizeDraft(modal.collection, draft))}>
+              <Icon name="save" size={16} color={MENU_COLORS.white} />
+              <Text style={styles.primaryButtonText}>Salvar</Text>
+            </TouchableOpacity>
+          </View>
+        </Pressable>
+      </Pressable>
+    </Modal>
+  );
+}
+
+function editableFieldsFor(collection) {
+  const common = [
+    { key: 'name', label: 'Nome' },
+    { key: 'code', label: 'SKU interno' },
+    { key: 'description', label: 'Descrição', multiline: true },
+    { key: 'notes', label: 'Observações', multiline: true },
+  ];
+  if (collection === 'products') {
+    return [
+      { key: 'name', label: 'Nome' },
+      { key: 'code', label: 'SKU interno' },
+      { key: 'salePrice', label: 'Preço de venda', inputProps: { keyboardType: 'numeric' } },
+      { key: 'description', label: 'Descrição', multiline: true },
+      { key: 'notes', label: 'Observações', multiline: true },
+    ];
+  }
+  if (collection === 'ingredients') {
+    return [
+      ...common,
+      { key: 'purchaseQty', label: 'Quantidade de compra', inputProps: { keyboardType: 'numeric' } },
+      { key: 'purchaseCost', label: 'Custo de compra', inputProps: { keyboardType: 'numeric' } },
+      { key: 'wastePct', label: 'Perda (%)', inputProps: { keyboardType: 'numeric' } },
+      { key: 'supplier', label: 'Fornecedor' },
+      { key: 'sourceReference', label: 'Fonte/referência', multiline: true },
+    ];
+  }
+  if (collection === 'recipes') {
+    return [
+      ...common,
+      { key: 'yieldQty', label: 'Rendimento', inputProps: { keyboardType: 'numeric' } },
+      { key: 'yieldUnit', label: 'Unidade do rendimento' },
+      { key: 'storage', label: 'Armazenamento' },
+    ];
+  }
+  if (collection === 'packaging') {
+    return [
+      ...common,
+      { key: 'purchaseQty', label: 'Quantidade de compra', inputProps: { keyboardType: 'numeric' } },
+      { key: 'purchaseCost', label: 'Custo de compra', inputProps: { keyboardType: 'numeric' } },
+      { key: 'supplier', label: 'Fornecedor' },
+      { key: 'sourceReference', label: 'Fonte/referência', multiline: true },
+    ];
+  }
+  if (collection === 'suppliers') {
+    return [
+      { key: 'name', label: 'Nome' },
+      { key: 'legalName', label: 'Razão social' },
+      { key: 'cnpj', label: 'CNPJ' },
+      { key: 'sellerName', label: 'Vendedor' },
+      { key: 'sellerPhone', label: 'Telefone' },
+      { key: 'sellerEmail', label: 'E-mail' },
+      { key: 'notes', label: 'Observações', multiline: true },
+    ];
+  }
+  return [
+    { key: 'label', label: 'Título' },
+    { key: 'documentNumber', label: 'Documento' },
+    { key: 'date', label: 'Data' },
+    { key: 'totalAmount', label: 'Valor total', inputProps: { keyboardType: 'numeric' } },
+    { key: 'notes', label: 'Observações', multiline: true },
+    { key: 'evidenceSource', label: 'Fonte/referência', multiline: true },
+  ];
+}
+
+function normalizeDraft(collection, draft) {
+  const numericFields = ['salePrice', 'purchaseQty', 'purchaseCost', 'wastePct', 'yieldQty', 'totalAmount'];
+  return Object.entries(draft).reduce((accumulator, [key, value]) => {
+    accumulator[key] = numericFields.includes(key) ? num(value) : value;
+    return accumulator;
+  }, {});
 }
