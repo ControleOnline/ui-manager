@@ -29,6 +29,7 @@ const {
   isNotFoundError,
   normalizeCollectionItems,
   normalizeCollectionTotalItems,
+  shouldPreferCollectionOverview,
 } = require('./TranslationsReviewPage.data');
 
 const shadowStyle = Platform.select({
@@ -294,6 +295,10 @@ export default function TranslationsReviewPage() {
     const activeLanguage = filters.language || resolvedLanguage;
     const mainCompany = defaultCompany || currentCompany;
     const mainCompanyId = mainCompany?.id;
+    const shouldLoadMainFallback = shouldPreferCollectionOverview({
+      currentCompanyId,
+      mainCompanyId,
+    });
 
     if (!currentCompanyId || !activeLanguage) {
       setItems([]);
@@ -355,10 +360,6 @@ export default function TranslationsReviewPage() {
     };
 
     const loadOverviewFromCollections = async () => {
-      const shouldLoadMainFallback =
-        Boolean(mainCompanyId)
-        && String(mainCompanyId) !== String(currentCompanyId);
-
       const [companyTranslations, fallbackTranslations] = await Promise.all([
         loadAllTranslates(currentCompanyId),
         shouldLoadMainFallback ? loadAllTranslates(mainCompanyId) : Promise.resolve([]),
@@ -376,7 +377,11 @@ export default function TranslationsReviewPage() {
     };
 
     try {
-      const response = overviewLoadModeRef.current === 'collection'
+      // Subsidiaries need the merged main-company fallback + override view built locally.
+      const response = (
+        overviewLoadModeRef.current === 'collection'
+        || shouldLoadMainFallback
+      )
         ? await loadOverviewFromCollections()
         : await api.fetch('/translates/overview', {
           params: overviewParams,
