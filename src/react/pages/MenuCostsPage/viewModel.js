@@ -1,6 +1,6 @@
 import seedData from './gyros-custos-cardapio.json';
 
-export const STORAGE_KEY = 'controleonline:menu-costs-page:gyros-engineering:v1';
+export const STORAGE_KEY = 'controleonline:menu-costs-page:engineering:v1';
 
 export const MAIN_TABS = [
   { key: 'dashboard', label: 'Dashboard', icon: 'bar-chart-2' },
@@ -386,10 +386,10 @@ export const componentCost = (db, component, stack = []) => {
   const record = collection ? getById(db, collection, refId) : null;
   if (!record) return 0;
 
-  if (refType === 'ingredient') return ingredientUnitCost(record) * qty;
-  if (refType === 'packaging') return packagingUnitCost(record) * qty;
+  if (refType === 'ingredient') return activeCostSummary(db, 'ingredient', record).activeBaseCost * qty;
+  if (refType === 'packaging') return activeCostSummary(db, 'packaging', record).activeBaseCost * qty;
   if (refType === 'recipe') {
-    const unitCost = recipeUnitCost(db, record, stack);
+    const unitCost = activeCostSummary(db, 'recipe', record).activeBaseCost;
     const baseUnit = record?.yieldUnit || 'un';
     const requestedUnit = component?.unit || baseUnit;
     return unitCost * convertQty(qty, requestedUnit, baseUnit);
@@ -685,6 +685,23 @@ export const resaleItems = db =>
     normalizeSearch(`${product.name} ${categoryName(db, product.categoryId)} ${product.notes}`).match(/\b(bebida|coca|agua|h2o|bud|heineken|fanta|sprite|guarana|suco|cha|ice tea)\b/)
   );
 
+export const engineeringSaleProducts = db => {
+  const resaleIds = new Set(resaleItems(db).map(product => String(product.id)));
+  return activeProducts(db)
+    .filter(product => !resaleIds.has(String(product.id)))
+    .sort((left, right) => {
+      const leftHasFicha = safeArray(left.components).length ? 0 : 1;
+      const rightHasFicha = safeArray(right.components).length ? 0 : 1;
+      if (leftHasFicha !== rightHasFicha) return leftHasFicha - rightHasFicha;
+      return String(left.name || '').localeCompare(String(right.name || ''), 'pt-BR');
+    });
+};
+
+export const computeEngineeringProducts = db =>
+  engineeringSaleProducts(db)
+    .map(product => computeProduct(db, product.id))
+    .filter(Boolean);
+
 export const pendingItems = db => {
   const resourceRows = [
     ...safeArray(db?.ingredients).map(item => ({ ...item, kind: 'Ingrediente', refType: 'ingredient' })),
@@ -766,6 +783,11 @@ export const comparableCostLabel = (refType, record) => {
     return unit === 'g' ? 'por kg' : unit === 'ml' ? 'por L' : `por ${unit}`;
   }
   return '';
+};
+
+export const resourceActiveCostLabel = (db, refType, record) => {
+  const summary = activeCostSummary(db, refType, record);
+  return `${money(summary.activePrimaryCost)} / ${summary.primaryUnit}`;
 };
 
 export const dashboardMetrics = db => {

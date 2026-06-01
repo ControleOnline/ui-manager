@@ -31,6 +31,7 @@ import {
   comparableCostLabel,
   componentCost,
   computeAllProducts,
+  computeEngineeringProducts,
   computeProduct,
   dashboardMetrics,
   decimal,
@@ -73,7 +74,7 @@ import {
 } from './visualAssets';
 
 const getSectionDefaultSelection = (db, tab) => {
-  if (tab === 'products') return computeAllProducts(db)[0]?.product?.id || null;
+  if (tab === 'products') return computeEngineeringProducts(db)[0]?.product?.id || null;
   if (tab === 'resale') return resaleItems(db)[0]?.id || null;
   if (tab === 'purchases') return safeArray(db.purchaseOrders)[0]?.id || null;
   if (tab === 'processes') return processRows(db)[0]?.key || null;
@@ -180,6 +181,19 @@ const Field = ({ label, value, inputProps, onChangeText, multiline }) => (
   </View>
 );
 
+const QuantityField = ({ value, unit, onChangeText, compact }) => (
+  <View style={[styles.quantityField, compact && styles.quantityFieldCompact]}>
+    <TextInput
+      value={String(value ?? '')}
+      onChangeText={onChangeText}
+      keyboardType="numeric"
+      style={styles.quantityInput}
+      placeholderTextColor={MENU_COLORS.muted}
+    />
+    <Text style={styles.quantityUnit}>{unit}</Text>
+  </View>
+);
+
 const RowCard = ({ title, subtitle, meta, selected, onPress, right, badges, imageSource }) => (
   <TouchableOpacity style={[styles.rowCard, selected && styles.rowCardActive]} activeOpacity={0.84} onPress={onPress}>
     {imageSource ? <VisualThumb source={imageSource} label={title} size="sm" /> : null}
@@ -219,7 +233,18 @@ const InfoGrid = ({ rows }) => (
   </View>
 );
 
-const ComponentNode = ({ node, depth = 0 }) => (
+const ComponentNode = ({ db, node, depth = 0, onQtyChange }) => {
+  const costSummary = node.record && ['ingredient', 'recipe', 'packaging'].includes(node.refType)
+    ? activeCostSummary(db, node.refType, node.record)
+    : null;
+  const baseCostLabel = costSummary
+    ? `${money(costSummary.activePrimaryCost)} / ${costSummary.primaryUnit}`
+    : money(node.cost);
+  const readingLabel = costSummary
+    ? `${preciseMoney(costSummary.activeBaseCost)} / ${costSummary.baseUnit}`
+    : node.unit || 'UN';
+
+  return (
   <View style={[styles.nodeCard, depth > 0 && styles.nodeCardChild]}>
     <View style={styles.nodeHeader}>
       <VisualThumb source={imageForResource(node.refType, node.refId)} label={node.name} size="sm" />
@@ -231,13 +256,36 @@ const ComponentNode = ({ node, depth = 0 }) => (
       </View>
       <Text style={styles.nodeCost}>{money(node.cost)}</Text>
     </View>
+    {onQtyChange ? (
+      <View style={styles.componentCostGrid}>
+        <View style={styles.componentCostCell}>
+          <Text style={styles.infoLabel}>Quantidade na ficha</Text>
+          <QuantityField value={node.qty} unit={node.unit} onChangeText={value => onQtyChange(value)} />
+        </View>
+        <View style={styles.componentCostCell}>
+          <Text style={styles.infoLabel}>Custo-base</Text>
+          <Text style={styles.infoValue}>{baseCostLabel}</Text>
+          {costSummary?.source ? <Text style={styles.infoHelper} numberOfLines={2}>{costSummary.source}</Text> : null}
+        </View>
+        <View style={styles.componentCostCell}>
+          <Text style={styles.infoLabel}>Leitura</Text>
+          <Text style={styles.infoValue}>{readingLabel}</Text>
+          <Text style={styles.infoHelper}>{node.pricingMode}</Text>
+        </View>
+        <View style={styles.componentCostCell}>
+          <Text style={styles.infoLabel}>Custo desta quantidade</Text>
+          <Text style={styles.infoValue}>{money(node.cost)}</Text>
+        </View>
+      </View>
+    ) : null}
     {safeArray(node.children).length ? (
       <View style={styles.nodeChildren}>
-        {node.children.map(child => <ComponentNode key={child.key} node={child} depth={depth + 1} />)}
+        {node.children.map(child => <ComponentNode key={child.key} db={db} node={child} depth={depth + 1} />)}
       </View>
     ) : null}
   </View>
-);
+  );
+};
 
 export default function MenuCostsPage() {
   const messageApi = useMessage() || {};
@@ -275,7 +323,7 @@ export default function MenuCostsPage() {
 
   const switchTab = useCallback(tab => {
     setActiveTab(tab);
-    setActiveProductTab('summary');
+    setActiveProductTab(tab === 'products' ? 'composition' : 'summary');
     setQuery('');
     setSelectedId(getSectionDefaultSelection(db, tab));
   }, [db]);
@@ -298,6 +346,70 @@ export default function MenuCostsPage() {
     setSelectedId(getSectionDefaultSelection(nextDb, activeTab));
     showSuccess?.('Base local restaurada a partir do PWA.');
   }, [activeTab, showSuccess]);
+
+  const patchProductComponent = useCallback((productId, componentIndex, patch) => {
+    const nextDb = {
+      ...db,
+      products: safeArray(db.products).map(product => {
+        if (String(product.id) !== String(productId)) return product;
+        return {
+          ...product,
+          components: safeArray(product.components).map((component, index) =>
+            index === componentIndex ? { ...component, ...patch } : component
+          ),
+        };
+      }),
+    };
+    persistDb(nextDb);
+  }, [db, persistDb]);
+
+  const patchProductAddonComponent = useCallback((productId, addonId, componentIndex, patch) => {
+    const nextDb = {
+      ...db,
+      products: safeArray(db.products).map(product => {
+        if (String(product.id) !== String(productId)) return product;
+        return {
+          ...product,
+          addons: safeArray(product.addons).map(addon => {
+            if (String(addon.id) !== String(addonId)) return addon;
+            return {
+              ...addon,
+              components: safeArray(addon.components).map((component, index) =>
+                index === componentIndex ? { ...component, ...patch } : component
+              ),
+            };
+          }),
+        };
+      }),
+    };
+    persistDb(nextDb);
+  }, [db, persistDb]);
+
+  const patchRecipeComponent = useCallback((recipeId, componentIndex, patch) => {
+    const nextDb = {
+      ...db,
+      recipes: safeArray(db.recipes).map(recipe => {
+        if (String(recipe.id) !== String(recipeId)) return recipe;
+        return {
+          ...recipe,
+          components: safeArray(recipe.components).map((component, index) =>
+            index === componentIndex ? { ...component, ...patch } : component
+          ),
+        };
+      }),
+    };
+    persistDb(nextDb);
+  }, [db, persistDb]);
+
+  const patchActiveCost = useCallback((collection, id, patch) => {
+    const nextDb = {
+      ...db,
+      [collection]: safeArray(db[collection]).map(item =>
+        String(item.id) === String(id) ? { ...item, ...patch } : item
+      ),
+    };
+    persistDb(nextDb);
+  }, [db, persistDb]);
 
   const downloadTextFile = useCallback((content, filename, type) => {
     if (typeof document === 'undefined') {
@@ -371,16 +483,10 @@ export default function MenuCostsPage() {
       <View style={styles.page}>
         <View style={styles.toolbar}>
           <View style={styles.titleBlock}>
-            <Text style={styles.eyebrow}>Gyros Greek Barbecue</Text>
+            <Text style={styles.eyebrow}>Custos do cardápio</Text>
             <Text style={styles.pageTitle}>Engenharia de Produtos e Processos</Text>
           </View>
-          <View style={styles.toolbarActions}>
-            <IconButton icon="download" label="JSON" onPress={exportJson} />
-            <IconButton icon="database" label="ERP" onPress={exportErpJson} />
-            <IconButton icon="file-text" label="CSV ERP" onPress={exportErpCsv} />
-            <IconButton icon="upload" label="Importar" onPress={importJson} />
-            <IconButton icon="rotate-ccw" label="Restaurar" onPress={resetLocalData} tone="danger" />
-          </View>
+          <View style={styles.toolbarActions} />
         </View>
 
         <View style={[styles.body, !isWide && styles.bodyCompact]}>
@@ -421,6 +527,10 @@ export default function MenuCostsPage() {
                 setActiveProductTab,
                 openModal: setModal,
                 patchCollectionItem,
+                patchProductComponent,
+                patchProductAddonComponent,
+                patchRecipeComponent,
+                patchActiveCost,
                 persistDb,
               })}
             </ScrollView>
@@ -474,7 +584,16 @@ function Dashboard({ db, setSelectedId }) {
 
   return (
     <View style={styles.stack}>
-      <View style={styles.metricGrid}>{metrics.map(metric => <MetricCard key={metric.key} {...metric} />)}</View>
+      <View style={styles.metricGrid}>
+        {metrics.map(metric => (
+          <MetricCard
+            key={metric.key}
+            label={metric.label}
+            value={metric.value}
+            tone={metric.tone}
+          />
+        ))}
+      </View>
       <View style={styles.gridTwo}>
         <View style={styles.panel}>
           <Text style={styles.panelTitle}>Produtos que pedem atenção</Text>
@@ -507,13 +626,24 @@ function Dashboard({ db, setSelectedId }) {
   );
 }
 
-function ProductsView({ db, query, selectedId, setSelectedId, activeProductTab, setActiveProductTab, openModal }) {
-  const products = filterBySearch(computeAllProducts(db), query, [
+function ProductsView({
+  db,
+  query,
+  selectedId,
+  setSelectedId,
+  activeProductTab,
+  setActiveProductTab,
+  openModal,
+  patchProductComponent,
+  patchProductAddonComponent,
+}) {
+  const products = filterBySearch(computeEngineeringProducts(db), query, [
     item => item.product.name,
     item => item.product.code,
     item => categoryName(db, item.product.categoryId),
   ]);
-  const selected = computeProduct(db, selectedId) || products[0] || null;
+  const selectedProduct = products.find(item => String(item.product.id) === String(selectedId)) || products[0] || null;
+  const selected = selectedProduct ? computeProduct(db, selectedProduct.product.id) : null;
   const grouped = groupBy(products, item => categoryName(db, item.product.categoryId));
 
   return (
@@ -529,7 +659,10 @@ function ProductsView({ db, query, selectedId, setSelectedId, activeProductTab, 
                 subtitle={item.product.description || item.product.notes}
                 imageSource={imageForProduct(item.product)}
                 selected={selected?.product?.id === item.product.id}
-                onPress={() => setSelectedId(item.product.id)}
+                onPress={() => {
+                  setSelectedId(item.product.id);
+                  setActiveProductTab('composition');
+                }}
                 right={<Text style={styles.rowMoney}>{money(item.salePrice)}</Text>}
                 badges={[
                   { label: `Custo ${money(item.directCost)}`, tone: 'neutral' },
@@ -546,12 +679,22 @@ function ProductsView({ db, query, selectedId, setSelectedId, activeProductTab, 
         activeProductTab={activeProductTab}
         setActiveProductTab={setActiveProductTab}
         openModal={openModal}
+        patchProductComponent={patchProductComponent}
+        patchProductAddonComponent={patchProductAddonComponent}
       />
     </View>
   );
 }
 
-function ProductDetail({ db, computed, activeProductTab, setActiveProductTab, openModal }) {
+function ProductDetail({
+  db,
+  computed,
+  activeProductTab,
+  setActiveProductTab,
+  openModal,
+  patchProductComponent,
+  patchProductAddonComponent,
+}) {
   if (!computed) return <EmptyState text="Selecione um produto para ver a ficha." />;
   const product = computed.product;
   const purchases = productPurchaseRows(db, computed);
@@ -599,7 +742,18 @@ function ProductDetail({ db, computed, activeProductTab, setActiveProductTab, op
       ) : null}
       {activeProductTab === 'composition' ? (
         <View style={styles.stack}>
-          {computed.nodes.map(node => <ComponentNode key={node.key} node={node} />)}
+          <View style={styles.panelNested}>
+            <Text style={styles.panelTitle}>Componentes fixos auditáveis</Text>
+            <Text style={styles.panelSubtitle}>A quantidade nesta ficha recalcula custo técnico, obrigatórios, margem e preço pela regra.</Text>
+            {computed.nodes.map((node, index) => (
+              <ComponentNode
+                key={node.key}
+                db={db}
+                node={node}
+                onQtyChange={value => patchProductComponent?.(product.id, index, { qty: num(value) })}
+              />
+            ))}
+          </View>
         </View>
       ) : null}
       {activeProductTab === 'addons' ? (
@@ -617,7 +771,14 @@ function ProductDetail({ db, computed, activeProductTab, setActiveProductTab, op
                 <Text style={styles.nodeCost}>{money(addon.directCost)} / + {money(addon.salePriceDelta)}</Text>
               </View>
               <Text style={styles.infoHelper}>{addon.notes}</Text>
-              {addon.nodes.map(node => <ComponentNode key={node.key} node={node} />)}
+              {addon.nodes.length ? addon.nodes.map((node, index) => (
+                <ComponentNode
+                  key={node.key}
+                  db={db}
+                  node={node}
+                  onQtyChange={value => patchProductAddonComponent?.(product.id, addon.id, index, { qty: num(value) })}
+                />
+              )) : <Text style={styles.infoHelper}>Grupo sem custo direto. Obrigatoriedade e regra continuam preservadas.</Text>}
             </View>
           )) : <EmptyState text="Produto sem grupos ou adicionais." />}
         </View>
@@ -626,7 +787,7 @@ function ProductDetail({ db, computed, activeProductTab, setActiveProductTab, op
         <View style={styles.stack}>
           {computed.nodes.filter(node => node.refType === 'packaging').length ? computed.nodes
             .filter(node => node.refType === 'packaging')
-            .map(node => <ComponentNode key={node.key} node={node} />) : <EmptyState text="Nenhuma embalagem mapeada neste produto." />}
+            .map(node => <ComponentNode key={node.key} db={db} node={node} />) : <EmptyState text="Nenhuma embalagem mapeada neste produto." />}
         </View>
       ) : null}
       {activeProductTab === 'purchases' ? (
@@ -646,8 +807,16 @@ function ProductDetail({ db, computed, activeProductTab, setActiveProductTab, op
   );
 }
 
-function ResourceView({ db, query, selectedId, setSelectedId, collection, openModal }) {
-  const meta = RESOURCE_META[collection];
+function ResourceView({
+  db,
+  query,
+  selectedId,
+  setSelectedId,
+  collection,
+  openModal,
+  patchActiveCost,
+  patchRecipeComponent,
+}) {
   const rows = filterBySearch(safeArray(db[collection]), query, [
     item => item.name,
     item => item.code,
@@ -659,37 +828,30 @@ function ResourceView({ db, query, selectedId, setSelectedId, collection, openMo
   const selected = getById(db, collection, selectedId) || rows[0] || null;
 
   return (
-    <View style={styles.stack}>
-      <TechnicalSectionSummary db={db} collection={collection} rows={rows} />
-      <View style={styles.splitLayout}>
-        <View style={styles.listPanel}>
-          <View style={styles.panelIntro}>
-            <Text style={styles.panelTitle}>{meta.plural}</Text>
-            <Text style={styles.panelSubtitle}>{meta.description}</Text>
-          </View>
-          {rows.map(item => (
-            <RowCard
-              key={item.id}
-              title={item.name}
-              subtitle={item.description || item.notes}
-              imageSource={imageForResource(meta.refType, item.id)}
-              selected={selected?.id === item.id}
-              onPress={() => setSelectedId(item.id)}
-              right={<Text style={styles.rowMoney}>{resourceCostLabel(db, collection, item)}</Text>}
-              badges={[
-                { label: evidenceLabel(item.evidenceType || item.sourceType), tone: (item.evidenceType || item.sourceType) === 'documented' ? 'good' : 'warn' },
-                { label: item.erpUnit || item.baseUnit || item.yieldUnit || 'UN', tone: 'neutral' },
-              ]}
-            />
-          ))}
-        </View>
-        <ResourceDetail db={db} collection={collection} item={selected} openModal={openModal} />
+    <View style={styles.splitLayout}>
+      <View style={styles.resourceTablePanel}>
+        <TechnicalSectionSummary
+          db={db}
+          collection={collection}
+          rows={rows}
+          selectedId={selected?.id}
+          onSelect={setSelectedId}
+          onPatch={patchActiveCost}
+        />
       </View>
+      <ResourceDetail
+        db={db}
+        collection={collection}
+        item={selected}
+        openModal={openModal}
+        patchActiveCost={patchActiveCost}
+        patchRecipeComponent={patchRecipeComponent}
+      />
     </View>
   );
 }
 
-function TechnicalSectionSummary({ db, collection, rows }) {
+function TechnicalSectionSummary({ db, collection, rows, selectedId, onSelect, onPatch }) {
   const meta = RESOURCE_META[collection];
   const refType = meta.refType;
   const summaries = safeArray(rows).map(item => activeCostSummary(db, refType, item));
@@ -712,11 +874,67 @@ function TechnicalSectionSummary({ db, collection, rows }) {
         <MetricCard label="Compras vinculadas" value={String(purchaseCount)} />
         <MetricCard label="Revisões" value={String(reviewCount)} tone={reviewCount ? 'warn' : 'good'} />
       </View>
+      <ActiveCostTable
+        db={db}
+        collection={collection}
+        refType={refType}
+        rows={rows}
+        selectedId={selectedId}
+        onSelect={onSelect}
+        onPatch={onPatch}
+      />
     </View>
   );
 }
 
-function ResourceDetail({ db, collection, item, openModal }) {
+function ActiveCostTable({ db, collection, refType, rows, selectedId, onSelect, onPatch }) {
+  return (
+    <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+      <View style={styles.activeCostTable}>
+        <View style={styles.tableHeader}>
+          {['Item', 'Fonte ativa', 'Custo ativo', 'Leitura', 'Histórico', 'Auditoria'].map(label => (
+            <Text key={label} style={styles.tableHeaderText}>{label}</Text>
+          ))}
+        </View>
+        {safeArray(rows).map(item => {
+          const summary = activeCostSummary(db, refType, item);
+          const selected = String(selectedId) === String(item.id);
+          return (
+            <TouchableOpacity
+              key={item.id}
+              style={[styles.tableRow, selected && styles.tableRowActive]}
+              activeOpacity={0.82}
+              onPress={() => onSelect?.(item.id)}
+            >
+              <Text style={styles.tableCell}>{item.name}</Text>
+              <Text style={styles.tableCell}>{summary.modeLabel}{'\n'}{summary.source}</Text>
+              <View style={styles.tableCell}>
+                {selected && onPatch ? (
+                  <View style={styles.tableEditableCost}>
+                    <TextInput
+                      value={String(item.manualUnitCost ?? item.fixedUnitCost ?? item.overrideUnitCost ?? summary.activePrimaryCost)}
+                      onChangeText={value => onPatch(collection, item.id, { activeCostMode: 'manual', manualUnitCost: num(value), evidenceType: 'manual' })}
+                      keyboardType="numeric"
+                      style={styles.tableInput}
+                    />
+                    <Text style={styles.quantityUnit}>/{summary.primaryUnit}</Text>
+                  </View>
+                ) : (
+                  <Text style={styles.tableCellText}>{money(summary.activePrimaryCost)} / {summary.primaryUnit}</Text>
+                )}
+              </View>
+              <Text style={styles.tableCell}>{preciseMoney(summary.activeBaseCost)} / {summary.baseUnit}</Text>
+              <Text style={styles.tableCell}>{summary.purchaseCount} compra(s)</Text>
+              <Text style={styles.tableCell}>{evidenceLabel(item.evidenceType || item.sourceType)}</Text>
+            </TouchableOpacity>
+          );
+        })}
+      </View>
+    </ScrollView>
+  );
+}
+
+function ResourceDetail({ db, collection, item, openModal, patchActiveCost, patchRecipeComponent }) {
   if (!item) return <EmptyState />;
   const meta = RESOURCE_META[collection];
   const refType = meta.refType;
@@ -758,23 +976,30 @@ function ResourceDetail({ db, collection, item, openModal }) {
       ]}
       actions={<IconButton icon="edit-3" label="Editar" onPress={() => openModal({ collection, id: item.id })} />}
     >
-      <ActiveCostPanel db={db} refType={refType} item={item} />
+      <ActiveCostPanel db={db} collection={collection} refType={refType} item={item} onPatch={patchActiveCost} />
       <InfoGrid rows={rows} />
       {collection === 'recipes' ? (
         <View style={styles.panelNested}>
           <Text style={styles.panelTitle}>Componentes do preparo</Text>
-          {safeArray(item.components).map(component => (
-            <ComponentNode key={`${component.refType}-${component.refId}-${component.qty}`} node={{
-              key: `${component.refType}:${component.refId}:${component.qty}`,
-              refType: component.refType,
-              refId: component.refId,
-              name: resourceName(db, component.refType, component.refId),
-              qty: component.qty,
-              unit: component.unit || '',
-              cost: 0,
-              pricingMode: 'receita',
-              children: [],
-            }} />
+          <Text style={styles.panelSubtitle}>Ajustes de quantidade recalculam o custo do lote e a leitura unitária do preparo.</Text>
+          {safeArray(item.components).map((component, index) => (
+            <ComponentNode
+              key={`${component.refType}-${component.refId}-${component.qty}`}
+              db={db}
+              node={{
+                key: `${component.refType}:${component.refId}:${component.qty}`,
+                refType: component.refType,
+                refId: component.refId,
+                record: getById(db, resourceCollectionForRef(component.refType), component.refId),
+                name: resourceName(db, component.refType, component.refId),
+                qty: component.qty,
+                unit: component.unit || baseUnitForNode(db, component),
+                cost: componentCost(db, component),
+                pricingMode: 'receita',
+                children: [],
+              }}
+              onQtyChange={value => patchRecipeComponent?.(item.id, index, { qty: num(value) })}
+            />
           ))}
         </View>
       ) : null}
@@ -789,10 +1014,21 @@ function ResourceDetail({ db, collection, item, openModal }) {
   );
 }
 
-function ActiveCostPanel({ db, refType, item }) {
+function baseUnitForNode(db, component) {
+  const record = getById(db, resourceCollectionForRef(component.refType), component.refId);
+  if (component.refType === 'recipe') return record?.yieldUnit || 'un';
+  return record?.baseUnit || record?.erpUnit || 'un';
+}
+
+function ActiveCostPanel({ db, collection, refType, item, onPatch }) {
   const summary = activeCostSummary(db, refType, item);
   const options = activeCostOptionsForRef(refType);
   const selectedLabel = options.find(option => option.value === summary.mode)?.label || summary.modeLabel;
+  const canEdit = Boolean(onPatch && collection && item?.id);
+  const manualValue = item.manualUnitCost ?? item.fixedUnitCost ?? item.overrideUnitCost ?? summary.activePrimaryCost;
+
+  const patch = patchValue => onPatch?.(collection, item.id, patchValue);
+
   return (
     <View style={styles.activeCostPanel}>
       <View style={styles.activeCostHeader}>
@@ -802,6 +1038,34 @@ function ActiveCostPanel({ db, refType, item }) {
         </View>
         <Badge tone={summary.mode === 'review' ? 'warn' : 'good'}>{selectedLabel}</Badge>
       </View>
+      {canEdit ? (
+        <View style={styles.costControlPanel}>
+          <View style={styles.costModeList}>
+            {options.map(option => (
+              <TouchableOpacity
+                key={option.value}
+                style={[styles.costModeButton, summary.mode === option.value && styles.costModeButtonActive]}
+                onPress={() => patch({ activeCostMode: option.value })}
+              >
+                <Text style={[styles.costModeText, summary.mode === option.value && styles.costModeTextActive]}>{option.label}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+          <View style={styles.costManualRow}>
+            <Field
+              label={`Valor fixado por ${summary.primaryUnit}`}
+              value={manualValue}
+              inputProps={{ keyboardType: 'numeric' }}
+              onChangeText={value => patch({ activeCostMode: 'manual', manualUnitCost: num(value), evidenceType: 'manual' })}
+            />
+            <Field
+              label="Nota da decisão"
+              value={item.activeCostNote || ''}
+              onChangeText={value => patch({ activeCostNote: value })}
+            />
+          </View>
+        </View>
+      ) : null}
       <InfoGrid rows={[
         { label: 'Custo canônico ativo', value: `${money(summary.activePrimaryCost)} / ${summary.primaryUnit}`, helper: summary.source },
         { label: 'Leitura de cálculo', value: `${preciseMoney(summary.activeBaseCost)} / ${summary.baseUnit}`, helper: 'Usado ao multiplicar quantidades da ficha' },
@@ -810,13 +1074,6 @@ function ActiveCostPanel({ db, refType, item }) {
       ]} />
     </View>
   );
-}
-
-function resourceCostLabel(db, collection, item) {
-  if (collection === 'ingredients') return comparableCostLabel('ingredient', item);
-  if (collection === 'packaging') return money(packagingUnitCost(item));
-  if (collection === 'recipes') return money(recipeBatchCost(db, item));
-  return '';
 }
 
 function PurchaseRows({ rows }) {
@@ -1067,17 +1324,22 @@ function ProcessDetail({ db, row }) {
         <View style={styles.panelNested}>
           <Text style={styles.panelTitle}>Componentes do preparo</Text>
           {safeArray(item.components).map(component => (
-            <ComponentNode key={`${component.refType}-${component.refId}-${component.qty}`} node={{
-              key: `${component.refType}:${component.refId}:${component.qty}`,
-              refType: component.refType,
-              refId: component.refId,
-              name: resourceName(db, component.refType, component.refId),
-              qty: component.qty,
-              unit: component.unit || '',
-              cost: componentCost(db, component),
-              pricingMode: 'receita',
-              children: [],
-            }} />
+            <ComponentNode
+              key={`${component.refType}-${component.refId}-${component.qty}`}
+              db={db}
+              node={{
+                key: `${component.refType}:${component.refId}:${component.qty}`,
+                refType: component.refType,
+                refId: component.refId,
+                record: getById(db, resourceCollectionForRef(component.refType), component.refId),
+                name: resourceName(db, component.refType, component.refId),
+                qty: component.qty,
+                unit: component.unit || baseUnitForNode(db, component),
+                cost: componentCost(db, component),
+                pricingMode: 'receita',
+                children: [],
+              }}
+            />
           ))}
         </View>
       ) : null}

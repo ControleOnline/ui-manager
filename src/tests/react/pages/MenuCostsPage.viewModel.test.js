@@ -7,6 +7,8 @@ const {
   buildErpExportPayload,
   activeCostSummary,
   computeProduct,
+  computeEngineeringProducts,
+  componentCost,
   pendingItems,
   processRows,
   purchaseFamilyEntries,
@@ -40,6 +42,16 @@ test('operational views expose resale, pending and process rows', () => {
   assert.ok(resaleItems(db).length > 0);
   assert.ok(pendingItems(db).length > 0);
   assert.ok(processRows(db).length > db.products.length);
+});
+
+test('engineering products list does not duplicate resale items', () => {
+  const db = cloneSeedData();
+  const resaleIds = new Set(resaleItems(db).map(item => item.id));
+  const products = computeEngineeringProducts(db);
+
+  assert.ok(products.length > 0);
+  assert.ok(!products.some(item => resaleIds.has(item.product.id)));
+  assert.ok(products[0].nodes.length > 0);
 });
 
 test('process details can summarize product addon obligations safely', () => {
@@ -78,6 +90,26 @@ test('active cost summary keeps canonical purchase reading visible', () => {
   assert.ok(summary.activePrimaryCost > 0);
   assert.ok(summary.activeBaseCost > 0);
   assert.ok(summary.purchaseCount > 0);
+});
+
+test('product costing uses active cost overrides and editable quantities', () => {
+  const db = cloneSeedData();
+  const base = computeProduct(db, 'prd_alpha');
+  const product = db.products.find(item => item.id === 'prd_alpha');
+  const fraldinha = db.ingredients.find(item => item.id === 'ing_fraldinha');
+  const component = product.components.find(item => item.refId === 'ing_fraldinha');
+  const originalComponentCost = componentCost(db, component);
+
+  fraldinha.activeCostMode = 'manual';
+  fraldinha.manualUnitCost = 60;
+  const overridden = computeProduct(db, 'prd_alpha');
+
+  component.qty = Number(component.qty) + 50;
+  const adjusted = computeProduct(db, 'prd_alpha');
+
+  assert.ok(overridden.directCost > base.directCost);
+  assert.ok(adjusted.directCost > overridden.directCost);
+  assert.ok(componentCost(db, component) > originalComponentCost);
 });
 
 test('purchase family entries group comparable evidence history', () => {
