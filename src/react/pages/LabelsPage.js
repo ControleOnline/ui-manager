@@ -191,7 +191,7 @@ export default function LabelsPage() {
     !!selectedProduct &&
     DATE_MASK_RE.test(formattedHandling) &&
     DATE_MASK_RE.test(formattedExpiration);
-  const primaryColor = brandColors.primary || '#2563EB';
+  const primaryColor = brandColors.primary;
   const finalLabelText = String(generatedText || '').trim();
   const canPrint = labelReady && finalLabelText !== '';
   const printJob = useMemo(
@@ -237,7 +237,7 @@ export default function LabelsPage() {
   };
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: brandColors.background || '#F8FAFC' }]} edges={['bottom']}>
+    <SafeAreaView style={[styles.container, { backgroundColor: brandColors.background }]} edges={['bottom']}>
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={[

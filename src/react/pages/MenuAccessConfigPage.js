@@ -554,7 +554,7 @@ export default function MenuAccessConfigPage() {
               <View key={categoryId || group.category?.name} style={styles.categoryBlock}>
                 <View style={styles.categoryHeader}>
                   <View style={styles.categoryPreview}>
-                    <Icon name={categoryDraft.icon || 'folder'} size={18} color={categoryDraft.color || '#64748B'} />
+                    <Icon name={categoryDraft.icon || 'folder'} size={18} color={categoryDraft.color} />
                     <Text style={styles.categoryTitle}>{categoryDraft.name || group.category?.name}</Text>
                   </View>
                   <View style={styles.categoryActions}>
@@ -610,7 +610,7 @@ export default function MenuAccessConfigPage() {
                       <View key={item.id} style={[styles.menuRow, !draft.enabled && styles.rowDisabled]}>
                         <View style={styles.menuHeader}>
                           <View style={styles.menuPreview}>
-                            <Icon name={draft.icon || 'circle'} size={17} color={draft.color || '#64748B'} />
+                            <Icon name={draft.icon || 'circle'} size={17} color={draft.color} />
                             <View style={styles.rowTitleGroup}>
                               <Text style={styles.menuTitle}>{draft.menu || item.label}</Text>
                               <Text style={styles.menuMeta}>{route.route || '-'} em {category.name || '-'}</Text>

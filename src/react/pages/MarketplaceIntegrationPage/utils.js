@@ -106,7 +106,7 @@ export const normalizeMarketplaceCatalogTabProps = (
       1,
   );
   const selectionSummaryTone =
-    props.selectionSummaryTone || props.accentColor || '#0F172A';
+    props.selectionSummaryTone || props.accentColor;
   const productsResponse = {
     ...(props.productsResponse || {}),
     eligible_product_count: Number(

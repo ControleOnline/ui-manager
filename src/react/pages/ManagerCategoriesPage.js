@@ -148,7 +148,7 @@ const ParentPickerModal = ({
                       <View
                         style={[
                           styles.parentColorDot,
-                          { backgroundColor: category?.color || '#CBD5E1' },
+                          { backgroundColor: category?.color },
                         ]}
                       />
                       <Text style={[styles.parentRowText, isActive && styles.parentRowTextActive]}>
@@ -490,7 +490,7 @@ export default function ManagerCategoriesPage({ navigation, route }) {
   }, [categoryActions, deleteTarget?.id, loadCategories, messageApi]);
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: palette.background || '#F8FAFC' }]}>
+    <SafeAreaView style={[styles.container, { backgroundColor: palette.background }]}>
       <View style={styles.header}>
         <View>
           <Text style={styles.headerTitle}>Categorias</Text>
@@ -499,7 +499,7 @@ export default function ManagerCategoriesPage({ navigation, route }) {
           </Text>
         </View>
         <TouchableOpacity
-          style={[styles.addButton, { backgroundColor: palette.primary || '#2563EB' }]}
+          style={[styles.addButton, { backgroundColor: palette.primary }]}
           activeOpacity={0.88}
           onPress={() => openCreateModal()}>
           <Icon name="plus" size={16} color="#FFFFFF" />
@@ -533,8 +533,8 @@ export default function ManagerCategoriesPage({ navigation, route }) {
             style={[
               styles.contextChip,
               selectedContext === 'all' && {
-                backgroundColor: palette.primary || '#2563EB',
-                borderColor: palette.primary || '#2563EB',
+                backgroundColor: palette.primary,
+                borderColor: palette.primary,
               },
             ]}
             onPress={() => setSelectedContext('all')}>
@@ -556,8 +556,8 @@ export default function ManagerCategoriesPage({ navigation, route }) {
                 style={[
                   styles.contextChip,
                   isActive && {
-                    backgroundColor: palette.primary || '#2563EB',
-                    borderColor: palette.primary || '#2563EB',
+                    backgroundColor: palette.primary,
+                    borderColor: palette.primary,
                   },
                 ]}
                 onPress={() => setSelectedContext(contextValue)}>
@@ -572,7 +572,7 @@ export default function ManagerCategoriesPage({ navigation, route }) {
 
       {isLoading ? (
         <View style={styles.centeredState}>
-          <ActivityIndicator size="large" color={palette.primary || '#2563EB'} />
+          <ActivityIndicator size="large" color={palette.primary} />
         </View>
       ) : (
         <ScrollView
@@ -594,7 +594,7 @@ export default function ManagerCategoriesPage({ navigation, route }) {
             return (
               <View key={category?.['@id'] || categoryId || category?.name} style={[styles.categoryCard, cardShadow]}>
                 <View style={styles.categoryCardTop}>
-                  <View style={[styles.categoryColorDot, { backgroundColor: category?.color || '#CBD5E1' }]} />
+                  <View style={[styles.categoryColorDot, { backgroundColor: category?.color }]} />
                   <View style={styles.categoryInfo}>
                     <Text style={styles.categoryName}>{category?.name || 'Categoria sem nome'}</Text>
                     <Text style={styles.categoryMeta}>
@@ -606,9 +606,9 @@ export default function ManagerCategoriesPage({ navigation, route }) {
                   <View
                     style={[
                       styles.contextBadge,
-                      { backgroundColor: withOpacity(palette.primary || '#2563EB', 0.1) },
+                      { backgroundColor: withOpacity(palette.primary, 0.1) },
                     ]}>
-                    <Text style={[styles.contextBadgeText, { color: palette.primary || '#2563EB' }]}>
+                    <Text style={[styles.contextBadgeText, { color: palette.primary }]}>
                       {String(category?.context || 'Sem contexto')}
                     </Text>
                   </View>
@@ -696,15 +696,15 @@ export default function ManagerCategoriesPage({ navigation, route }) {
                               style={[
                                 styles.suggestionChip,
                                 isActive && {
-                                  backgroundColor: withOpacity(palette.primary || '#2563EB', 0.12),
-                                  borderColor: palette.primary || '#2563EB',
+                                  backgroundColor: withOpacity(palette.primary, 0.12),
+                                  borderColor: palette.primary,
                                 },
                               ]}
                               onPress={() => setFormContext(contextValue)}>
                               <Text
                                 style={[
                                   styles.suggestionChipText,
-                                  isActive && { color: palette.primary || '#2563EB' },
+                                  isActive && { color: palette.primary },
                                 ]}>
                                 {contextValue}
                               </Text>
@@ -777,7 +777,7 @@ export default function ManagerCategoriesPage({ navigation, route }) {
                   <TouchableOpacity
                     style={[
                       styles.saveButton,
-                      { backgroundColor: palette.primary || '#2563EB' },
+                      { backgroundColor: palette.primary },
                       isSubmitting && { opacity: 0.7 },
                     ]}
                     disabled={isSubmitting}

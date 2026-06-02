@@ -540,16 +540,16 @@ export default function TranslationsReviewPage() {
   }
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: brandColors.background || '#F8FAFC' }]} edges={['bottom']}>
+    <SafeAreaView style={[styles.container, { backgroundColor: brandColors.background }]} edges={['bottom']}>
       <ScrollView
         contentContainerStyle={styles.scroll}
         showsVerticalScrollIndicator={false}
         refreshControl={(
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={brandColors.primary} />
         )}>
-        <View style={[styles.heroCard, shadowStyle, { backgroundColor: brandColors.primary || '#0F766E' }]}>
+        <View style={[styles.heroCard, shadowStyle, { backgroundColor: brandColors.primary }]}>
           <View style={styles.heroBadge}>
-            <Icon name="type" size={22} color={brandColors.primary || '#0F766E'} />
+            <Icon name="type" size={22} color={brandColors.primary} />
           </View>
           <Text style={styles.heroEyebrow}>TRADUÇÕES</Text>
           <Text style={styles.heroTitle}>Revisão de textos</Text>
@@ -583,7 +583,7 @@ export default function TranslationsReviewPage() {
             <TouchableOpacity
               activeOpacity={0.9}
               onPress={applySearch}
-              style={[styles.searchButton, { backgroundColor: brandColors.primary || '#0F766E' }]}>
+              style={[styles.searchButton, { backgroundColor: brandColors.primary }]}>
               <Text style={styles.searchButtonText}>Aplicar</Text>
             </TouchableOpacity>
 
@@ -597,7 +597,7 @@ export default function TranslationsReviewPage() {
               icon="globe"
               label={selectedLanguageLabel}
               title="Idioma"
-              accentColor={brandColors.primary || '#0F766E'}
+              accentColor={brandColors.primary}
               active={Boolean(filters.language)}
               options={languageFilterOptions}
               selectedKey={filters.language}
@@ -611,7 +611,7 @@ export default function TranslationsReviewPage() {
               icon="alert-triangle"
               label={selectedReviewLabel}
               title="Revisao"
-              accentColor={filters.pendingOnly ? '#DC2626' : (brandColors.primary || '#0F766E')}
+              accentColor={filters.pendingOnly ? '#DC2626' : (brandColors.primary)}
               active={filters.pendingOnly}
               options={reviewFilterOptions}
               selectedKey={filters.pendingOnly ? 'pending' : 'all'}
@@ -626,7 +626,7 @@ export default function TranslationsReviewPage() {
                 icon="database"
                 label={selectedStoreLabel}
                 title="Store"
-                accentColor={brandColors.primary || '#0F766E'}
+                accentColor={brandColors.primary}
                 active={Boolean(filters.store)}
                 options={storeFilterOptions}
                 selectedKey={filters.store}
@@ -642,7 +642,7 @@ export default function TranslationsReviewPage() {
                 icon="tag"
                 label={selectedTypeLabel}
                 title="Tipo"
-                accentColor={brandColors.primary || '#0F766E'}
+                accentColor={brandColors.primary}
                 active={Boolean(filters.type)}
                 options={typeFilterOptions}
                 selectedKey={filters.type}
@@ -761,7 +761,7 @@ export default function TranslationsReviewPage() {
                       onPress={() => handleSave(row)}
                       style={[
                         styles.saveButton,
-                        { backgroundColor: brandColors.primary || '#0F766E' },
+                        { backgroundColor: brandColors.primary },
                         (isSaving || !String(rowDraft).trim()) && styles.saveButtonDisabled,
                       ]}>
                       {isSaving ? (
