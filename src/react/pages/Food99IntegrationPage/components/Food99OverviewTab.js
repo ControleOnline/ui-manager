@@ -1,6 +1,7 @@
 import React from 'react';
 import { Text, View } from 'react-native';
 import Icon from 'react-native-vector-icons/Feather';
+import { colors } from '@controleonline/../../src/styles/colors';
 
 import { withOpacity } from '@controleonline/../../src/styles/branding';
 
@@ -17,18 +18,19 @@ export default function Food99OverviewTab({
   publishStateLabel,
   lastMenuTaskMessage,
   lastErrorMessage,
+  palette = colors,
 }) {
   const reconnectRequired = Boolean(needsReconnect);
   const pillBackgroundColor = reconnectRequired
-    ? '#FEF3C7'
+    ? withOpacity(palette.warning, 0.24)
     : connected
-      ? '#DCFCE7'
-      : '#FEF3C7';
+      ? withOpacity(palette.success, 0.18)
+      : withOpacity(palette.warning, 0.24);
   const pillTextColor = reconnectRequired
-    ? '#92400E'
+    ? palette.warning
     : connected
-      ? '#166534'
-      : '#92400E';
+      ? palette.success
+      : palette.warning;
   const pillLabel = reconnectRequired
     ? 'Reconexão necessária'
     : connected
@@ -97,22 +99,22 @@ export default function Food99OverviewTab({
 
         {!!lastErrorMessage && lastMenuPublishState !== 'failed' && (
           <View style={styles.errorBanner}>
-            <Icon name="alert-circle" size={14} color="#B91C1C" />
+            <Icon name="alert-circle" size={14} color={palette.error} />
             <Text style={styles.errorBannerText}>{lastErrorMessage}</Text>
           </View>
         )}
 
         {reconnectRequired && !lastMenuPublishState && !lastErrorMessage ? (
-          <View style={[styles.infoBanner, { backgroundColor: '#FEF3C7' }]}>
-            <Icon name="alert-triangle" size={14} color="#B45309" />
-            <Text style={[styles.infoBannerText, { color: '#B45309' }]}>
+          <View style={[styles.infoBanner, { backgroundColor: withOpacity(palette.warning, 0.24) }]}>
+            <Icon name="alert-triangle" size={14} color={palette.warning} />
+            <Text style={[styles.infoBannerText, { color: palette.warning }]}>
               A loja está vinculada localmente, mas a conexão remota caiu. Use a aba Loja para reconectar e retomar os webhooks.
             </Text>
           </View>
         ) : !lastMenuPublishState && !lastErrorMessage ? (
-          <View style={[styles.infoBanner, { backgroundColor: '#EFF6FF' }]}>
-            <Icon name="info" size={14} color="#2563EB" />
-            <Text style={[styles.infoBannerText, { color: '#1D4ED8' }]}>
+          <View style={[styles.infoBanner, { backgroundColor: withOpacity(palette.info, 0.12) }]}>
+            <Icon name="info" size={14} color={palette.info} />
+            <Text style={[styles.infoBannerText, { color: palette.info }]}>
               A aba de loja concentra status remoto e ações de conexão. A aba de cardápio cuida somente dos produtos.
             </Text>
           </View>

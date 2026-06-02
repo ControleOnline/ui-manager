@@ -1,41 +1,43 @@
 import React from 'react';
 import { ActivityIndicator, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import Icon from 'react-native-vector-icons/Feather';
+import { colors } from '@controleonline/../../src/styles/colors';
 
 import AnimatedModal from '@controleonline/ui-crm/src/react/components/AnimatedModal';
 
 import styles from '../styles';
 
-const modalStyles = StyleSheet.create({
-  form: {
-    gap: 8,
-    marginBottom: 14,
-  },
-  label: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#64748B',
-    textTransform: 'uppercase',
-    letterSpacing: 0.3,
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    borderRadius: 12,
-    minHeight: 44,
-    backgroundColor: '#F8FAFC',
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#0F172A',
-  },
-  hint: {
-    fontSize: 12,
-    lineHeight: 18,
-    color: '#64748B',
-  },
-});
+const createModalStyles = (palette = colors) =>
+  StyleSheet.create({
+    form: {
+      gap: 8,
+      marginBottom: 14,
+    },
+    label: {
+      fontSize: 12,
+      fontWeight: '700',
+      color: palette.textSecondary,
+      textTransform: 'uppercase',
+      letterSpacing: 0.3,
+    },
+    input: {
+      borderWidth: 1,
+      borderColor: palette.border,
+      borderRadius: 12,
+      minHeight: 44,
+      backgroundColor: palette.background,
+      paddingHorizontal: 12,
+      paddingVertical: 10,
+      fontSize: 14,
+      fontWeight: '600',
+      color: palette.text,
+    },
+    hint: {
+      fontSize: 12,
+      lineHeight: 18,
+      color: palette.textSecondary,
+    },
+  });
 
 // Modal leve para cadastrar uma carteira da empresa ativa sem sair da integração.
 export default function Food99QuickWalletModal({
@@ -44,9 +46,12 @@ export default function Food99QuickWalletModal({
   setWalletName,
   actionLoading,
   accentColor,
+  palette = colors,
   onClose,
   onCreate,
 }) {
+  const modalStyles = createModalStyles(palette);
+
   return (
     <AnimatedModal visible={visible} onRequestClose={onClose}>
       <View style={styles.modalShell}>
@@ -59,7 +64,7 @@ export default function Food99QuickWalletModal({
               </Text>
             </View>
             <TouchableOpacity onPress={onClose} style={styles.modalCloseButton}>
-              <Icon name="x" size={18} color="#475569" />
+              <Icon name="x" size={18} color={palette.textSecondary} />
             </TouchableOpacity>
           </View>
 
@@ -69,7 +74,7 @@ export default function Food99QuickWalletModal({
               value={walletName}
               onChangeText={setWalletName}
               placeholder="Ex.: Pic Pay"
-              placeholderTextColor="#94A3B8"
+              placeholderTextColor={palette.textSecondary}
               autoFocus
               style={modalStyles.input}
               returnKeyType="done"
@@ -90,10 +95,10 @@ export default function Food99QuickWalletModal({
               onPress={onCreate}
               disabled={actionLoading === 'create-wallet'}>
               {actionLoading === 'create-wallet' ? (
-                <ActivityIndicator size="small" color="#FFFFFF" />
+                <ActivityIndicator size="small" color={palette.white} />
               ) : (
                 <>
-                  <Icon name="plus" size={16} color="#FFFFFF" />
+                  <Icon name="plus" size={16} color={palette.white} />
                   <Text style={styles.primaryButtonText}>Criar carteira</Text>
                 </>
               )}

@@ -178,7 +178,7 @@ export default function Food99IntegrationPage() {
   const lastWebhookReceivedAt =
     integrationItem?.last_webhook_received_at || null;
   const publicationTone =
-    publishStateToneMap[lastMenuPublishState] || '#64748B';
+    publishStateToneMap[lastMenuPublishState] || brandColors.textSecondary;
   const storeSettings = storeSettingsResponse?.settings || {};
   const settingsSource = String(
     storeSettingsResponse?.settings_source || 'unavailable',
@@ -1278,8 +1278,8 @@ export default function Food99IntegrationPage() {
 
   const selectionSummaryTone =
     selectedEligibleProducts.length >= MINIMUM_REQUIRED_ITEMS
-      ? '#10B981'
-      : '#F59E0B';
+      ? brandColors.success
+      : brandColors.warning;
 
   const sectionTabs = [
     {key: 'overview', label: 'Resumo'},
@@ -1292,7 +1292,7 @@ export default function Food99IntegrationPage() {
     return (
       <SafeAreaView style={styles.container} edges={['bottom']}>
         <View style={styles.centerState}>
-          <Icon name="building" size={32} color="#94A3B8" />
+          <Icon name="building" size={32} color={brandColors.textSecondary} />
           <Text style={styles.centerStateTitle}>
             Selecione uma empresa para continuar
           </Text>
@@ -1347,11 +1347,13 @@ export default function Food99IntegrationPage() {
           activeKey={activeTab}
           onChange={setActiveTab}
           accentColor={brandColors.primary}
+          palette={brandColors}
         />
 
         {activeTab === 'overview' && (
           <Food99OverviewTab
             shadowStyle={integrationCardShadowStyle}
+            palette={brandColors}
             currentCompany={currentCompany}
             providerId={providerId}
             connected={connected}
@@ -1369,6 +1371,7 @@ export default function Food99IntegrationPage() {
           <Food99StoreTab
             shadowStyle={integrationCardShadowStyle}
             accentColor={brandColors.primary}
+            palette={brandColors}
             statusRows={storeStatusRows}
             lastMenuPublishState={lastMenuPublishState}
             publicationTone={publicationTone}
@@ -1395,6 +1398,7 @@ export default function Food99IntegrationPage() {
           <Food99SettingsTab
             shadowStyle={integrationCardShadowStyle}
             accentColor={brandColors.primary}
+            palette={brandColors}
             settingsSummaryRows={settingsSummaryRows}
             storeSettingsDraft={storeSettingsDraft}
             setStoreSettingsDraft={setStoreSettingsDraft}
@@ -1410,6 +1414,7 @@ export default function Food99IntegrationPage() {
           <Food99CatalogTab
             shadowStyle={integrationCardShadowStyle}
             accentColor={brandColors.primary}
+            palette={brandColors}
             selectionSummaryTone={selectionSummaryTone}
             search={search}
             setSearch={setSearch}
@@ -1434,6 +1439,7 @@ export default function Food99IntegrationPage() {
         selectedEligibleProducts={selectedEligibleProducts}
         uploading={uploading}
         accentColor={brandColors.primary}
+        palette={brandColors}
         onClose={() => setPreviewVisible(false)}
         onUpload={handleUpload}
       />
@@ -1444,6 +1450,7 @@ export default function Food99IntegrationPage() {
         setWalletName={setQuickWalletName}
         actionLoading={actionLoading}
         accentColor={brandColors.primary}
+        palette={brandColors}
         onClose={closeQuickWalletModal}
         onCreate={handleCreateQuickWallet}
       />

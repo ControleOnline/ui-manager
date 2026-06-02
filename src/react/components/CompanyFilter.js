@@ -5,7 +5,7 @@ import { useStore } from '@store';
 import md5 from 'md5';
 import { env } from '@env';
 import { colors } from '@controleonline/../../src/styles/colors';
-import styles from './CompanyFilter.styles';
+import createStyles from './CompanyFilter.styles';
 
 import {
   resolveThemePalette,
@@ -70,6 +70,7 @@ const CompanyFilter = ({ navigation, mode }) => {
       ),
     [themeColors, currentCompany?.id],
   );
+  const styles = useMemo(() => createStyles(brandColors), [brandColors]);
 
 
 
@@ -164,7 +165,7 @@ const CompanyFilter = ({ navigation, mode }) => {
                 style={styles.companyLogo}
               />
             ) : (
-              <Icon name="briefcase" size={18} color="#64748B" />
+              <Icon name="briefcase" size={18} color={brandColors.textSecondary} />
             )}
             <Text
               style={[
@@ -272,7 +273,7 @@ const CompanyFilter = ({ navigation, mode }) => {
                 <Text style={styles.modalTitle}>Selecionar Empresa</Text>
 
                 <TouchableOpacity onPress={closeModal}>
-                  <Icon name="x" size={22} color="#64748B" />
+                  <Icon name="x" size={22} color={brandColors.textSecondary} />
                 </TouchableOpacity>
               </View>
 
@@ -368,7 +369,7 @@ const CompanyFilter = ({ navigation, mode }) => {
               <Text style={styles.modalTitle}>Selecionar Empresa</Text>
 
               <TouchableOpacity onPress={closeModal}>
-                <Icon name="x" size={22} color="#64748B" />
+                <Icon name="x" size={22} color={brandColors.textSecondary} />
               </TouchableOpacity>
             </View>
 

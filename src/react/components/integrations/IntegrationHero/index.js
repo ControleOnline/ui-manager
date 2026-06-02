@@ -1,8 +1,9 @@
 import React from 'react';
 import { Image, Text, View } from 'react-native';
 import Icon from 'react-native-vector-icons/Feather';
+import { colors } from '@controleonline/../../src/styles/colors';
 
-import styles from './styles';
+import createStyles from './styles';
 
 // Hero visual compartilhado pelas telas de integração.
 export default function IntegrationHero({
@@ -13,7 +14,10 @@ export default function IntegrationHero({
   description,
   logo,
   iconName = 'layers',
+  palette = colors,
 }) {
+  const styles = createStyles(palette);
+
   return (
     <View style={[styles.card, shadowStyle, { backgroundColor: accentColor }]}>
       <View style={styles.copy}>

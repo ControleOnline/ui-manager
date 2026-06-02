@@ -1,15 +1,14 @@
 import { StyleSheet } from 'react-native';
-
-const createStyles = colors =>
+const createStyles = brandColors =>
   StyleSheet.create({
     toolbar: {
       flexDirection: 'row',
       justifyContent: 'space-around',
       alignItems: 'center',
       height: 60,
-      backgroundColor: '#f8f8f8',
+      backgroundColor: brandColors.background,
       borderTopWidth: 1,
-      borderTopColor: '#ddd',
+      borderTopColor: brandColors.border,
     },
     button: {
       flex: 1,
@@ -18,11 +17,11 @@ const createStyles = colors =>
     },
     buttonText: {
       fontSize: 12,
-      color: '#666',
+      color: brandColors.textSecondary,
       marginTop: 6,
     },
     activeText: {
-      color: colors?.primary || colors?.['primary'] || '#007AFF',
+      color: brandColors.primary,
       fontWeight: 'bold',
     },
   });

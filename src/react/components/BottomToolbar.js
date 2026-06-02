@@ -1,8 +1,10 @@
 import { useNavigationState } from '@react-navigation/native';
 import {useStore} from '@store';
-import React from 'react';
+import React, {useMemo} from 'react';
 import { Text, TouchableOpacity, View } from 'react-native';
 import Icon from 'react-native-vector-icons/Feather';
+import {colors} from '@controleonline/../../src/styles/colors';
+import {resolveThemePalette} from '@controleonline/../../src/styles/branding';
 import createStyles from './BottomToolbar.styles';
 
 const BottomToolbar = ({navigation}) => {
@@ -16,9 +18,19 @@ const BottomToolbar = ({navigation}) => {
   const peopleGetters = peopleStore.getters;
   const themeStore = useStore('theme');
   const getters = themeStore.getters;
-  const {colors} = getters;
+  const {colors: themeColors} = getters;
   const {currentCompany} = peopleGetters;
-  const styles = createStyles(colors);
+  const brandColors = useMemo(
+    () =>
+      resolveThemePalette(
+        {...themeColors, ...(currentCompany?.theme?.colors || {})},
+        colors,
+      ),
+    [themeColors, currentCompany?.id],
+  );
+  const styles = createStyles(brandColors);
+  const activeIconColor = brandColors.primary;
+  const inactiveIconColor = brandColors.textSecondary;
 
   return (
     <View style={styles.toolbar}>
@@ -33,7 +45,7 @@ const BottomToolbar = ({navigation}) => {
       <Icon
         name="home"
         size={15}
-        color={activeTab === 'HomePage' ? '#007AFF' : '#666'}
+        color={activeTab === 'HomePage' ? activeIconColor : inactiveIconColor}
       />
       <Text
         style={[
@@ -55,7 +67,7 @@ const BottomToolbar = ({navigation}) => {
       <Icon
         name="dollar-sign"
         size={15}
-        color={activeTab === 'CrmIndex' ? '#007AFF' : '#666'}
+        color={activeTab === 'CrmIndex' ? activeIconColor : inactiveIconColor}
       />
       <Text
         style={[
@@ -77,7 +89,7 @@ const BottomToolbar = ({navigation}) => {
       <Icon
         name="shopping-bag"
         size={15}
-        color={activeTab === 'ClientsIndex' ? '#007AFF' : '#666'}
+        color={activeTab === 'ClientsIndex' ? activeIconColor : inactiveIconColor}
       />
       <Text
         style={[
@@ -99,7 +111,7 @@ const BottomToolbar = ({navigation}) => {
       <Icon
         name="user"
         size={15}
-        color={activeTab === 'ProfilePage' ? '#007AFF' : '#666'}
+        color={activeTab === 'ProfilePage' ? activeIconColor : inactiveIconColor}
       />
       <Text
         style={[

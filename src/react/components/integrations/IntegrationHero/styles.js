@@ -1,6 +1,9 @@
 import { StyleSheet } from 'react-native';
+import {colors} from '@controleonline/../../src/styles/colors';
+import {withOpacity} from '@controleonline/../../src/styles/branding';
 
-const styles = StyleSheet.create({
+const createStyles = (palette = colors) =>
+  StyleSheet.create({
   card: {
     borderRadius: 24,
     padding: 20,
@@ -15,7 +18,7 @@ const styles = StyleSheet.create({
   eyebrow: {
     fontSize: 11,
     fontWeight: '700',
-    color: 'rgba(255,255,255,0.76)',
+    color: withOpacity(palette.white, 0.76),
     textTransform: 'uppercase',
     letterSpacing: 1.1,
     marginBottom: 8,
@@ -23,20 +26,20 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 24,
     fontWeight: '800',
-    color: '#FFFFFF',
+    color: palette.white,
     marginBottom: 8,
     letterSpacing: -0.5,
   },
   description: {
     fontSize: 13,
     lineHeight: 19,
-    color: 'rgba(255,255,255,0.88)',
+    color: withOpacity(palette.white, 0.88),
   },
   badge: {
     width: 48,
     height: 48,
     borderRadius: 16,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: palette.white,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -46,4 +49,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default styles;
+export default createStyles;

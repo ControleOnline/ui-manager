@@ -1,4 +1,5 @@
 import { StyleSheet, Platform } from 'react-native';
+import {withOpacity} from '@controleonline/../../src/styles/branding';
 
 const createStyles = brandColors =>
   StyleSheet.create({
@@ -18,16 +19,16 @@ const createStyles = brandColors =>
     toolbarShadow: {
       height: 56,
       borderRadius: 20,
-      backgroundColor: '#fff',
+      backgroundColor: brandColors.white,
       ...Platform.select({
         ios: {
-          shadowColor: '#0F172A',
+          shadowColor: brandColors.text,
           shadowOffset: { width: 0, height: -6 },
           shadowOpacity: 0.12,
           shadowRadius: 16,
         },
         android: { elevation: 12 },
-        web: { boxShadow: '0 -6px 20px rgba(15,23,42,0.12)' },
+        web: { boxShadow: `0 -6px 20px ${withOpacity(brandColors.text, 0.12)}` },
       }),
     },
     toolbar: {

@@ -1,6 +1,7 @@
 import React from 'react';
 import { ActivityIndicator, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import Icon from 'react-native-vector-icons/Feather';
+import { colors } from '@controleonline/../../src/styles/colors';
 
 import { withOpacity } from '@controleonline/../../src/styles/branding';
 
@@ -32,6 +33,7 @@ export default function IFoodOperationsTab({
   hoursSaving,
   onSaveHours,
   onCancelEditHours,
+  palette = colors,
 }) {
   if (!connected) {
     return (
@@ -56,19 +58,19 @@ export default function IFoodOperationsTab({
               style={[
                 styles.availBadge,
                 {
-                  backgroundColor: withOpacity(storeStatus.data.online ? '#16A34A' : '#DC2626', 0.12),
+                  backgroundColor: withOpacity(storeStatus.data.online ? palette.success : palette.error, 0.12),
                 },
               ]}>
               <View
                 style={[
                   styles.availDot,
-                  { backgroundColor: storeStatus.data.online ? '#16A34A' : '#DC2626' },
+                  { backgroundColor: storeStatus.data.online ? palette.success : palette.error },
                 ]}
               />
               <Text
                 style={[
                   styles.availBadgeText,
-                  { color: storeStatus.data.online ? '#166534' : '#991B1B' },
+                  { color: storeStatus.data.online ? palette.success : palette.error },
                 ]}>
                 {storeStatus.data.online ? 'Online' : 'Offline'}
               </Text>
@@ -99,9 +101,9 @@ export default function IFoodOperationsTab({
                     onPress={() => onRemoveInterruption(interruption)}
                     disabled={actionLoading !== null || interruptionRemoving?.has?.(String(interruption?.id || ''))}>
                     {interruptionRemoving?.has?.(String(interruption?.id || '')) ? (
-                      <ActivityIndicator size="small" color="#B91C1C" />
+                      <ActivityIndicator size="small" color={palette.error} />
                     ) : (
-                      <Icon name="trash-2" size={13} color="#B91C1C" />
+                      <Icon name="trash-2" size={13} color={palette.error} />
                     )}
                   </TouchableOpacity>
                 </View>
@@ -123,7 +125,7 @@ export default function IFoodOperationsTab({
             onChangeText={value => onInterruptionDraftChange('description', value)}
             style={styles.input}
             placeholder="Motivo da pausa"
-            placeholderTextColor="#94A3B8"
+            placeholderTextColor={palette.textSecondary}
             editable={actionLoading === null}
           />
           <View style={styles.interruptionDateRow}>
@@ -134,7 +136,7 @@ export default function IFoodOperationsTab({
                 onChangeText={value => onInterruptionDraftChange('start', value)}
                 style={styles.input}
                 placeholder="AAAA-MM-DDTHH:MM"
-                placeholderTextColor="#94A3B8"
+                placeholderTextColor={palette.textSecondary}
                 keyboardType="numbers-and-punctuation"
                 editable={actionLoading === null}
               />
@@ -146,7 +148,7 @@ export default function IFoodOperationsTab({
                 onChangeText={value => onInterruptionDraftChange('end', value)}
                 style={styles.input}
                 placeholder="AAAA-MM-DDTHH:MM"
-                placeholderTextColor="#94A3B8"
+                placeholderTextColor={palette.textSecondary}
                 keyboardType="numbers-and-punctuation"
                 editable={actionLoading === null}
               />
@@ -171,10 +173,10 @@ export default function IFoodOperationsTab({
                 const online = operation.state === 'OK' || operation.state === 'WARNING';
                 const tone =
                   operation.state === 'OK'
-                    ? '#16A34A'
+                    ? palette.success
                     : operation.state === 'WARNING'
-                      ? '#D97706'
-                      : '#DC2626';
+                      ? palette.warning
+                      : palette.error;
 
                 return (
                   <View
@@ -204,16 +206,16 @@ export default function IFoodOperationsTab({
             activeOpacity={0.9}
             style={[
               styles.availButton,
-              { backgroundColor: '#16A34A' },
+              { backgroundColor: palette.success },
               (actionLoading === 'store_open' || storeStatus?.data?.online === true) && styles.availButtonDisabled,
             ]}
             onPress={onStoreOpen}
             disabled={actionLoading !== null || storeStatus?.data?.online === true}>
             {actionLoading === 'store_open' ? (
-              <ActivityIndicator color="#FFFFFF" size="small" />
+              <ActivityIndicator color={palette.white} size="small" />
             ) : (
               <>
-                <Icon name="check-circle" size={15} color="#FFFFFF" />
+                <Icon name="check-circle" size={15} color={palette.white} />
                 <Text style={styles.availButtonText}>Abrir loja</Text>
               </>
             )}
@@ -223,16 +225,16 @@ export default function IFoodOperationsTab({
             activeOpacity={0.9}
             style={[
               styles.availButton,
-              { backgroundColor: '#DC2626' },
+              { backgroundColor: palette.error },
               (actionLoading === 'store_close' || storeStatus?.data?.online === false) && styles.availButtonDisabled,
             ]}
             onPress={onStoreClose}
             disabled={actionLoading !== null || storeStatus?.data?.online === false}>
             {actionLoading === 'store_close' ? (
-              <ActivityIndicator color="#FFFFFF" size="small" />
+              <ActivityIndicator color={palette.white} size="small" />
             ) : (
               <>
-                <Icon name="x-circle" size={15} color="#FFFFFF" />
+                <Icon name="x-circle" size={15} color={palette.white} />
                 <Text style={styles.availButtonText}>Fechar loja</Text>
               </>
             )}
@@ -243,7 +245,7 @@ export default function IFoodOperationsTab({
             style={styles.availRefreshButton}
             onPress={onRefreshStatus}
             disabled={actionLoading !== null}>
-            <Icon name="refresh-cw" size={15} color="#64748B" />
+            <Icon name="refresh-cw" size={15} color={palette.textSecondary} />
           </TouchableOpacity>
         </View>
 
@@ -263,13 +265,13 @@ export default function IFoodOperationsTab({
               onPress={onStartEditHours}
               style={styles.hoursEditBtn}
               disabled={hoursLoading}>
-              <Icon name="edit-2" size={13} color="#0EA5E9" />
+              <Icon name="edit-2" size={13} color={palette.info} />
               <Text style={styles.hoursEditBtnText}>Editar</Text>
             </TouchableOpacity>
           )}
         </View>
 
-        {hoursLoading && <ActivityIndicator size="small" color="#0EA5E9" />}
+        {hoursLoading && <ActivityIndicator size="small" color={palette.info} />}
 
         {!hoursLoading && !hoursEditing && (
           Array.isArray(hours) && hours.length > 0 ? (
@@ -280,7 +282,7 @@ export default function IFoodOperationsTab({
 
                 return (
                   <View key={day} style={styles.hoursDayRow}>
-                    <Text style={[styles.hoursDayLabel, !isOpen && { color: '#94A3B8' }]}>
+                    <Text style={[styles.hoursDayLabel, !isOpen && { color: palette.textSecondary }]}>
                       {DAY_LABELS[day]}
                     </Text>
                     <View style={styles.hoursValues}>
@@ -323,7 +325,7 @@ export default function IFoodOperationsTab({
                       <View style={[styles.dayToggleThumb, entry.open && styles.dayToggleThumbOn]} />
                     </TouchableOpacity>
 
-                    <Text style={[styles.hoursDayLabel, !entry.open && { color: '#94A3B8' }]}>
+                    <Text style={[styles.hoursDayLabel, !entry.open && { color: palette.textSecondary }]}>
                       {DAY_LABELS[day]}
                     </Text>
 
@@ -336,7 +338,7 @@ export default function IFoodOperationsTab({
                               onChangeText={value => onUpdateHoursDraft(day, index, 'start', value)}
                               style={styles.hoursInput}
                               placeholder="HH:MM"
-                              placeholderTextColor="#94A3B8"
+                              placeholderTextColor={palette.textSecondary}
                               keyboardType="numbers-and-punctuation"
                               editable={!hoursSaving}
                             />
@@ -346,7 +348,7 @@ export default function IFoodOperationsTab({
                               onChangeText={value => onUpdateHoursDraft(day, index, 'end', value)}
                               style={styles.hoursInput}
                               placeholder="HH:MM"
-                              placeholderTextColor="#94A3B8"
+                              placeholderTextColor={palette.textSecondary}
                               keyboardType="numbers-and-punctuation"
                               editable={!hoursSaving}
                             />
@@ -355,7 +357,7 @@ export default function IFoodOperationsTab({
                                 onPress={() => onRemoveHoursShift(day, index)}
                                 disabled={hoursSaving}
                                 style={styles.hoursShiftRemoveBtn}>
-                                <Icon name="trash-2" size={14} color="#EF4444" />
+                                <Icon name="trash-2" size={14} color={palette.error} />
                               </TouchableOpacity>
                             )}
                           </View>
@@ -364,7 +366,7 @@ export default function IFoodOperationsTab({
                           onPress={() => onAddHoursShift(day)}
                           disabled={hoursSaving}
                           style={styles.hoursShiftAddBtn}>
-                          <Icon name="plus" size={14} color="#0EA5E9" />
+                          <Icon name="plus" size={14} color={palette.info} />
                           <Text style={styles.hoursShiftAddText}>Adicionar turno</Text>
                         </TouchableOpacity>
                       </View>
@@ -379,12 +381,12 @@ export default function IFoodOperationsTab({
                 <TouchableOpacity
                   onPress={onSaveHours}
                   disabled={hoursSaving}
-                  style={[styles.actionButton, { backgroundColor: '#16A34A' }]}>
+                  style={[styles.actionButton, { backgroundColor: palette.success }]}>
                   {hoursSaving ? (
-                    <ActivityIndicator color="#FFFFFF" size="small" />
+                    <ActivityIndicator color={palette.white} size="small" />
                   ) : (
                     <>
-                      <Icon name="check" size={15} color="#FFFFFF" />
+                      <Icon name="check" size={15} color={palette.white} />
                       <Text style={styles.actionButtonText}>Salvar horarios</Text>
                     </>
                   )}

@@ -7,6 +7,7 @@ import {
   View,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Feather';
+import { colors } from '@controleonline/../../src/styles/colors';
 
 import {withOpacity} from '@controleonline/../../src/styles/branding';
 import CompactFilterSelector from '@controleonline/ui-default/src/react/components/filters/CompactFilterSelector';
@@ -43,6 +44,7 @@ export default function Food99CatalogTab(props) {
     onToggleProduct,
     onMarkCardPressHandled,
     minimumRequiredItems,
+    palette = colors,
   } = normalizeMarketplaceCatalogTabProps(props, {
     providerKey: props?.providerKey || '99food',
     defaultMinimumRequiredItems: DEFAULT_MINIMUM_REQUIRED_ITEMS,
@@ -88,12 +90,12 @@ export default function Food99CatalogTab(props) {
       </View>
 
       <View style={styles.searchBox}>
-        <Icon name="search" size={16} color="#94A3B8" />
+        <Icon name="search" size={16} color={palette.textSecondary} />
         <TextInput
           value={search}
           onChangeText={setSearch}
           placeholder="Buscar produto, categoria ou codigo"
-          placeholderTextColor="#94A3B8"
+          placeholderTextColor={palette.textSecondary}
           style={styles.searchInput}
         />
       </View>
@@ -124,7 +126,7 @@ export default function Food99CatalogTab(props) {
               backgroundColor:
                 selectedEligibleProducts.length >= minimumRequiredItems
                   ? accentColor
-                  : '#CBD5E1',
+                  : palette.border,
             },
           ]}
           onPress={onPreview}
@@ -133,10 +135,10 @@ export default function Food99CatalogTab(props) {
             selectedEligibleProducts.length < minimumRequiredItems
           }>
           {previewLoading ? (
-            <ActivityIndicator size="small" color="#FFFFFF" />
+            <ActivityIndicator size="small" color={palette.white} />
           ) : (
             <>
-              <Icon name="eye" size={15} color="#FFFFFF" />
+              <Icon name="eye" size={15} color={palette.white} />
               <Text style={styles.previewButtonText}>Pre-visualizar menu</Text>
             </>
           )}

@@ -1,6 +1,7 @@
 import React from 'react';
 import { ActivityIndicator, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import Icon from 'react-native-vector-icons/Feather';
+import { colors } from '@controleonline/../../src/styles/colors';
 
 import { withOpacity } from '@controleonline/../../src/styles/branding';
 
@@ -20,6 +21,7 @@ export default function IFoodStoreTab({
   onConnect,
   onDisconnect,
   onSync,
+  palette = colors,
 }) {
   return (
     <View style={[styles.sectionCard, shadowStyle]}>
@@ -50,7 +52,7 @@ export default function IFoodStoreTab({
                       styles.storeStatusChip,
                       {
                         backgroundColor: withOpacity(
-                          store?.status === 'AVAILABLE' ? '#16A34A' : '#64748B',
+                          store?.status === 'AVAILABLE' ? palette.success : palette.textSecondary,
                           0.14,
                         ),
                       },
@@ -58,7 +60,7 @@ export default function IFoodStoreTab({
                     <Text
                       style={[
                         styles.storeStatusText,
-                        { color: store?.status === 'AVAILABLE' ? '#166534' : '#334155' },
+                        { color: store?.status === 'AVAILABLE' ? palette.success : palette.textSecondary },
                       ]}>
                       {store?.status_label || 'Indefinido'}
                     </Text>
@@ -83,7 +85,7 @@ export default function IFoodStoreTab({
         value={merchantIdInput}
         onChangeText={setMerchantIdInput}
         placeholder="Ex.: c1111111-aaaa-bbbb-cccc-222222222222"
-        placeholderTextColor="#94A3B8"
+        placeholderTextColor={palette.textSecondary}
         style={styles.input}
         autoCapitalize="none"
         autoCorrect={false}
@@ -96,10 +98,10 @@ export default function IFoodStoreTab({
           onPress={onConnect}
           disabled={actionLoading !== null}>
           {actionLoading === 'connect' ? (
-            <ActivityIndicator color="#FFFFFF" size="small" />
+            <ActivityIndicator color={palette.white} size="small" />
           ) : (
             <>
-              <Icon name="link" size={16} color="#FFFFFF" />
+              <Icon name="link" size={16} color={palette.white} />
               <Text style={styles.actionButtonText}>Conectar</Text>
             </>
           )}
@@ -111,10 +113,10 @@ export default function IFoodStoreTab({
           onPress={onDisconnect}
           disabled={actionLoading !== null || !connected}>
           {actionLoading === 'disconnect' ? (
-            <ActivityIndicator color="#EF4444" size="small" />
+            <ActivityIndicator color={palette.error} size="small" />
           ) : (
             <>
-              <Icon name="x-circle" size={16} color="#EF4444" />
+              <Icon name="x-circle" size={16} color={palette.error} />
               <Text style={styles.actionButtonSecondaryText}>Desconectar</Text>
             </>
           )}

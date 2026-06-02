@@ -1083,7 +1083,7 @@ export default function IFoodIntegrationPage() {
   const connected = Boolean(integration?.connected);
   const authAvailable = Boolean(integration?.auth_available);
   const remoteConnected = Boolean(integration?.remote_connected);
-  const statusTone = connected ? '#16A34A' : '#F59E0B';
+  const statusTone = connected ? brandColors.success : brandColors.warning;
   const statusText = connected ? 'Conectada' : 'Pendente';
   const logo = getOrderChannelLogo({app: 'iFood'});
   const eligibleCount = productsResponse?.eligible_product_count || 0;
@@ -1134,6 +1134,7 @@ export default function IFoodIntegrationPage() {
           activeKey={activeTab}
           onChange={setActiveTab}
           accentColor={brandColors.primary}
+          palette={brandColors}
         />
 
         {activeTab === 'overview' && (
@@ -1154,6 +1155,7 @@ export default function IFoodIntegrationPage() {
           <IFoodStoreTab
             shadowStyle={integrationCardShadowStyle}
             accentColor={brandColors.primary}
+            palette={brandColors}
             stores={stores}
             merchantIdInput={merchantIdInput}
             setMerchantIdInput={setMerchantIdInput}
@@ -1170,6 +1172,7 @@ export default function IFoodIntegrationPage() {
         {activeTab === 'operations' && (
           <IFoodOperationsTab
             shadowStyle={integrationCardShadowStyle}
+            palette={brandColors}
             connected={connected}
             storeStatus={storeStatus}
             activeInterruptions={activeInterruptions}
@@ -1199,6 +1202,7 @@ export default function IFoodIntegrationPage() {
           <IFoodCatalogTab
             shadowStyle={integrationCardShadowStyle}
             accentColor={brandColors.primary}
+            palette={brandColors}
             connected={connected}
             minimumRequiredItems={minimumRequiredItems}
             eligibleCount={eligibleCount}
@@ -1237,6 +1241,7 @@ export default function IFoodIntegrationPage() {
         previewData={previewData}
         selectedEligible={selectedEligible}
         accentColor={brandColors.primary}
+        palette={brandColors}
         uploading={actionLoading === 'menu_upload'}
         onClose={() => setPreviewVisible(false)}
         onUpload={() => handleMenuUpload(selectedEligible)}

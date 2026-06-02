@@ -1,6 +1,7 @@
 import React from 'react';
 import { ActivityIndicator, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import Icon from 'react-native-vector-icons/Feather';
+import { colors } from '@controleonline/../../src/styles/colors';
 
 import { withOpacity } from '@controleonline/../../src/styles/branding';
 
@@ -29,6 +30,7 @@ export default function Food99StoreTab({
   setManualShopId,
   onManualBind,
   onDisconnect,
+  palette = colors,
 }) {
   return (
     <>
@@ -66,15 +68,15 @@ export default function Food99StoreTab({
 
         {!!lastErrorMessage && lastMenuPublishState !== 'failed' && (
           <View style={styles.errorBanner}>
-            <Icon name="alert-circle" size={14} color="#B91C1C" />
+            <Icon name="alert-circle" size={14} color={palette.error} />
             <Text style={styles.errorBannerText}>{lastErrorMessage}</Text>
           </View>
         )}
 
         {needsReconnect && (
-          <View style={[styles.infoBanner, { backgroundColor: withOpacity('#F59E0B', 0.12) }]}>
-            <Icon name="alert-triangle" size={14} color="#B45309" />
-            <Text style={[styles.infoBannerText, { color: '#B45309' }]}>
+          <View style={[styles.infoBanner, { backgroundColor: withOpacity(palette.warning, 0.12) }]}>
+            <Icon name="alert-triangle" size={14} color={palette.warning} />
+            <Text style={[styles.infoBannerText, { color: palette.warning }]}>
               A conexão remota da loja caiu. Refaça a reconexão para restaurar os webhooks.
             </Text>
           </View>
@@ -101,10 +103,10 @@ export default function Food99StoreTab({
               onPress={onConnect}
               disabled={actionLoading === 'connect'}>
               {actionLoading === 'connect' ? (
-                <ActivityIndicator size="small" color="#FFFFFF" />
+                <ActivityIndicator size="small" color={palette.white} />
               ) : (
                 <>
-                  <Icon name="link-2" size={16} color="#FFFFFF" />
+                  <Icon name="link-2" size={16} color={palette.white} />
                   <Text style={styles.primaryButtonText}>Integrar loja</Text>
                 </>
               )}
@@ -117,18 +119,18 @@ export default function Food99StoreTab({
                     styles.secondaryActionButton,
                     {
                       flex: 1,
-                      borderColor: '#F59E0B',
-                      backgroundColor: withOpacity('#F59E0B', 0.08),
+                      borderColor: palette.warning,
+                      backgroundColor: withOpacity(palette.warning, 0.08),
                     },
                   ]}
                   onPress={onConnect}
                   disabled={actionLoading === 'connect'}>
                   {actionLoading === 'connect' ? (
-                    <ActivityIndicator size="small" color="#B45309" />
+                    <ActivityIndicator size="small" color={palette.warning} />
                   ) : (
                     <>
-                      <Icon name="refresh-cw" size={15} color="#B45309" />
-                      <Text style={[styles.secondaryActionButtonText, { color: '#B45309' }]}>
+                      <Icon name="refresh-cw" size={15} color={palette.warning} />
+                      <Text style={[styles.secondaryActionButtonText, { color: palette.warning }]}>
                         Reconectar loja
                       </Text>
                     </>
@@ -139,15 +141,15 @@ export default function Food99StoreTab({
               <TouchableOpacity
                 style={[
                   styles.primaryButton,
-                  { flex: 1, backgroundColor: isOnline ? '#F97316' : accentColor },
+                  { flex: 1, backgroundColor: isOnline ? palette.warning : accentColor },
                 ]}
                 onPress={onToggleStatus}
                 disabled={actionLoading === 'online' || actionLoading === 'offline'}>
                 {actionLoading === 'online' || actionLoading === 'offline' ? (
-                  <ActivityIndicator size="small" color="#FFFFFF" />
+                  <ActivityIndicator size="small" color={palette.white} />
                 ) : (
                   <>
-                    <Icon name={isOnline ? 'pause-circle' : 'play-circle'} size={16} color="#FFFFFF" />
+                    <Icon name={isOnline ? 'pause-circle' : 'play-circle'} size={16} color={palette.white} />
                     <Text style={styles.primaryButtonText}>
                       {isOnline ? 'Colocar offline' : 'Colocar online'}
                     </Text>
@@ -188,18 +190,18 @@ export default function Food99StoreTab({
                 styles.secondaryActionButton,
                 {
                   flex: 1,
-                  borderColor: '#0F766E',
-                  backgroundColor: withOpacity('#0F766E', 0.08),
+                  borderColor: palette.success,
+                  backgroundColor: withOpacity(palette.success, 0.08),
                 },
               ]}
               onPress={onSyncTodayHistory}
               disabled={actionLoading === 'sync-history'}>
               {actionLoading === 'sync-history' ? (
-                <ActivityIndicator size="small" color="#0F766E" />
+                <ActivityIndicator size="small" color={palette.success} />
               ) : (
                 <>
-                  <Icon name="clock" size={15} color="#0F766E" />
-                  <Text style={[styles.secondaryActionButtonText, { color: '#0F766E' }]}>
+                  <Icon name="clock" size={15} color={palette.success} />
+                  <Text style={[styles.secondaryActionButtonText, { color: palette.success }]}>
                     Histórico de hoje
                   </Text>
                 </>
@@ -228,7 +230,7 @@ export default function Food99StoreTab({
                 onChangeText={setManualShopId}
                 placeholder="Informe o shop_id da 99Food"
                 style={styles.formInput}
-                placeholderTextColor="#94A3B8"
+                placeholderTextColor={palette.textSecondary}
               />
             </View>
 
@@ -257,11 +259,11 @@ export default function Food99StoreTab({
               onPress={onDisconnect}
               disabled={actionLoading === 'disconnect'}>
               {actionLoading === 'disconnect' ? (
-                <ActivityIndicator size="small" color="#B91C1C" />
+                <ActivityIndicator size="small" color={palette.error} />
               ) : (
                 <>
-                  <Icon name="unlink" size={15} color="#B91C1C" />
-                  <Text style={[styles.secondaryActionButtonText, { color: '#B91C1C' }]}>Desconectar</Text>
+                  <Icon name="unlink" size={15} color={palette.error} />
+                  <Text style={[styles.secondaryActionButtonText, { color: palette.error }]}>Desconectar</Text>
                 </>
               )}
             </TouchableOpacity>

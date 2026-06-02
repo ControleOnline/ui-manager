@@ -1,6 +1,7 @@
 import React from 'react';
 import { ActivityIndicator, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import Icon from 'react-native-vector-icons/Feather';
+import { colors } from '@controleonline/../../src/styles/colors';
 
 import AnimatedModal from '@controleonline/ui-crm/src/react/components/AnimatedModal';
 
@@ -14,6 +15,7 @@ export default function Food99PreviewModal({
   selectedEligibleProducts,
   uploading,
   accentColor,
+  palette = colors,
   onClose,
   onUpload,
 }) {
@@ -29,7 +31,7 @@ export default function Food99PreviewModal({
               </Text>
             </View>
             <TouchableOpacity onPress={onClose} style={styles.modalCloseButton}>
-              <Icon name="x" size={18} color="#475569" />
+              <Icon name="x" size={18} color={palette.textSecondary} />
             </TouchableOpacity>
           </View>
 
@@ -83,10 +85,10 @@ export default function Food99PreviewModal({
               onPress={onUpload}
               disabled={uploading}>
               {uploading ? (
-                <ActivityIndicator size="small" color="#FFFFFF" />
+                <ActivityIndicator size="small" color={palette.white} />
               ) : (
                 <>
-                  <Icon name="upload-cloud" size={16} color="#FFFFFF" />
+                  <Icon name="upload-cloud" size={16} color={palette.white} />
                   <Text style={styles.primaryButtonText}>Publicar menu</Text>
                 </>
               )}

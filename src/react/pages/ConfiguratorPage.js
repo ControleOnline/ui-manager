@@ -12,35 +12,35 @@ const CONFIG_ACTIONS = [
     label: 'Configurações gerais',
     description: 'Abra o configurador principal sem misturar conexões e integrações direto na home.',
     icon: 'settings',
-    accent: '#64748B',
+    accentKey: 'textSecondary',
     route: 'GeneralSettings',
   },
   {
     label: 'Logs',
     description: 'Consulte a timeline completa de logs, incluindo registros por entidade e outros tipos técnicos.',
     icon: 'activity',
-    accent: '#F97316',
+    accentKey: 'warning',
     route: 'GenericLogPage',
   },
   {
     label: 'Conexões',
     description: 'Centralize canais de comunicação e configurações operacionais ligadas à empresa ativa.',
     icon: 'radio',
-    accent: '#22C55E',
+    accentKey: 'success',
     route: 'ConnectionsPage',
   },
   {
     label: 'Integrações',
     description: 'Gerencie marketplaces e outras integrações da operação dentro do mesmo hub.',
     icon: 'link',
-    accent: '#0EA5E9',
+    accentKey: 'info',
     route: 'IntegrationsPage',
   },
   {
     label: 'Traduções',
     description: 'Revise textos inseridos automaticamente, compare com o fallback principal e grave sobrescritas por empresa.',
     icon: 'type',
-    accent: '#DC2626',
+    accentKey: 'error',
     route: 'TranslationsReviewPage',
   },
 ];
@@ -73,11 +73,11 @@ export default function ConfiguratorPage({ navigation }) {
   );
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: palette.background || '#F8FAFC' }]} edges={['bottom']}>
+    <SafeAreaView style={[styles.container, { backgroundColor: palette.background }]} edges={['bottom']}>
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-        <View style={[styles.heroCard, { backgroundColor: palette.primary || '#0EA5E9' }]}>
+        <View style={[styles.heroCard, { backgroundColor: palette.primary }]}>
           <View style={styles.heroBadge}>
-            <Icon name="sliders" size={22} color={palette.primary || '#0EA5E9'} />
+            <Icon name="sliders" size={22} color={palette.primary} />
           </View>
           <Text style={styles.heroEyebrow}>CONFIGURADOR</Text>
           <Text style={styles.heroTitle}>Central de configuração</Text>
@@ -98,7 +98,7 @@ export default function ConfiguratorPage({ navigation }) {
               label={item.label}
               description={item.description}
               icon={item.icon}
-              color={item.accent}
+              color={palette[item.accentKey] || palette.primary}
               onPress={() => navigation.navigate(item.route)}
             />
           ))}

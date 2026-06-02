@@ -2,11 +2,14 @@ import React from 'react';
 import { ScrollView, Text, TouchableOpacity, View } from 'react-native';
 
 import { withOpacity } from '@controleonline/../../src/styles/branding';
+import { colors } from '@controleonline/../../src/styles/colors';
 
-import styles from './styles';
+import createStyles from './styles';
 
 // Abas horizontais simples para reduzir densidade visual das páginas.
-export default function IntegrationTabs({ tabs, activeKey, onChange, accentColor }) {
+export default function IntegrationTabs({ tabs, activeKey, onChange, accentColor, palette = colors }) {
+  const styles = createStyles(palette);
+
   return (
     <ScrollView
       horizontal

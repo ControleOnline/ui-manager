@@ -7,22 +7,23 @@ import Icon from 'react-native-vector-icons/Feather';
 import useToastMessage from '@controleonline/ui-crm/src/react/hooks/useToastMessage';
 import { useStore } from '@store';
 import { colors } from '@controleonline/../../src/styles/colors';
-import styles from './Connections.styles';
+import { createStyles } from './Connections.styles';
 import {
   resolveThemePalette,
   withOpacity,
 } from '@controleonline/../../src/styles/branding';
 
-const shadowStyle = Platform.select({
-  ios: {
-    shadowColor: '#0F172A',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.08,
-    shadowRadius: 16,
-  },
-  android: { elevation: 3 },
-  web: { boxShadow: '0 10px 24px rgba(15,23,42,0.08)' },
-});
+const resolveShadowStyle = textColor =>
+  Platform.select({
+    ios: {
+      shadowColor: textColor,
+      shadowOffset: { width: 0, height: 8 },
+      shadowOpacity: 0.08,
+      shadowRadius: 16,
+    },
+    android: { elevation: 3 },
+    web: { boxShadow: `0 10px 24px ${withOpacity(textColor, 0.08)}` },
+  });
 
 const formatApiError = error => {
   if (!error) return 'Nao foi possivel carregar as conexoes.';
@@ -84,6 +85,11 @@ export default function ConnectionsPage({ navigation }) {
       ),
     [themeColors, currentCompany?.id],
   );
+  const styles = useMemo(() => createStyles(brandColors), [brandColors]);
+  const shadowStyle = useMemo(
+    () => resolveShadowStyle(brandColors.text),
+    [brandColors.text],
+  );
 
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -136,7 +142,7 @@ export default function ConnectionsPage({ navigation }) {
     return (
       <SafeAreaView style={styles.container} edges={['bottom']}>
         <View style={styles.centerState}>
-          <Icon name="building" size={32} color="#94A3B8" />
+          <Icon name="building" size={32} color={brandColors.textSecondary} />
           <Text style={styles.centerStateTitle}>Selecione uma empresa</Text>
           <Text style={styles.centerStateText}>
             As conexoes disponiveis dependem da empresa ativa.
@@ -192,8 +198,8 @@ export default function ConnectionsPage({ navigation }) {
           onPress={() => navigation.navigate('WhatsAppConnectionPage')}
           style={[styles.channelCard, shadowStyle]}>
           <View style={styles.channelTopRow}>
-            <View style={[styles.channelIconWrap, { backgroundColor: withOpacity('#22C55E', 0.12) }]}>
-              <Icon name="message-circle" size={20} color="#22C55E" />
+            <View style={[styles.channelIconWrap, { backgroundColor: withOpacity(brandColors.success, 0.12) }]}>
+              <Icon name="message-circle" size={20} color={brandColors.success} />
             </View>
             <View style={styles.channelStatusPill}>
               <Text style={styles.channelStatusText}>

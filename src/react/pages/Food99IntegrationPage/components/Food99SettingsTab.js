@@ -2,6 +2,7 @@ import React from 'react';
 import { ActivityIndicator, Platform, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
 import Icon from 'react-native-vector-icons/Feather';
+import { colors } from '@controleonline/../../src/styles/colors';
 
 import { withOpacity } from '@controleonline/../../src/styles/branding';
 
@@ -25,6 +26,7 @@ export default function Food99SettingsTab({
   actionLoading,
   onQuickCreateWallet,
   onSave,
+  palette = colors,
 }) {
   return (
     <View style={[styles.panel, shadowStyle]}>
@@ -62,7 +64,7 @@ export default function Food99SettingsTab({
             placeholder="Ex.: 5"
             keyboardType="decimal-pad"
             style={styles.formInput}
-            placeholderTextColor="#94A3B8"
+            placeholderTextColor={palette.textSecondary}
           />
         </View>
 
@@ -78,7 +80,7 @@ export default function Food99SettingsTab({
               keyboardType="number-pad"
               maxLength={5}
               style={styles.formInput}
-              placeholderTextColor="#94A3B8"
+              placeholderTextColor={palette.textSecondary}
             />
           </View>
 
@@ -93,7 +95,7 @@ export default function Food99SettingsTab({
               keyboardType="number-pad"
               maxLength={5}
               style={styles.formInput}
-              placeholderTextColor="#94A3B8"
+              placeholderTextColor={palette.textSecondary}
             />
           </View>
         </View>
@@ -138,7 +140,7 @@ export default function Food99SettingsTab({
               keyboardType="number-pad"
               maxLength={3}
               style={styles.formInput}
-              placeholderTextColor="#94A3B8"
+              placeholderTextColor={palette.textSecondary}
             />
           </View>
         </View>
@@ -152,7 +154,7 @@ export default function Food99SettingsTab({
             }
             placeholder="Usa automaticamente a primeira area quando vazio"
             style={styles.formInput}
-            placeholderTextColor="#94A3B8"
+            placeholderTextColor={palette.textSecondary}
           />
         </View>
 
@@ -213,10 +215,10 @@ export default function Food99SettingsTab({
           onPress={onSave}
           disabled={actionLoading === 'save-settings'}>
           {actionLoading === 'save-settings' ? (
-            <ActivityIndicator size="small" color="#FFFFFF" />
+            <ActivityIndicator size="small" color={palette.white} />
           ) : (
             <>
-              <Icon name="save" size={16} color="#FFFFFF" />
+              <Icon name="save" size={16} color={palette.white} />
               <Text style={styles.primaryButtonText}>Salvar configuracoes</Text>
             </>
           )}

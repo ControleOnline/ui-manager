@@ -71,7 +71,7 @@ const ManagerToolbar = ({ navigation }) => {
                     <Icon
                       name={item.icon}
                       size={20}
-                      color={isActive ? '#fff' : brandColors.textSecondary}
+                      color={isActive ? brandColors.white : brandColors.textSecondary}
                     />
                   </View>
                   <Text style={[styles.label, isActive && styles.labelActive]}>

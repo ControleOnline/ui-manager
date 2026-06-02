@@ -1,6 +1,9 @@
 import { StyleSheet } from 'react-native';
+import {colors} from '@controleonline/../../src/styles/colors';
+import {withOpacity} from '@controleonline/../../src/styles/branding';
 
-const styles = StyleSheet.create({
+const createStyles = (brandColors = colors) =>
+  StyleSheet.create({
   container: {
     paddingHorizontal: 20,
     paddingTop: 16,
@@ -27,7 +30,7 @@ const styles = StyleSheet.create({
   },
 
   iconButtonStatic: {
-    backgroundColor: '#F8FAFC',
+    backgroundColor: brandColors.background,
   },
 
   iconHeaderWrap: {
@@ -64,7 +67,7 @@ const styles = StyleSheet.create({
   greeting: {
     fontSize: 26,
     fontWeight: '700',
-    color: '#0F172A',
+    color: brandColors.text,
   },
 
   companyRow: {
@@ -103,11 +106,11 @@ const styles = StyleSheet.create({
 
   modalBackground: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: withOpacity(brandColors.text, 0.5),
   },
 
   modalContent: {
-    backgroundColor: '#fff',
+    backgroundColor: brandColors.white,
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     maxHeight: '70%',
@@ -118,7 +121,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     padding: 20,
     borderBottomWidth: 1,
-    borderBottomColor: '#eee',
+    borderBottomColor: brandColors.border,
   },
 
   modalTitle: {
@@ -129,13 +132,13 @@ const styles = StyleSheet.create({
   companyItem: {
     padding: 18,
     borderBottomWidth: 1,
-    borderBottomColor: '#f1f5f9',
+    borderBottomColor: brandColors.border,
     flexDirection: 'row',
     justifyContent: 'space-between',
   },
 
   companyItemSelected: {
-    backgroundColor: '#f8fafc',
+    backgroundColor: brandColors.background,
   },
 
   companyItemLeft: {
@@ -149,7 +152,7 @@ const styles = StyleSheet.create({
   },
 });
 
-export default styles;
+export default createStyles;
 
 export const inlineStyle_275_20 = {
   marginLeft: 4,

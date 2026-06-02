@@ -1,9 +1,12 @@
 import { StyleSheet } from 'react-native';
+import { colors } from '@controleonline/../../src/styles/colors';
+import { withOpacity } from '@controleonline/../../src/styles/branding';
 
-const styles = StyleSheet.create({
+export const createStyles = (palette = colors) =>
+  StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: palette.background,
   },
   scroll: {
     paddingHorizontal: 16,
@@ -20,14 +23,14 @@ const styles = StyleSheet.create({
     marginTop: 16,
     fontSize: 18,
     fontWeight: '700',
-    color: '#1E293B',
+    color: palette.text,
     textAlign: 'center',
   },
   centerStateText: {
     marginTop: 8,
     fontSize: 14,
     lineHeight: 21,
-    color: '#64748B',
+    color: palette.textSecondary,
     textAlign: 'center',
   },
   heroCard: {
@@ -47,25 +50,25 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '800',
     letterSpacing: 1.4,
-    color: 'rgba(255,255,255,0.82)',
+    color: withOpacity(palette.white, 0.82),
     marginBottom: 10,
   },
   heroTitle: {
     fontSize: 22,
     fontWeight: '800',
-    color: '#FFFFFF',
+    color: palette.white,
     marginBottom: 8,
   },
   heroText: {
     fontSize: 14,
     lineHeight: 21,
-    color: 'rgba(255,255,255,0.88)',
+    color: withOpacity(palette.white, 0.88),
   },
   heroBadge: {
     width: 54,
     height: 54,
     borderRadius: 18,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: palette.white,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -79,28 +82,28 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#64748B',
+    color: palette.textSecondary,
     marginBottom: 4,
   },
   companyName: {
     fontSize: 21,
     fontWeight: '800',
-    color: '#1E293B',
+    color: palette.text,
   },
   companyBadge: {
     borderRadius: 999,
     paddingHorizontal: 12,
     paddingVertical: 8,
-    backgroundColor: '#EEF2FF',
+    backgroundColor: withOpacity(palette.info, 0.12),
   },
   companyBadgeText: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#4F46E5',
+    color: palette.info,
   },
   channelCard: {
     borderRadius: 28,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: palette.white,
     padding: 18,
   },
   channelTopRow: {
@@ -119,25 +122,25 @@ const styles = StyleSheet.create({
   },
   channelStatusPill: {
     borderRadius: 999,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: palette.background,
     paddingHorizontal: 12,
     paddingVertical: 8,
   },
   channelStatusText: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#475569',
+    color: palette.textSecondary,
   },
   channelTitle: {
     fontSize: 28,
     fontWeight: '800',
-    color: '#0F172A',
+    color: palette.text,
     marginBottom: 8,
   },
   channelDescription: {
     fontSize: 14,
     lineHeight: 21,
-    color: '#64748B',
+    color: palette.textSecondary,
     marginBottom: 18,
   },
   metaRow: {
@@ -148,20 +151,20 @@ const styles = StyleSheet.create({
   metaItem: {
     flex: 1,
     borderRadius: 18,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: palette.background,
     paddingHorizontal: 14,
     paddingVertical: 14,
   },
   metaLabel: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#64748B',
+    color: palette.textSecondary,
     marginBottom: 6,
   },
   metaValue: {
     fontSize: 18,
     fontWeight: '800',
-    color: '#0F172A',
+    color: palette.text,
   },
   previewList: {
     gap: 12,
@@ -171,7 +174,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     borderRadius: 18,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: palette.background,
     paddingHorizontal: 14,
     paddingVertical: 14,
     gap: 12,
@@ -179,28 +182,28 @@ const styles = StyleSheet.create({
   previewName: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#0F172A',
+    color: palette.text,
     marginBottom: 4,
   },
   previewPhone: {
     fontSize: 13,
-    color: '#64748B',
+    color: palette.textSecondary,
   },
   previewStatus: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#1D4ED8',
+    color: palette.info,
   },
   emptyInline: {
     borderRadius: 18,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: palette.background,
     paddingHorizontal: 14,
     paddingVertical: 16,
   },
   emptyInlineText: {
     fontSize: 14,
     lineHeight: 21,
-    color: '#64748B',
+    color: palette.textSecondary,
   },
   actionRow: {
     marginTop: 18,
@@ -211,8 +214,9 @@ const styles = StyleSheet.create({
   actionText: {
     fontSize: 15,
     fontWeight: '800',
-    color: '#0F172A',
+    color: palette.text,
   },
 });
 
+const styles = createStyles(colors);
 export default styles;
