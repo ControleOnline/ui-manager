@@ -19,14 +19,7 @@ import {
   hasRegisteredDeviceFilter,
   isPdvSubfilter,
 } from './Devices/deviceTypes';
-import styles from './Devices.styles';
-
-const hex = {
-  primary: '#0EA5E9',
-  success: '#22C55E',
-  danger: '#EF4444',
-  warning: '#F59E0B',
-};
+import { createStyles } from './Devices.styles';
 
 const Devices = () => {
   const navigation = useNavigation();
@@ -45,6 +38,16 @@ const Devices = () => {
         colors,
       ),
     [themeColors, currentCompany?.id],
+  );
+  const styles = useMemo(() => createStyles(brandColors), [brandColors]);
+  const accentPalette = useMemo(
+    () => ({
+      primary: brandColors.info,
+      success: brandColors.success,
+      danger: brandColors.error,
+      warning: brandColors.warning,
+    }),
+    [brandColors.error, brandColors.info, brandColors.success, brandColors.warning],
   );
 
   const filterOptions = useMemo(() => getDeviceFilterOptions(), []);
@@ -105,7 +108,7 @@ const Devices = () => {
           title="Filtrar por tipo"
           accentColor={getDeviceFilterAccent(topLevelActiveFilter, {
             brandColors,
-            hex,
+            hex: accentPalette,
           })}
           active={topLevelActiveFilter !== ALL_DEVICE_FILTER}
           options={deviceTypeSelectorOptions}
@@ -126,7 +129,7 @@ const Devices = () => {
             title="Gateway do PDV"
             accentColor={getDeviceFilterAccent(activeFilter, {
               brandColors,
-              hex,
+              hex: accentPalette,
             })}
             active={activeFilter !== PDV_DEVICE_TYPE}
             options={pdvGatewaySelectorOptions}
@@ -148,7 +151,7 @@ const Devices = () => {
             ]}
             activeOpacity={0.86}
             onPress={() => navigation.navigate(activeFilterAction.routeName)}>
-            <Icon name="plus-circle" size={16} color="#fff" />
+            <Icon name="plus-circle" size={16} color={brandColors.white} />
             <Text style={styles.createPrinterBtnText}>
               {activeFilterAction.label}
             </Text>

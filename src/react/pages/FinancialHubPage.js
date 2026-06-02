@@ -6,14 +6,14 @@ import {useStore} from '@store';
 import FinancialEntriesPage from '@controleonline/ui-financial/src/react/pages/FinancialEntriesPage';
 import {resolveThemePalette, withOpacity} from '@controleonline/../../src/styles/branding';
 import {colors} from '@controleonline/../../src/styles/colors';
-import styles from './FinancialHubPage.styles';
+import {createStyles} from './FinancialHubPage.styles';
 
 const FINANCIAL_TABS = [
   {
     key: 'receivables',
     label: 'Contas a receber',
     icon: 'arrow-up-circle',
-    accent: '#22C55E',
+    accentKey: 'success',
     categoryContext: 'receiver',
     categoryTitle: 'Categorias de receita',
     categoryContextLabel: 'Receita',
@@ -22,7 +22,7 @@ const FINANCIAL_TABS = [
     key: 'payables',
     label: 'Contas a pagar',
     icon: 'arrow-down-circle',
-    accent: '#EF4444',
+    accentKey: 'error',
     categoryContext: 'payer',
     categoryTitle: 'Categorias de despesa',
     categoryContextLabel: 'Despesa',
@@ -31,7 +31,7 @@ const FINANCIAL_TABS = [
     key: 'ownTransfers',
     label: 'Transferencias',
     icon: 'repeat',
-    accent: '#8B5CF6',
+    accentKey: 'info',
     categoryContext: 'payer',
     categoryTitle: 'Categorias de transferencias',
     categoryContextLabel: 'Transferencias',
@@ -52,6 +52,7 @@ export default function FinancialHubPage({navigation}) {
       ),
     [themeColors, currentCompany?.id],
   );
+  const styles = useMemo(() => createStyles(palette), [palette]);
 
   const [activeTab, setActiveTab] = useState(FINANCIAL_TABS[0].key);
 
@@ -63,10 +64,10 @@ export default function FinancialHubPage({navigation}) {
   if (!currentCompany?.id) {
     return (
       <SafeAreaView
-        style={[styles.container, {backgroundColor: palette.background || '#F8FAFC'}]}
+        style={[styles.container, {backgroundColor: palette.background}]}
         edges={['bottom']}>
         <View style={styles.centerState}>
-          <Icon name="building" size={32} color="#94A3B8" />
+          <Icon name="building" size={32} color={palette.textSecondary} />
           <Text style={styles.centerStateTitle}>Selecione uma empresa</Text>
           <Text style={styles.centerStateText}>
             O modulo financeiro depende da empresa ativa para carregar contas,
@@ -79,12 +80,13 @@ export default function FinancialHubPage({navigation}) {
 
   return (
     <SafeAreaView
-      style={[styles.container, {backgroundColor: palette.background || '#F8FAFC'}]}
+      style={[styles.container, {backgroundColor: palette.background}]}
       edges={['bottom']}>
       <View style={styles.topBar}>
         <View style={styles.tabsRow}>
           {FINANCIAL_TABS.map(item => {
             const isActive = item.key === activeSection.key;
+            const accent = palette[item.accentKey] || palette.primary;
 
             return (
               <TouchableOpacity
@@ -93,11 +95,11 @@ export default function FinancialHubPage({navigation}) {
                   styles.tabChip,
                   {
                     backgroundColor: isActive
-                      ? withOpacity(item.accent, 0.12)
-                      : '#FFFFFF',
+                      ? withOpacity(accent, 0.12)
+                      : palette.white,
                     borderColor: isActive
-                      ? withOpacity(item.accent, 0.28)
-                      : '#E2E8F0',
+                      ? withOpacity(accent, 0.28)
+                      : palette.border,
                   },
                 ]}
                 activeOpacity={0.88}
@@ -105,12 +107,12 @@ export default function FinancialHubPage({navigation}) {
                 <Icon
                   name={item.icon}
                   size={14}
-                  color={isActive ? item.accent : '#64748B'}
+                  color={isActive ? accent : palette.textSecondary}
                 />
                 <Text
                   style={[
                     styles.tabChipText,
-                    {color: isActive ? item.accent : '#64748B'},
+                    {color: isActive ? accent : palette.textSecondary},
                   ]}>
                   {item.label}
                 </Text>
@@ -124,7 +126,7 @@ export default function FinancialHubPage({navigation}) {
             style={styles.subtleButton}
             activeOpacity={0.86}
             onPress={() => navigation.navigate('WalletsPage')}>
-            <Icon name="briefcase" size={14} color="#64748B" />
+            <Icon name="briefcase" size={14} color={palette.textSecondary} />
             <Text style={styles.subtleButtonText}>Carteiras</Text>
           </TouchableOpacity>
 
@@ -132,8 +134,14 @@ export default function FinancialHubPage({navigation}) {
             style={[
               styles.subtleButton,
               {
-                borderColor: withOpacity(activeSection.accent, 0.24),
-                backgroundColor: withOpacity(activeSection.accent, 0.08),
+                borderColor: withOpacity(
+                  palette[activeSection.accentKey] || palette.primary,
+                  0.24,
+                ),
+                backgroundColor: withOpacity(
+                  palette[activeSection.accentKey] || palette.primary,
+                  0.08,
+                ),
               },
             ]}
             activeOpacity={0.86}
@@ -145,11 +153,15 @@ export default function FinancialHubPage({navigation}) {
                 title: activeSection.categoryTitle,
               })
             }>
-            <Icon name="tag" size={14} color={activeSection.accent} />
+            <Icon
+              name="tag"
+              size={14}
+              color={palette[activeSection.accentKey] || palette.primary}
+            />
             <Text
               style={[
                 styles.subtleButtonText,
-                {color: activeSection.accent},
+                {color: palette[activeSection.accentKey] || palette.primary},
               ]}>
               Categorias
             </Text>

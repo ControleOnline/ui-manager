@@ -1,17 +1,22 @@
 import { Platform, StyleSheet } from 'react-native';
+import { colors } from '@controleonline/../../src/styles/colors';
+import { withOpacity } from '@controleonline/../../src/styles/branding';
 
-const cardShadow = Platform.select({
-  ios: {
-    shadowColor: '#0F172A',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.05,
-    shadowRadius: 12,
-  },
-  android: { elevation: 2 },
-  web: { boxShadow: '0 4px 12px rgba(15,23,42,0.06)' },
-});
+const buildCardShadow = palette =>
+  Platform.select({
+    ios: {
+      shadowColor: palette.text,
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.05,
+      shadowRadius: 12,
+    },
+    android: { elevation: 2 },
+    web: { boxShadow: `0 4px 12px ${withOpacity(palette.text, 0.06)}` },
+  });
 
-const styles = StyleSheet.create({
+export const createStyles = (palette = colors) => {
+  const cardShadow = buildCardShadow(palette);
+  return StyleSheet.create({
   container: { flex: 1 },
   scroll: { paddingHorizontal: 20, paddingTop: 16, paddingBottom: 0 },
   loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
@@ -21,7 +26,7 @@ const styles = StyleSheet.create({
   overviewLabel: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#1E293B',
+    color: palette.text,
     marginBottom: 16,
     letterSpacing: -0.3,
   },
@@ -33,7 +38,7 @@ const styles = StyleSheet.create({
   },
   statCard: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: palette.white,
     borderRadius: 16,
     padding: 14,
     alignItems: 'center',
@@ -50,12 +55,12 @@ const styles = StyleSheet.create({
   statValue: {
     fontSize: 20,
     fontWeight: '700',
-    color: '#0F172A',
+    color: palette.text,
     marginBottom: 2,
   },
   statLabel: {
     fontSize: 11,
-    color: '#64748B',
+    color: palette.textSecondary,
     fontWeight: '600',
     textAlign: 'center',
   },
@@ -71,7 +76,7 @@ const styles = StyleSheet.create({
         shadowRadius: 16,
       },
       android: { elevation: 5 },
-      web: { boxShadow: '0 8px 24px rgba(79,70,229,0.2)' },
+      web: { boxShadow: `0 8px 24px ${withOpacity(palette.info, 0.2)}` },
     }),
   },
   actionContent: {
@@ -83,18 +88,18 @@ const styles = StyleSheet.create({
   actionTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#fff',
+    color: palette.white,
     marginBottom: 4,
   },
   actionSub: {
     fontSize: 13,
-    color: 'rgba(255,255,255,0.8)',
+    color: withOpacity(palette.white, 0.8),
   },
   actionArrow: {
     width: 40,
     height: 40,
     borderRadius: 12,
-    backgroundColor: '#fff',
+    backgroundColor: palette.white,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -121,7 +126,7 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#1E293B',
+    color: palette.text,
     letterSpacing: -0.2,
   },
 
@@ -133,24 +138,24 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
   sectionSummaryItem: {
-    backgroundColor: '#F8FAFC',
+    backgroundColor: palette.background,
     borderRadius: 10,
     minWidth: 88,
     paddingHorizontal: 14,
     paddingVertical: 8,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#F1F5F9',
+    borderColor: palette.border,
   },
   sectionSummaryValue: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#0F172A',
+    color: palette.text,
   },
   sectionSummaryLabel: {
     fontSize: 10,
     fontWeight: '600',
-    color: '#94A3B8',
+    color: palette.textSecondary,
     marginTop: 1,
     textTransform: 'uppercase',
     letterSpacing: 0.3,
@@ -166,7 +171,7 @@ const styles = StyleSheet.create({
   },
   shortcutCard: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: palette.white,
     borderRadius: 16,
     padding: 16,
     alignItems: 'flex-start',
@@ -183,9 +188,11 @@ const styles = StyleSheet.create({
   shortcutLabel: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#1E293B',
+    color: palette.text,
     lineHeight: 18,
   },
-});
+  });
+};
 
+const styles = createStyles(colors);
 export default styles;

@@ -1,6 +1,8 @@
 import {StyleSheet} from 'react-native';
+import {colors} from '@controleonline/../../src/styles/colors';
 
-const styles = StyleSheet.create({
+export const createStyles = (palette = colors) =>
+  StyleSheet.create({
   container: {flex: 1},
   topBar: {
     flexDirection: 'row',
@@ -24,16 +26,16 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 6,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: palette.border,
     borderRadius: 999,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: palette.white,
     paddingHorizontal: 12,
     paddingVertical: 8,
   },
   subtleButtonText: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#64748B',
+    color: palette.textSecondary,
   },
   tabsRow: {
     flex: 1,
@@ -50,7 +52,7 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     borderRadius: 999,
     borderWidth: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: palette.white,
   },
   tabChipText: {
     fontSize: 13,
@@ -69,15 +71,16 @@ const styles = StyleSheet.create({
     marginTop: 14,
     fontSize: 18,
     fontWeight: '800',
-    color: '#0F172A',
+    color: palette.text,
   },
   centerStateText: {
     marginTop: 6,
     fontSize: 14,
     lineHeight: 21,
-    color: '#64748B',
+    color: palette.textSecondary,
     textAlign: 'center',
   },
 });
 
+const styles = createStyles(colors);
 export default styles;

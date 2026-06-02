@@ -33,29 +33,13 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { Text } from 'react-native-animatable';
-import { resolveThemePalette } from '@controleonline/../../src/styles/branding';
+import { resolveThemePalette, withOpacity } from '@controleonline/../../src/styles/branding';
 import { colors } from '@controleonline/../../src/styles/colors';
 import Icon from 'react-native-vector-icons/Feather';
 import { useStore } from '@store';
 import { api } from '@controleonline/ui-common/src/api';
 import AppMenuGrid from '@controleonline/ui-layout/src/react/components/AppMenuGrid';
-import styles from './index.styles';
-	
-const createTone = solid => ({
-  solid,
-  soft: `${solid}1F`,
-});
-
-// Usa hex com alpha no fundo para evitar remapeamento antes da opacidade.
-const HEX = {
-  info: createTone('#3B82F6'),
-  success: createTone('#22C55E'),
-  warning: createTone('#F59E0B'),
-  error: createTone('#EF4444'),
-  purple: createTone('#8B5CF6'),
-  orange: createTone('#F97316'),
-  muted: createTone('#64748B'),
-};
+import { createStyles } from './index.styles';
 
 export default function HomePage({ navigation }) {
   const themeStore = useStore('theme');
@@ -72,10 +56,18 @@ export default function HomePage({ navigation }) {
       ),
     [themeColors, currentCompany?.id],
   );
+  const styles = useMemo(() => createStyles(brandColors), [brandColors]);
+  const tones = useMemo(
+    () => ({
+      info: { solid: brandColors.info, soft: withOpacity(brandColors.info, 0.12) },
+      success: { solid: brandColors.success, soft: withOpacity(brandColors.success, 0.12) },
+    }),
+    [brandColors.info, brandColors.success],
+  );
 
   const [stats, setStats] = useState([
-    { label: global.t?.t('configs', 'stat_label', 'orders'), value: '...', icon: 'shopping-bag', tone: HEX.info, route: 'OrderHistoryPage' },
-    { label: global.t?.t('configs', 'stat_label', 'customers'), value: '...', icon: 'users', tone: HEX.success, route: 'ClientsIndex' },
+    { label: global.t?.t('configs', 'stat_label', 'orders'), value: '...', icon: 'shopping-bag', tone: tones.info, route: 'OrderHistoryPage' },
+    { label: global.t?.t('configs', 'stat_label', 'customers'), value: '...', icon: 'users', tone: tones.success, route: 'ClientsIndex' },
   ]);
   const [loadingStats, setLoadingStats] = useState(true);
 
@@ -92,8 +84,8 @@ export default function HomePage({ navigation }) {
           ]);
 
         setStats([
-          { label: global.t?.t('configs', 'stat_label', 'orders'), value: String(ordersRes?.totalItems ?? '—'), icon: 'shopping-bag', tone: HEX.info, route: 'OrderHistoryPage' },
-          { label: global.t?.t('configs', 'stat_label', 'customers'), value: String(clientsRes?.totalItems ?? '—'), icon: 'users', tone: HEX.success, route: 'ClientsIndex' },
+          { label: global.t?.t('configs', 'stat_label', 'orders'), value: String(ordersRes?.totalItems ?? '—'), icon: 'shopping-bag', tone: tones.info, route: 'OrderHistoryPage' },
+          { label: global.t?.t('configs', 'stat_label', 'customers'), value: String(clientsRes?.totalItems ?? '—'), icon: 'users', tone: tones.success, route: 'ClientsIndex' },
         ]);
       } catch {
         // mantém os valores padrão
@@ -103,14 +95,14 @@ export default function HomePage({ navigation }) {
     };
 
     fetchStats();
-  }, [currentCompany?.id]);
+  }, [currentCompany?.id, tones.info, tones.success]);
 
   const go = (route, params = undefined) => navigation.navigate(route, params);
 
   if (!currentCompany || !themeColors) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={HEX.info.solid} />
+        <ActivityIndicator size="large" color={brandColors.info} />
       </View>
     );
   }

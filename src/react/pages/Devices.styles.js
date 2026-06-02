@@ -1,17 +1,22 @@
 import { Platform, StyleSheet } from 'react-native';
+import { colors } from '@controleonline/../../src/styles/colors';
+import { withOpacity } from '@controleonline/../../src/styles/branding';
 
-const cardShadow = Platform.select({
-  ios: {
-    shadowColor: '#0F172A',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.06,
-    shadowRadius: 12,
-  },
-  android: { elevation: 2 },
-  web: { boxShadow: '0 4px 12px rgba(15,23,42,0.06)' },
-});
+const buildCardShadow = palette =>
+  Platform.select({
+    ios: {
+      shadowColor: palette.text,
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.06,
+      shadowRadius: 12,
+    },
+    android: { elevation: 2 },
+    web: { boxShadow: `0 4px 12px ${withOpacity(palette.text, 0.06)}` },
+  });
 
-const styles = StyleSheet.create({
+export const createStyles = (palette = colors) => {
+  const cardShadow = buildCardShadow(palette);
+  return StyleSheet.create({
   container: {
     flex: 1,
     paddingHorizontal: 16,
@@ -25,7 +30,7 @@ const styles = StyleSheet.create({
   },
   summaryCard: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: palette.white,
     borderRadius: 14,
     paddingHorizontal: 12,
     paddingVertical: 10,
@@ -35,14 +40,14 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '700',
     textTransform: 'uppercase',
-    color: '#94A3B8',
+    color: palette.textSecondary,
     marginBottom: 4,
     letterSpacing: 0.3,
   },
   summaryValue: {
     fontSize: 22,
     fontWeight: '800',
-    color: '#0F172A',
+    color: palette.text,
   },
   createPrinterBtn: {
     minHeight: 46,
@@ -57,14 +62,14 @@ const styles = StyleSheet.create({
   createPrinterBtnText: {
     fontSize: 14,
     fontWeight: '800',
-    color: '#fff',
+    color: palette.white,
   },
   printerActionBlock: {
     marginBottom: 12,
   },
   helperText: {
     fontSize: 12,
-    color: '#64748B',
+    color: palette.textSecondary,
     fontWeight: '600',
     lineHeight: 18,
   },
@@ -74,7 +79,7 @@ const styles = StyleSheet.create({
   filtersLabel: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#64748B',
+    color: palette.textSecondary,
     textTransform: 'uppercase',
     letterSpacing: 0.4,
     marginBottom: 8,
@@ -87,7 +92,7 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     fontSize: 12,
-    color: '#64748B',
+    color: palette.textSecondary,
     fontWeight: '600',
   },
   tabContent: {
@@ -105,26 +110,26 @@ const styles = StyleSheet.create({
   listMetaTitle: {
     fontSize: 14,
     fontWeight: '800',
-    color: '#0F172A',
+    color: palette.text,
   },
   listMetaText: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#64748B',
+    color: palette.textSecondary,
   },
   inlineMessageBox: {
     marginBottom: 10,
     borderRadius: 14,
     paddingHorizontal: 12,
     paddingVertical: 10,
-    backgroundColor: '#FEF2F2',
+    backgroundColor: withOpacity(palette.error, 0.12),
     borderWidth: 1,
-    borderColor: '#FECACA',
+    borderColor: withOpacity(palette.error, 0.3),
   },
   inlineMessageText: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#B91C1C',
+    color: palette.error,
     lineHeight: 18,
   },
 
@@ -146,7 +151,7 @@ const styles = StyleSheet.create({
   },
 
   deviceCard: {
-    backgroundColor: '#fff',
+    backgroundColor: palette.white,
     borderRadius: 16,
     padding: 14,
     flexDirection: 'row',
@@ -173,11 +178,11 @@ const styles = StyleSheet.create({
   deviceTitle: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#0F172A',
+    color: palette.text,
   },
   deviceSub: {
     fontSize: 11,
-    color: '#94A3B8',
+    color: palette.textSecondary,
     marginTop: 2,
   },
   deviceMetaRow: {
@@ -188,14 +193,14 @@ const styles = StyleSheet.create({
   },
   deviceMetaChip: {
     borderRadius: 999,
-    backgroundColor: '#F1F5F9',
+    backgroundColor: palette.border,
     paddingHorizontal: 8,
     paddingVertical: 4,
   },
   deviceMetaChipText: {
     fontSize: 10,
     fontWeight: '700',
-    color: '#475569',
+    color: palette.textSecondary,
   },
   cardRight: {
     flexDirection: 'row',
@@ -227,7 +232,7 @@ const styles = StyleSheet.create({
 
   emptyBox: {
     alignItems: 'center',
-    backgroundColor: '#fff',
+    backgroundColor: palette.white,
     borderRadius: 16,
     padding: 32,
     ...cardShadow,
@@ -238,14 +243,16 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#334155',
+    color: palette.text,
     marginBottom: 4,
   },
   emptySub: {
     fontSize: 12,
-    color: '#94A3B8',
+    color: palette.textSecondary,
     textAlign: 'center',
   },
-});
+  });
+};
 
+const styles = createStyles(colors);
 export default styles;
