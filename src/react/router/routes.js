@@ -30,6 +30,7 @@ import ManagerCategoriesPage from '@controleonline/ui-manager/src/react/pages/Ma
 import MenuCostsPage from '@controleonline/ui-manager/src/react/pages/MenuCostsPage';
 import MenuCostsParametersPage from '@controleonline/ui-manager/src/react/pages/MenuCostsParametersPage';
 import MenuCostsIngredientsPage from '@controleonline/ui-manager/src/react/pages/MenuCostsIngredientsPage';
+import MenuCostsPackagingPage from '@controleonline/ui-manager/src/react/pages/MenuCostsPackagingPage';
 import MenuCostsSuppliersPage from '@controleonline/ui-manager/src/react/pages/MenuCostsSuppliersPage';
 import MenuAccessConfigPage from '@controleonline/ui-manager/src/react/pages/MenuAccessConfigPage';
 import LabelsPage from '@controleonline/ui-manager/src/react/pages/LabelsPage';
@@ -489,6 +490,21 @@ const managerRoutes = [
         name: 'MenuCostsPage',
       },
       title: 'Ingredientes',
+      showCompanyFilter: true,
+      companyFilterMode: 'icon',
+    },
+  },
+  {
+    name: 'MenuCostsPackagingPage',
+    component: MenuCostsPackagingPage,
+    path: 'menu-costs-page/embalagens',
+    options: {
+      headerShown: true,
+      headerBackVisible: true,
+      headerBackFallback: {
+        name: 'MenuCostsPage',
+      },
+      title: 'Embalagens',
       showCompanyFilter: true,
       companyFilterMode: 'icon',
     },

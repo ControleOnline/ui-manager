@@ -12,6 +12,7 @@
 - Nesta fase, não mexer em produtos de venda nem em componentes de produto para resolver parâmetros da engenharia.
 - A rota `/menu-costs-page/fornecedores` é a tela oficial de fornecedores da engenharia.
 - Essa tela carrega os dados do `people` com `link.linkType=provider` somente quando exibida e deve unificar fornecedores duplicados sem criar novo cadastro.
+- A normalizacao e unificacao de fornecedores deve ficar em `ui-people`; o lookup de ultimas compras deve ficar em `ui-products`; `ui-manager` deve apenas orquestrar a rota e a apresentacao.
 - Telefone e e-mail de fornecedor devem ser materializados dentro de `contacts`, nunca como campos diretos do fornecedor.
 - Nesta fase, fornecedores nao devem escrever em `products` ou `components`; o fluxo e apenas de leitura, dedupe e enriquecimento do import.
 - A rota `/menu-costs-page/ingredientes` é a tela oficial de ingredientes da engenharia.

@@ -685,6 +685,18 @@ export const filterSuppliers = (suppliers, query) => {
       supplier.sourceSummary,
       ...safeArray(supplier.sourceNames),
       ...safeArray(supplier.paymentMethods),
+      ...safeArray(supplier.products).flatMap(product => [
+        product?.productName,
+        product?.label,
+        product?.productSku,
+        product?.meta,
+      ]),
+      ...safeArray(supplier.movements).flatMap(product => [
+        product?.productName,
+        product?.label,
+        product?.productSku,
+        product?.meta,
+      ]),
       ...safeArray(supplier.contacts).flatMap(contact => [
         contact?.name,
         contact?.phone,

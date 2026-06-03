@@ -12,6 +12,13 @@ test('ingredients tab routes to the dedicated ingredients screen', () => {
   assert.deepEqual(route.params, {});
 });
 
+test('packaging tab routes to the dedicated packaging screen', () => {
+  const route = resolveMenuCostsTabRoute('packaging');
+
+  assert.equal(route.routeName, 'MenuCostsPackagingPage');
+  assert.deepEqual(route.params, {});
+});
+
 test('ingredient sync flags duplicate and conflicting ERP matches', () => {
   const db = {
     ingredients: [
