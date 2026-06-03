@@ -31,6 +31,7 @@ import MenuCostsPage from '@controleonline/ui-manager/src/react/pages/MenuCostsP
 import MenuCostsParametersPage from '@controleonline/ui-manager/src/react/pages/MenuCostsParametersPage';
 import MenuCostsIngredientsPage from '@controleonline/ui-manager/src/react/pages/MenuCostsIngredientsPage';
 import MenuCostsPackagingPage from '@controleonline/ui-manager/src/react/pages/MenuCostsPackagingPage';
+import MenuCostsResalePage from '@controleonline/ui-manager/src/react/pages/MenuCostsResalePage';
 import MenuCostsSuppliersPage from '@controleonline/ui-manager/src/react/pages/MenuCostsSuppliersPage';
 import MenuAccessConfigPage from '@controleonline/ui-manager/src/react/pages/MenuAccessConfigPage';
 import LabelsPage from '@controleonline/ui-manager/src/react/pages/LabelsPage';
@@ -505,6 +506,21 @@ const managerRoutes = [
         name: 'MenuCostsPage',
       },
       title: 'Embalagens',
+      showCompanyFilter: true,
+      companyFilterMode: 'icon',
+    },
+  },
+  {
+    name: 'MenuCostsResalePage',
+    component: MenuCostsResalePage,
+    path: 'menu-costs-page/revenda',
+    options: {
+      headerShown: true,
+      headerBackVisible: true,
+      headerBackFallback: {
+        name: 'MenuCostsPage',
+      },
+      title: 'Revenda',
       showCompanyFilter: true,
       companyFilterMode: 'icon',
     },

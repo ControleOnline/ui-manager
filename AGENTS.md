@@ -19,3 +19,7 @@
 - Essa tela carrega somente quando exibida e usa o fluxo de insumos para cadastrar `feedstock` no ERP.
 - O cadastro de ingredientes deve sinalizar duplicidade por codigo ou nome antes de gravar, para nao criar feedstock repetido.
 - A escrita continua restrita a insumos; nada de produto de venda ou componente nessa rota.
+- A rota `/menu-costs-page/revenda` é a tela oficial de revenda da engenharia.
+- Essa tela carrega apenas produtos do tipo `product` classificados como bebidas no ERP, com paginação e carregamento infinito.
+- A classificacao de revenda deve ficar em `ui-products`; `ui-manager` deve apenas consumir o helper e orquestrar a apresentacao.
+- `manufactured`, `component`, `feedstock` e `package` nao entram no recorte de revenda.
