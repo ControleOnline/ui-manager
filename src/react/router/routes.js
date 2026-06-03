@@ -29,7 +29,7 @@ import IntegrationsPage from '@controleonline/ui-manager/src/react/pages/Integra
 import ManagerCategoriesPage from '@controleonline/ui-manager/src/react/pages/ManagerCategoriesPage';
 import MenuCostsPage from '@controleonline/ui-manager/src/react/pages/MenuCostsPage';
 import MenuCostsParametersPage from '@controleonline/ui-manager/src/react/pages/MenuCostsParametersPage';
-import MenuCostsIngredientsPage from '@controleonline/ui-manager/src/react/pages/MenuCostsIngredientsPage';
+import MenuCostsIngredientsPage from '@controleonline/ui-products/src/react/pages/MenuCostsIngredientsPage';
 import MenuCostsPackagingPage from '@controleonline/ui-manager/src/react/pages/MenuCostsPackagingPage';
 import MenuCostsResalePage from '@controleonline/ui-manager/src/react/pages/MenuCostsResalePage';
 import MenuCostsSuppliersPage from '@controleonline/ui-manager/src/react/pages/MenuCostsSuppliersPage';

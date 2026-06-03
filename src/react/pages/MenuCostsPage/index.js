@@ -77,11 +77,10 @@ import {
   validateImportedDb,
 } from './viewModel';
 import {
-  ADDON_IMAGE_ASSETS,
-  CATEGORY_IMAGE_ASSETS,
-  PRODUCT_IMAGE_ASSETS,
-  RESOURCE_IMAGE_ASSETS,
-} from './visualAssets';
+  resolveCategoryCoverUrl,
+  resolveEntityCoverUrl,
+  resolveProductCoverUrl,
+} from '@controleonline/ui-products/src/react/domain/productMedia';
 
 const getSectionDefaultSelection = (db, tab) => {
   if (tab === 'products') return computeEngineeringProducts(db)[0]?.product?.id || null;
@@ -125,26 +124,27 @@ const IconButton = ({ icon, label, onPress, active, tone = 'neutral', disabled =
   </TouchableOpacity>
 );
 
-const normalizeAssetSearch = value =>
-  String(value || '')
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .toLowerCase();
+const buildImageSource = url => (url ? { uri: url } : null);
 
-const imageForProduct = product =>
-  PRODUCT_IMAGE_ASSETS[product?.id] || CATEGORY_IMAGE_ASSETS[product?.categoryId] || null;
+const imageForProduct = (db, product) =>
+  buildImageSource(
+    resolveProductCoverUrl(product) ||
+    resolveCategoryCoverUrl(getById(db, 'categories', product?.categoryId))
+  );
 
-const imageForResource = (refType, refId) =>
-  RESOURCE_IMAGE_ASSETS[`${refType}:${refId}`] || null;
+const imageForResource = (db, refType, refId) => {
+  const collection = resourceCollectionForRef(refType);
+  const record = collection ? getById(db, collection, refId) : null;
+  if (!record) return null;
+  if (refType === 'product') return imageForProduct(db, record);
+  return buildImageSource(resolveEntityCoverUrl(record));
+};
 
-const imageForAddon = addon => {
+const imageForAddon = (db, addon) => {
   const fromNode = safeArray(addon?.nodes)
-    .map(node => imageForResource(node.refType, node.refId))
+    .map(node => imageForResource(db, node.refType, node.refId))
     .find(Boolean);
-  if (fromNode) return fromNode;
-  const text = normalizeAssetSearch(`${addon?.id || ''} ${addon?.name || ''}`);
-  const key = Object.keys(ADDON_IMAGE_ASSETS).find(token => text.includes(normalizeAssetSearch(token)));
-  return key ? ADDON_IMAGE_ASSETS[key] : null;
+  return fromNode || null;
 };
 
 const VisualThumb = ({ source, label, size = 'md' }) => (
@@ -266,7 +266,7 @@ const ComponentNode = ({ db, node, depth = 0, onQtyChange }) => {
   return (
   <View style={[styles.nodeCard, depth > 0 && styles.nodeCardChild]}>
     <View style={styles.nodeHeader}>
-      <VisualThumb source={imageForResource(node.refType, node.refId)} label={node.name} size="sm" />
+      <VisualThumb source={imageForResource(db, node.refType, node.refId)} label={node.name} size="sm" />
       <View style={styles.nodeTitleWrap}>
         <Text style={styles.nodeTitle}>{node.name}</Text>
         <Text style={styles.nodeMeta}>
@@ -700,7 +700,7 @@ function ProductsView({
                 key={item.product.id}
                 title={item.product.name}
                 subtitle={item.product.description || item.product.notes}
-                imageSource={imageForProduct(item.product)}
+                imageSource={imageForProduct(db, item.product)}
                 selected={selected?.product?.id === item.product.id}
                 onPress={() => {
                   setSelectedId(item.product.id);
@@ -756,7 +756,7 @@ function ProductDetail({
       actions={readOnly ? null : <IconButton icon="edit-3" label="Editar" onPress={() => openModal({ collection: 'products', id: product.id })} />}
     >
       <View style={styles.productHero}>
-        <VisualThumb source={imageForProduct(product)} label={product.name} size="lg" />
+        <VisualThumb source={imageForProduct(db, product)} label={product.name} size="lg" />
         <View style={styles.productHeroText}>
           <Text style={styles.productHeroTitle}>{categoryName(db, product.categoryId)}</Text>
           <Text style={styles.productHeroSubtitle}>
@@ -806,7 +806,7 @@ function ProductDetail({
           {safeArray(computed.addons).length ? safeArray(computed.addons).map(addon => (
             <View key={addon.id || addon.name} style={styles.addonCard}>
               <View style={styles.nodeHeader}>
-                <VisualThumb source={imageForAddon(addon)} label={addon.name} size="sm" />
+                <VisualThumb source={imageForAddon(db, addon)} label={addon.name} size="sm" />
                 <View>
                   <Text style={styles.nodeTitle}>{addon.name}</Text>
                   <Text style={styles.nodeMeta}>
@@ -1664,7 +1664,7 @@ function ResaleView(props) {
               key={item.id}
               title={item.name}
               subtitle={categoryName(db, item.categoryId)}
-              imageSource={imageForProduct(item)}
+              imageSource={imageForProduct(db, item)}
               selected={selected?.id === item.id}
               onPress={() => setSelectedId(item.id)}
               right={<Text style={styles.rowMoney}>{money(computed?.salePrice || item.salePrice)}</Text>}
@@ -1861,7 +1861,7 @@ function ProcessDetail({ db, row }) {
         <View style={styles.panelNested}>
           <Text style={styles.panelTitle}>Leitura operacional do produto</Text>
           <View style={styles.productHero}>
-            <VisualThumb source={imageForProduct(computed.product)} label={computed.product.name} size="lg" />
+            <VisualThumb source={imageForProduct(db, computed.product)} label={computed.product.name} size="lg" />
             <View style={styles.productHeroText}>
               <Text style={styles.productHeroTitle}>{computed.product.name}</Text>
               <Text style={styles.productHeroSubtitle}>{computed.product.description || categoryName(db, computed.product.categoryId)}</Text>
