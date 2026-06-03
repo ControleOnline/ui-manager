@@ -34,12 +34,29 @@ const styles = StyleSheet.create({
     minHeight: 0,
   },
   sidebarPanel: {
+    width: 380,
+    minWidth: 320,
+    flexShrink: 0,
     backgroundColor: '#fff',
     borderRadius: 20,
     padding: 18,
     ...cardShadow,
   },
   editorPanel: {
+    flex: 1,
+    minWidth: 0,
+    backgroundColor: '#fff',
+    borderRadius: 20,
+    padding: 18,
+    ...cardShadow,
+  },
+  mobileSidebarPanel: {
+    backgroundColor: '#fff',
+    borderRadius: 20,
+    padding: 18,
+    ...cardShadow,
+  },
+  mobileEditorPanel: {
     backgroundColor: '#fff',
     borderRadius: 20,
     padding: 18,
@@ -59,6 +76,7 @@ const styles = StyleSheet.create({
     lineHeight: 19,
     color: '#64748B',
     marginBottom: 18,
+    flexShrink: 1,
   },
   requiredHint: {
     fontSize: 12,
@@ -247,7 +265,7 @@ const styles = StyleSheet.create({
   },
   editorHeader: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     gap: 12,
     marginBottom: 14,
   },
@@ -417,5 +435,7 @@ export const inlineStyle_1012_59 = {
 
 export const inlineStyle_1068_14 = {
   flex: 1,
+  minWidth: 0,
+  flexShrink: 1,
 };
 

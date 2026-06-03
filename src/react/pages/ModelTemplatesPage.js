@@ -40,40 +40,40 @@ const FILTER_OPTIONS = [{ value: 'all', label: 'Todos os tipos' }, ...CONTEXT_OP
 
 const CONTEXT_HELP = {
   proposal:
-    'Use para propostas comerciais. O backend costuma renderizar este tipo com as variaveis `contract` e `service`.',
+    'Use para propostas comerciais. O backend costuma renderizar este tipo com as variáveis `contract` e `service`.',
   contract:
-    'Use para contratos. O arquivo Twig/HTML e salvo em `files.content` e vinculado ao registro de `models`.',
+    'Use para contratos. O arquivo Twig/HTML é salvo em `files.content` e vinculado ao registro de `models`.',
   email:
-    'Use para e-mails HTML. As variaveis finais dependem do fluxo que renderiza este template.',
+    'Use para e-mails HTML. As variáveis finais dependem do fluxo que renderiza este template.',
   menu:
-    'Use para cardapios. O backend disponibiliza `company`, `companyName`, `columns`, `generatedAt`, `catalog` e `service`. Para PDF, prefira tabelas, cores solidas, espacamentos simples e poucas imagens; evite gradientes, flex, pills, sombras e miniaturas em massa.',
+    'Use para cardápios. O backend disponibiliza `company`, `companyName`, `columns`, `generatedAt`, `catalog` e `service`. Para PDF, prefira tabelas, cores sólidas, espaçamentos simples e poucas imagens; evite gradientes, flex, pills, sombras e miniaturas em massa.',
 };
 
 const COMMON_SNIPPETS = [
-  { label: 'Variavel', value: '{{ variavel }}' },
+  { label: 'Variável', value: '{{ variavel }}' },
   { label: 'Condicional', value: '{% if condicao %}\n  <p>Conteudo</p>\n{% endif %}' },
   { label: 'Loop', value: '{% for item in itens %}\n  <p>{{ item }}</p>\n{% endfor %}' },
-  { label: 'Quebra de pagina', value: '<div style="page-break-after: always;"></div>' },
+  { label: 'Quebra de página', value: '<div style="page-break-after: always;"></div>' },
 ];
 
 const CONTEXT_SNIPPETS = {
   proposal: [
-    { label: 'Titulo', value: '<h1>{{ contract.contractModel.model|default(\'Proposta comercial\') }}</h1>' },
+    { label: 'Título', value: '<h1>{{ contract.contractModel.model|default(\'Proposta comercial\') }}</h1>' },
     { label: 'Cliente', value: '{{ contract.client.alias|default(contract.client.name|default(\'\')) }}' },
     { label: 'Fornecedor', value: '{{ contract.provider.alias|default(contract.provider.name|default(\'\')) }}' },
   ],
   contract: [
-    { label: 'Titulo', value: '<h1>{{ contract.contractModel.model|default(\'Contrato\') }}</h1>' },
-    { label: 'Inicio', value: '{{ contract.startDate|date(\'d/m/Y\') }}' },
+    { label: 'Título', value: '<h1>{{ contract.contractModel.model|default(\'Contrato\') }}</h1>' },
+    { label: 'Início', value: '{{ contract.startDate|date(\'d/m/Y\') }}' },
     { label: 'Assinatura', value: '<div class="signature-line">Assinatura</div>' },
   ],
   email: [
     { label: 'Assunto', value: '{{ subject|default(\'Mensagem importante\') }}' },
-    { label: 'Destinatario', value: '{{ recipientName|default(\'Cliente\') }}' },
-    { label: 'Botao CTA', value: '{% if ctaUrl %}<a href="{{ ctaUrl }}">{{ ctaLabel|default(\'Abrir link\') }}</a>{% endif %}' },
+    { label: 'Destinatário', value: '{{ recipientName|default(\'Cliente\') }}' },
+    { label: 'Botão CTA', value: '{% if ctaUrl %}<a href="{{ ctaUrl }}">{{ ctaLabel|default(\'Abrir link\') }}</a>{% endif %}' },
   ],
   menu: [
-    { label: 'Empresa', value: '{{ companyName|default(menuModelName|default(\'Cardapio\')) }}' },
+    { label: 'Empresa', value: '{{ companyName|default(menuModelName|default(\'Cardápio\')) }}' },
     { label: 'Loop categorias', value: '{% for column in columns %}\n  {% for category in column %}\n    <h2>{{ category.name }}</h2>\n  {% endfor %}\n{% endfor %}' },
     { label: 'Loop produtos', value: '{% for product in category.products %}\n  <p>{{ product.name }} - {{ product.priceLabel }}</p>\n{% endfor %}' },
   ],
@@ -83,11 +83,11 @@ const DEFAULT_CATEGORY_NAMES = {
   proposal: 'Propostas',
   contract: 'Contratos',
   email: 'E-mails',
-  menu: 'Cardapios',
+  menu: 'Cardápios',
 };
 
 const formatApiError = error => {
-  if (!error) return 'Nao foi possivel concluir a operacao.';
+  if (!error) return 'Não foi possível concluir a operação.';
   if (typeof error === 'string') return error;
   if (Array.isArray(error?.message)) {
     return error.message
@@ -96,7 +96,7 @@ const formatApiError = error => {
       .join(', ');
   }
 
-  return error?.message || error?.description || error?.errmsg || 'Nao foi possivel concluir a operacao.';
+  return error?.message || error?.description || error?.errmsg || 'Não foi possível concluir a operação.';
 };
 
 const normalizeId = value => String(value || '').replace(/\D/g, '');
@@ -1449,11 +1449,11 @@ export default function ModelTemplatesPage({ route, navigation }) {
         >
           {renderSummary()}
 
-          <View style={styles.sidebarPanel}>
+          <View style={styles.mobileSidebarPanel}>
             {renderSidebar()}
           </View>
 
-          <View style={styles.editorPanel}>
+          <View style={styles.mobileEditorPanel}>
             {renderEditor()}
           </View>
         </ScrollView>
