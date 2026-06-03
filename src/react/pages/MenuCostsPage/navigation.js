@@ -4,11 +4,12 @@ export const MENU_COSTS_PAGE_ROUTE = 'MenuCostsPage';
 export const MENU_COSTS_PARAMETERS_PAGE_ROUTE = 'MenuCostsParametersPage';
 export const MENU_COSTS_SUPPLIERS_PAGE_ROUTE = 'MenuCostsSuppliersPage';
 export const MENU_COSTS_INGREDIENTS_PAGE_ROUTE = 'MenuCostsIngredientsPage';
+export const MENU_COSTS_PACKAGING_PAGE_ROUTE = 'MenuCostsPackagingPage';
 
 export const resolveMenuCostsInitialSection = route => {
   const requestedSection = String(route?.params?.section || '').trim();
 
-  if (requestedSection === 'settings' || requestedSection === 'suppliers' || requestedSection === 'ingredients') {
+  if (requestedSection === 'settings' || requestedSection === 'suppliers' || requestedSection === 'ingredients' || requestedSection === 'packaging') {
     return 'dashboard';
   }
 
@@ -35,6 +36,13 @@ export const resolveMenuCostsTabRoute = tab => {
   if (tab === 'ingredients') {
     return {
       routeName: MENU_COSTS_INGREDIENTS_PAGE_ROUTE,
+      params: {},
+    };
+  }
+
+  if (tab === 'packaging') {
+    return {
+      routeName: MENU_COSTS_PACKAGING_PAGE_ROUTE,
       params: {},
     };
   }

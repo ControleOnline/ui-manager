@@ -1,6 +1,7 @@
 /* eslint-disable no-unused-vars */
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
+  ActivityIndicator,
   ScrollView,
   Text,
   TextInput,
@@ -11,16 +12,17 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/Feather';
+import { useStore } from '@store';
+import { useMessage } from '@controleonline/ui-common/src/react/components/MessageService';
 import styles from '@controleonline/ui-manager/src/react/pages/MenuCostsPage/index.styles';
 import pageStyles, { MENU_COLORS } from '@controleonline/ui-manager/src/react/pages/MenuCostsSuppliersPage/index.styles';
 import {
   MAIN_TABS,
-  cloneSeedData,
   formatDate,
   safeArray,
 } from '@controleonline/ui-manager/src/react/pages/MenuCostsPage/viewModel';
 import {
-  buildImportedSuppliers,
+  buildImportedSuppliersFromPeople,
   filterSuppliers,
   getSupplierSelection,
 } from '@controleonline/ui-manager/src/react/pages/MenuCostsSuppliersPage/viewModel';
@@ -133,7 +135,7 @@ const MovementRow = ({ item }) => (
         {item.date || 'Sem data'} · {item.type}
       </Text>
       <Text style={styles.rowMeta} numberOfLines={2}>
-        {item.supplierName || 'Fornecedor associado'}
+        {item.meta || item.supplierName || 'Vínculo do ERP'}
       </Text>
     </View>
     <View style={styles.rowRight}>
@@ -142,25 +144,96 @@ const MovementRow = ({ item }) => (
   </View>
 );
 
-const resolveSectionTitle = () => 'Fornecedores importados';
+const resolveSectionTitle = () => 'Fornecedores do ERP';
+
+const PAGE_SIZE = 200;
 
 export default function MenuCostsSuppliersPage({ navigation }) {
+  const messageApi = useMessage() || {};
+  const { showError } = messageApi;
+  const peopleStore = useStore('people');
+  const { currentCompany } = peopleStore.getters;
   const { width } = useWindowDimensions();
   const isWide = width >= 1060;
+  const requestIdRef = useRef(0);
 
   const [query, setQuery] = useState('');
-  const [suppliers, setSuppliers] = useState(() => buildImportedSuppliers(cloneSeedData()));
-  const [selectedId, setSelectedId] = useState(() => suppliers[0]?.id || null);
+  const [suppliers, setSuppliers] = useState([]);
+  const [selectedId, setSelectedId] = useState(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [loadError, setLoadError] = useState('');
 
-  useFocusEffect(
-    useCallback(() => {
-      const imported = buildImportedSuppliers(cloneSeedData());
+  const loadSuppliers = useCallback(async () => {
+    const companyId = currentCompany?.id;
+    if (!companyId) {
+      setSuppliers([]);
+      setSelectedId(null);
+      setLoadError('');
+      return;
+    }
+
+    const requestId = ++requestIdRef.current;
+    setIsLoading(true);
+    setLoadError('');
+
+    try {
+      const companyIri = `/people/${companyId}`;
+      const rawSuppliers = [];
+      let page = 1;
+
+      while (page <= 20) {
+        const batch = await peopleStore.actions.getItems({
+          'link.company': companyIri,
+          'link.linkType': 'provider',
+          itemsPerPage: PAGE_SIZE,
+          page,
+        }).catch(() => []);
+
+        if (requestId !== requestIdRef.current) {
+          return;
+        }
+
+        const items = Array.isArray(batch) ? batch : [];
+        rawSuppliers.push(...items);
+        if (items.length < PAGE_SIZE) {
+          break;
+        }
+        page += 1;
+      }
+
+      const imported = buildImportedSuppliersFromPeople(rawSuppliers);
+      if (requestId !== requestIdRef.current) {
+        return;
+      }
+
       setSuppliers(imported);
       setSelectedId(currentId => {
         const current = imported.find(item => String(item.id) === String(currentId));
         return current?.id || imported[0]?.id || null;
       });
-    }, []),
+    } catch (error) {
+      const message =
+        error?.response?.data?.['hydra:description'] ||
+        error?.response?.data?.detail ||
+        error?.message ||
+        'Nao foi possivel ler os fornecedores do ERP.';
+      if (requestId === requestIdRef.current) {
+        setSuppliers([]);
+        setSelectedId(null);
+        setLoadError(message);
+      }
+      showError?.(message);
+    } finally {
+      if (requestId === requestIdRef.current) {
+        setIsLoading(false);
+      }
+    }
+  }, [currentCompany?.id, peopleStore.actions, showError]);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadSuppliers();
+    }, [loadSuppliers]),
   );
 
   useEffect(() => {
@@ -195,7 +268,7 @@ export default function MenuCostsSuppliersPage({ navigation }) {
   const summaryRows = [
     { label: 'Fornecedores', value: String(filteredSuppliers.length) },
     { label: 'Contatos', value: String(filteredSuppliers.reduce((sum, item) => sum + Number(item.contactCount || 0), 0)) },
-    { label: 'Movimentos', value: String(filteredSuppliers.reduce((sum, item) => sum + Number(item.movementCount || 0), 0)) },
+    { label: 'Produtos', value: String(filteredSuppliers.reduce((sum, item) => sum + Number(item.movementCount || 0), 0)) },
   ];
 
   return (
@@ -236,7 +309,7 @@ export default function MenuCostsSuppliersPage({ navigation }) {
               <SearchBox
                 value={query}
                 onChangeText={setQuery}
-                placeholder="Buscar fornecedor ou contato"
+                placeholder="Buscar fornecedor, contato ou produto"
               />
             </View>
 
@@ -250,9 +323,23 @@ export default function MenuCostsSuppliersPage({ navigation }) {
                   </View>
                 ))}
               </View>
+              {loadError ? (
+                <View style={[styles.rowCard, { marginBottom: 12 }]}>
+                  <View style={styles.rowContent}>
+                    <Text style={styles.rowTitle}>Erro ao carregar fornecedores</Text>
+                    <Text style={styles.rowSubtitle}>{loadError}</Text>
+                  </View>
+                </View>
+              ) : null}
 
               <View style={styles.splitLayout}>
                 <View style={styles.listPanel}>
+                  {isLoading && filteredSuppliers.length === 0 ? (
+                    <View style={[styles.rowCard, { alignItems: 'center', justifyContent: 'center', minHeight: 120 }]}>
+                      <ActivityIndicator size="small" color={MENU_COLORS.brand} />
+                      <Text style={[styles.rowSubtitle, { marginTop: 8 }]}>Carregando fornecedores do ERP...</Text>
+                    </View>
+                  ) : null}
                   {filteredSuppliers.map(item => (
                     <TouchableOpacity
                       key={item.id}
@@ -265,7 +352,7 @@ export default function MenuCostsSuppliersPage({ navigation }) {
                           {item.name}
                         </Text>
                         <Text style={styles.rowSubtitle} numberOfLines={2}>
-                          {item.legalName || item.description || item.notes || 'Cadastro consolidado'}
+                          {item.legalName || item.description || item.notes || 'Cadastro consolidado do ERP'}
                         </Text>
                         <View style={styles.badgeLine}>
                           <Badge label={item.evidenceLabel} tone={item.evidenceType === 'documented' ? 'good' : item.evidenceType === 'review' ? 'warn' : 'neutral'} />
@@ -282,7 +369,7 @@ export default function MenuCostsSuppliersPage({ navigation }) {
                       </View>
                       <View style={styles.rowRight}>
                         <Text style={styles.rowMoney}>{String(item.movementCount || 0)}</Text>
-                        <Text style={styles.rowMeta}>movimentos</Text>
+                        <Text style={styles.rowMeta}>vínculos</Text>
                       </View>
                     </TouchableOpacity>
                   ))}
@@ -307,9 +394,9 @@ export default function MenuCostsSuppliersPage({ navigation }) {
                     <InfoGrid rows={[
                       { label: 'CNPJ', value: selectedSupplier.cnpj || '—' },
                       { label: 'Local', value: [selectedSupplier.city, selectedSupplier.state].filter(Boolean).join(' / ') || '—', helper: selectedSupplier.address || 'Sem endereço informado' },
-                      { label: 'Pagamento', value: safeArray(selectedSupplier.paymentMethods).join(', ') || '—' },
-                      { label: 'Contatos', value: String(selectedSupplier.contactCount || 0), helper: selectedSupplier.sourceNames.join(' · ') || selectedSupplier.sourceSummary },
-                      { label: 'Movimentos', value: String(selectedSupplier.movementCount || 0), helper: selectedSupplier.latestMovementDate ? `Último: ${formatDate(selectedSupplier.latestMovementDate)}` : 'Sem movimento importado' },
+                      { label: 'Tipo', value: selectedSupplier.category || '—', helper: selectedSupplier.sourceNames.join(' · ') || selectedSupplier.sourceSummary },
+                      { label: 'Contatos', value: String(selectedSupplier.contactCount || 0), helper: safeArray(selectedSupplier.contacts).map(contact => [contact.phone, contact.email].filter(Boolean).join(' · ')).join(' • ') || 'Sem contato importado' },
+                      { label: 'Produtos', value: String(selectedSupplier.movementCount || 0), helper: selectedSupplier.latestMovementDate ? `Último: ${formatDate(selectedSupplier.latestMovementDate)}` : 'Sem vínculo importado' },
                       { label: 'Observação', value: selectedSupplier.notes || '—', helper: selectedSupplier.evidenceSource || 'Sem fonte registrada' },
                     ]} />
 
@@ -330,16 +417,16 @@ export default function MenuCostsSuppliersPage({ navigation }) {
                     </View>
 
                     <View style={styles.panelNested}>
-                      <Text style={styles.panelTitle}>Movimentos vinculados</Text>
+                      <Text style={styles.panelTitle}>Produtos vinculados</Text>
                       <Text style={styles.panelSubtitle}>
-                        Compras, entradas e despesas que já apontam para este fornecedor.
+                        Produtos do ERP vinculados ao fornecedor, com SKU e custo quando já existirem.
                       </Text>
                       <View style={{ gap: 8, marginTop: 12 }}>
                         {selectedSupplier.movements.slice(0, 6).map(item => (
                           <MovementRow key={item.id} item={item} />
                         ))}
                         {selectedSupplier.movements.length === 0 ? (
-                          <Text style={styles.panelSubtitle}>Nenhum movimento vinculado no import atual.</Text>
+                          <Text style={styles.panelSubtitle}>Nenhum produto vinculado no ERP para este fornecedor.</Text>
                         ) : null}
                       </View>
                     </View>
