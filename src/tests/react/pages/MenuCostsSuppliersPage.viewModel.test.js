@@ -4,10 +4,12 @@ const assert = require('node:assert/strict');
 
 const {
   buildImportedSuppliers,
-  buildImportedSuppliersFromPeople,
   filterSuppliers,
   getSupplierSelection,
 } = require('@controleonline/ui-manager/src/react/pages/MenuCostsSuppliersPage/viewModel');
+const {
+  buildImportedSuppliersFromPeople,
+} = require('@controleonline/ui-people/src/react/utils/menuCostsSuppliers');
 const { cloneSeedData } = require('@controleonline/ui-manager/src/react/pages/MenuCostsPage/viewModel');
 
 test('suppliers view model merges duplicate Samppel records and keeps contacts nested', () => {
@@ -115,8 +117,10 @@ test('suppliers view model merges duplicate people records from ERP and keeps co
   assert.equal(samppel.contactCount, 1);
   assert.equal(samppel.contacts[0].phone, '+55 (11) 3931-0750');
   assert.equal(samppel.contacts[0].email, 'contato@samppel.com.br');
+  assert.equal(samppel.productCount, 2);
+  assert.ok(Array.isArray(samppel.products));
   assert.ok(samppel.sourceNames.includes('Samppel'));
   assert.ok(samppel.sourceNames.some(name => name.includes('Embalagens')));
   assert.equal(samppel.movementCount, 2);
-  assert.equal(samppel.movements[0].label, 'Saco');
+  assert.equal(samppel.products[0].productName, 'Saco');
 });

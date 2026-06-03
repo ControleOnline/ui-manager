@@ -90,9 +90,9 @@ const uniqueById = items => {
 const normalizeDateOnly = value => String(value || '').split('T')[0].split(' ')[0].trim();
 
 const resolvePersonDisplayName = person => {
-  const alias = normalizeText(person?.alias || '');
-  const name = normalizeText(person?.name || '');
-  const description = normalizeText(person?.description || '');
+  const alias = normalizeEntityText(person?.alias || '').trim();
+  const name = normalizeEntityText(person?.name || '').trim();
+  const description = normalizeEntityText(person?.description || '').trim();
 
   if (alias && name && alias !== name) {
     return alias;
@@ -102,8 +102,8 @@ const resolvePersonDisplayName = person => {
 };
 
 const resolvePersonLegalName = person => {
-  const alias = normalizeText(person?.alias || '');
-  const name = normalizeText(person?.name || '');
+  const alias = normalizeEntityText(person?.alias || '').trim();
+  const name = normalizeEntityText(person?.name || '').trim();
 
   if (alias && name && alias !== name) {
     return name;
@@ -150,18 +150,18 @@ const resolveSupplierAddress = person => {
   }
 
   const summary = buildAddressOptionSummary(address);
-  const city = normalizeText(
+  const city = normalizeEntityText(
     address?.street?.district?.city?.city ||
       address?.city?.city ||
       '',
   );
-  const state = normalizeText(
+  const state = normalizeEntityText(
     address?.street?.district?.city?.state?.uf ||
       address?.street?.district?.city?.state?.state ||
       address?.state?.uf ||
       '',
   );
-  const cep = normalizeText(address?.street?.cep?.cep || address?.postalCode || '');
+  const cep = normalizeEntityText(address?.street?.cep?.cep || address?.postalCode || '');
 
   return {
     address: [summary.primary, summary.secondary].filter(Boolean).join(' · '),
@@ -174,16 +174,16 @@ const resolveSupplierAddress = person => {
 const resolveSupplierPaymentMethods = person => {
   const raw = person?.otherInformations?.paymentMethods || person?.otherInformations?.paymentMethod || [];
   if (Array.isArray(raw)) {
-    return Array.from(new Set(raw.map(value => normalizeText(value)).filter(Boolean)));
+    return Array.from(new Set(raw.map(value => normalizeEntityText(value)).filter(Boolean)));
   }
 
-  const text = normalizeText(raw);
+  const text = normalizeEntityText(raw);
   return text ? [text] : [];
 };
 
 const resolveSupplierContactsFromPeople = person => {
   const phones = safeArray(person?.phone).map(resolvePhoneText).filter(Boolean);
-  const emails = safeArray(person?.email).map(item => normalizeText(item?.email || item)).filter(Boolean);
+  const emails = safeArray(person?.email).map(item => normalizeEntityText(item?.email || item)).filter(Boolean);
   const contactName = resolvePersonDisplayName(person);
 
   if (!contactName || (!phones.length && !emails.length)) {
@@ -205,7 +205,7 @@ const resolvePeopleProductRows = peopleRecords =>
     safeArray(person?.productPeople).map((relation, index) => {
       const product = relation?.product || {};
       const date = normalizeDateOnly(relation?.createdAt || relation?.updatedAt || '');
-      const relationLabel = normalizeText(
+      const relationLabel = normalizeEntityText(
         product?.product ||
           product?.name ||
           product?.description ||
@@ -269,7 +269,7 @@ const normalizeSupplierFromPerson = person => {
     legalName,
     cnpj: resolveDocumentText(safeArray(person?.document)[0]) || '',
     code: String(person?.id || ''),
-    description: normalizeText(person?.description || '') || displayName || legalName || '',
+    description: normalizeEntityText(person?.description || '') || displayName || legalName || '',
     category: person?.peopleType === 'J' ? 'Pessoa jurídica' : 'Pessoa física',
     address: address.address,
     cep: address.cep,
@@ -277,7 +277,7 @@ const normalizeSupplierFromPerson = person => {
     state: address.state,
     pixKey: '',
     pixKeyType: '',
-    notes: normalizeText(person?.otherInformations?.notes || person?.description || ''),
+    notes: normalizeEntityText(person?.otherInformations?.notes || person?.description || ''),
     evidenceType: contacts.length > 0 || safeArray(person?.productPeople).length > 0 ? 'documented' : 'review',
     evidenceSource: 'people',
     paymentMethods,
