@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useFocusEffect } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/Feather';
 import { useStore } from '@store';
 import { useMessage } from '@controleonline/ui-common/src/react/components/MessageService';
@@ -1145,7 +1146,7 @@ const supplyParentStatusLabel = status => ({
   type_conflict: 'Pai em tipo errado',
 }[status] || 'Pendente');
 
-function SupplyResourceView({
+export function SupplyResourceView({
   db,
   query,
   selectedId,
@@ -1210,9 +1211,11 @@ function SupplyResourceView({
     }
   }, [companyId, companyIri, productUnitStore.actions, productsStore.actions, showError]);
 
-  useEffect(() => {
-    loadCatalog();
-  }, [loadCatalog]);
+  useFocusEffect(
+    useCallback(() => {
+      loadCatalog();
+    }, [loadCatalog]),
+  );
 
   const rows = useMemo(
     () => buildSupplySyncRows(db, collection, catalogProducts),

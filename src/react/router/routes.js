@@ -29,6 +29,7 @@ import IntegrationsPage from '@controleonline/ui-manager/src/react/pages/Integra
 import ManagerCategoriesPage from '@controleonline/ui-manager/src/react/pages/ManagerCategoriesPage';
 import MenuCostsPage from '@controleonline/ui-manager/src/react/pages/MenuCostsPage';
 import MenuCostsParametersPage from '@controleonline/ui-manager/src/react/pages/MenuCostsParametersPage';
+import MenuCostsIngredientsPage from '@controleonline/ui-manager/src/react/pages/MenuCostsIngredientsPage';
 import MenuCostsSuppliersPage from '@controleonline/ui-manager/src/react/pages/MenuCostsSuppliersPage';
 import MenuAccessConfigPage from '@controleonline/ui-manager/src/react/pages/MenuAccessConfigPage';
 import LabelsPage from '@controleonline/ui-manager/src/react/pages/LabelsPage';
@@ -473,6 +474,21 @@ const managerRoutes = [
         name: 'MenuCostsPage',
       },
       title: 'Parâmetros',
+      showCompanyFilter: true,
+      companyFilterMode: 'icon',
+    },
+  },
+  {
+    name: 'MenuCostsIngredientsPage',
+    component: MenuCostsIngredientsPage,
+    path: 'menu-costs-page/ingredientes',
+    options: {
+      headerShown: true,
+      headerBackVisible: true,
+      headerBackFallback: {
+        name: 'MenuCostsPage',
+      },
+      title: 'Ingredientes',
       showCompanyFilter: true,
       companyFilterMode: 'icon',
     },

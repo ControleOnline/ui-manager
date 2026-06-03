@@ -3,11 +3,12 @@ import { MAIN_TABS } from '@controleonline/ui-manager/src/react/pages/MenuCostsP
 export const MENU_COSTS_PAGE_ROUTE = 'MenuCostsPage';
 export const MENU_COSTS_PARAMETERS_PAGE_ROUTE = 'MenuCostsParametersPage';
 export const MENU_COSTS_SUPPLIERS_PAGE_ROUTE = 'MenuCostsSuppliersPage';
+export const MENU_COSTS_INGREDIENTS_PAGE_ROUTE = 'MenuCostsIngredientsPage';
 
 export const resolveMenuCostsInitialSection = route => {
   const requestedSection = String(route?.params?.section || '').trim();
 
-  if (requestedSection === 'settings' || requestedSection === 'suppliers') {
+  if (requestedSection === 'settings' || requestedSection === 'suppliers' || requestedSection === 'ingredients') {
     return 'dashboard';
   }
 
@@ -27,6 +28,13 @@ export const resolveMenuCostsTabRoute = tab => {
   if (tab === 'suppliers') {
     return {
       routeName: MENU_COSTS_SUPPLIERS_PAGE_ROUTE,
+      params: {},
+    };
+  }
+
+  if (tab === 'ingredients') {
+    return {
+      routeName: MENU_COSTS_INGREDIENTS_PAGE_ROUTE,
       params: {},
     };
   }

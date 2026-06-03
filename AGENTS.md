@@ -14,3 +14,7 @@
 - Essa tela carrega os dados somente quando exibida e deve unificar fornecedores duplicados sem criar novo cadastro.
 - Telefone e e-mail de fornecedor devem ser materializados dentro de `contacts`, nunca como campos diretos do fornecedor.
 - Nesta fase, fornecedores nao devem escrever em `products` ou `components`; o fluxo e apenas de leitura, dedupe e enriquecimento do import.
+- A rota `/menu-costs-page/ingredientes` é a tela oficial de ingredientes da engenharia.
+- Essa tela carrega somente quando exibida e usa o fluxo de insumos para cadastrar `feedstock` no ERP.
+- O cadastro de ingredientes deve sinalizar duplicidade por codigo ou nome antes de gravar, para nao criar feedstock repetido.
+- A escrita continua restrita a insumos; nada de produto de venda ou componente nessa rota.
