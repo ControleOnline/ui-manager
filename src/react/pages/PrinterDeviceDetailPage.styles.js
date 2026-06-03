@@ -190,6 +190,15 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: '#fff',
   },
+  actionButtonRow: {
+    flexDirection: 'row',
+    gap: 10,
+    flexWrap: 'wrap',
+  },
+  actionButton: {
+    flex: 1,
+    minWidth: 240,
+  },
   secondaryButton: {
     minHeight: 40,
     borderRadius: 12,
