@@ -9,6 +9,7 @@ const {
   computeProduct,
   computeEngineeringProducts,
   componentCost,
+  buildSupplySyncRows,
   pendingItems,
   processRows,
   purchaseFamilyEntries,
@@ -121,4 +122,62 @@ test('purchase family entries group comparable evidence history', () => {
   assert.ok(fraldinha.occurrenceCount > 0);
   assert.ok(fraldinha.totalAmount > 0);
   assert.ok(fraldinha.evidenceCount >= 0);
+});
+
+test('supply sync rows resolve parents and remote supply products', () => {
+  const db = cloneSeedData();
+  const baseRows = buildSupplySyncRows(db, 'ingredients');
+  const fraldinhaBase = baseRows.find(item => item.id === 'ing_fraldinha');
+
+  assert.ok(fraldinhaBase);
+  assert.ok(fraldinhaBase.parentCount > 0);
+
+  const rows = buildSupplySyncRows(db, 'ingredients', [
+    {
+      id: 9001,
+      sku: 'ING_FRALDINHA',
+      product: 'Fraldinha',
+      type: 'feedstock',
+      price: fraldinhaBase.localCost,
+    },
+    {
+      id: 9010,
+      sku: 'GYR-LAN-ALPHA',
+      product: 'Alpha Gyros de Fraldinha',
+      type: 'product',
+      price: 1,
+    },
+  ]);
+
+  const fraldinha = rows.find(item => item.id === 'ing_fraldinha');
+
+  assert.equal(fraldinha.remoteSupplyStatus, 'synced');
+  assert.equal(fraldinha.remoteSupplyId, 9001);
+  assert.ok(fraldinha.resolvedParentCount > 0);
+  assert.ok(fraldinha.parentRows.some(parent => parent.remoteParentId));
+});
+
+test('supply sync rows block duplicated remote supply codes', () => {
+  const db = cloneSeedData();
+  const rows = buildSupplySyncRows(db, 'packaging', [
+    {
+      id: 9101,
+      sku: 'PKG_LANCHE',
+      product: 'Papel acoplado mono frios 30x38',
+      type: 'package',
+      price: 0.1,
+    },
+    {
+      id: 9102,
+      sku: 'PKG_LANCHE',
+      product: 'Papel acoplado mono frios 30x38',
+      type: 'package',
+      price: 0.2,
+    },
+  ]);
+
+  const pkg = rows.find(item => item.id === 'pkg_lanche');
+
+  assert.equal(pkg.remoteSupplyStatus, 'duplicate');
+  assert.equal(pkg.remoteSupplyId, 9101);
 });

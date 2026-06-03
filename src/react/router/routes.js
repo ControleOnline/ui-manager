@@ -28,6 +28,8 @@ import IntegrationConfigPage from '@controleonline/ui-manager/src/react/pages/In
 import IntegrationsPage from '@controleonline/ui-manager/src/react/pages/Integrations';
 import ManagerCategoriesPage from '@controleonline/ui-manager/src/react/pages/ManagerCategoriesPage';
 import MenuCostsPage from '@controleonline/ui-manager/src/react/pages/MenuCostsPage';
+import MenuCostsParametersPage from '@controleonline/ui-manager/src/react/pages/MenuCostsParametersPage';
+import MenuCostsSuppliersPage from '@controleonline/ui-manager/src/react/pages/MenuCostsSuppliersPage';
 import MenuAccessConfigPage from '@controleonline/ui-manager/src/react/pages/MenuAccessConfigPage';
 import LabelsPage from '@controleonline/ui-manager/src/react/pages/LabelsPage';
 import ModelTemplatesPage from '@controleonline/ui-manager/src/react/pages/ModelTemplatesPage';
@@ -456,6 +458,36 @@ const managerRoutes = [
       headerShown: true,
       headerBackVisible: true,
       title: 'Custos do Cardápio',
+      showCompanyFilter: true,
+      companyFilterMode: 'icon',
+    },
+  },
+  {
+    name: 'MenuCostsParametersPage',
+    component: MenuCostsParametersPage,
+    path: 'menu-costs-page/parametros',
+    options: {
+      headerShown: true,
+      headerBackVisible: true,
+      headerBackFallback: {
+        name: 'MenuCostsPage',
+      },
+      title: 'Parâmetros',
+      showCompanyFilter: true,
+      companyFilterMode: 'icon',
+    },
+  },
+  {
+    name: 'MenuCostsSuppliersPage',
+    component: MenuCostsSuppliersPage,
+    path: 'menu-costs-page/fornecedores',
+    options: {
+      headerShown: true,
+      headerBackVisible: true,
+      headerBackFallback: {
+        name: 'MenuCostsPage',
+      },
+      title: 'Fornecedores',
       showCompanyFilter: true,
       companyFilterMode: 'icon',
     },

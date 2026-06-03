@@ -1,5 +1,5 @@
 /* eslint-disable no-unused-vars */
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Image,
   Modal,
@@ -14,8 +14,14 @@ import {
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/Feather';
+import { useStore } from '@store';
 import { useMessage } from '@controleonline/ui-common/src/react/components/MessageService';
+import StateStore from '@controleonline/ui-layout/src/react/components/StateStore';
 import styles, { MENU_COLORS } from './index.styles';
+import {
+  resolveMenuCostsInitialSection,
+  resolveMenuCostsTabRoute,
+} from './navigation';
 import {
   MAIN_TABS,
   PRODUCT_DETAIL_TABS,
@@ -54,6 +60,7 @@ import {
   processRows,
   productPurchaseRows,
   productUsesForResource,
+  buildSupplySyncRows,
   purchaseFamilyEntries,
   purchaseItemsForResource,
   recipeBatchCost,
@@ -64,6 +71,8 @@ import {
   resourceTypeLabel,
   safeArray,
   targetMarginPct,
+  extractItems,
+  normalizeEntityId,
   validateImportedDb,
 } from './viewModel';
 import {
@@ -82,6 +91,9 @@ const getSectionDefaultSelection = (db, tab) => {
   return safeArray(db[tab])[0]?.id || null;
 };
 
+const resolveInitialProductTab = section =>
+  section === 'products' ? 'composition' : 'summary';
+
 const getToneStyle = tone => {
   if (tone === 'good') return styles.toneGood;
   if (tone === 'warn') return styles.toneWarn;
@@ -95,11 +107,17 @@ const Badge = ({ children, tone = 'neutral' }) => (
   </View>
 );
 
-const IconButton = ({ icon, label, onPress, active, tone = 'neutral' }) => (
+const IconButton = ({ icon, label, onPress, active, tone = 'neutral', disabled = false }) => (
   <TouchableOpacity
-    style={[styles.iconButton, active && styles.iconButtonActive, tone === 'danger' && styles.iconButtonDanger]}
-    activeOpacity={0.82}
-    onPress={onPress}
+    style={[
+      styles.iconButton,
+      active && styles.iconButtonActive,
+      tone === 'danger' && styles.iconButtonDanger,
+      disabled && { opacity: 0.6 },
+    ]}
+    activeOpacity={disabled ? 1 : 0.82}
+    onPress={disabled ? undefined : onPress}
+    disabled={disabled}
   >
     <Icon name={icon} size={16} color={active ? MENU_COLORS.brandText : MENU_COLORS.muted} />
     {label ? <Text style={[styles.iconButtonText, active && styles.iconButtonTextActive]}>{label}</Text> : null}
@@ -287,16 +305,22 @@ const ComponentNode = ({ db, node, depth = 0, onQtyChange }) => {
   );
 };
 
-export default function MenuCostsPage() {
+export default function MenuCostsPage({ navigation, route }) {
   const messageApi = useMessage() || {};
   const { showError, showSuccess } = messageApi;
   const { width } = useWindowDimensions();
   const isWide = width >= 1060;
+  const routeSection = route?.params?.section;
+  const initialSection = resolveMenuCostsInitialSection(route);
   const [db, setDb] = useState(() => cloneSeedData());
-  const [activeTab, setActiveTab] = useState('dashboard');
-  const [activeProductTab, setActiveProductTab] = useState('summary');
+  const [activeTab, setActiveTab] = useState(initialSection);
+  const [activeProductTab, setActiveProductTab] = useState(
+    resolveInitialProductTab(initialSection),
+  );
   const [query, setQuery] = useState('');
-  const [selectedId, setSelectedId] = useState(() => getSectionDefaultSelection(cloneSeedData(), 'dashboard'));
+  const [selectedId, setSelectedId] = useState(() =>
+    getSectionDefaultSelection(cloneSeedData(), initialSection),
+  );
   const [modal, setModal] = useState(null);
 
   useEffect(() => {
@@ -321,12 +345,26 @@ export default function MenuCostsPage() {
     }
   }, [showError]);
 
+  useEffect(() => {
+    const nextSection = resolveMenuCostsInitialSection(route);
+    setActiveTab(nextSection);
+    setActiveProductTab(resolveInitialProductTab(nextSection));
+    setSelectedId(getSectionDefaultSelection(db, nextSection));
+  }, [routeSection]);
+
   const switchTab = useCallback(tab => {
+    const { routeName, params } = resolveMenuCostsTabRoute(tab);
+
+    if (routeName !== 'MenuCostsPage' && navigation?.navigate) {
+      navigation.navigate(routeName, params || {});
+      return;
+    }
+
     setActiveTab(tab);
-    setActiveProductTab(tab === 'products' ? 'composition' : 'summary');
+    setActiveProductTab(resolveInitialProductTab(tab));
     setQuery('');
     setSelectedId(getSectionDefaultSelection(db, tab));
-  }, [db]);
+  }, [db, navigation]);
 
   const patchCollectionItem = useCallback((collection, id, patch) => {
     const nextDb = {
@@ -532,11 +570,14 @@ export default function MenuCostsPage() {
                 patchRecipeComponent,
                 patchActiveCost,
                 persistDb,
+                showError,
+                showSuccess,
               })}
             </ScrollView>
           </View>
         </View>
       </View>
+      <StateStore stores={['products', 'product_group_product', 'product_unit']} />
       <EditModal
         modal={modal}
         db={db}
@@ -563,7 +604,8 @@ function renderContent(props) {
   const { activeTab } = props;
   if (activeTab === 'dashboard') return <Dashboard {...props} />;
   if (activeTab === 'products') return <ProductsView {...props} />;
-  if (['ingredients', 'recipes', 'packaging'].includes(activeTab)) return <ResourceView {...props} collection={activeTab} />;
+  if (['ingredients', 'packaging'].includes(activeTab)) return <SupplyResourceView {...props} collection={activeTab} />;
+  if (activeTab === 'recipes') return <ResourceView {...props} collection={activeTab} />;
   if (activeTab === 'resale') return <ResaleView {...props} />;
   if (activeTab === 'purchases') return <PurchasesView {...props} />;
   if (activeTab === 'processes') return <ProcessesView {...props} />;
@@ -681,6 +723,7 @@ function ProductsView({
         openModal={openModal}
         patchProductComponent={patchProductComponent}
         patchProductAddonComponent={patchProductAddonComponent}
+        readOnly
       />
     </View>
   );
@@ -694,6 +737,7 @@ function ProductDetail({
   openModal,
   patchProductComponent,
   patchProductAddonComponent,
+  readOnly = false,
 }) {
   if (!computed) return <EmptyState text="Selecione um produto para ver a ficha." />;
   const product = computed.product;
@@ -708,7 +752,7 @@ function ProductDetail({
         { label: categoryName(db, product.categoryId), tone: 'neutral' },
         { label: product.active === false ? 'Inativo' : 'Ativo', tone: product.active === false ? 'warn' : 'good' },
       ]}
-      actions={<IconButton icon="edit-3" label="Editar" onPress={() => openModal({ collection: 'products', id: product.id })} />}
+      actions={readOnly ? null : <IconButton icon="edit-3" label="Editar" onPress={() => openModal({ collection: 'products', id: product.id })} />}
     >
       <View style={styles.productHero}>
         <VisualThumb source={imageForProduct(product)} label={product.name} size="lg" />
@@ -750,7 +794,7 @@ function ProductDetail({
                 key={node.key}
                 db={db}
                 node={node}
-                onQtyChange={value => patchProductComponent?.(product.id, index, { qty: num(value) })}
+                onQtyChange={readOnly ? undefined : value => patchProductComponent?.(product.id, index, { qty: num(value) })}
               />
             ))}
           </View>
@@ -776,7 +820,7 @@ function ProductDetail({
                   key={node.key}
                   db={db}
                   node={node}
-                  onQtyChange={value => patchProductAddonComponent?.(product.id, addon.id, index, { qty: num(value) })}
+                  onQtyChange={readOnly ? undefined : value => patchProductAddonComponent?.(product.id, addon.id, index, { qty: num(value) })}
                 />
               )) : <Text style={styles.infoHelper}>Grupo sem custo direto. Obrigatoriedade e regra continuam preservadas.</Text>}
             </View>
@@ -1014,6 +1058,514 @@ function ResourceDetail({ db, collection, item, openModal, patchActiveCost, patc
   );
 }
 
+const SUPPLY_PARENT_PRODUCT_TYPES = ['product', 'manufactured', 'custom', 'service'];
+
+const normalizeUnitToken = value =>
+  String(value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/gi, '')
+    .trim()
+    .toLowerCase();
+
+const uniqueByIdentifier = items => {
+  const seen = new Set();
+  return safeArray(items).filter(item => {
+    const identifier = String(item?.id || item?.['@id'] || '').trim();
+    if (!identifier || seen.has(identifier)) return false;
+    seen.add(identifier);
+    return true;
+  });
+};
+
+const productLabel = product =>
+  String(product?.product || product?.name || product?.description || '').trim();
+
+const resolveProductUnitId = (units, token) => {
+  const normalizedTarget = normalizeUnitToken(token);
+  if (!normalizedTarget) return '';
+
+  const match = safeArray(units).find(unit => {
+    const candidates = [
+      unit?.productUnit,
+      unit?.unit,
+      unit?.label,
+      unit?.code,
+      unit?.name,
+      unit?.id,
+    ];
+
+    return candidates.some(candidate => normalizeUnitToken(candidate) === normalizedTarget);
+  });
+
+  return match?.id ? String(match.id) : '';
+};
+
+const fetchAllItems = async (actions, params, pageSize = 200, maxPages = 6) => {
+  if (!actions?.getItems) return [];
+
+  const items = [];
+
+  for (let page = 1; page <= maxPages; page += 1) {
+    const response = await actions.getItems({
+      ...params,
+      page,
+      itemsPerPage: pageSize,
+    });
+    const batch = extractItems(response);
+    items.push(...batch);
+
+    if (!response?.['hydra:view']?.next || batch.length < pageSize) {
+      break;
+    }
+  }
+
+  return uniqueByIdentifier(items);
+};
+
+const supplyStatusLabel = status => ({
+  synced: 'Sincronizado',
+  divergent: 'Preço diferente',
+  missing: 'Sem ERP',
+  duplicate: 'Duplicado',
+  type_conflict: 'Tipo divergente',
+}[status] || 'Pendente');
+
+const supplyStatusTone = status => {
+  if (status === 'synced') return 'good';
+  if (status === 'duplicate') return 'bad';
+  if (status === 'divergent' || status === 'missing' || status === 'type_conflict') return 'warn';
+  return 'neutral';
+};
+
+const supplyParentStatusLabel = status => ({
+  synced: 'Vínculo pronto',
+  missing: 'Pai ausente',
+  duplicate: 'Pai duplicado',
+  type_conflict: 'Pai em tipo errado',
+}[status] || 'Pendente');
+
+function SupplyResourceView({
+  db,
+  query,
+  selectedId,
+  setSelectedId,
+  collection,
+  patchActiveCost,
+  showError,
+  showSuccess,
+}) {
+  const peopleStore = useStore('people');
+  const productsStore = useStore('products');
+  const productUnitStore = useStore('product_unit');
+  const productGroupProductStore = useStore('product_group_product');
+
+  const { currentCompany } = peopleStore.getters;
+  const companyId = currentCompany?.id || '';
+  const companyIri = companyId ? `/people/${normalizeEntityId(companyId)}` : '';
+
+  const [catalogProducts, setCatalogProducts] = useState([]);
+  const [unitItems, setUnitItems] = useState([]);
+  const [loadingCatalog, setLoadingCatalog] = useState(false);
+  const [syncingId, setSyncingId] = useState('');
+  const [syncingAll, setSyncingAll] = useState(false);
+  const [lastRefreshAt, setLastRefreshAt] = useState(null);
+
+  const loadCatalog = useCallback(async () => {
+    if (!companyId) {
+      setCatalogProducts([]);
+      setUnitItems([]);
+      setLastRefreshAt(null);
+      return;
+    }
+
+    setLoadingCatalog(true);
+    try {
+      const [allProducts, allUnits] = await Promise.all([
+        fetchAllItems(productsStore.actions, {
+          company: companyId,
+          people: companyIri,
+          active: 1,
+          'order[product]': 'ASC',
+        }, 250, 6),
+        fetchAllItems(productUnitStore.actions, {
+          people: companyIri,
+        }, 250, 3),
+      ]);
+
+      setCatalogProducts(allProducts);
+      setUnitItems(allUnits);
+      setLastRefreshAt(new Date());
+    } catch (error) {
+      const message =
+        error?.response?.data?.['hydra:description'] ||
+        error?.response?.data?.detail ||
+        error?.message ||
+        'Nao foi possivel ler o catalogo do ERP para sincronizar os insumos.';
+      setCatalogProducts([]);
+      setUnitItems([]);
+      showError?.(message);
+    } finally {
+      setLoadingCatalog(false);
+    }
+  }, [companyId, companyIri, productUnitStore.actions, productsStore.actions, showError]);
+
+  useEffect(() => {
+    loadCatalog();
+  }, [loadCatalog]);
+
+  const rows = useMemo(
+    () => buildSupplySyncRows(db, collection, catalogProducts),
+    [catalogProducts, collection, db],
+  );
+
+  const filteredRows = useMemo(
+    () => filterBySearch(rows, query, [
+      item => item.name,
+      item => item.code,
+      item => item.description,
+      item => item.notes,
+      item => item.supplier,
+      item => item.localCostLabel,
+      item => safeArray(item.parentRows).map(parent => parent.productName).join(' '),
+      item => supplyStatusLabel(item.remoteSupplyStatus),
+    ]),
+    [query, rows],
+  );
+
+  const selected = filteredRows.find(item => String(item.id) === String(selectedId)) || filteredRows[0] || rows[0] || null;
+
+  const metrics = useMemo(() => {
+    const synced = rows.filter(row => row.remoteSupplyStatus === 'synced').length;
+    const divergent = rows.filter(row => row.remoteSupplyStatus === 'divergent').length;
+    const missing = rows.filter(row => row.remoteSupplyStatus === 'missing' || row.remoteSupplyStatus === 'type_conflict').length;
+    const duplicate = rows.filter(row => row.remoteSupplyStatus === 'duplicate').length;
+    return {
+      total: rows.length,
+      synced,
+      divergent,
+      missing,
+      duplicate,
+    };
+  }, [rows]);
+
+  const syncSupplyRow = useCallback(async (row, options = {}) => {
+    const { silent = false, reload = true } = options;
+
+    if (!row) {
+      return { ok: false, warningCount: 1 };
+    }
+
+    if (!companyId) {
+      if (!silent) showError?.('Selecione uma empresa antes de persistir os insumos.');
+      return { ok: false, warningCount: 1 };
+    }
+
+    if (row.remoteSupplyStatus === 'duplicate' || row.remoteSupplyStatus === 'type_conflict') {
+      if (!silent) {
+        showError?.(`${row.name}: já existe cadastro conflitante no ERP para este código.`);
+      }
+      return { ok: false, warningCount: 1 };
+    }
+
+    const unitId = resolveProductUnitId(unitItems, row.unitToken);
+    if (!unitId) {
+      if (!silent) {
+        showError?.(`${row.name}: unidade ${row.unitToken} nao encontrada no ERP.`);
+      }
+      return { ok: false, warningCount: 1 };
+    }
+
+    setSyncingId(String(row.id));
+
+    try {
+      const savedProduct = await productsStore.actions.save({
+        ...(row.remoteSupplyId ? { id: row.remoteSupplyId } : {}),
+        product: row.name,
+        sku: row.code || row.id,
+        type: row.productType,
+        company: companyIri,
+        productUnit: `/product_unities/${unitId}`,
+        description: row.description || row.notes || '',
+        price: num(row.localCost),
+        featured: false,
+        productCondition: 'new',
+        active: true,
+      });
+
+      const savedProductId = normalizeEntityId(
+        savedProduct?.id ||
+        savedProduct?.['@id'] ||
+        row.remoteSupplyId ||
+        row.remoteSupplyProduct?.id,
+      );
+      const childIri = savedProductId ? `/products/${savedProductId}` : row.remoteSupplyIri;
+      if (!childIri) {
+        throw new Error('Nao foi possivel resolver o produto persistido no ERP.');
+      }
+      const parentRows = safeArray(row.parentRows).filter(parentRow => parentRow.remoteParentIri);
+      const unresolvedCount = safeArray(row.parentRows).length - parentRows.length;
+      let duplicateLinkCount = 0;
+
+      for (const parentRow of parentRows) {
+        const relationResponse = await productGroupProductStore.actions.getItems({
+          product: parentRow.remoteParentIri,
+          productChild: childIri,
+          productType: row.productType,
+          itemsPerPage: 50,
+        }).catch(() => []);
+        const relationItems = extractItems(relationResponse);
+        if (relationItems.length > 1) {
+          duplicateLinkCount += relationItems.length - 1;
+        }
+        const existingRelation = relationItems[0] || null;
+
+        await productGroupProductStore.actions.save({
+          ...(existingRelation?.id ? { id: existingRelation.id } : {}),
+          ...(existingRelation?.productGroup ? {
+            productGroup: existingRelation.productGroup?.['@id'] || existingRelation.productGroup,
+          } : {}),
+          product: parentRow.remoteParentIri,
+          productChild: childIri,
+          productType: row.productType,
+          quantity: num(parentRow.qty) || 1,
+          price: num(row.localCost),
+          active: true,
+        });
+      }
+
+      if (reload) {
+        await loadCatalog();
+      }
+
+      const messageParts = [`${row.name} persistido no ERP.`];
+      if (row.remoteSupplyStatus === 'divergent') {
+        messageParts.push(`Preco ajustado de ${money(row.remoteSupplyPrice)} para ${money(row.localCost)}.`);
+      }
+      if (unresolvedCount > 0) {
+        messageParts.push(`${unresolvedCount} pai(s) sem vínculo no ERP.`);
+      }
+      if (duplicateLinkCount > 0) {
+        messageParts.push(`${duplicateLinkCount} vínculo(s) duplicado(s) identificados.`);
+      }
+
+      if (!silent) {
+        if (unresolvedCount > 0 || duplicateLinkCount > 0) {
+          showError?.(messageParts.join(' '));
+        } else {
+          showSuccess?.(messageParts.join(' '));
+        }
+      }
+
+      return {
+        ok: true,
+        unresolvedCount,
+        duplicateLinkCount,
+      };
+    } catch (error) {
+      const message =
+        error?.response?.data?.['hydra:description'] ||
+        error?.response?.data?.detail ||
+        error?.message ||
+        'Falha ao persistir o item no ERP.';
+      if (!silent) showError?.(message);
+      return { ok: false, warningCount: 1 };
+    } finally {
+      setSyncingId('');
+    }
+  }, [companyId, companyIri, loadCatalog, productGroupProductStore.actions, productsStore.actions, showError, showSuccess, unitItems]);
+
+  const syncVisibleRows = useCallback(async () => {
+    if (!filteredRows.length) return;
+
+    setSyncingAll(true);
+    try {
+      let synced = 0;
+      let warnings = 0;
+
+      for (const row of filteredRows) {
+        const result = await syncSupplyRow(row, { silent: true, reload: false });
+        if (result?.ok) synced += 1;
+        if (!result?.ok || (result?.unresolvedCount || 0) > 0 || (result?.duplicateLinkCount || 0) > 0) {
+          warnings += 1;
+        }
+      }
+
+      await loadCatalog();
+
+      if (warnings > 0) {
+        showError?.(`${synced} item(ns) persistidos com ${warnings} alerta(s).`);
+      } else {
+        showSuccess?.(`${synced} item(ns) persistidos no ERP.`);
+      }
+    } finally {
+      setSyncingAll(false);
+    }
+  }, [filteredRows, loadCatalog, showError, showSuccess, syncSupplyRow]);
+
+  const selectedParentRows = safeArray(selected?.parentRows);
+  const selectedParentResolved = selectedParentRows.filter(parent => parent.remoteParentIri);
+  const selectedWarnings = [
+    selected?.remoteSupplyStatus === 'divergent' ? 'Preço local diferente do ERP atual.' : '',
+    selected?.remoteSupplyStatus === 'missing' ? 'Insumo ainda nao existe no ERP.' : '',
+    selected?.remoteSupplyStatus === 'type_conflict' ? 'Existe um cadastro com este código em outro tipo.' : '',
+    selected?.remoteSupplyStatus === 'duplicate' ? 'Existe mais de um cadastro com este código.' : '',
+    selected?.unresolvedParentCount > 0 ? `${selected.unresolvedParentCount} pai(s) sem vínculo no ERP.` : '',
+  ].filter(Boolean);
+
+  return (
+    <View style={styles.splitLayout}>
+      <View style={styles.panel}>
+        <View style={styles.activeCostHeader}>
+          <View style={styles.detailHeaderText}>
+            <Text style={styles.panelTitle}>
+              {RESOURCE_META[collection]?.plural || 'Insumos'}
+            </Text>
+            <Text style={styles.panelSubtitle}>
+              Persiste somente {collection === 'ingredients' ? 'matérias-primas' : 'embalagens'}.
+              Produtos de venda e componentes continuam somente leitura.
+            </Text>
+          </View>
+          <View style={styles.detailActions}>
+            <IconButton
+              icon="refresh-cw"
+              label="Atualizar ERP"
+              onPress={loadCatalog}
+              disabled={loadingCatalog || syncingAll}
+            />
+            <IconButton
+              icon="save"
+              label={syncingAll ? 'Sincronizando...' : 'Sincronizar visíveis'}
+              onPress={syncVisibleRows}
+              disabled={loadingCatalog || syncingAll || !filteredRows.length}
+            />
+          </View>
+        </View>
+        <View style={styles.metricGrid}>
+          <MetricCard label="Itens" value={String(metrics.total)} />
+          <MetricCard label="Sincronizados" value={String(metrics.synced)} tone="good" />
+          <MetricCard label="Divergentes" value={String(metrics.divergent)} tone="warn" />
+          <MetricCard label="Sem ERP" value={String(metrics.missing)} tone="warn" />
+          <MetricCard label="Duplicados" value={String(metrics.duplicate)} tone="bad" />
+        </View>
+        {lastRefreshAt ? (
+          <Text style={styles.infoHelper}>
+            Última leitura do ERP: {lastRefreshAt.toLocaleString('pt-BR')}
+          </Text>
+        ) : null}
+      </View>
+
+      <View style={styles.splitLayout}>
+        <View style={styles.listPanel}>
+          {filteredRows.map(item => (
+            <RowCard
+              key={item.id}
+              title={item.name}
+              subtitle={item.description || item.notes || item.supplier || ''}
+              selected={selected?.id === item.id}
+              onPress={() => setSelectedId(item.id)}
+              right={<Text style={styles.rowMoney}>{money(item.localCost)}</Text>}
+              badges={[
+                { label: item.localCostLabel, tone: 'neutral' },
+                { label: `${item.parentCount} pai(s)`, tone: item.parentCount ? 'good' : 'warn' },
+                { label: supplyStatusLabel(item.remoteSupplyStatus), tone: supplyStatusTone(item.remoteSupplyStatus) },
+              ]}
+            />
+          ))}
+        </View>
+
+        {selected ? (
+          <DetailShell
+            title={selected.name}
+            subtitle={selected.description || selected.notes || selected.supplier || ''}
+            badges={[
+              { label: RESOURCE_META[collection]?.singular || 'Insumo', tone: 'neutral' },
+              { label: selected.code || selected.id, tone: 'neutral' },
+              { label: supplyStatusLabel(selected.remoteSupplyStatus), tone: supplyStatusTone(selected.remoteSupplyStatus) },
+            ]}
+            actions={(
+              <View style={styles.detailActions}>
+                <IconButton
+                  icon="refresh-cw"
+                  label="Recarregar"
+                  onPress={loadCatalog}
+                  disabled={loadingCatalog || syncingAll}
+                />
+                <IconButton
+                  icon="save"
+                  label={syncingId === String(selected.id) ? 'Salvando...' : 'Persistir'}
+                  onPress={() => syncSupplyRow(selected)}
+                  disabled={loadingCatalog || syncingAll || syncingId === String(selected.id)}
+                />
+              </View>
+            )}
+          >
+            {selectedWarnings.length ? (
+              <View style={styles.activeCostPanel}>
+                <Text style={styles.panelTitle}>Atenção</Text>
+                {selectedWarnings.map(message => (
+                  <Text key={message} style={styles.infoHelper}>{message}</Text>
+                ))}
+              </View>
+            ) : null}
+            <ActiveCostPanel
+              db={db}
+              collection={collection}
+              refType={selected.refType}
+              item={selected}
+              onPatch={patchActiveCost}
+            />
+            <InfoGrid rows={[
+              { label: 'Custo local', value: `${money(selected.localCost)} / ${selected.unitToken}`, helper: selected.localCostLabel },
+              { label: 'ERP atual', value: selected.remoteSupplyProduct ? productLabel(selected.remoteSupplyProduct) : 'Sem cadastro', helper: selected.remoteSupplyProduct?.sku || selected.code },
+              { label: 'Preço ERP', value: selected.remoteSupplyProduct ? money(selected.remoteSupplyPrice) : '—', helper: selected.remoteSupplyStatus === 'divergent' ? `Diferença ${money(selected.supplyPriceDelta)}` : supplyStatusLabel(selected.remoteSupplyStatus) },
+              { label: 'Pais', value: String(selected.parentCount), helper: `${selected.resolvedParentCount} resolvido(s) · ${selected.unresolvedParentCount} sem vínculo` },
+              { label: 'Custo total dos pais', value: money(selected.totalParentCost), helper: 'Soma do uso local na engenharia' },
+              { label: 'Leitura do ERP', value: selected.remoteSupplyIri || 'Ainda não existe', helper: selected.remoteSupplyId ? `ID ${selected.remoteSupplyId}` : 'Será criado no sync' },
+            ]} />
+            <View style={styles.panelNested}>
+              <Text style={styles.panelTitle}>Pais vinculados</Text>
+              <Text style={styles.panelSubtitle}>
+                Somente produtos de venda já encontrados no ERP serão vinculados automaticamente.
+              </Text>
+              {selectedParentRows.length ? selectedParentRows.map(parentRow => (
+                <RowCard
+                  key={parentRow.productId}
+                  title={parentRow.productName}
+                  subtitle={parentRow.category}
+                  meta={`${decimal(parentRow.qty, 3)} ${parentRow.unit || 'un'} · ${money(parentRow.cost)}`}
+                  right={<Text style={styles.rowMoney}>{parentRow.remoteParentIri || 'Sem ERP'}</Text>}
+                  badges={[
+                    { label: supplyParentStatusLabel(parentRow.remoteParentStatus), tone: supplyStatusTone(parentRow.remoteParentStatus) },
+                    { label: parentRow.productCode, tone: 'neutral' },
+                  ]}
+                />
+              )) : <EmptyState text="Nenhum pai técnico encontrado nesta base local." />}
+            </View>
+            {selectedParentResolved.length ? (
+              <View style={styles.panelNested}>
+                <Text style={styles.panelTitle}>Pais prontos para vínculo</Text>
+                {selectedParentResolved.map(parentRow => (
+                  <RowCard
+                    key={`${parentRow.productId}-erp`}
+                    title={parentRow.productName}
+                    subtitle={parentRow.remoteParentProduct?.product || parentRow.remoteParentProduct?.name || parentRow.category}
+                    meta={`${decimal(parentRow.qty, 3)} ${parentRow.unit || 'un'} · ${money(parentRow.cost)}`}
+                    badges={[{ label: supplyParentStatusLabel(parentRow.remoteParentStatus), tone: supplyStatusTone(parentRow.remoteParentStatus) }]}
+                  />
+                ))}
+              </View>
+            ) : null}
+            {selected.refType === 'ingredient' || selected.refType === 'packaging' ? (
+              <PurchaseRows rows={purchaseItemsForResource(db, selected.refType, selected.id)} />
+            ) : null}
+          </DetailShell>
+        ) : <EmptyState text="Selecione um item para ver os vínculos e a persistência no ERP." />}
+      </View>
+    </View>
+  );
+}
+
 function baseUnitForNode(db, component) {
   const record = getById(db, resourceCollectionForRef(component.refType), component.refId);
   if (component.refType === 'recipe') return record?.yieldUnit || 'un';
@@ -1118,7 +1670,7 @@ function ResaleView(props) {
           );
         })}
       </View>
-      <ProductDetail db={db} computed={computeProduct(db, selected?.id)} activeProductTab="summary" setActiveProductTab={() => {}} openModal={openModal} />
+      <ProductDetail db={db} computed={computeProduct(db, selected?.id)} activeProductTab="summary" setActiveProductTab={() => {}} openModal={openModal} readOnly />
     </View>
   );
 }

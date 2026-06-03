@@ -109,6 +109,14 @@ export const num = value => {
 
 export const normalizeText = value => String(value || '').trim();
 
+export const normalizeEntityId = value => {
+  if (!value && value !== 0) return '';
+  const raw = typeof value === 'object'
+    ? value?.id || value?.['@id'] || value?.value || ''
+    : value;
+  return String(raw || '').replace(/\D+/g, '').trim();
+};
+
 export const normalizeSearch = value =>
   String(value || '')
     .normalize('NFD')
@@ -116,6 +124,22 @@ export const normalizeSearch = value =>
     .replace(/[^a-z0-9]+/gi, ' ')
     .trim()
     .toLowerCase();
+
+export const normalizeProductKey = value =>
+  normalizeText(value)
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/gi, '')
+    .toLowerCase();
+
+export const normalizeProductType = value => String(value || '').trim().toLowerCase();
+
+export const extractItems = response => {
+  if (Array.isArray(response)) return response;
+  if (Array.isArray(response?.['hydra:member'])) return response['hydra:member'];
+  if (Array.isArray(response?.member)) return response.member;
+  return [];
+};
 
 export const money = value =>
   num(value).toLocaleString('pt-BR', {
@@ -677,6 +701,245 @@ export const resourceUsageCountMap = db => {
     accumulator[key] = owners.size;
     return accumulator;
   }, {});
+};
+
+export const supplyResourceTypeForCollection = collection => {
+  if (collection === 'ingredients') return 'ingredient';
+  if (collection === 'packaging') return 'packaging';
+  return '';
+};
+
+export const supplyProductTypeForCollection = collection => {
+  if (collection === 'ingredients') return 'feedstock';
+  if (collection === 'packaging') return 'package';
+  return '';
+};
+
+export const supplyUnitTokenForCollection = (collection, record) => {
+  if (collection === 'ingredients') {
+    return normalizeText(record?.erpUnit || record?.baseUnit || 'UN').toUpperCase();
+  }
+
+  if (collection === 'packaging') {
+    return normalizeText(record?.erpUnit || 'UN').toUpperCase();
+  }
+
+  return 'UN';
+};
+
+export const supplyActiveUnitCost = (db, collection, record) => {
+  const refType = supplyResourceTypeForCollection(collection);
+  if (!refType) return 0;
+  return activeCostSummary(db, refType, record).activeBaseCost;
+};
+
+export const productResourceNodes = computedProduct => [
+  ...flattenNodes(safeArray(computedProduct?.nodes || [])),
+  ...safeArray(computedProduct?.addons).flatMap(addon =>
+    flattenNodes(safeArray(addon?.nodes || [])).map(node => ({
+      ...node,
+      addonId: addon?.id || '',
+      addonName: addon?.name || '',
+      addonGroup: addon?.group || '',
+      sourceScope: 'addon',
+    }))
+  ),
+];
+
+export const resourceParentUsageRows = (db, refType, refId) => {
+  const rows = new Map();
+
+  safeArray(db?.products)
+    .filter(product => product.active !== false)
+    .forEach(product => {
+      const computed = computeProduct(db, product.id);
+      const matches = productResourceNodes(computed).filter(node =>
+        node.refType === refType && String(node.refId) === String(refId)
+      );
+
+      if (!matches.length) return;
+
+      const current = rows.get(String(product.id)) || {
+        product: computed?.product || product,
+        productId: product.id,
+        productName: product.name || `#${product.id}`,
+        productCode: product.code || product.id,
+        category: categoryName(db, product.categoryId),
+        unit: matches[0]?.unit || baseUnitForRef(db, refType, refId),
+        qty: 0,
+        cost: 0,
+        nodeCount: 0,
+      };
+
+      matches.forEach(match => {
+        current.qty += num(match.qty);
+        current.cost += num(match.cost);
+        current.nodeCount += 1;
+      });
+
+      rows.set(String(product.id), current);
+    });
+
+  return Array.from(rows.values()).sort((left, right) =>
+    String(left.productName || '').localeCompare(String(right.productName || ''), 'pt-BR')
+  );
+};
+
+export const resolveRemoteProductMatch = (products, candidate, expectedTypes = []) => {
+  const typeSet = new Set(
+    safeArray(expectedTypes)
+      .map(normalizeProductType)
+      .filter(Boolean)
+  );
+  const normalizedKey = normalizeProductKey(
+    candidate?.sku ||
+    candidate?.code ||
+    candidate?.productCode ||
+    candidate?.id ||
+    candidate?.product ||
+    candidate?.name ||
+    candidate?.description ||
+    ''
+  );
+  const normalizedName = normalizeSearch(
+    candidate?.product ||
+    candidate?.name ||
+    candidate?.description ||
+    ''
+  );
+
+  const candidates = safeArray(products).filter(product => {
+    const productKey = normalizeProductKey(
+      product?.sku ||
+      product?.code ||
+      product?.productCode ||
+      product?.id ||
+      ''
+    );
+    const productName = normalizeSearch(
+      product?.product ||
+      product?.name ||
+      product?.description ||
+      ''
+    );
+    const productType = normalizeProductType(product?.type);
+    const typeMatches = typeSet.size === 0 || typeSet.has(productType);
+    const keyMatches = normalizedKey && productKey === normalizedKey;
+    const nameMatches = normalizedName && productName === normalizedName;
+    return (keyMatches || nameMatches) && (typeMatches || typeSet.size === 0);
+  });
+
+  const allMatches = safeArray(products).filter(product => {
+    const productKey = normalizeProductKey(
+      product?.sku ||
+      product?.code ||
+      product?.productCode ||
+      product?.id ||
+      ''
+    );
+    const productName = normalizeSearch(
+      product?.product ||
+      product?.name ||
+      product?.description ||
+      ''
+    );
+    return (
+      (normalizedKey && productKey === normalizedKey) ||
+      (normalizedName && productName === normalizedName)
+    );
+  });
+
+  return {
+    match: candidates[0] || null,
+    candidates,
+    allMatches,
+    duplicateCount: allMatches.length,
+    typeConflictCount: allMatches.filter(product => {
+      const productType = normalizeProductType(product?.type);
+      return typeSet.size > 0 && !typeSet.has(productType);
+    }).length,
+  };
+};
+
+export const buildSupplySyncRows = (db, collection, catalogProducts = []) => {
+  const refType = supplyResourceTypeForCollection(collection);
+  const productType = supplyProductTypeForCollection(collection);
+  const saleTypes = ['product', 'manufactured', 'custom', 'service'];
+
+  if (!refType || !productType) return [];
+
+  return safeArray(db?.[collection]).map(item => {
+    const localCost = supplyActiveUnitCost(db, collection, item);
+    const unitToken = supplyUnitTokenForCollection(collection, item);
+    const localParentRows = resourceParentUsageRows(db, refType, item.id);
+    const remoteSupplyMatch = resolveRemoteProductMatch(
+      catalogProducts,
+      {
+        sku: item.code || item.id,
+        code: item.code || item.id,
+        product: item.name,
+        name: item.name,
+        description: item.description || item.notes || '',
+      },
+      [productType]
+    );
+    const remoteSupplyProduct = remoteSupplyMatch.match;
+    const remoteSupplyPrice = num(remoteSupplyProduct?.price);
+    const supplyPriceDelta = localCost - remoteSupplyPrice;
+    const supplyPriceDeltaPct = remoteSupplyPrice ? (supplyPriceDelta / remoteSupplyPrice) * 100 : 0;
+    const remoteSupplyStatus = remoteSupplyMatch.duplicateCount > 1
+      ? 'duplicate'
+      : remoteSupplyProduct
+        ? (Math.abs(supplyPriceDelta) > 0.0001 ? 'divergent' : 'synced')
+        : (remoteSupplyMatch.allMatches.length > 0 ? 'type_conflict' : 'missing');
+
+    const parentRows = localParentRows.map(parentRow => {
+      const remoteParentMatch = resolveRemoteProductMatch(
+        catalogProducts,
+        parentRow.product || {
+          sku: parentRow.productCode,
+          code: parentRow.productCode,
+          product: parentRow.productName,
+          name: parentRow.productName,
+        },
+        saleTypes
+      );
+      const remoteParentProduct = remoteParentMatch.match;
+      return {
+        ...parentRow,
+        remoteParentProduct,
+        remoteParentId: remoteParentProduct?.id || null,
+        remoteParentIri: remoteParentProduct?.id ? `/products/${remoteParentProduct.id}` : '',
+        remoteParentStatus: remoteParentMatch.duplicateCount > 1
+          ? 'duplicate'
+          : remoteParentProduct
+            ? 'synced'
+            : (remoteParentMatch.allMatches.length > 0 ? 'type_conflict' : 'missing'),
+        remoteParentCandidates: remoteParentMatch.allMatches.length,
+      };
+    });
+
+    return {
+      ...item,
+      refType,
+      productType,
+      unitToken,
+      localCost,
+      localCostLabel: comparableCostLabel(refType, item),
+      remoteSupplyProduct,
+      remoteSupplyId: remoteSupplyProduct?.id || null,
+      remoteSupplyIri: remoteSupplyProduct?.id ? `/products/${remoteSupplyProduct.id}` : '',
+      remoteSupplyPrice,
+      supplyPriceDelta,
+      supplyPriceDeltaPct,
+      remoteSupplyStatus,
+      parentRows,
+      parentCount: parentRows.length,
+      resolvedParentCount: parentRows.filter(row => row.remoteParentId).length,
+      unresolvedParentCount: parentRows.filter(row => !row.remoteParentId).length,
+      totalParentCost: parentRows.reduce((sum, row) => sum + num(row.cost), 0),
+    };
+  }).sort((left, right) => String(left.name || '').localeCompare(String(right.name || ''), 'pt-BR'));
 };
 
 export const resaleItems = db =>
