@@ -3,6 +3,7 @@ import { MAIN_TABS } from '@controleonline/ui-manager/src/react/pages/MenuCostsP
 export const MENU_COSTS_PAGE_ROUTE = 'MenuCostsPage';
 export const MENU_COSTS_PARAMETERS_PAGE_ROUTE = 'MenuCostsParametersPage';
 export const MENU_COSTS_SUPPLIERS_PAGE_ROUTE = 'MenuCostsSuppliersPage';
+export const MENU_COSTS_PURCHASES_PAGE_ROUTE = 'MenuCostsPurchasesPage';
 export const MENU_COSTS_INGREDIENTS_PAGE_ROUTE = 'MenuCostsIngredientsPage';
 export const MENU_COSTS_PACKAGING_PAGE_ROUTE = 'MenuCostsPackagingPage';
 export const MENU_COSTS_RESALE_PAGE_ROUTE = 'MenuCostsResalePage';
@@ -10,7 +11,7 @@ export const MENU_COSTS_RESALE_PAGE_ROUTE = 'MenuCostsResalePage';
 export const resolveMenuCostsInitialSection = route => {
   const requestedSection = String(route?.params?.section || '').trim();
 
-  if (requestedSection === 'settings' || requestedSection === 'suppliers' || requestedSection === 'ingredients' || requestedSection === 'packaging' || requestedSection === 'resale') {
+  if (requestedSection === 'settings' || requestedSection === 'suppliers' || requestedSection === 'purchases' || requestedSection === 'ingredients' || requestedSection === 'packaging' || requestedSection === 'resale') {
     return 'dashboard';
   }
 
@@ -30,6 +31,13 @@ export const resolveMenuCostsTabRoute = tab => {
   if (tab === 'suppliers') {
     return {
       routeName: MENU_COSTS_SUPPLIERS_PAGE_ROUTE,
+      params: {},
+    };
+  }
+
+  if (tab === 'purchases') {
+    return {
+      routeName: MENU_COSTS_PURCHASES_PAGE_ROUTE,
       params: {},
     };
   }

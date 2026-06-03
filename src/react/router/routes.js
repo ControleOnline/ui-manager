@@ -33,6 +33,7 @@ import MenuCostsIngredientsPage from '@controleonline/ui-manager/src/react/pages
 import MenuCostsPackagingPage from '@controleonline/ui-manager/src/react/pages/MenuCostsPackagingPage';
 import MenuCostsResalePage from '@controleonline/ui-manager/src/react/pages/MenuCostsResalePage';
 import MenuCostsSuppliersPage from '@controleonline/ui-manager/src/react/pages/MenuCostsSuppliersPage';
+import MenuCostsPurchasesPage from '@controleonline/ui-orders/src/react/pages/orders/purchasing/MenuCostsPurchasesPage';
 import MenuAccessConfigPage from '@controleonline/ui-manager/src/react/pages/MenuAccessConfigPage';
 import LabelsPage from '@controleonline/ui-manager/src/react/pages/LabelsPage';
 import ModelTemplatesPage from '@controleonline/ui-manager/src/react/pages/ModelTemplatesPage';
@@ -536,6 +537,21 @@ const managerRoutes = [
         name: 'MenuCostsPage',
       },
       title: 'Fornecedores',
+      showCompanyFilter: true,
+      companyFilterMode: 'icon',
+    },
+  },
+  {
+    name: 'MenuCostsPurchasesPage',
+    component: MenuCostsPurchasesPage,
+    path: 'menu-costs-page/compras-e-evidencias',
+    options: {
+      headerShown: true,
+      headerBackVisible: true,
+      headerBackFallback: {
+        name: 'MenuCostsPage',
+      },
+      title: 'Compras e evidências',
       showCompanyFilter: true,
       companyFilterMode: 'icon',
     },

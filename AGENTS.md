@@ -23,3 +23,7 @@
 - Essa tela carrega apenas produtos do tipo `product` classificados como bebidas no ERP, com paginação e carregamento infinito.
 - A classificacao de revenda deve ficar em `ui-products`; `ui-manager` deve apenas consumir o helper e orquestrar a apresentacao.
 - `manufactured`, `component`, `feedstock` e `package` nao entram no recorte de revenda.
+- A rota `/menu-costs-page/compras-e-evidencias` é a tela oficial de compras e evidencias da engenharia.
+- Essa tela carrega apenas pedidos do ERP com `orderType=purchase`, usando `orders` para a listagem e `order_file`/`files` para evidencias e anexos.
+- A regra de negocio e o mini gerenciador de anexos devem ficar em `ui-orders`; `ui-manager` deve apenas orquestrar a rota e a apresentacao.
+- O seed JSON nao deve ser usado como fonte dessa tela.
