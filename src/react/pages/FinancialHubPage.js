@@ -8,33 +8,33 @@ import {resolveThemePalette, withOpacity} from '@controleonline/../../src/styles
 import {colors} from '@controleonline/../../src/styles/colors';
 import {createStyles} from './FinancialHubPage.styles';
 
-const FINANCIAL_TABS = [
+const getFinancialTabs = () => [
   {
     key: 'receivables',
-    label: 'Contas a receber',
+    label: global.t?.t('invoice', 'label', 'accountsReceivable'),
     icon: 'arrow-up-circle',
     accentKey: 'success',
     categoryContext: 'receiver',
-    categoryTitle: 'Categorias de receita',
-    categoryContextLabel: 'Receita',
+    categoryTitle: global.t?.t('invoice', 'label', 'revenueCategories'),
+    categoryContextLabel: global.t?.t('invoice', 'label', 'revenue'),
   },
   {
     key: 'payables',
-    label: 'Contas a pagar',
+    label: global.t?.t('invoice', 'label', 'accountsPayable'),
     icon: 'arrow-down-circle',
     accentKey: 'error',
     categoryContext: 'payer',
-    categoryTitle: 'Categorias de despesa',
-    categoryContextLabel: 'Despesa',
+    categoryTitle: global.t?.t('invoice', 'label', 'expenseCategories'),
+    categoryContextLabel: global.t?.t('invoice', 'label', 'expense'),
   },
   {
     key: 'ownTransfers',
-    label: 'Transferencias',
+    label: global.t?.t('invoice', 'label', 'transfers'),
     icon: 'repeat',
     accentKey: 'info',
     categoryContext: 'payer',
-    categoryTitle: 'Categorias de transferencias',
-    categoryContextLabel: 'Transferencias',
+    categoryTitle: global.t?.t('invoice', 'label', 'transferCategories'),
+    categoryContextLabel: global.t?.t('invoice', 'label', 'transfers'),
   },
 ];
 
@@ -54,7 +54,9 @@ export default function FinancialHubPage({navigation}) {
   );
   const styles = useMemo(() => createStyles(palette), [palette]);
 
-  const [activeTab, setActiveTab] = useState(FINANCIAL_TABS[0].key);
+  const FINANCIAL_TABS = useMemo(() => getFinancialTabs(), []);
+
+  const [activeTab, setActiveTab] = useState('receivables');
 
   const activeSection = useMemo(
     () => FINANCIAL_TABS.find(item => item.key === activeTab) || FINANCIAL_TABS[0],
@@ -68,10 +70,11 @@ export default function FinancialHubPage({navigation}) {
         edges={['bottom']}>
         <View style={styles.centerState}>
           <Icon name="building" size={32} color={palette.textSecondary} />
-          <Text style={styles.centerStateTitle}>Selecione uma empresa</Text>
+          <Text style={styles.centerStateTitle}>
+            {global.t?.t('invoice', 'message', 'selectCompany')}
+          </Text>
           <Text style={styles.centerStateText}>
-            O modulo financeiro depende da empresa ativa para carregar contas,
-            carteiras e categorias.
+            {global.t?.t('invoice', 'message', 'financialModuleRequiresCompany')}
           </Text>
         </View>
       </SafeAreaView>
@@ -127,7 +130,9 @@ export default function FinancialHubPage({navigation}) {
             activeOpacity={0.86}
             onPress={() => navigation.navigate('WalletsPage')}>
             <Icon name="briefcase" size={14} color={palette.textSecondary} />
-            <Text style={styles.subtleButtonText}>Carteiras</Text>
+            <Text style={styles.subtleButtonText}>
+              {global.t?.t('invoice', 'label', 'wallets')}
+            </Text>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -163,7 +168,7 @@ export default function FinancialHubPage({navigation}) {
                 styles.subtleButtonText,
                 {color: palette[activeSection.accentKey] || palette.primary},
               ]}>
-              Categorias
+              {global.t?.t('invoice', 'label', 'categories')}
             </Text>
           </TouchableOpacity>
         </View>
