@@ -16,10 +16,8 @@ export default function PdvPage({navigation, route}) {
     () => resolvePosCheckOrderType(runtimeDeviceConfig?.configs),
     [runtimeDeviceConfig?.configs],
   );
-  const settlementLabel = useMemo(
-    () => global.t?.t('orders', 'title', 'linkedOrderSettlement'),
-    [],
-  );
+  const settlementLabel =
+    global.t?.t('orders', 'title', 'linkedOrderSettlement') || 'Liquidação';
   const pdvRoute = useMemo(
     () => ({
       ...route,

@@ -51,7 +51,7 @@ const managerRoutes = [
     options: {
       headerShown: true,
       headerBackVisible: false,
-      title: global.t?.t('configs', 'title', 'displays'),
+      title: () => global.t?.t('configs', 'title', 'displays'),
       showBottomToolBar: false,
       showCompanyFilter: true,
       companyFilterMode: 'icon',
@@ -63,7 +63,7 @@ const managerRoutes = [
     options: {
       headerShown: true,
       headerBackVisible: true,
-      title: global.t?.t('configs', 'title', 'displayDetails'),
+      title: () => global.t?.t('configs', 'title', 'displayDetails'),
       showBottomToolBar: true,
       showCompanyFilter: true,
       companyFilterMode: 'icon',
@@ -73,7 +73,7 @@ const managerRoutes = [
     name: 'DisplayForm',
     component: DisplayForm,
     options: {
-      title: global.t?.t('configs', 'title', 'displayForm'),
+      title: () => global.t?.t('configs', 'title', 'displayForm'),
     },
   },
   {
@@ -81,7 +81,7 @@ const managerRoutes = [
     component: QueueAddProducts,
     options: {
       headerShown: true,
-      title: global.t?.t('configs', 'title', 'queueAddProducts'),
+      title: () => global.t?.t('configs', 'title', 'queueAddProducts'),
     },
   },
   {
@@ -145,7 +145,7 @@ const managerRoutes = [
     options: {
       headerShown: true,
       headerBackVisible: true,
-      title: global.t?.t('configs', 'title', 'connections'),
+      title: () => global.t?.t('configs', 'title', 'connections'),
       showCompanyFilter: true,
       companyFilterMode: 'icon',
     },
@@ -156,7 +156,7 @@ const managerRoutes = [
     options: {
       headerShown: true,
       headerBackVisible: true,
-      title: global.t?.t('configs', 'title', 'whatsApp'),
+      title: () => global.t?.t('configs', 'title', 'whatsApp'),
       showCompanyFilter: true,
       companyFilterMode: 'icon',
     },
@@ -167,7 +167,7 @@ const managerRoutes = [
     options: {
       headerShown: true,
       headerBackVisible: true,
-      title: global.t?.t('configs', 'title', 'integrations'),
+      title: () => global.t?.t('configs', 'title', 'integrations'),
       showCompanyFilter: true,
       companyFilterMode: 'icon',
     },
@@ -289,7 +289,7 @@ const managerRoutes = [
     options: {
       headerShown: true,
       headerBackVisible: true,
-      title: global.t?.t('orders', 'title', 'linkedOrderSettlement'),
+      title: () => global.t?.t('orders', 'title', 'linkedOrderSettlement'),
       showBottomToolBar: true,
       showCompanyFilter: true,
       companyFilterMode: 'icon',
@@ -368,7 +368,7 @@ const managerRoutes = [
     options: {
       headerShown: true,
       headerBackVisible: true,
-      title: global.t?.t('configs', 'title', 'incomeStatement'),
+      title: () => global.t?.t('configs', 'title', 'incomeStatement'),
     },
     initialParams: {store: 'invoice'},
   },
@@ -378,7 +378,7 @@ const managerRoutes = [
     options: {
       headerShown: true,
       headerBackVisible: true,
-      title: global.t?.t('configs', 'title', 'payables'),
+      title: () => global.t?.t('configs', 'title', 'payables'),
       showCompanyFilter: true,
       companyFilterMode: 'icon',
     },
@@ -390,7 +390,7 @@ const managerRoutes = [
     options: {
       headerShown: true,
       headerBackVisible: true,
-      title: global.t?.t('configs', 'title', 'receivables'),
+      title: () => global.t?.t('configs', 'title', 'receivables'),
       showCompanyFilter: true,
       companyFilterMode: 'icon',
     },
@@ -402,7 +402,7 @@ const managerRoutes = [
     options: {
       headerShown: true,
       headerBackVisible: true,
-      title: global.t?.t('configs', 'title', 'ownTransfers'),
+      title: () => global.t?.t('configs', 'title', 'ownTransfers'),
       showCompanyFilter: true,
       companyFilterMode: 'icon',
     },
@@ -562,7 +562,7 @@ const managerRoutes = [
     options: {
       headerShown: true,
       headerBackVisible: true,
-      title: global.t?.t('configs', 'title', 'inventory'),
+      title: () => global.t?.t('configs', 'title', 'inventory'),
     },
     initialParams: {store: 'products'},
   },

@@ -362,7 +362,7 @@ export default function MenuCostsSuppliersPage({ navigation }) {
         if (productIds.length > 0 && currentCompany?.id && ordersStore?.actions?.getItems) {
           nextLatestPurchases = await fetchLatestPurchasesByProductIds({
             companyId: currentCompany.id,
-            clientIds: sourceIds,
+            providerIds: sourceIds,
             ordersActions: ordersStore.actions,
             productIds,
             limitPerProduct: 1,
