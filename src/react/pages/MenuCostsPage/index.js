@@ -75,7 +75,10 @@ import {
   validateImportedDb,
 } from '@controleonline/ui-products/src/react/domain/menuCostsShared';
 import { buildLiveMenuCostsDb } from '@controleonline/ui-products/src/react/domain/menuCostsLiveDb';
-import { MENU_COSTS_PAGE_SIZE } from '@controleonline/ui-products/src/react/domain/menuCostsPagination';
+import {
+  MENU_COSTS_PAGE_SIZE,
+  fetchAllPagedItems,
+} from '@controleonline/ui-products/src/react/domain/menuCostsPagination';
 import { MAIN_TABS } from './tabs';
 import {
   resolveCategoryCoverUrl,
@@ -1212,28 +1215,6 @@ const resolveProductUnitId = (units, token) => {
   return match?.id ? String(match.id) : '';
 };
 
-const fetchAllItems = async (actions, params, pageSize = MENU_COSTS_PAGE_SIZE, maxPages = 6) => {
-  if (!actions?.getItems) return [];
-
-  const items = [];
-
-  for (let page = 1; page <= maxPages; page += 1) {
-    const response = await actions.getItems({
-      ...params,
-      page,
-      itemsPerPage: pageSize,
-    });
-    const batch = extractItems(response);
-    items.push(...batch);
-
-    if (!response?.['hydra:view']?.next || batch.length < pageSize) {
-      break;
-    }
-  }
-
-  return uniqueByIdentifier(items);
-};
-
 const supplyStatusLabel = status => ({
   synced: 'Sincronizado',
   divergent: 'Preço diferente',
@@ -1293,15 +1274,23 @@ export function SupplyResourceView({
     setLoadingCatalog(true);
     try {
       const [allProducts, allUnits] = await Promise.all([
-        fetchAllItems(productsStore.actions, {
+        fetchAllPagedItems({
+          actions: productsStore.actions,
+          params: {
           company: companyId,
           people: companyIri,
           active: 1,
           'order[product]': 'ASC',
-        }, MENU_COSTS_PAGE_SIZE, 6),
-        fetchAllItems(productUnitStore.actions, {
+          },
+          maxPages: 6,
+        }),
+        fetchAllPagedItems({
+          actions: productUnitStore.actions,
+          params: {
           people: companyIri,
-        }, MENU_COSTS_PAGE_SIZE, 3),
+          },
+          maxPages: 3,
+        }),
       ]);
 
       setCatalogProducts(allProducts);
@@ -1421,13 +1410,15 @@ export function SupplyResourceView({
       let duplicateLinkCount = 0;
 
       for (const parentRow of parentRows) {
-        const relationResponse = await productGroupProductStore.actions.getItems({
-          product: parentRow.remoteParentIri,
-          productChild: childIri,
-          productType: row.productType,
-          itemsPerPage: 50,
+        const relationItems = await fetchAllPagedItems({
+          actions: productGroupProductStore.actions,
+          params: {
+            product: parentRow.remoteParentIri,
+            productChild: childIri,
+            productType: row.productType,
+          },
+          maxPages: 3,
         }).catch(() => []);
-        const relationItems = extractItems(relationResponse);
         if (relationItems.length > 1) {
           duplicateLinkCount += relationItems.length - 1;
         }
