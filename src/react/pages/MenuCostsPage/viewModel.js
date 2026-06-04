@@ -1,20 +1,7 @@
 import seedData from './gyros-custos-cardapio.json';
+export { MAIN_TABS } from './tabs';
 
 export const STORAGE_KEY = 'controleonline:menu-costs-page:engineering:v1';
-
-export const MAIN_TABS = [
-  { key: 'dashboard', label: 'Dashboard', icon: 'bar-chart-2' },
-  { key: 'products', label: 'Produtos de venda', icon: 'shopping-bag' },
-  { key: 'ingredients', label: 'Ingredientes', icon: 'package' },
-  { key: 'recipes', label: 'Preparos', icon: 'git-branch' },
-  { key: 'packaging', label: 'Embalagens', icon: 'archive' },
-  { key: 'resale', label: 'Revenda', icon: 'repeat' },
-  { key: 'purchases', label: 'Compras e evidências', icon: 'file-text' },
-  { key: 'processes', label: 'Processos', icon: 'activity' },
-  { key: 'suppliers', label: 'Fornecedores', icon: 'truck' },
-  { key: 'pending', label: 'Pendências', icon: 'alert-circle' },
-  { key: 'settings', label: 'Parâmetros', icon: 'sliders' },
-];
 
 export const PRODUCT_DETAIL_TABS = [
   { key: 'summary', label: 'Ficha' },
@@ -450,7 +437,11 @@ export const defaultMarkupPct = db => num(db?.settings?.defaultMarkupPct || 200)
 export const targetMarginPct = db => num(db?.settings?.targetMarginPct || 68);
 
 export const activeProducts = db =>
-  safeArray(db?.products).filter(product => product.active !== false && product.scope !== 'greguinho');
+  safeArray(db?.products).filter(product => (
+    product.active !== false &&
+    product.scope !== 'greguinho' &&
+    !['feedstock', 'package', 'component'].includes(normalizeProductType(product?.type))
+  ));
 
 export const computeAddon = (db, addon = {}, stack = []) => {
   const nodes = safeArray(addon.components).map(component => resolveComponentNode(db, component, stack));

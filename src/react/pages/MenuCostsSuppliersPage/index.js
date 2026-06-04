@@ -1,4 +1,3 @@
-/* eslint-disable no-unused-vars */
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -16,22 +15,17 @@ import { useStore } from '@store';
 import { useMessage } from '@controleonline/ui-common/src/react/components/MessageService';
 import styles from '@controleonline/ui-manager/src/react/pages/MenuCostsPage/index.styles';
 import pageStyles, { MENU_COLORS } from '@controleonline/ui-manager/src/react/pages/MenuCostsSuppliersPage/index.styles';
-import {
-  MAIN_TABS,
-  formatDate,
-  safeArray,
-} from '@controleonline/ui-manager/src/react/pages/MenuCostsPage/viewModel';
+import { MAIN_TABS } from '@controleonline/ui-manager/src/react/pages/MenuCostsPage/tabs';
 import {
   filterSuppliers,
   getSupplierSelection,
-} from '@controleonline/ui-manager/src/react/pages/MenuCostsSuppliersPage/viewModel';
-import {
   buildImportedSuppliersFromPeople,
 } from '@controleonline/ui-people/src/react/utils/menuCostsSuppliers';
 import {
   fetchLatestPurchasesByProductIds,
   formatCurrency,
 } from '@controleonline/ui-products/src/react/domain/productCosting';
+import { MENU_COSTS_PAGE_SIZE } from '@controleonline/ui-products/src/react/domain/menuCostsPagination';
 import {
   resolveMenuCostsTabRoute,
 } from '@controleonline/ui-manager/src/react/pages/MenuCostsPage/navigation';
@@ -179,7 +173,14 @@ const PurchaseRow = ({ item }) => (
 
 const resolveSectionTitle = () => 'Fornecedores do ERP';
 
-const PAGE_SIZE = 200;
+const safeArray = value => (Array.isArray(value) ? value : []);
+
+const formatDate = value => {
+  if (!value) return 'Sem data';
+  const [year, month, day] = String(value).split('-');
+  if (!year || !month || !day) return String(value);
+  return `${day}/${month}/${year}`;
+};
 
 export default function MenuCostsSuppliersPage({ navigation }) {
   const messageApi = useMessage() || {};
@@ -231,7 +232,7 @@ export default function MenuCostsSuppliersPage({ navigation }) {
       const batch = await peopleStore.actions.getItems({
         'link.company': companyIri,
         'link.linkType': 'provider',
-        itemsPerPage: PAGE_SIZE,
+        itemsPerPage: MENU_COSTS_PAGE_SIZE,
         page: pageNumber,
       }).catch(() => []);
 
@@ -245,7 +246,7 @@ export default function MenuCostsSuppliersPage({ navigation }) {
         : items;
       rawSuppliersRef.current = combinedRaw;
       nextPageRef.current = pageNumber + 1;
-      setHasMoreSuppliers(items.length === PAGE_SIZE);
+      setHasMoreSuppliers(items.length === MENU_COSTS_PAGE_SIZE);
 
       const imported = buildImportedSuppliersFromPeople(combinedRaw);
       setSuppliers(imported);

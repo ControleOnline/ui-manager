@@ -1,4 +1,3 @@
-/* eslint-disable no-unused-vars */
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -16,11 +15,7 @@ import { useStore } from '@store';
 import { useMessage } from '@controleonline/ui-common/src/react/components/MessageService';
 import StateStore from '@controleonline/ui-layout/src/react/components/StateStore';
 import styles, { MENU_COLORS } from '@controleonline/ui-manager/src/react/pages/MenuCostsPage/index.styles';
-import {
-  MAIN_TABS,
-  formatDate,
-  safeArray,
-} from '@controleonline/ui-manager/src/react/pages/MenuCostsPage/viewModel';
+import { MAIN_TABS } from '@controleonline/ui-manager/src/react/pages/MenuCostsPage/tabs';
 import {
   resolveMenuCostsTabRoute,
 } from '@controleonline/ui-manager/src/react/pages/MenuCostsPage/navigation';
@@ -28,11 +23,14 @@ import {
   buildResaleCatalogRows,
 } from '@controleonline/ui-products/src/react/domain/menuCostsResale';
 import {
+  formatDate,
+  safeArray,
+} from '@controleonline/ui-products/src/react/domain/menuCostsShared';
+import {
   fetchLatestPurchasesByProductIds,
   formatCurrency,
 } from '@controleonline/ui-products/src/react/domain/productCosting';
-
-const PAGE_SIZE = 120;
+import { MENU_COSTS_PAGE_SIZE } from '@controleonline/ui-products/src/react/domain/menuCostsPagination';
 
 const getToneStyle = tone => {
   if (tone === 'good') return styles.toneGood;
@@ -242,7 +240,7 @@ export default function MenuCostsResalePage({ navigation }) {
       const response = await productsStore.actions.getItems({
         active: 1,
         company: companyId,
-        itemsPerPage: PAGE_SIZE,
+        itemsPerPage: MENU_COSTS_PAGE_SIZE,
         page: pageNumber,
         type: ['product'],
         'order[product]': 'ASC',
@@ -262,7 +260,7 @@ export default function MenuCostsResalePage({ navigation }) {
       rawProductsRef.current = combined;
       setRawProducts(combined);
       nextPageRef.current = pageNumber + 1;
-      setHasMoreProducts(items.length === PAGE_SIZE);
+      setHasMoreProducts(items.length === MENU_COSTS_PAGE_SIZE);
       setSelectedId(currentId => {
         const current = combined.find(product => String(product.id) === String(currentId));
         return current?.id || combined[0]?.id || null;

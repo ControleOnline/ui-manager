@@ -1,4 +1,4 @@
-import { MAIN_TABS } from '@controleonline/ui-manager/src/react/pages/MenuCostsPage/viewModel';
+import { MAIN_TABS } from '@controleonline/ui-manager/src/react/pages/MenuCostsPage/tabs';
 
 export const MENU_COSTS_PAGE_ROUTE = 'MenuCostsPage';
 export const MENU_COSTS_PARAMETERS_PAGE_ROUTE = 'MenuCostsParametersPage';

@@ -15,7 +15,7 @@ import { useStore } from '@store';
 import StateStore from '@controleonline/ui-layout/src/react/components/StateStore';
 import { useMessage } from '@controleonline/ui-common/src/react/components/MessageService';
 import styles, { MENU_COLORS } from '@controleonline/ui-manager/src/react/pages/MenuCostsPage/index.styles';
-import { MAIN_TABS } from '@controleonline/ui-manager/src/react/pages/MenuCostsPage/viewModel';
+import { MAIN_TABS } from '@controleonline/ui-manager/src/react/pages/MenuCostsPage/tabs';
 import {
   resolveMenuCostsTabRoute,
 } from '@controleonline/ui-manager/src/react/pages/MenuCostsPage/navigation';

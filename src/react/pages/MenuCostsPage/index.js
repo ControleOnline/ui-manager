@@ -1,6 +1,7 @@
 /* eslint-disable no-unused-vars */
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
+  ActivityIndicator,
   Image,
   Modal,
   Pressable,
@@ -24,17 +25,14 @@ import {
   resolveMenuCostsTabRoute,
 } from './navigation';
 import {
-  MAIN_TABS,
   PRODUCT_DETAIL_TABS,
   RESOURCE_META,
-  STORAGE_KEY,
   activeCostOptionsForRef,
   activeCostSummary,
   buildErpCatalogCsv,
   buildErpExportPayload,
   buildExportPayload,
   categoryName,
-  cloneSeedData,
   comparableCostLabel,
   componentCost,
   computeAllProducts,
@@ -75,12 +73,29 @@ import {
   extractItems,
   normalizeEntityId,
   validateImportedDb,
-} from './viewModel';
+} from '@controleonline/ui-products/src/react/domain/menuCostsShared';
+import { buildLiveMenuCostsDb } from '@controleonline/ui-products/src/react/domain/menuCostsLiveDb';
+import { MENU_COSTS_PAGE_SIZE } from '@controleonline/ui-products/src/react/domain/menuCostsPagination';
+import { MAIN_TABS } from './tabs';
 import {
   resolveCategoryCoverUrl,
   resolveEntityCoverUrl,
   resolveProductCoverUrl,
 } from '@controleonline/ui-products/src/react/domain/productMedia';
+
+const STORAGE_KEY = 'controleonline:menu-costs-page:engineering-live:v1';
+const EMPTY_DB = {
+  categories: [],
+  ingredients: [],
+  recipes: [],
+  packaging: [],
+  products: [],
+  purchaseOrders: [],
+  purchaseItems: [],
+  inputs: [],
+  suppliers: [],
+  settings: {},
+};
 
 const getSectionDefaultSelection = (db, tab) => {
   if (tab === 'products') return computeEngineeringProducts(db)[0]?.product?.id || null;
@@ -309,33 +324,95 @@ const ComponentNode = ({ db, node, depth = 0, onQtyChange }) => {
 export default function MenuCostsPage({ navigation, route }) {
   const messageApi = useMessage() || {};
   const { showError, showSuccess } = messageApi;
+  const peopleStore = useStore('people');
+  const productsStore = useStore('products');
+  const productGroupProductStore = useStore('product_group_product');
+  const ordersStore = useStore('orders');
+  const categoriesStore = useStore('categories');
+  const { currentCompany } = peopleStore.getters || {};
   const { width } = useWindowDimensions();
   const isWide = width >= 1060;
   const routeSection = route?.params?.section;
   const initialSection = resolveMenuCostsInitialSection(route);
-  const [db, setDb] = useState(() => cloneSeedData());
+  const loadRequestRef = useRef(0);
+  const [db, setDb] = useState(() => EMPTY_DB);
   const [activeTab, setActiveTab] = useState(initialSection);
   const [activeProductTab, setActiveProductTab] = useState(
     resolveInitialProductTab(initialSection),
   );
   const [query, setQuery] = useState('');
-  const [selectedId, setSelectedId] = useState(() =>
-    getSectionDefaultSelection(cloneSeedData(), initialSection),
-  );
+  const [selectedId, setSelectedId] = useState(null);
   const [modal, setModal] = useState(null);
 
-  useEffect(() => {
-    let alive = true;
-    AsyncStorage.getItem(STORAGE_KEY)
-      .then(value => {
-        if (!alive || !value) return;
-        setDb(JSON.parse(value));
-      })
-      .catch(() => showError?.('Não foi possível ler os dados locais da Engenharia.'));
-    return () => {
-      alive = false;
-    };
-  }, [showError]);
+  const loadLiveDb = useCallback(async () => {
+    const companyId = currentCompany?.id;
+    const companyIri = companyId ? `/people/${companyId}` : '';
+    const requestId = ++loadRequestRef.current;
+
+    if (!companyId) {
+      setDb(EMPTY_DB);
+      setSelectedId(null);
+      return;
+    }
+
+    try {
+      const liveDb = await buildLiveMenuCostsDb({
+        companyId,
+        companyIri,
+        peopleActions: peopleStore.actions,
+        productsActions: productsStore.actions,
+        productGroupProductActions: productGroupProductStore.actions,
+        ordersActions: ordersStore.actions,
+        categoriesActions: categoriesStore.actions,
+      });
+
+      if (requestId !== loadRequestRef.current) return;
+
+      const nextDb = validateImportedDb(liveDb);
+      setDb(nextDb);
+      setSelectedId(getSectionDefaultSelection(nextDb, resolveMenuCostsInitialSection(route)));
+      AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(nextDb)).catch(() => null);
+    } catch (error) {
+      const cachedValue = await AsyncStorage.getItem(STORAGE_KEY).catch(() => null);
+      if (cachedValue) {
+        try {
+          const cachedDb = validateImportedDb(JSON.parse(cachedValue));
+          if (requestId !== loadRequestRef.current) return;
+          setDb(cachedDb);
+          setSelectedId(getSectionDefaultSelection(cachedDb, resolveMenuCostsInitialSection(route)));
+          return;
+        } catch (cacheError) {
+          // ignore cached fallback parse issues and surface the live error below
+        }
+      }
+      const message =
+        error?.response?.data?.['hydra:description'] ||
+        error?.response?.data?.detail ||
+        error?.message ||
+        'Não foi possível ler os dados da Engenharia no ERP.';
+      if (requestId === loadRequestRef.current) {
+        setDb(EMPTY_DB);
+        setSelectedId(null);
+      }
+      showError?.(message);
+    }
+  }, [
+    categoriesStore.actions,
+    currentCompany?.id,
+    ordersStore.actions,
+    peopleStore.actions,
+    productGroupProductStore.actions,
+    productsStore.actions,
+    route,
+    showError,
+  ]);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadLiveDb();
+      return undefined;
+    }, [loadLiveDb]),
+  );
 
   const persistDb = useCallback(async nextDb => {
     setDb(nextDb);
@@ -379,12 +456,10 @@ export default function MenuCostsPage({ navigation, route }) {
   }, [db, persistDb, showSuccess]);
 
   const resetLocalData = useCallback(async () => {
-    const nextDb = cloneSeedData();
     await AsyncStorage.removeItem(STORAGE_KEY);
-    setDb(nextDb);
-    setSelectedId(getSectionDefaultSelection(nextDb, activeTab));
-    showSuccess?.('Base local restaurada a partir do PWA.');
-  }, [activeTab, showSuccess]);
+    await loadLiveDb();
+    showSuccess?.('Base local recarregada a partir do ERP.');
+  }, [loadLiveDb, showSuccess]);
 
   const patchProductComponent = useCallback((productId, componentIndex, patch) => {
     const nextDb = {
@@ -685,13 +760,42 @@ function ProductsView({
     item => item.product.code,
     item => categoryName(db, item.product.categoryId),
   ]);
+  const [visibleCount, setVisibleCount] = useState(MENU_COSTS_PAGE_SIZE);
   const selectedProduct = products.find(item => String(item.product.id) === String(selectedId)) || products[0] || null;
   const selected = selectedProduct ? computeProduct(db, selectedProduct.product.id) : null;
-  const grouped = groupBy(products, item => categoryName(db, item.product.categoryId));
+  const visibleProducts = products.slice(0, visibleCount);
+  const grouped = groupBy(visibleProducts, item => categoryName(db, item.product.categoryId));
+
+  useEffect(() => {
+    setVisibleCount(MENU_COSTS_PAGE_SIZE);
+  }, [query, db.products.length]);
+
+  const hasMoreProducts = visibleCount < products.length;
+  const loadMoreProducts = useCallback(() => {
+    if (!hasMoreProducts) return;
+    setVisibleCount(current => Math.min(current + MENU_COSTS_PAGE_SIZE, products.length));
+  }, [hasMoreProducts, products.length]);
+
+  const handleListScroll = useCallback(event => {
+    if (!hasMoreProducts) return;
+
+    const layoutHeight = event?.nativeEvent?.layoutMeasurement?.height || 0;
+    const contentOffsetY = event?.nativeEvent?.contentOffset?.y || 0;
+    const contentHeight = event?.nativeEvent?.contentSize?.height || 0;
+
+    if (layoutHeight + contentOffsetY >= contentHeight - 360) {
+      loadMoreProducts();
+    }
+  }, [hasMoreProducts, loadMoreProducts]);
 
   return (
     <View style={styles.splitLayout}>
-      <View style={styles.listPanel}>
+      <ScrollView
+        style={styles.listPanel}
+        onScroll={handleListScroll}
+        scrollEventThrottle={200}
+        nestedScrollEnabled
+      >
         {Object.entries(grouped).map(([category, rows]) => (
           <View key={category} style={styles.listGroup}>
             <Text style={styles.listGroupTitle}>{category}</Text>
@@ -715,7 +819,13 @@ function ProductsView({
             ))}
           </View>
         ))}
-      </View>
+        {hasMoreProducts ? (
+          <View style={styles.emptyState}>
+            <ActivityIndicator size="small" color={MENU_COLORS.brand} />
+            <Text style={styles.emptyStateText}>Carregando mais produtos...</Text>
+          </View>
+        ) : null}
+      </ScrollView>
       <ProductDetail
         db={db}
         computed={selected}
@@ -1102,7 +1212,7 @@ const resolveProductUnitId = (units, token) => {
   return match?.id ? String(match.id) : '';
 };
 
-const fetchAllItems = async (actions, params, pageSize = 200, maxPages = 6) => {
+const fetchAllItems = async (actions, params, pageSize = MENU_COSTS_PAGE_SIZE, maxPages = 6) => {
   if (!actions?.getItems) return [];
 
   const items = [];
@@ -1188,10 +1298,10 @@ export function SupplyResourceView({
           people: companyIri,
           active: 1,
           'order[product]': 'ASC',
-        }, 250, 6),
+        }, MENU_COSTS_PAGE_SIZE, 6),
         fetchAllItems(productUnitStore.actions, {
           people: companyIri,
-        }, 250, 3),
+        }, MENU_COSTS_PAGE_SIZE, 3),
       ]);
 
       setCatalogProducts(allProducts);
