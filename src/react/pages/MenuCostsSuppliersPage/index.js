@@ -25,7 +25,11 @@ import {
   fetchLatestPurchasesByProductIds,
   formatCurrency,
 } from '@controleonline/ui-products/src/react/domain/productCosting';
-import { MENU_COSTS_PAGE_SIZE } from '@controleonline/ui-products/src/react/domain/menuCostsPagination';
+import {
+  MENU_COSTS_PAGE_SIZE,
+  extractCollectionItems,
+  hasHydraNext,
+} from '@controleonline/ui-products/src/react/domain/menuCostsPagination';
 import {
   resolveMenuCostsTabRoute,
 } from '@controleonline/ui-manager/src/react/pages/MenuCostsPage/navigation';
@@ -229,10 +233,9 @@ export default function MenuCostsSuppliersPage({ navigation }) {
 
     try {
       const companyIri = `/people/${companyId}`;
-      const batch = await peopleStore.actions.getItems({
+      const response = await peopleStore.actions.getItems({
         'link.company': companyIri,
         'link.linkType': 'provider',
-        itemsPerPage: MENU_COSTS_PAGE_SIZE,
         page: pageNumber,
       }).catch(() => []);
 
@@ -240,13 +243,13 @@ export default function MenuCostsSuppliersPage({ navigation }) {
         return;
       }
 
-      const items = Array.isArray(batch) ? batch : [];
+      const items = extractCollectionItems(response);
       const combinedRaw = append
         ? [...rawSuppliersRef.current, ...items]
         : items;
       rawSuppliersRef.current = combinedRaw;
       nextPageRef.current = pageNumber + 1;
-      setHasMoreSuppliers(items.length === MENU_COSTS_PAGE_SIZE);
+      setHasMoreSuppliers(hasHydraNext(response) || items.length === MENU_COSTS_PAGE_SIZE);
 
       const imported = buildImportedSuppliersFromPeople(combinedRaw);
       setSuppliers(imported);
@@ -367,7 +370,6 @@ export default function MenuCostsSuppliersPage({ navigation }) {
             productIds,
             limitPerProduct: 1,
             maxPages: 6,
-            itemsPerPage: 15,
           });
         }
 

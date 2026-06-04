@@ -30,7 +30,11 @@ import {
   fetchLatestPurchasesByProductIds,
   formatCurrency,
 } from '@controleonline/ui-products/src/react/domain/productCosting';
-import { MENU_COSTS_PAGE_SIZE } from '@controleonline/ui-products/src/react/domain/menuCostsPagination';
+import {
+  MENU_COSTS_PAGE_SIZE,
+  extractCollectionItems,
+  hasHydraNext,
+} from '@controleonline/ui-products/src/react/domain/menuCostsPagination';
 
 const getToneStyle = tone => {
   if (tone === 'good') return styles.toneGood;
@@ -240,7 +244,6 @@ export default function MenuCostsResalePage({ navigation }) {
       const response = await productsStore.actions.getItems({
         active: 1,
         company: companyId,
-        itemsPerPage: MENU_COSTS_PAGE_SIZE,
         page: pageNumber,
         type: ['product'],
         'order[product]': 'ASC',
@@ -252,7 +255,7 @@ export default function MenuCostsResalePage({ navigation }) {
         return;
       }
 
-      const items = Array.isArray(response) ? response : [];
+      const items = extractCollectionItems(response);
       const combined = append
         ? [...rawProductsRef.current, ...items]
         : items;
@@ -260,7 +263,7 @@ export default function MenuCostsResalePage({ navigation }) {
       rawProductsRef.current = combined;
       setRawProducts(combined);
       nextPageRef.current = pageNumber + 1;
-      setHasMoreProducts(items.length === MENU_COSTS_PAGE_SIZE);
+      setHasMoreProducts(hasHydraNext(response) || items.length === MENU_COSTS_PAGE_SIZE);
       setSelectedId(currentId => {
         const current = combined.find(product => String(product.id) === String(currentId));
         return current?.id || combined[0]?.id || null;
@@ -380,7 +383,6 @@ export default function MenuCostsResalePage({ navigation }) {
           productIds: [selectedProduct.id],
           limitPerProduct: 1,
           maxPages: 6,
-          itemsPerPage: 15,
         });
 
         if (requestId !== detailRequestIdRef.current) {
