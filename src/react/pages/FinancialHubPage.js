@@ -54,14 +54,12 @@ export default function FinancialHubPage({navigation}) {
   );
   const styles = useMemo(() => createStyles(palette), [palette]);
 
-  const FINANCIAL_TABS = useMemo(() => getFinancialTabs(), []);
+  const FINANCIAL_TABS = getFinancialTabs();
 
   const [activeTab, setActiveTab] = useState('receivables');
 
-  const activeSection = useMemo(
-    () => FINANCIAL_TABS.find(item => item.key === activeTab) || FINANCIAL_TABS[0],
-    [activeTab],
-  );
+  const activeSection =
+    FINANCIAL_TABS.find(item => item.key === activeTab) || FINANCIAL_TABS[0];
 
   if (!currentCompany?.id) {
     return (
