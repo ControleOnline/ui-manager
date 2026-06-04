@@ -178,7 +178,6 @@ export default function MenuCostsResalePage({ navigation }) {
   const peopleStore = useStore('people');
   const productsStore = useStore('products');
   const categoriesStore = useStore('categories');
-  const ordersStore = useStore('orders');
 
   const { currentCompany } = peopleStore.getters;
   const categories = categoriesStore.getters?.items || [];
@@ -379,10 +378,9 @@ export default function MenuCostsResalePage({ navigation }) {
       try {
         const result = await fetchLatestPurchasesByProductIds({
           companyId: currentCompany.id,
-          ordersActions: ordersStore.actions,
           productIds: [selectedProduct.id],
           limitPerProduct: 1,
-          maxPages: 6,
+          maxPages: 1,
         });
 
         if (requestId !== detailRequestIdRef.current) {
@@ -411,7 +409,7 @@ export default function MenuCostsResalePage({ navigation }) {
     };
 
     loadLatestPurchase();
-  }, [currentCompany?.id, ordersStore.actions, selectedProduct?.id, showError]);
+  }, [currentCompany?.id, selectedProduct?.id, showError]);
 
   const summaryRows = [
     { label: 'Carregados', value: String(rawProducts.length) },

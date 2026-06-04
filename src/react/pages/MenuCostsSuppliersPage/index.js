@@ -190,7 +190,6 @@ export default function MenuCostsSuppliersPage({ navigation }) {
   const messageApi = useMessage() || {};
   const { showError } = messageApi;
   const peopleStore = useStore('people');
-  const ordersStore = useStore('orders');
   const { currentCompany } = peopleStore.getters;
   const { width } = useWindowDimensions();
   const isWide = width >= 1060;
@@ -362,14 +361,13 @@ export default function MenuCostsSuppliersPage({ navigation }) {
         );
 
         let nextLatestPurchases = {};
-        if (productIds.length > 0 && currentCompany?.id && ordersStore?.actions?.getItems) {
+        if (productIds.length > 0 && currentCompany?.id) {
           nextLatestPurchases = await fetchLatestPurchasesByProductIds({
             companyId: currentCompany.id,
             providerIds: sourceIds,
-            ordersActions: ordersStore.actions,
             productIds,
             limitPerProduct: 1,
-            maxPages: 6,
+            maxPages: 1,
           });
         }
 
@@ -410,7 +408,6 @@ export default function MenuCostsSuppliersPage({ navigation }) {
     loadSelectedSupplier();
   }, [
     currentCompany?.id,
-    ordersStore.actions,
     peopleStore.actions,
     selectedSupplier,
     showError,

@@ -70,10 +70,10 @@ import {
   resourceTypeLabel,
   safeArray,
   targetMarginPct,
-  extractItems,
   normalizeEntityId,
   validateImportedDb,
 } from '@controleonline/ui-products/src/react/domain/menuCostsShared';
+import { fetchLatestPurchasesByProductIds } from '@controleonline/ui-products/src/react/domain/productCosting';
 import { buildLiveMenuCostsDb } from '@controleonline/ui-products/src/react/domain/menuCostsLiveDb';
 import {
   MENU_COSTS_PAGE_SIZE,
@@ -330,7 +330,6 @@ export default function MenuCostsPage({ navigation, route }) {
   const peopleStore = useStore('people');
   const productsStore = useStore('products');
   const productGroupProductStore = useStore('product_group_product');
-  const ordersStore = useStore('orders');
   const categoriesStore = useStore('categories');
   const { currentCompany } = peopleStore.getters || {};
   const { width } = useWindowDimensions();
@@ -365,8 +364,8 @@ export default function MenuCostsPage({ navigation, route }) {
         peopleActions: peopleStore.actions,
         productsActions: productsStore.actions,
         productGroupProductActions: productGroupProductStore.actions,
-        ordersActions: ordersStore.actions,
         categoriesActions: categoriesStore.actions,
+        includePurchaseHistory: false,
       });
 
       if (requestId !== loadRequestRef.current) return;
@@ -402,7 +401,6 @@ export default function MenuCostsPage({ navigation, route }) {
   }, [
     categoriesStore.actions,
     currentCompany?.id,
-    ordersStore.actions,
     peopleStore.actions,
     productGroupProductStore.actions,
     productsStore.actions,
@@ -763,15 +761,60 @@ function ProductsView({
     item => item.product.code,
     item => categoryName(db, item.product.categoryId),
   ]);
+  const peopleStore = useStore('people');
+  const { currentCompany } = peopleStore.getters || {};
   const [visibleCount, setVisibleCount] = useState(MENU_COSTS_PAGE_SIZE);
   const selectedProduct = products.find(item => String(item.product.id) === String(selectedId)) || products[0] || null;
   const selected = selectedProduct ? computeProduct(db, selectedProduct.product.id) : null;
+  const [selectedPurchaseRows, setSelectedPurchaseRows] = useState([]);
+  const selectedPurchaseCacheRef = useRef(new Map());
+  const selectedPurchaseRequestRef = useRef(0);
   const visibleProducts = products.slice(0, visibleCount);
   const grouped = groupBy(visibleProducts, item => categoryName(db, item.product.categoryId));
 
   useEffect(() => {
     setVisibleCount(MENU_COSTS_PAGE_SIZE);
   }, [query, db.products.length]);
+
+  useEffect(() => {
+    const productId = String(selectedProduct?.product?.id || '').trim();
+    if (!productId || !currentCompany?.id) {
+      setSelectedPurchaseRows([]);
+      return undefined;
+    }
+
+    const cachedRows = selectedPurchaseCacheRef.current.get(productId);
+    if (cachedRows) {
+      setSelectedPurchaseRows(cachedRows);
+      return undefined;
+    }
+
+    const requestId = ++selectedPurchaseRequestRef.current;
+    setSelectedPurchaseRows([]);
+
+    const loadPurchases = async () => {
+      try {
+        const latestPurchasesByProductId = await fetchLatestPurchasesByProductIds({
+          companyId: currentCompany.id,
+          productIds: [productId],
+          limitPerProduct: 3,
+          maxPages: 1,
+        });
+
+        if (requestId !== selectedPurchaseRequestRef.current) return;
+
+        const rows = safeArray(latestPurchasesByProductId?.[productId]);
+        selectedPurchaseCacheRef.current.set(productId, rows);
+        setSelectedPurchaseRows(rows);
+      } catch {
+        if (requestId === selectedPurchaseRequestRef.current) {
+          setSelectedPurchaseRows([]);
+        }
+      }
+    };
+
+    loadPurchases();
+  }, [currentCompany?.id, selectedProduct?.product?.id]);
 
   const hasMoreProducts = visibleCount < products.length;
   const loadMoreProducts = useCallback(() => {
@@ -832,6 +875,7 @@ function ProductsView({
       <ProductDetail
         db={db}
         computed={selected}
+        purchaseRows={selectedPurchaseRows}
         activeProductTab={activeProductTab}
         setActiveProductTab={setActiveProductTab}
         openModal={openModal}
@@ -846,6 +890,7 @@ function ProductsView({
 function ProductDetail({
   db,
   computed,
+  purchaseRows = null,
   activeProductTab,
   setActiveProductTab,
   openModal,
@@ -855,7 +900,7 @@ function ProductDetail({
 }) {
   if (!computed) return <EmptyState text="Selecione um produto para ver a ficha." />;
   const product = computed.product;
-  const purchases = productPurchaseRows(db, computed);
+  const purchases = purchaseRows || productPurchaseRows(db, computed);
 
   return (
     <DetailShell
@@ -1181,16 +1226,6 @@ const normalizeUnitToken = value =>
     .replace(/[^a-z0-9]+/gi, '')
     .trim()
     .toLowerCase();
-
-const uniqueByIdentifier = items => {
-  const seen = new Set();
-  return safeArray(items).filter(item => {
-    const identifier = String(item?.id || item?.['@id'] || '').trim();
-    if (!identifier || seen.has(identifier)) return false;
-    seen.add(identifier);
-    return true;
-  });
-};
 
 const productLabel = product =>
   String(product?.product || product?.name || product?.description || '').trim();

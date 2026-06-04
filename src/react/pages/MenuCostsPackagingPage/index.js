@@ -23,7 +23,7 @@ import {
   buildLivePackagingDb,
 } from '@controleonline/ui-products/src/react/domain/menuCostsPackaging';
 import { MENU_COSTS_PAGE_SIZE } from '@controleonline/ui-products/src/react/domain/menuCostsPagination';
-import { formatCurrency } from '@controleonline/ui-products/src/react/domain/productCosting';
+import { fetchLatestPurchasesByProductIds, formatCurrency } from '@controleonline/ui-products/src/react/domain/productCosting';
 
 const EMPTY_DB = {
   categories: [],
@@ -115,16 +115,6 @@ const buildParentRows = (db, item) => {
     )
     .sort((left, right) => String(left.productName || '').localeCompare(String(right.productName || ''), 'pt-BR'));
 };
-
-const buildPurchaseRows = (db, item) =>
-  safeArray(db?.purchaseItems)
-    .filter(row => String(row.resourceType) === 'packaging' && String(row.resourceId) === String(item?.id))
-    .map(row => ({
-      ...row,
-      supplierName: row.supplierName || 'Fornecedor não vinculado',
-      date: row.date || '',
-    }))
-    .sort((left, right) => String(right.date || '').localeCompare(String(left.date || '')));
 
 const getToneStyle = tone => {
   if (tone === 'good') return styles.toneGood;
@@ -256,7 +246,6 @@ export default function MenuCostsPackagingPage({ navigation }) {
   const peopleStore = useStore('people');
   const productsStore = useStore('products');
   const productGroupProductStore = useStore('product_group_product');
-  const ordersStore = useStore('orders');
   const categoriesStore = useStore('categories');
   const { currentCompany } = peopleStore.getters || {};
   const { width } = useWindowDimensions();
@@ -268,7 +257,10 @@ export default function MenuCostsPackagingPage({ navigation }) {
   const [isLoadingDb, setIsLoadingDb] = useState(false);
   const [loadError, setLoadError] = useState('');
   const [visibleCount, setVisibleCount] = useState(MENU_COSTS_PAGE_SIZE);
+  const [selectedPurchaseRows, setSelectedPurchaseRows] = useState([]);
   const requestIdRef = useRef(0);
+  const purchaseRequestIdRef = useRef(0);
+  const purchaseCacheRef = useRef(new Map());
 
   const loadLiveDb = useCallback(async () => {
     const companyId = currentCompany?.id;
@@ -291,8 +283,8 @@ export default function MenuCostsPackagingPage({ navigation }) {
         companyIri,
         productsActions: productsStore.actions,
         productGroupProductActions: productGroupProductStore.actions,
-        ordersActions: ordersStore.actions,
         categoriesActions: categoriesStore.actions,
+        includePurchaseHistory: false,
       });
 
       if (requestId !== requestIdRef.current) {
@@ -323,7 +315,6 @@ export default function MenuCostsPackagingPage({ navigation }) {
   }, [
     categoriesStore.actions,
     currentCompany?.id,
-    ordersStore.actions,
     productGroupProductStore.actions,
     productsStore.actions,
     showError,
@@ -377,6 +368,50 @@ export default function MenuCostsPackagingPage({ navigation }) {
     [rows, selectedId],
   );
 
+  useEffect(() => {
+    const packagingId = String(selected?.id || '').trim();
+    if (!packagingId || !currentCompany?.id) {
+      setSelectedPurchaseRows([]);
+      return undefined;
+    }
+
+    const cachedRows = purchaseCacheRef.current.get(packagingId);
+    if (cachedRows) {
+      setSelectedPurchaseRows(cachedRows);
+      return undefined;
+    }
+
+    const requestId = ++purchaseRequestIdRef.current;
+    setSelectedPurchaseRows([]);
+
+    const loadPurchaseHistory = async () => {
+      try {
+        const latestPurchasesByProductId = await fetchLatestPurchasesByProductIds({
+          companyId: currentCompany.id,
+          productIds: [packagingId],
+          limitPerProduct: 3,
+          maxPages: 1,
+        });
+
+        if (requestId !== purchaseRequestIdRef.current) {
+          return;
+        }
+
+        const rowsForPackaging = Array.isArray(latestPurchasesByProductId?.[packagingId])
+          ? latestPurchasesByProductId[packagingId]
+          : [];
+        purchaseCacheRef.current.set(packagingId, rowsForPackaging);
+        setSelectedPurchaseRows(rowsForPackaging);
+      } catch {
+        if (requestId === purchaseRequestIdRef.current) {
+          setSelectedPurchaseRows([]);
+        }
+      }
+    };
+
+    loadPurchaseHistory();
+  }, [currentCompany?.id, selected?.id]);
+
   const visibleRows = useMemo(
     () => rows.slice(0, visibleCount),
     [rows, visibleCount],
@@ -403,11 +438,6 @@ export default function MenuCostsPackagingPage({ navigation }) {
 
   const parentRows = useMemo(
     () => (selected ? buildParentRows(db, selected) : []),
-    [db, selected],
-  );
-
-  const purchaseRows = useMemo(
-    () => (selected ? buildPurchaseRows(db, selected) : []),
     [db, selected],
   );
 
@@ -520,7 +550,7 @@ export default function MenuCostsPackagingPage({ navigation }) {
               },
               {
                 label: 'Compras',
-                value: String(purchaseRows.length),
+                value: String(selectedPurchaseRows.length),
                 helper: 'Últimas compras importadas do ERP',
               },
               {
@@ -564,7 +594,7 @@ export default function MenuCostsPackagingPage({ navigation }) {
 
           <View style={styles.panelNested}>
             <Text style={styles.panelTitle}>Histórico de compra</Text>
-            {purchaseRows.length ? purchaseRows.map(row => (
+            {selectedPurchaseRows.length ? selectedPurchaseRows.map(row => (
               <RowCard
                 key={row.id}
                 item={{ name: row.description || 'Compra vinculada' }}
