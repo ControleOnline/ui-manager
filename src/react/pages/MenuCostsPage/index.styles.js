@@ -1,4 +1,4 @@
-import { StyleSheet } from 'react-native';
+import { Platform, StyleSheet } from 'react-native';
 
 export const MENU_COLORS = {
   background: '#F7F9FC',
@@ -390,6 +390,15 @@ export default StyleSheet.create({
     borderColor: MENU_COLORS.border,
     backgroundColor: MENU_COLORS.surface,
     padding: 14,
+    zIndex: 2,
+    ...Platform.select({
+      web: {
+        position: 'sticky',
+        top: 12,
+        alignSelf: 'flex-start',
+      },
+      default: {},
+    }),
   },
   detailHeader: {
     flexDirection: 'row',

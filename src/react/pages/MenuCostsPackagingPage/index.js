@@ -1,3 +1,4 @@
+/* eslint-disable no-unused-vars */
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -94,6 +95,15 @@ const filterBySearch = (items, query, selectors) => {
 };
 
 const buildParentRows = (db, item) => {
+  if (safeArray(item?.parentRows).length) {
+    return safeArray(item.parentRows)
+      .map(row => ({
+        ...row,
+        category: row.category || categoryName(db, row.categoryId),
+      }))
+      .sort((left, right) => String(left.productName || '').localeCompare(String(right.productName || ''), 'pt-BR'));
+  }
+
   const unitCost = Number(item?.purchaseQty || 1) > 0
     ? Number(item?.purchaseCost || 0) / Number(item?.purchaseQty || 1)
     : Number(item?.purchaseCost || 0);
@@ -113,7 +123,7 @@ const buildParentRows = (db, item) => {
           cost: Number(component.qty || 0) * unitCost,
         })),
     )
-    .sort((left, right) => String(left.productName || '').localeCompare(String(right.productName || ''), 'pt-BR'));
+      .sort((left, right) => String(left.productName || '').localeCompare(String(right.productName || ''), 'pt-BR'));
 };
 
 const getToneStyle = tone => {
@@ -584,7 +594,7 @@ export default function MenuCostsPackagingPage({ navigation }) {
               <RowCard
                 key={parentRow.productId}
                 item={{ name: parentRow.productName }}
-                subtitle={parentRow.category}
+                subtitle={categoryName(db, parentRow.categoryId) || parentRow.category}
                 meta={`${decimal(parentRow.qty, 3)} ${parentRow.unit || 'un'} · ${money(parentRow.cost)}`}
                 right={<Text style={styles.rowMoney}>{parentRow.productCode}</Text>}
                 badges={[{ label: 'Pai', tone: 'neutral' }]}

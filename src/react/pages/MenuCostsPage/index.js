@@ -85,6 +85,13 @@ import {
   resolveEntityCoverUrl,
   resolveProductCoverUrl,
 } from '@controleonline/ui-products/src/react/domain/productMedia';
+import {
+  buildPurchaseHistoryLoadedKey,
+  buildPurchaseHistoryQuery,
+  resolvePurchaseOrderDate,
+  resolvePurchaseOrderLabel,
+  resolvePurchaseSupplierLabel,
+} from '@controleonline/ui-orders/src/react/utils/menuCostsPurchases';
 
 const STORAGE_KEY = 'controleonline:menu-costs-page:engineering-live:v1';
 const EMPTY_DB = {
@@ -328,20 +335,25 @@ export default function MenuCostsPage({ navigation, route }) {
   const messageApi = useMessage() || {};
   const { showError, showSuccess } = messageApi;
   const peopleStore = useStore('people');
+  const ordersStore = useStore('orders');
   const productsStore = useStore('products');
   const productGroupProductStore = useStore('product_group_product');
   const categoriesStore = useStore('categories');
   const { currentCompany } = peopleStore.getters || {};
+  const ordersActions = ordersStore.actions || {};
   const { width } = useWindowDimensions();
   const isWide = width >= 1060;
   const routeSection = route?.params?.section;
   const initialSection = resolveMenuCostsInitialSection(route);
   const loadRequestRef = useRef(0);
+  const dashboardPurchasesLoadKeyRef = useRef('');
   const [db, setDb] = useState(() => EMPTY_DB);
   const [activeTab, setActiveTab] = useState(initialSection);
   const [activeProductTab, setActiveProductTab] = useState(
     resolveInitialProductTab(initialSection),
   );
+  const [dashboardPurchases, setDashboardPurchases] = useState([]);
+  const [dashboardPurchasesLoading, setDashboardPurchasesLoading] = useState(false);
   const [query, setQuery] = useState('');
   const [selectedId, setSelectedId] = useState(null);
   const [modal, setModal] = useState(null);
@@ -414,6 +426,70 @@ export default function MenuCostsPage({ navigation, route }) {
       return undefined;
     }, [loadLiveDb]),
   );
+
+  const loadDashboardPurchases = useCallback(async ({ force = false } = {}) => {
+    const companyId = currentCompany?.id;
+    if (!companyId || typeof ordersActions.fetchHistoryPage !== 'function') {
+      setDashboardPurchases([]);
+      return;
+    }
+
+    const loadedKey = buildPurchaseHistoryLoadedKey({
+      companyId,
+      searchText: '',
+      orderField: 'id',
+      orderDirection: 'desc',
+    });
+
+    if (!force && dashboardPurchasesLoadKeyRef.current === loadedKey) {
+      return;
+    }
+
+    const queryParams = buildPurchaseHistoryQuery({
+      companyId,
+      searchText: '',
+      page: 1,
+      orderField: 'id',
+      orderDirection: 'desc',
+    });
+
+    if (!queryParams) {
+      setDashboardPurchases([]);
+      return;
+    }
+
+    dashboardPurchasesLoadKeyRef.current = loadedKey;
+    setDashboardPurchasesLoading(true);
+
+    try {
+      const response = await ordersActions.fetchHistoryPage({
+        query: queryParams,
+        append: false,
+        loadedKey,
+      });
+
+      setDashboardPurchases(safeArray(response?.items).slice(0, 8));
+    } catch (error) {
+      setDashboardPurchases([]);
+      const message =
+        error?.response?.data?.['hydra:description'] ||
+        error?.response?.data?.detail ||
+        error?.message ||
+        'Não foi possível ler as últimas compras do dashboard.';
+      showError?.(message);
+    } finally {
+      setDashboardPurchasesLoading(false);
+    }
+  }, [currentCompany?.id, ordersActions, showError]);
+
+  useEffect(() => {
+    if (activeTab !== 'dashboard') {
+      return undefined;
+    }
+
+    void loadDashboardPurchases();
+    return undefined;
+  }, [activeTab, currentCompany?.id, loadDashboardPurchases]);
 
   const persistDb = useCallback(async nextDb => {
     setDb(nextDb);
@@ -635,6 +711,8 @@ export default function MenuCostsPage({ navigation, route }) {
               {renderContent({
                 activeTab,
                 db,
+                dashboardPurchases,
+                dashboardPurchasesLoading,
                 query,
                 selectedId,
                 setSelectedId,
@@ -692,13 +770,18 @@ function renderContent(props) {
   return <EmptyState />;
 }
 
-function Dashboard({ db, setSelectedId }) {
+function Dashboard({
+  db,
+  setSelectedId,
+  dashboardPurchases = [],
+  dashboardPurchasesLoading = false,
+}) {
   const metrics = dashboardMetrics(db);
   const products = computeAllProducts(db);
   const byMargin = [...products].sort((left, right) => left.marginPct - right.marginPct).slice(0, 8);
-  const purchases = safeArray(db.purchaseOrders)
-    .filter(order => order.date)
-    .sort((left, right) => String(right.date).localeCompare(String(left.date)))
+  const purchases = safeArray(dashboardPurchases)
+    .filter(order => resolvePurchaseOrderDate(order))
+    .sort((left, right) => String(resolvePurchaseOrderDate(right) || '').localeCompare(String(resolvePurchaseOrderDate(left) || '')))
     .slice(0, 8);
 
   return (
@@ -729,13 +812,19 @@ function Dashboard({ db, setSelectedId }) {
         </View>
         <View style={styles.panel}>
           <Text style={styles.panelTitle}>Últimas compras</Text>
+          {dashboardPurchasesLoading ? (
+            <View style={styles.emptyState}>
+              <ActivityIndicator size="small" color={MENU_COLORS.brand} />
+              <Text style={styles.emptyStateText}>Carregando últimas compras...</Text>
+            </View>
+          ) : null}
           {purchases.map(order => (
             <RowCard
               key={order.id}
-              title={order.label || 'Compra'}
-              subtitle={`${formatDate(order.date)} · ${getById(db, 'suppliers', order.supplierId)?.name || 'Fornecedor não vinculado'}`}
+              title={resolvePurchaseOrderLabel(order) || 'Compra'}
+              subtitle={`${formatDate(resolvePurchaseOrderDate(order))} · ${resolvePurchaseSupplierLabel(order)}`}
               meta={order.evidenceSource || order.notes}
-              right={<Text style={styles.rowMoney}>{money(order.totalAmount)}</Text>}
+              right={<Text style={styles.rowMoney}>{money(order.price || order.totalAmount || order.total || 0)}</Text>}
               badges={[{ label: paymentLabel(order.paymentStatus), tone: order.paymentStatus === 'paid' ? 'good' : 'warn' }]}
             />
           ))}

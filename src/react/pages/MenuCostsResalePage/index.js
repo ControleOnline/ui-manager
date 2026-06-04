@@ -1,3 +1,4 @@
+/* eslint-disable no-unused-vars */
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -186,7 +187,7 @@ export default function MenuCostsResalePage({ navigation }) {
   const isWide = width >= 1060;
 
   const requestIdRef = useRef(0);
-  const detailRequestIdRef = useRef(0);
+  const latestPurchasesRequestIdRef = useRef(0);
   const rawProductsRef = useRef([]);
   const nextPageRef = useRef(1);
 
@@ -325,7 +326,7 @@ export default function MenuCostsResalePage({ navigation }) {
       });
 
       return () => {
-        detailRequestIdRef.current += 1;
+        latestPurchasesRequestIdRef.current += 1;
       };
     }, [debouncedQuery, loadProductsPage, resetCatalogState]),
   );
@@ -363,33 +364,57 @@ export default function MenuCostsResalePage({ navigation }) {
   );
 
   useEffect(() => {
-    if (!selectedProduct?.id || !currentCompany?.id) {
-      setLatestPurchasesByProductId({});
+    const companyId = currentCompany?.id;
+    const visibleIds = visibleProducts.map(item => item.id).filter(Boolean);
+
+    if (!companyId || visibleIds.length === 0) {
       setDetailError('');
       setIsLoadingDetails(false);
       return;
     }
 
-    const requestId = ++detailRequestIdRef.current;
+    const missingIds = visibleIds.filter(productId => !safeArray(latestPurchasesByProductId?.[productId]).length);
+    if (missingIds.length === 0) {
+      setDetailError('');
+      setIsLoadingDetails(false);
+      return;
+    }
+
+    const requestId = ++latestPurchasesRequestIdRef.current;
     setIsLoadingDetails(true);
     setDetailError('');
 
-    const loadLatestPurchase = async () => {
+    const loadLatestPurchases = async () => {
       try {
         const result = await fetchLatestPurchasesByProductIds({
-          companyId: currentCompany.id,
-          productIds: [selectedProduct.id],
+          companyId,
+          productIds: missingIds,
           limitPerProduct: 1,
           maxPages: 1,
         });
 
-        if (requestId !== detailRequestIdRef.current) {
+        if (requestId !== latestPurchasesRequestIdRef.current) {
           return;
         }
 
-        setLatestPurchasesByProductId(result);
+        setLatestPurchasesByProductId(previous => {
+          const next = { ...previous };
+
+          missingIds.forEach(productId => {
+            if (Array.isArray(result?.[productId]) && result[productId].length > 0) {
+              next[productId] = result[productId];
+              return;
+            }
+
+            if (!Array.isArray(next[productId])) {
+              next[productId] = [];
+            }
+          });
+
+          return next;
+        });
       } catch (error) {
-        if (requestId !== detailRequestIdRef.current) {
+        if (requestId !== latestPurchasesRequestIdRef.current) {
           return;
         }
 
@@ -397,19 +422,18 @@ export default function MenuCostsResalePage({ navigation }) {
           error?.response?.data?.['hydra:description'] ||
           error?.response?.data?.detail ||
           error?.message ||
-          'Nao foi possivel carregar a ultima compra desta bebida.';
-        setLatestPurchasesByProductId({});
+          'Nao foi possivel carregar a ultima compra destas bebidas.';
         setDetailError(message);
         showError?.(message);
       } finally {
-        if (requestId === detailRequestIdRef.current) {
+        if (requestId === latestPurchasesRequestIdRef.current) {
           setIsLoadingDetails(false);
         }
       }
     };
 
-    loadLatestPurchase();
-  }, [currentCompany?.id, selectedProduct?.id, showError]);
+    loadLatestPurchases();
+  }, [currentCompany?.id, latestPurchasesByProductId, selectedProduct?.id, showError, visibleProducts]);
 
   const summaryRows = [
     { label: 'Carregados', value: String(rawProducts.length) },
