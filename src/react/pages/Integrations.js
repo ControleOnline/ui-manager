@@ -28,6 +28,8 @@ import {
 } from './integrationsCatalog';
 import styles from './Integrations.styles';
 
+const tt = (type, key) => global.t?.t('configs', type, key);
+
 const shadowStyle = Platform.select({
   ios: {
     shadowColor: '#0F172A',
@@ -40,12 +42,13 @@ const shadowStyle = Platform.select({
 });
 
 const formatApiError = error => {
-  if (!error) return 'Nao foi possivel carregar as integracoes.';
+  if (!error) return tt('integrations_error', 'load') || 'Nao foi possivel carregar as integracoes.';
   if (typeof error === 'string') return error;
   return (
     error?.message ||
     error?.description ||
     error?.errmsg ||
+    tt('integrations_error', 'load') ||
     'Nao foi possivel carregar as integracoes.'
   );
 };
@@ -155,7 +158,7 @@ export default function IntegrationsPage({navigation}) {
   const handleOpenIntegration = useCallback(
     integration => {
       if (!integration.route) {
-        showInfo('Essa integracao ainda nao esta disponivel.');
+        showInfo(tt('integrations_text', 'unavailable') || 'Essa integracao ainda nao esta disponivel.');
         return;
       }
 
@@ -171,9 +174,9 @@ export default function IntegrationsPage({navigation}) {
       <SafeAreaView style={styles.container} edges={['bottom']}>
         <View style={styles.centerState}>
           <Icon name="building" size={32} color="#94A3B8" />
-          <Text style={styles.centerStateTitle}>Selecione uma empresa</Text>
+          <Text style={styles.centerStateTitle}>{tt('integrations_title', 'selectCompany') || 'Selecione uma empresa'}</Text>
           <Text style={styles.centerStateText}>
-            O hub de integracoes depende da empresa ativa.
+            {tt('integrations_text', 'selectCompany') || 'O hub de integracoes depende da empresa ativa.'}
           </Text>
         </View>
       </SafeAreaView>
@@ -187,9 +190,9 @@ export default function IntegrationsPage({navigation}) {
         edges={['bottom']}>
         <View style={styles.centerState}>
           <ActivityIndicator size="large" color={brandColors.primary} />
-          <Text style={styles.centerStateTitle}>Carregando integracoes</Text>
+          <Text style={styles.centerStateTitle}>{tt('integrations_title', 'loading') || 'Carregando integracoes'}</Text>
           <Text style={styles.centerStateText}>
-            Buscando o status de conexao da empresa ativa.
+            {tt('integrations_text', 'loading') || 'Buscando o status de conexao da empresa ativa.'}
           </Text>
         </View>
       </SafeAreaView>
@@ -211,10 +214,10 @@ export default function IntegrationsPage({navigation}) {
           />
         }>
         <View style={styles.pageHeader}>
-          <Text style={styles.pageTitle}>Integracoes</Text>
+          <Text style={styles.pageTitle}>{tt('integrations_title', 'integrations') || 'Integracoes'}</Text>
           <Text style={styles.pageSubtitle}>
-            Toque em uma integracao para abrir a configuracao. O status mostra
-            se a empresa ativa ja tem as credenciais necessarias.
+            {tt('integrations_text', 'pageSubtitle') ||
+              'Toque em uma integracao para abrir a configuracao. O status mostra se a empresa ativa ja tem as credenciais necessarias.'}
           </Text>
         </View>
 
@@ -222,7 +225,9 @@ export default function IntegrationsPage({navigation}) {
           {integrationCards.map(integration => {
             const connected = Boolean(integration.connected);
             const statusTone = connected ? '#16A34A' : '#F59E0B';
-            const statusText = connected ? 'Conectado' : 'Pendente';
+            const statusText = connected
+              ? tt('integrations_status', 'connected') || 'Conectado'
+              : tt('integrations_status', 'pending') || 'Pendente';
 
             return (
               <TouchableOpacity

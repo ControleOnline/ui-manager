@@ -11,6 +11,8 @@ import Icon from 'react-native-vector-icons/Feather';
 
 import styles from './NetworkPrinterPreviewModal.styles';
 
+const tt = key => global.t?.t('configs', 'printPreview', key);
+
 const clampColumns = value => {
   const parsedValue = Number(String(value || '').replace(/\D+/g, ''));
   if (!Number.isFinite(parsedValue) || parsedValue <= 0) {
@@ -92,7 +94,7 @@ const NetworkPrinterPreviewModal = ({
   printerModel,
   printerManufacturer,
   subtitle = '',
-  title = 'Visualizacao da impressao',
+  title = '',
   transport,
 }) => {
   const normalizedColumns = useMemo(() => clampColumns(columns), [columns]);
@@ -111,9 +113,10 @@ const NetworkPrinterPreviewModal = ({
         <View style={styles.panel}>
           <View style={styles.header}>
             <View style={styles.headerCopy}>
-              <Text style={styles.title}>{title}</Text>
+              <Text style={styles.title}>{title || tt('title') || 'Visualizacao da impressao'}</Text>
               <Text style={styles.subtitle}>
                 {subtitle ||
+                  tt('subtitle') ||
                   'Simulacao local para conferir largura, quebras e campos do cupom.'}
               </Text>
             </View>
@@ -128,16 +131,18 @@ const NetworkPrinterPreviewModal = ({
           <ScrollView contentContainerStyle={styles.content}>
             <View style={styles.metaGrid}>
               <View style={styles.metaChip}>
-                <Text style={styles.metaText}>{`${normalizedColumns} colunas`}</Text>
-              </View>
-              <View style={styles.metaChip}>
                 <Text style={styles.metaText}>
-                  {`Code page: ${safeText(codePage) || 'cp850'}`}
+                  {`${normalizedColumns} ${tt('columns') || 'colunas'}`}
                 </Text>
               </View>
               <View style={styles.metaChip}>
                 <Text style={styles.metaText}>
-                  {safeText(transport) || 'tcp-raw'}
+                  {`${tt('codePage') || 'Code page'}: ${safeText(codePage) || 'cp850'}`}
+                </Text>
+              </View>
+              <View style={styles.metaChip}>
+                <Text style={styles.metaText}>
+                  {safeText(transport) || tt('transportFallback') || 'tcp-raw'}
                 </Text>
               </View>
               <View style={styles.metaChip}>
@@ -145,14 +150,14 @@ const NetworkPrinterPreviewModal = ({
                   {[printerManufacturer, printerModel]
                     .map(safeText)
                     .filter(Boolean)
-                    .join(' ') || 'Modelo nao informado'}
+                    .join(' ') || tt('modelMissing') || 'Modelo nao informado'}
                 </Text>
               </View>
             </View>
 
             {loading ? (
               <View style={styles.stateBox}>
-                <Text style={styles.stateText}>Carregando dados reais...</Text>
+                <Text style={styles.stateText}>{tt('loadingRealData') || 'Carregando dados reais...'}</Text>
               </View>
             ) : error ? (
               <View style={styles.errorBox}>
@@ -168,7 +173,7 @@ const NetworkPrinterPreviewModal = ({
                   : [
                       {
                         text: centerLine(
-                          document?.title || `Via ${index + 1}`,
+                          document?.title || `${tt('copy') || 'Via'} ${index + 1}`,
                           normalizedColumns,
                         ),
                       },
@@ -187,7 +192,7 @@ const NetworkPrinterPreviewModal = ({
                   <View key={`${document?.title || 'preview'}-${index}`}>
                     {index > 0 ? (
                       <View style={styles.cutLine}>
-                        <Text style={styles.cutText}>picote</Text>
+                        <Text style={styles.cutText}>{tt('cutLine') || 'picote'}</Text>
                       </View>
                     ) : null}
                     <View style={styles.paper}>
@@ -225,14 +230,14 @@ const NetworkPrinterPreviewModal = ({
             ) : (
               <View style={styles.stateBox}>
                 <Text style={styles.stateText}>
-                  Nenhum dado real encontrado para visualizar.
+                  {tt('emptyData') || 'Nenhum dado real encontrado para visualizar.'}
                 </Text>
               </View>
             )}
 
             <Text style={styles.hint}>
-              Esta visualizacao ainda nao envia dados para a impressora. Os
-              blocos separados simulam os cortes de papel usados pelas filas.
+              {tt('hint') ||
+                'Esta visualizacao ainda nao envia dados para a impressora. Os blocos separados simulam os cortes de papel usados pelas filas.'}
             </Text>
           </ScrollView>
         </View>

@@ -21,6 +21,8 @@ import {
 } from './Devices/deviceTypes';
 import { createStyles } from './Devices.styles';
 
+const tt = (type, key) => global.t?.t('configs', type, key);
+
 const Devices = () => {
   const navigation = useNavigation();
   const peopleStore = useStore('people');
@@ -73,7 +75,7 @@ const Devices = () => {
   );
   const pdvGatewaySelectorOptions = useMemo(
     () => [
-      {key: PDV_DEVICE_TYPE, label: 'Todos'},
+      {key: PDV_DEVICE_TYPE, label: tt('device_filter', 'all') || 'Todos'},
       ...pdvSubfilterOptions.map(option => ({
         key: option.key,
         label: option.label,
@@ -82,11 +84,17 @@ const Devices = () => {
     [pdvSubfilterOptions],
   );
   const selectedDeviceTypeLabel = useMemo(
-    () => deviceTypeSelectorOptions.find(option => option.key === topLevelActiveFilter)?.label || 'Todos os tipos',
+    () =>
+      deviceTypeSelectorOptions.find(option => option.key === topLevelActiveFilter)?.label ||
+      tt('device_filter', 'allTypes') ||
+      'Todos os tipos',
     [deviceTypeSelectorOptions, topLevelActiveFilter],
   );
   const selectedPdvGatewayLabel = useMemo(
-    () => pdvGatewaySelectorOptions.find(option => option.key === activeFilter)?.label || 'Todos',
+    () =>
+      pdvGatewaySelectorOptions.find(option => option.key === activeFilter)?.label ||
+      tt('device_filter', 'all') ||
+      'Todos',
     [activeFilter, pdvGatewaySelectorOptions],
   );
   const ActiveTabComponent = activeFilterDefinition.TabComponent;
@@ -101,11 +109,11 @@ const Devices = () => {
     <SafeAreaView
       style={[styles.container, {backgroundColor: brandColors.background}]}>
       <View style={styles.filtersBlock}>
-        <Text style={styles.filtersLabel}>Filtrar por tipo</Text>
+        <Text style={styles.filtersLabel}>{tt('device_filter', 'filterByType') || 'Filtrar por tipo'}</Text>
         <CompactFilterSelector
           icon={getDeviceFilterIcon(topLevelActiveFilter)}
           label={selectedDeviceTypeLabel}
-          title="Filtrar por tipo"
+          title={tt('device_filter', 'filterByType') || 'Filtrar por tipo'}
           accentColor={getDeviceFilterAccent(topLevelActiveFilter, {
             brandColors,
             hex: accentPalette,
@@ -122,11 +130,11 @@ const Devices = () => {
 
       {topLevelActiveFilter === PDV_DEVICE_TYPE && pdvSubfilterOptions.length > 0 ? (
         <View style={styles.filtersBlock}>
-          <Text style={styles.filtersLabel}>Gateway do PDV</Text>
+          <Text style={styles.filtersLabel}>{tt('device_filter', 'pdvGateway') || 'Gateway do PDV'}</Text>
           <CompactFilterSelector
             icon={getDeviceFilterIcon(activeFilter)}
             label={selectedPdvGatewayLabel}
-            title="Gateway do PDV"
+            title={tt('device_filter', 'pdvGateway') || 'Gateway do PDV'}
             accentColor={getDeviceFilterAccent(activeFilter, {
               brandColors,
               hex: accentPalette,

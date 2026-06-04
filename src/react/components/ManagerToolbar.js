@@ -9,11 +9,13 @@ import { colors } from '@controleonline/../../src/styles/colors';
 import { resolveThemePalette } from '@controleonline/../../src/styles/branding';
 import createStyles from './ManagerToolbar.styles';
 
-const TAB_ITEMS = [
-  { key: 'HomePage',     icon: 'home',         label: 'Home'          },
-  { key: 'CrmIndex',     icon: 'dollar-sign',   label: 'Oportunidades' },
-  { key: 'ClientsIndex', icon: 'shopping-bag',  label: 'Clientes'      },
-  { key: 'ProfilePage',  icon: 'user',          label: 'Perfil'        },
+const tt = key => global.t?.t('configs', 'toolbar', key);
+
+const getTabItems = () => [
+  { key: 'HomePage', icon: 'home', label: tt('home') || 'Home' },
+  { key: 'CrmIndex', icon: 'dollar-sign', label: tt('opportunities') || 'Oportunidades' },
+  { key: 'ClientsIndex', icon: 'shopping-bag', label: tt('customers') || 'Clientes' },
+  { key: 'ProfilePage', icon: 'user', label: tt('profile') || 'Perfil' },
 ];
 
 const routeToTab = {
@@ -51,13 +53,14 @@ const ManagerToolbar = ({ navigation }) => {
   );
 
   const styles = useMemo(() => createStyles(brandColors), [brandColors]);
+  const tabItems = getTabItems();
 
   return (
     <View pointerEvents="box-none" style={styles.overlay}>
       <View style={[styles.wrapper, { paddingBottom: Math.max(insets.bottom, 8) }]}>
         <View style={styles.toolbarShadow}>
           <View style={styles.toolbar}>
-            {TAB_ITEMS.map(item => {
+            {tabItems.map(item => {
               const isActive = activeTab === item.key;
               return (
                 <TouchableOpacity

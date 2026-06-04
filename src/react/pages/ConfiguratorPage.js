@@ -7,38 +7,50 @@ import { resolveThemePalette, withOpacity } from '@controleonline/../../src/styl
 import { colors } from '@controleonline/../../src/styles/colors';
 import styles from './ConfiguratorPage.styles';
 
-const CONFIG_ACTIONS = [
+const tt = (type, key) => global.t?.t('configs', type, key);
+
+const getConfigActions = () => [
   {
-    label: 'Configurações gerais',
-    description: 'Abra o configurador principal sem misturar conexões e integrações direto na home.',
+    label: tt('hub_label', 'generalSettings') || 'Configurações gerais',
+    description:
+      tt('hub_description', 'generalSettings') ||
+      'Abra o configurador principal sem misturar conexões e integrações direto na home.',
     icon: 'settings',
     accentKey: 'textSecondary',
     route: 'GeneralSettings',
   },
   {
-    label: 'Logs',
-    description: 'Consulte a timeline completa de logs, incluindo registros por entidade e outros tipos técnicos.',
+    label: tt('hub_label', 'logs') || 'Logs',
+    description:
+      tt('hub_description', 'logs') ||
+      'Consulte a timeline completa de logs, incluindo registros por entidade e outros tipos técnicos.',
     icon: 'activity',
     accentKey: 'warning',
     route: 'GenericLogPage',
   },
   {
-    label: 'Conexões',
-    description: 'Centralize canais de comunicação e configurações operacionais ligadas à empresa ativa.',
+    label: tt('hub_label', 'connections') || 'Conexões',
+    description:
+      tt('hub_description', 'connections') ||
+      'Centralize canais de comunicação e configurações operacionais ligadas à empresa ativa.',
     icon: 'radio',
     accentKey: 'success',
     route: 'ConnectionsPage',
   },
   {
-    label: 'Integrações',
-    description: 'Gerencie marketplaces e outras integrações da operação dentro do mesmo hub.',
+    label: tt('hub_label', 'integrations') || 'Integrações',
+    description:
+      tt('hub_description', 'integrations') ||
+      'Gerencie marketplaces e outras integrações da operação dentro do mesmo hub.',
     icon: 'link',
     accentKey: 'info',
     route: 'IntegrationsPage',
   },
   {
-    label: 'Traduções',
-    description: 'Revise textos inseridos automaticamente, compare com o fallback principal e grave sobrescritas por empresa.',
+    label: tt('hub_label', 'translations') || 'Traduções',
+    description:
+      tt('hub_description', 'translations') ||
+      'Revise textos inseridos automaticamente, compare com o fallback principal e grave sobrescritas por empresa.',
     icon: 'type',
     accentKey: 'error',
     route: 'TranslationsReviewPage',
@@ -71,6 +83,7 @@ export default function ConfiguratorPage({ navigation }) {
       ),
     [themeColors, currentCompany?.id],
   );
+  const configActions = getConfigActions();
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: palette.background }]} edges={['bottom']}>
@@ -79,20 +92,22 @@ export default function ConfiguratorPage({ navigation }) {
           <View style={styles.heroBadge}>
             <Icon name="sliders" size={22} color={palette.primary} />
           </View>
-          <Text style={styles.heroEyebrow}>CONFIGURADOR</Text>
-          <Text style={styles.heroTitle}>Central de configuração</Text>
+          <Text style={styles.heroEyebrow}>{tt('hub_eyebrow', 'configurator') || 'CONFIGURADOR'}</Text>
+          <Text style={styles.heroTitle}>{tt('hub_title', 'configurationCenter') || 'Central de configuração'}</Text>
           <Text style={styles.heroText}>
-            Agrupe conexões, integrações e configurações gerais em um único lugar e deixe a home focada no que realmente precisa aparecer nela.
+            {tt('hub_text', 'configurationCenter') ||
+              'Agrupe conexões, integrações e configurações gerais em um único lugar e deixe a home focada no que realmente precisa aparecer nela.'}
           </Text>
         </View>
 
-        <Text style={styles.sectionTitle}>Acessos do configurador</Text>
+        <Text style={styles.sectionTitle}>{tt('hub_title', 'configuratorAccess') || 'Acessos do configurador'}</Text>
         <Text style={styles.sectionDescription}>
-          Conexões e integrações deixam de competir por destaque na home e passam a viver dentro deste módulo.
+          {tt('hub_text', 'configuratorAccess') ||
+            'Conexões e integrações deixam de competir por destaque na home e passam a viver dentro deste módulo.'}
         </Text>
 
         <View style={styles.grid}>
-          {CONFIG_ACTIONS.map(item => (
+          {configActions.map(item => (
             <ActionCard
               key={item.route}
               label={item.label}

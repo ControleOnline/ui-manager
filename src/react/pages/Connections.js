@@ -13,6 +13,8 @@ import {
   withOpacity,
 } from '@controleonline/../../src/styles/branding';
 
+const tt = (type, key) => global.t?.t('configs', type, key);
+
 const resolveShadowStyle = textColor =>
   Platform.select({
     ios: {
@@ -26,9 +28,9 @@ const resolveShadowStyle = textColor =>
   });
 
 const formatApiError = error => {
-  if (!error) return 'Nao foi possivel carregar as conexoes.';
+  if (!error) return tt('connections_error', 'load') || 'Nao foi possivel carregar as conexoes.';
   if (typeof error === 'string') return error;
-  return error?.message || error?.description || error?.errmsg || 'Nao foi possivel carregar as conexoes.';
+  return error?.message || error?.description || error?.errmsg || tt('connections_error', 'load') || 'Nao foi possivel carregar as conexoes.';
 };
 
 const toArray = response => {
@@ -39,11 +41,11 @@ const toArray = response => {
 };
 
 const normalizePhone = phone => {
-  if (!phone) return 'Nao informado';
+  if (!phone) return tt('connections_label', 'notProvided') || 'Nao informado';
 
   const ddd = String(phone?.ddd || '').trim();
   const digits = String(phone?.phone || '').replace(/\D/g, '');
-  if (!ddd && !digits) return 'Nao informado';
+  if (!ddd && !digits) return tt('connections_label', 'notProvided') || 'Nao informado';
   if (!digits) return `(${ddd})`;
 
   const lastFour = digits.slice(-4);
@@ -57,11 +59,11 @@ const normalizePhone = phone => {
 
 const normalizeConnection = item => ({
   id: item?.id || item?.['@id'] || `connection-${Math.random()}`,
-  name: item?.name || 'Sem nome',
+  name: item?.name || tt('connections_label', 'unnamed') || 'Sem nome',
   phoneLabel: normalizePhone(item?.phone),
-  type: item?.type || 'Nenhum',
+  type: item?.type || tt('connections_label', 'none') || 'Nenhum',
   channel: item?.channel || 'whatsapp',
-  status: item?.status?.status || item?.status || 'Pendente',
+  status: item?.status?.status || item?.status || tt('connections_status', 'pending') || 'Pendente',
   raw: item,
 });
 
@@ -143,9 +145,9 @@ export default function ConnectionsPage({ navigation }) {
       <SafeAreaView style={styles.container} edges={['bottom']}>
         <View style={styles.centerState}>
           <Icon name="building" size={32} color={brandColors.textSecondary} />
-          <Text style={styles.centerStateTitle}>Selecione uma empresa</Text>
+          <Text style={styles.centerStateTitle}>{tt('connections_title', 'selectCompany') || 'Selecione uma empresa'}</Text>
           <Text style={styles.centerStateText}>
-            As conexoes disponiveis dependem da empresa ativa.
+            {tt('connections_text', 'selectCompany') || 'As conexoes disponiveis dependem da empresa ativa.'}
           </Text>
         </View>
       </SafeAreaView>
@@ -157,9 +159,9 @@ export default function ConnectionsPage({ navigation }) {
       <SafeAreaView style={[styles.container, { backgroundColor: brandColors.background }]} edges={['bottom']}>
         <View style={styles.centerState}>
           <ActivityIndicator size="large" color={brandColors.primary} />
-          <Text style={styles.centerStateTitle}>Carregando conexoes</Text>
+          <Text style={styles.centerStateTitle}>{tt('connections_title', 'loading') || 'Carregando conexoes'}</Text>
           <Text style={styles.centerStateText}>
-            Buscando canais configurados para a empresa ativa.
+            {tt('connections_text', 'loading') || 'Buscando canais configurados para a empresa ativa.'}
           </Text>
         </View>
       </SafeAreaView>
@@ -176,10 +178,10 @@ export default function ConnectionsPage({ navigation }) {
         }>
         <View style={[styles.heroCard, shadowStyle, { backgroundColor: brandColors.primary }]}>
           <View style={styles.heroCopy}>
-            <Text style={styles.heroEyebrow}>COMUNICACAO</Text>
-            <Text style={styles.heroTitle}>Conexoes</Text>
+            <Text style={styles.heroEyebrow}>{tt('connections_eyebrow', 'communication') || 'COMUNICACAO'}</Text>
+            <Text style={styles.heroTitle}>{tt('connections_title', 'connections') || 'Conexoes'}</Text>
             <Text style={styles.heroText}>
-              Gerencie os canais de comunicacao conectados com a sua operacao.
+              {tt('connections_text', 'hero') || 'Gerencie os canais de comunicacao conectados com a sua operacao.'}
             </Text>
           </View>
           <View style={styles.heroBadge}>
@@ -189,7 +191,9 @@ export default function ConnectionsPage({ navigation }) {
 
         <View style={styles.companyRow}>
           <View style={styles.companyBadge}>
-            <Text style={styles.companyBadgeText}>{connections.length} conexoes</Text>
+            <Text style={styles.companyBadgeText}>
+              {`${connections.length} ${tt('connections_label', 'connections') || 'conexoes'}`}
+            </Text>
           </View>
         </View>
 
@@ -203,29 +207,31 @@ export default function ConnectionsPage({ navigation }) {
             </View>
             <View style={styles.channelStatusPill}>
               <Text style={styles.channelStatusText}>
-                {connections.length > 0 ? `${connections.length} configurada(s)` : 'Pronta para configurar'}
+                {connections.length > 0
+                  ? `${connections.length} ${tt('connections_status', 'configured') || 'configurada(s)'}`
+                  : tt('connections_status', 'readyToConfigure') || 'Pronta para configurar'}
               </Text>
             </View>
           </View>
 
-          <Text style={styles.channelTitle}>WhatsApp</Text>
+          <Text style={styles.channelTitle}>{tt('connections_label', 'whatsApp') || 'WhatsApp'}</Text>
           <Text style={styles.channelDescription}>
-            Conecte numeros, acompanhe status e gere o QR Code de autenticacao.
+            {tt('connections_text', 'whatsApp') || 'Conecte numeros, acompanhe status e gere o QR Code de autenticacao.'}
           </Text>
 
           <View style={styles.metaRow}>
             <View style={styles.metaItem}>
-              <Text style={styles.metaLabel}>Canal</Text>
-              <Text style={styles.metaValue}>WhatsApp</Text>
+              <Text style={styles.metaLabel}>{tt('connections_label', 'channel') || 'Canal'}</Text>
+              <Text style={styles.metaValue}>{tt('connections_label', 'whatsApp') || 'WhatsApp'}</Text>
             </View>
             <View style={styles.metaItem}>
-              <Text style={styles.metaLabel}>Status</Text>
+              <Text style={styles.metaLabel}>{tt('connections_label', 'status') || 'Status'}</Text>
               <Text style={styles.metaValue}>
                 {connections.some(item => String(item.status).toUpperCase() === 'CONNECTED')
-                  ? 'Conectado'
+                  ? tt('connections_status', 'connected') || 'Conectado'
                   : connections.length > 0
-                    ? 'Em configuracao'
-                    : 'Nao configurado'}
+                    ? tt('connections_status', 'inSetup') || 'Em configuracao'
+                    : tt('connections_status', 'notConfigured') || 'Nao configurado'}
               </Text>
             </View>
           </View>
@@ -245,13 +251,13 @@ export default function ConnectionsPage({ navigation }) {
           ) : (
             <View style={styles.emptyInline}>
               <Text style={styles.emptyInlineText}>
-                Nenhuma conexao cadastrada ainda. Toque para configurar o primeiro numero.
+                {tt('connections_text', 'empty') || 'Nenhuma conexao cadastrada ainda. Toque para configurar o primeiro numero.'}
               </Text>
             </View>
           )}
 
           <View style={styles.actionRow}>
-            <Text style={styles.actionText}>Abrir canal</Text>
+            <Text style={styles.actionText}>{tt('connections_button', 'openChannel') || 'Abrir canal'}</Text>
             <Icon name="arrow-right" size={18} color={brandColors.primary} />
           </View>
         </TouchableOpacity>
