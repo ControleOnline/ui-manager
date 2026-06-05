@@ -15,6 +15,7 @@ import DeviceDetailPage from '@controleonline/ui-manager/src/react/pages/DeviceD
 import PrinterDeviceDetailPage from '@controleonline/ui-manager/src/react/pages/PrinterDeviceDetailPage';
 import PrinterDeviceFormPage from '@controleonline/ui-manager/src/react/pages/PrinterDeviceFormPage';
 import ConfiguratorPage from '@controleonline/ui-manager/src/react/pages/ConfiguratorPage';
+import ThemeManagerPage from '@controleonline/ui-manager/src/react/pages/ThemeManagerPage';
 import ManagerOrderNotificationsPage from '@controleonline/ui-manager/src/react/pages/ManagerOrderNotificationsPage';
 import TranslationsReviewPage from '@controleonline/ui-manager/src/react/pages/TranslationsReviewPage';
 import {
@@ -102,6 +103,17 @@ const managerRoutes = [
       headerShown: true,
       headerBackVisible: true,
       title: 'Configurador',
+      showCompanyFilter: true,
+      companyFilterMode: 'icon',
+    },
+  },
+  {
+    name: 'ThemeManagerPage',
+    component: ThemeManagerPage,
+    options: {
+      headerShown: true,
+      headerBackVisible: true,
+      title: 'Temas',
       showCompanyFilter: true,
       companyFilterMode: 'icon',
     },

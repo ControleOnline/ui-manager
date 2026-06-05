@@ -55,6 +55,15 @@ const getConfigActions = () => [
     accentKey: 'error',
     route: 'TranslationsReviewPage',
   },
+  {
+    label: tt('hub_label', 'themes') || 'Temas',
+    description:
+      tt('hub_description', 'themes') ||
+      'Gerencie paletas visuais, duplique temas e associe cada domínio da empresa ao tema desejado.',
+    icon: 'droplet',
+    accentKey: 'primary',
+    route: 'ThemeManagerPage',
+  },
 ];
 
 function ActionCard({ label, description, icon, color, onPress }) {
