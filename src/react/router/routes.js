@@ -23,6 +23,9 @@ import DeliveryRatesInboxPage from '@controleonline/ui-manager/src/react/pages/d
 import DeliveryRateVersionPage from '@controleonline/ui-manager/src/react/pages/delivery-rates/DeliveryRateVersionPage';
 import DeliveryRateHistoryPage from '@controleonline/ui-manager/src/react/pages/delivery-rates/DeliveryRateHistoryPage';
 import DeliveryRateCompanyPage from '@controleonline/ui-manager/src/react/pages/delivery-rates/DeliveryRateCompanyPage';
+import DeliveryPresenceInboxPage from '@controleonline/ui-manager/src/react/pages/presence/DeliveryPresenceInboxPage';
+import DeliveryPresenceDetailPage from '@controleonline/ui-manager/src/react/pages/presence/DeliveryPresenceDetailPage';
+import DeliveryPresenceHistoryPage from '@controleonline/ui-manager/src/react/pages/presence/DeliveryPresenceHistoryPage';
 import {
   IP_CAMERA_DEVICE_TYPE,
   PRINT_DEVICE_TYPE,
@@ -203,6 +206,45 @@ const managerRoutes = [
       headerShown: true,
       headerBackVisible: true,
       title: 'Ativação por empresa',
+      showBottomToolBar: false,
+      showCompanyFilter: true,
+      companyFilterMode: 'icon',
+    },
+  },
+  {
+    name: 'DeliveryPresenceInboxPage',
+    component: DeliveryPresenceInboxPage,
+    path: 'delivery/presence',
+    options: {
+      headerShown: true,
+      headerBackVisible: true,
+      title: 'Presenca dos motoboys',
+      showBottomToolBar: false,
+      showCompanyFilter: true,
+      companyFilterMode: 'icon',
+    },
+  },
+  {
+    name: 'DeliveryPresenceDetailPage',
+    component: DeliveryPresenceDetailPage,
+    path: 'delivery/presence/detail',
+    options: {
+      headerShown: true,
+      headerBackVisible: true,
+      title: 'Detalhe da presenca',
+      showBottomToolBar: false,
+      showCompanyFilter: true,
+      companyFilterMode: 'icon',
+    },
+  },
+  {
+    name: 'DeliveryPresenceHistoryPage',
+    component: DeliveryPresenceHistoryPage,
+    path: 'delivery/presence/history',
+    options: {
+      headerShown: true,
+      headerBackVisible: true,
+      title: 'Historico da presenca',
       showBottomToolBar: false,
       showCompanyFilter: true,
       companyFilterMode: 'icon',
