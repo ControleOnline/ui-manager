@@ -574,7 +574,7 @@ const getConnectionStatusMeta = status => {
   if (status === 'online') {
     return {
       label: 'Online',
-      color: '#22C55E',
+      color: '#10b981',
       icon: 'wifi',
     };
   }
@@ -582,7 +582,7 @@ const getConnectionStatusMeta = status => {
   if (status === 'offline') {
     return {
       label: 'Offline',
-      color: '#EF4444',
+      color: '#c10015',
       icon: 'wifi-off',
     };
   }
@@ -598,7 +598,7 @@ const getConnectionStatusMeta = status => {
   if (status === 'unsupported') {
     return {
       label: 'Sem teste',
-      color: '#F59E0B',
+      color: '#e67e22',
       icon: 'slash',
     };
   }
@@ -1834,7 +1834,7 @@ const PrinterDeviceDetailPage = () => {
                 deviceRuntimeDebugInfoEnabled ? 'toggle-right' : 'toggle-left'
               }
               size={28}
-              color={deviceRuntimeDebugInfoEnabled ? '#22C55E' : '#94A3B8'}
+              color={deviceRuntimeDebugInfoEnabled ? '#10b981' : '#94A3B8'}
             />
           </TouchableOpacity>
 

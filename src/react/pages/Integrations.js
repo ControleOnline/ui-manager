@@ -224,7 +224,7 @@ export default function IntegrationsPage({navigation}) {
         <View style={styles.integrationGrid}>
           {integrationCards.map(integration => {
             const connected = Boolean(integration.connected);
-            const statusTone = connected ? '#16A34A' : '#F59E0B';
+            const statusTone = connected ? '#16A34A' : '#e67e22';
             const statusText = connected
               ? tt('integrations_status', 'connected') || 'Conectado'
               : tt('integrations_status', 'pending') || 'Pendente';

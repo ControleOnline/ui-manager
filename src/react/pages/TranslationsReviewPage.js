@@ -560,9 +560,9 @@ export default function TranslationsReviewPage() {
 
         <View style={styles.summaryGrid}>
           <SummaryCard label="Total" value={summary?.total} accent="#0EA5E9" />
-          <SummaryCard label="Pendentes" value={summary?.pendingReview} accent="#EF4444" />
+          <SummaryCard label="Pendentes" value={summary?.pendingReview} accent="#c10015" />
           <SummaryCard label="Sobrescritas" value={summary?.overrides} accent="#10B981" />
-          <SummaryCard label="Fallbacks" value={summary?.fallbacks} accent="#F59E0B" />
+          <SummaryCard label="Fallbacks" value={summary?.fallbacks} accent="#e67e22" />
         </View>
 
         <View style={[styles.filtersCard, shadowStyle]}>

@@ -50,9 +50,9 @@ const tt = (type, key) => global.t?.t('configs', type, key);
 
 const hex = {
   primary: '#0EA5E9',
-  success: '#22C55E',
-  danger: '#EF4444',
-  warning: '#F59E0B',
+  success: '#10b981',
+  danger: '#c10015',
+  warning: '#e67e22',
 };
 
 const mergeDeviceConfigs = (currentItems = [], nextItems = []) => {

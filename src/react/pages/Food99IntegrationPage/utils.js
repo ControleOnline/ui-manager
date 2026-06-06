@@ -29,7 +29,7 @@ export const publishStateLabelMap = {
 
 export const publishStateToneMap = {
   submitted: '#2563EB',
-  processing: '#F59E0B',
+  processing: '#e67e22',
   published: '#16A34A',
   failed: '#DC2626',
   sync_error: '#7C3AED',

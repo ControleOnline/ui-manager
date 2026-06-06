@@ -356,7 +356,7 @@ export default function IntegrationConfigPage({ route }) {
     : requiredKeys.length > 0
       ? requiredKeys.every(fieldKey => normalizeTextValue(configValues[fieldKey]) !== '')
       : false;
-  const statusTone = connected ? '#16A34A' : '#F59E0B';
+  const statusTone = connected ? '#16A34A' : '#e67e22';
   const statusText = connected ? 'Conectado' : 'Pendente';
   const editable = Boolean(providerIri && providerConfig && !isSaving && !loading && !providerConfig.oauthConnect);
   const actionLoading = providerConfig?.oauthConnect ? authLoading : isSaving;
@@ -400,7 +400,7 @@ export default function IntegrationConfigPage({ route }) {
     return (
       <SafeAreaView style={styles.container} edges={['bottom']}>
         <View style={styles.centerState}>
-          <Icon name="alert-triangle" size={32} color="#F59E0B" />
+          <Icon name="alert-triangle" size={32} color="#e67e22" />
           <Text style={styles.centerStateTitle}>Integracao indisponivel</Text>
           <Text style={styles.centerStateText}>
             A tela solicitada nao possui configuracao cadastrada.

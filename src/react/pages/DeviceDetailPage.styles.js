@@ -8,9 +8,9 @@ const cardShadow = Platform.select({
 });
 
 const hex = {
-  success: '#22C55E',
-  danger:  '#EF4444',
-  warning: '#F59E0B',
+  success: '#10b981',
+  danger:  '#c10015',
+  warning: '#e67e22',
   info:    '#0EA5E9',
   purple:  '#8B5CF6',
 };

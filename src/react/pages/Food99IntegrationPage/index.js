@@ -272,7 +272,7 @@ export default function Food99IntegrationPage() {
             ? 'Conectada'
             : 'Pendente',
         icon: 'link',
-        color: needsReconnect ? '#F59E0B' : connected ? '#10B981' : '#F59E0B',
+        color: needsReconnect ? '#e67e22' : connected ? '#10B981' : '#e67e22',
       },
       {
         key: 'status',
@@ -304,7 +304,7 @@ export default function Food99IntegrationPage() {
         color:
           selectedEligibleProducts.length >= MINIMUM_REQUIRED_ITEMS
             ? '#10B981'
-            : '#F59E0B',
+            : '#e67e22',
       },
     ],
     [

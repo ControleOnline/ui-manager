@@ -32,8 +32,8 @@ const cardShadow = Platform.select({
 const CONTEXT_OPTIONS = [
   { value: 'proposal', label: 'Propostas', newLabel: 'Nova proposta', icon: 'briefcase', color: '#8B5CF6' },
   { value: 'contract', label: 'Contratos', newLabel: 'Novo contrato', icon: 'file-text', color: '#0EA5E9' },
-  { value: 'email', label: 'E-mails', newLabel: 'Novo e-mail', icon: 'mail', color: '#22C55E' },
-  { value: 'menu', label: 'Cardapios', newLabel: 'Novo cardapio', icon: 'book-open', color: '#F59E0B' },
+  { value: 'email', label: 'E-mails', newLabel: 'Novo e-mail', icon: 'mail', color: '#10b981' },
+  { value: 'menu', label: 'Cardapios', newLabel: 'Novo cardapio', icon: 'book-open', color: '#e67e22' },
 ];
 
 const FILTER_OPTIONS = [{ value: 'all', label: 'Todos os tipos' }, ...CONTEXT_OPTIONS];
@@ -1230,8 +1230,8 @@ export default function ModelTemplatesPage({ route, navigation }) {
         </View>
 
         {isDirty && (
-          <View style={[styles.statusBadge, { borderColor: '#F59E0B', backgroundColor: withOpacity('#F59E0B', 0.08) }]}>
-            <Icon name="alert-circle" size={14} color="#F59E0B" />
+          <View style={[styles.statusBadge, { borderColor: '#e67e22', backgroundColor: withOpacity('#e67e22', 0.08) }]}>
+            <Icon name="alert-circle" size={14} color="#e67e22" />
             <Text style={[styles.statusBadgeText, { color: '#B45309' }]}>Alteracoes pendentes</Text>
           </View>
         )}

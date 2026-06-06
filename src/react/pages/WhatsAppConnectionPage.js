@@ -404,8 +404,8 @@ export default function WhatsAppConnectionPage() {
                 onPress={() => handleUseExistingConnection(item)}
                 style={[styles.connectionCard, shadowStyle]}>
                 <View style={styles.connectionTop}>
-                  <View style={[styles.connectionIconWrap, { backgroundColor: withOpacity('#22C55E', 0.12) }]}>
-                    <Icon name="phone-call" size={18} color="#22C55E" />
+                  <View style={[styles.connectionIconWrap, { backgroundColor: withOpacity('#10b981', 0.12) }]}>
+                    <Icon name="phone-call" size={18} color="#10b981" />
                   </View>
                   <View style={[styles.connectionStatusBadge, { backgroundColor: withOpacity('#2563EB', 0.12) }]}>
                     <Text style={styles.connectionStatusText}>{item.status}</Text>

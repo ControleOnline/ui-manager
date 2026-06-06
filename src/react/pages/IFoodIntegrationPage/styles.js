@@ -178,7 +178,7 @@ const styles = StyleSheet.create({
   },
   actionButtonSecondaryDisabled: {opacity: 0.5},
   actionButtonSecondaryText: {
-    color: '#EF4444',
+    color: '#c10015',
     fontSize: 14,
     fontWeight: '700',
   },

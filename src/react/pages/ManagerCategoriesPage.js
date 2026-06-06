@@ -25,10 +25,10 @@ const cardShadow = Platform.select({
 });
 
 const COLOR_PRESETS = [
-  '#EF4444',
+  '#c10015',
   '#F97316',
   '#EAB308',
-  '#22C55E',
+  '#10b981',
   '#14B8A6',
   '#0EA5E9',
   '#6366F1',
@@ -130,7 +130,7 @@ const ParentPickerModal = ({
                   <Text style={[styles.parentRowText, !selectedParentId && styles.parentRowTextActive]}>
                     Nenhuma
                   </Text>
-                  {!selectedParentId ? <Icon name="check-circle" size={18} color="#22C55E" /> : null}
+                  {!selectedParentId ? <Icon name="check-circle" size={18} color="#10b981" /> : null}
                 </TouchableOpacity>
 
                 {filteredCategories.map(category => {
