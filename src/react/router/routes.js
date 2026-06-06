@@ -19,6 +19,10 @@ import ThemeManagerPage from '@controleonline/ui-manager/src/react/pages/ThemeMa
 import ThemePreviewPage from '@controleonline/ui-manager/src/react/pages/ThemePreviewPage';
 import ManagerOrderNotificationsPage from '@controleonline/ui-manager/src/react/pages/ManagerOrderNotificationsPage';
 import TranslationsReviewPage from '@controleonline/ui-manager/src/react/pages/TranslationsReviewPage';
+import DeliveryRatesInboxPage from '@controleonline/ui-manager/src/react/pages/delivery-rates/DeliveryRatesInboxPage';
+import DeliveryRateVersionPage from '@controleonline/ui-manager/src/react/pages/delivery-rates/DeliveryRateVersionPage';
+import DeliveryRateHistoryPage from '@controleonline/ui-manager/src/react/pages/delivery-rates/DeliveryRateHistoryPage';
+import DeliveryRateCompanyPage from '@controleonline/ui-manager/src/react/pages/delivery-rates/DeliveryRateCompanyPage';
 import {
   IP_CAMERA_DEVICE_TYPE,
   PRINT_DEVICE_TYPE,
@@ -150,6 +154,58 @@ const managerRoutes = [
       title: 'Notificações de pedidos',
       showBottomToolBar: true,
       showCompanyFilter: false,
+    },
+  },
+  {
+    name: 'DeliveryRatesInboxPage',
+    component: DeliveryRatesInboxPage,
+    path: 'delivery/rates',
+    options: {
+      headerShown: true,
+      headerBackVisible: true,
+      title: 'Tabelas de entrega',
+      showBottomToolBar: false,
+      showCompanyFilter: true,
+      companyFilterMode: 'icon',
+    },
+  },
+  {
+    name: 'DeliveryRateVersionPage',
+    component: DeliveryRateVersionPage,
+    path: 'delivery/rates/version',
+    options: {
+      headerShown: true,
+      headerBackVisible: true,
+      title: 'Detalhe da tabela',
+      showBottomToolBar: false,
+      showCompanyFilter: true,
+      companyFilterMode: 'icon',
+    },
+  },
+  {
+    name: 'DeliveryRateHistoryPage',
+    component: DeliveryRateHistoryPage,
+    path: 'delivery/rates/history',
+    options: {
+      headerShown: true,
+      headerBackVisible: true,
+      title: 'Histórico da tabela',
+      showBottomToolBar: false,
+      showCompanyFilter: true,
+      companyFilterMode: 'icon',
+    },
+  },
+  {
+    name: 'DeliveryRateCompanyPage',
+    component: DeliveryRateCompanyPage,
+    path: 'delivery/rates/companies',
+    options: {
+      headerShown: true,
+      headerBackVisible: true,
+      title: 'Ativação por empresa',
+      showBottomToolBar: false,
+      showCompanyFilter: true,
+      companyFilterMode: 'icon',
     },
   },
   {
