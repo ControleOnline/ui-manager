@@ -2,7 +2,7 @@ import { Platform, StyleSheet } from 'react-native';
 
 const cardShadow = Platform.select({
   ios: {
-    shadowColor: '#0F172A',
+    shadowColor: '#1a1a1a',
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.08,
     shadowRadius: 16,
@@ -11,49 +11,24 @@ const cardShadow = Platform.select({
   web: { boxShadow: '0 8px 24px rgba(15,23,42,0.08)' },
 });
 
+const themeCardShadow = Platform.select({
+  ios: {
+    shadowColor: '#0f172a',
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.12,
+    shadowRadius: 22,
+  },
+  android: { elevation: 5 },
+  web: { boxShadow: '0 14px 32px rgba(15,23,42,0.12)' },
+});
+
 const styles = StyleSheet.create({
   root: { flex: 1 },
   scroll: { padding: 16, paddingBottom: 40, gap: 16 },
-  heroCard: {
-    borderRadius: 24,
-    padding: 20,
-    overflow: 'hidden',
-    ...cardShadow,
-  },
-  heroEyebrow: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: 'rgba(255,255,255,0.74)',
-    textTransform: 'uppercase',
-    letterSpacing: 1.1,
-  },
-  heroTitle: {
-    marginTop: 10,
-    fontSize: 28,
-    fontWeight: '800',
-    color: '#FFFFFF',
-    letterSpacing: -0.6,
-  },
-  heroText: {
-    marginTop: 10,
-    fontSize: 14,
-    lineHeight: 22,
-    color: 'rgba(255,255,255,0.88)',
-  },
-  heroActionRow: {
-    marginTop: 18,
+  toolbar: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
     gap: 12,
-  },
-  heroBadge: {
-    width: 48,
-    height: 48,
-    borderRadius: 16,
-    backgroundColor: '#FFFFFF',
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   createButton: {
     flexDirection: 'row',
@@ -61,55 +36,23 @@ const styles = StyleSheet.create({
     gap: 8,
     paddingHorizontal: 14,
     paddingVertical: 10,
-    borderRadius: 999,
-    backgroundColor: 'rgba(255,255,255,0.16)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.24)',
+    borderRadius: 12,
   },
   createButtonText: {
     color: '#FFFFFF',
     fontSize: 13,
     fontWeight: '800',
   },
-  sectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-end',
-    gap: 12,
-  },
   sectionTitle: {
     fontSize: 18,
     fontWeight: '800',
-    color: '#0F172A',
+    color: '#1a1a1a',
   },
   sectionText: {
     fontSize: 13,
     lineHeight: 20,
-    color: '#64748B',
+    color: '#777777',
     marginTop: 4,
-  },
-  sectionStat: {
-    minWidth: 68,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    borderRadius: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#FFFFFF',
-    ...cardShadow,
-  },
-  sectionStatValue: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: '#0F172A',
-  },
-  sectionStatLabel: {
-    marginTop: 2,
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#64748B',
-    textTransform: 'uppercase',
-    letterSpacing: 0.4,
   },
   loadingWrap: {
     minHeight: 220,
@@ -127,153 +70,84 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: 16,
     fontWeight: '800',
-    color: '#0F172A',
+    color: '#1a1a1a',
     textAlign: 'center',
   },
   emptyText: {
     fontSize: 13,
     lineHeight: 20,
-    color: '#64748B',
+    color: '#777777',
     textAlign: 'center',
   },
-  domainsList: { gap: 12 },
-  domainCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 18,
-    padding: 16,
-    gap: 12,
-    ...cardShadow,
-  },
-  domainTop: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    gap: 12,
-  },
-  domainLabel: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: '#0F172A',
-  },
-  domainMeta: {
-    marginTop: 4,
-    fontSize: 12,
-    lineHeight: 18,
-    color: '#64748B',
-  },
-  domainThemePill: {
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 999,
-    borderWidth: 1,
-    alignSelf: 'flex-start',
-  },
-  domainThemeText: {
-    fontSize: 12,
-    fontWeight: '800',
-  },
-  domainAction: {
-    alignSelf: 'flex-start',
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 9,
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    backgroundColor: '#F8FAFC',
-  },
-  domainActionText: {
-    fontSize: 12,
-    fontWeight: '800',
-    color: '#334155',
-  },
-  themesGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12,
-  },
+  themeList: { gap: 28 },
   themeCard: {
-    flexBasis: '48%',
-    flexGrow: 1,
-    minWidth: 280,
     backgroundColor: '#FFFFFF',
     borderRadius: 20,
     padding: 16,
     gap: 14,
-    ...cardShadow,
+    ...themeCardShadow,
   },
-  themePreview: {
-    borderRadius: 16,
-    padding: 16,
-    minHeight: 130,
-    justifyContent: 'space-between',
-  },
-  themePreviewHeader: {
+  themeRowTop: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    gap: 8,
+    gap: 12,
+  },
+  themeTitleWrap: {
+    flex: 1,
+    gap: 4,
   },
   themeName: {
-    flex: 1,
     fontSize: 16,
     fontWeight: '800',
+    color: '#1a1a1a',
   },
-  themeBadge: {
+  themeActions: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    justifyContent: 'flex-end',
+  },
+  actionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
     paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 999,
-    backgroundColor: 'rgba(255,255,255,0.25)',
-  },
-  themeBadgeText: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: '#FFFFFF',
-    textTransform: 'uppercase',
-    letterSpacing: 0.4,
-  },
-  previewSurface: {
-    borderRadius: 14,
-    padding: 12,
+    paddingVertical: 8,
+    borderRadius: 10,
     borderWidth: 1,
+    borderColor: '#d7d7d7',
+    backgroundColor: '#F8FAFC',
   },
-  previewTitle: {
-    fontSize: 13,
-    fontWeight: '800',
-  },
-  previewText: {
-    marginTop: 4,
+  actionButtonText: {
     fontSize: 12,
-    lineHeight: 18,
+    fontWeight: '800',
+    color: '#1a1a1a',
   },
-  swatchRow: {
+  themeMetaText: {
+    fontSize: 12,
+    color: '#777777',
+    fontWeight: '700',
+  },
+  colorTileGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 8,
   },
-  swatchItem: {
-    width: 30,
-    height: 30,
-    borderRadius: 10,
-    borderWidth: 2,
-    borderColor: 'rgba(15,23,42,0.08)',
+  colorTile: {
+    minHeight: 34,
+    minWidth: 112,
+    flexBasis: '23%',
+    flexGrow: 1,
+    borderRadius: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderWidth: 1,
+    justifyContent: 'center',
   },
-  themeMetaRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    gap: 12,
-  },
-  themeMetaText: {
+  colorTileLabel: {
     fontSize: 12,
-    color: '#64748B',
-    fontWeight: '700',
-  },
-  themeActions: {
-    flexDirection: 'row',
-    gap: 8,
+    fontWeight: '800',
   },
   iconButton: {
     width: 38,
@@ -282,7 +156,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: '#cccccc',
     backgroundColor: '#F8FAFC',
   },
   backdrop: {
@@ -310,12 +184,12 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 18,
     fontWeight: '800',
-    color: '#0F172A',
+    color: '#1a1a1a',
   },
   modalSubtitle: {
     fontSize: 13,
     lineHeight: 20,
-    color: '#64748B',
+    color: '#777777',
   },
   formField: { gap: 8 },
   formLabel: {
@@ -329,17 +203,17 @@ const styles = StyleSheet.create({
     height: 46,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#CBD5E1',
+    borderColor: '#cccccc',
     paddingHorizontal: 12,
     fontSize: 14,
     fontWeight: '600',
-    color: '#0F172A',
+    color: '#1a1a1a',
     backgroundColor: '#FFFFFF',
   },
   helperText: {
     fontSize: 12,
     lineHeight: 18,
-    color: '#64748B',
+    color: '#777777',
   },
   colorEditor: {
     gap: 10,
@@ -347,7 +221,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     backgroundColor: '#F8FAFC',
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: '#cccccc',
   },
   colorEditorHeader: {
     flexDirection: 'row',
@@ -358,14 +232,14 @@ const styles = StyleSheet.create({
   colorEditorLabel: {
     fontSize: 14,
     fontWeight: '800',
-    color: '#0F172A',
+    color: '#1a1a1a',
   },
   colorPreview: {
     width: 34,
     height: 34,
     borderRadius: 12,
     borderWidth: 2,
-    borderColor: '#E2E8F0',
+    borderColor: '#cccccc',
   },
   swatchPicker: {
     flexDirection: 'row',
@@ -380,7 +254,7 @@ const styles = StyleSheet.create({
     borderColor: 'transparent',
   },
   pickerButtonActive: {
-    borderColor: '#0F172A',
+    borderColor: '#1a1a1a',
   },
   colorInputRow: {
     flexDirection: 'row',
@@ -392,17 +266,17 @@ const styles = StyleSheet.create({
     height: 42,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: '#CBD5E1',
+    borderColor: '#cccccc',
     paddingHorizontal: 12,
     fontSize: 14,
     fontWeight: '700',
-    color: '#0F172A',
+    color: '#1a1a1a',
     backgroundColor: '#FFFFFF',
   },
   colorHint: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#64748B',
+    color: '#777777',
   },
   modalActions: {
     flexDirection: 'row',
@@ -416,13 +290,13 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     borderRadius: 12,
     borderWidth: 1.5,
-    borderColor: '#CBD5E1',
+    borderColor: '#cccccc',
     backgroundColor: '#FFFFFF',
   },
   secondaryButtonText: {
     fontSize: 14,
     fontWeight: '800',
-    color: '#334155',
+    color: '#1a1a1a',
   },
   primaryButton: {
     flex: 1,
@@ -435,33 +309,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '800',
     color: '#FFFFFF',
-  },
-  pickerList: {
-    gap: 10,
-    paddingBottom: 12,
-  },
-  pickerThemeCard: {
-    borderRadius: 16,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    backgroundColor: '#FFFFFF',
-    gap: 10,
-  },
-  pickerThemeCardActive: {
-    borderColor: '#0F172A',
-  },
-  pickerThemeTop: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    gap: 10,
-  },
-  pickerThemeName: {
-    flex: 1,
-    fontSize: 14,
-    fontWeight: '800',
-    color: '#0F172A',
   },
 });
 

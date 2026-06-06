@@ -2,6 +2,7 @@ import React, { useCallback, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Modal,
+  Pressable,
   ScrollView,
   Text,
   TextInput,
@@ -10,7 +11,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/Feather';
 import { useStore } from '@store';
 import { api } from '@controleonline/ui-common/src/api';
@@ -38,7 +39,7 @@ const COLOR_PRESETS = [
   '#64748B',
 ];
 
-const COLOR_FIELDS = [
+const DEFAULT_THEME_FIELDS = [
   { key: 'primary', label: 'Primaria', helper: 'Botoes principais e destaques.' },
   { key: 'secondary', label: 'Secundaria', helper: 'Apoio visual e variacoes.' },
   { key: 'background', label: 'Fundo', helper: 'Plano principal das telas.' },
@@ -47,13 +48,49 @@ const COLOR_FIELDS = [
   { key: 'border', label: 'Borda', helper: 'Linhas, contornos e divisores.' },
 ];
 
-const THEME_ALIASES = {
-  primary: ['primary', 'q-primary', 'btn-primary', 'q-btn-primary', 'header-primary', 'q-header-primary'],
-  secondary: ['secondary', 'q-secondary'],
-  background: ['background', 'bg-light', 'q-bg-light', 'bg-headers-light', 'q-bg-headers-light'],
-  text: ['text', 'text-primary', 'q-text-primary', 'text-headers-light', 'q-text-headers-light'],
-  textSecondary: ['textSecondary', 'text-secondary', 'q-text-secondary'],
-  border: ['border', 'bg-even-light', 'q-bg-even-light'],
+const DEFAULT_THEME_FIELD_MAP = Object.fromEntries(
+  DEFAULT_THEME_FIELDS.map(field => [field.key, field]),
+);
+
+const AUTO_GENERATED_ALIAS_KEYS = new Set([
+  'q-primary',
+  'btn-primary',
+  'q-btn-primary',
+  'header-primary',
+  'q-header-primary',
+  'q-secondary',
+  'q-bg-light',
+  'q-bg-headers-light',
+  'text-primary',
+  'q-text-primary',
+  'text-headers-light',
+  'q-text-headers-light',
+  'text-secondary',
+  'q-text-secondary',
+  'bg-even-light',
+  'q-bg-even-light',
+]);
+
+const COLOR_HINTS = {
+  primary: 'cor principal da interface',
+  secondary: 'cor secundaria de apoio',
+  background: 'fundo principal das telas',
+  text: 'texto principal da interface',
+  textSecondary: 'texto secundario e legendas',
+  border: 'bordas e divisores',
+  info: 'informacoes e destaques leves',
+  accent: 'acentos visuais e chamadas',
+  warning: 'avisos e estados de atencao',
+  negative: 'erros e estados negativos',
+  positive: 'sucesso e estados positivos',
+  'bg-dark': 'fundo escuro principal',
+  'bg-light': 'fundo claro principal',
+  'bg-menu-light': 'fundo claro do menu',
+  'bg-menu-dark': 'fundo escuro de menu',
+  'bg-odd-light': 'fundo claro de linhas impares',
+  'bg-odd-dark': 'fundo escuro de linhas impares',
+  'bg-even-dark': 'fundo escuro de linhas pares',
+  'bg-headers-light': 'fundo claro de cabecalhos',
 };
 
 const HEX_COLOR_REGEX = /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/;
@@ -109,6 +146,30 @@ const formatApiError = error => {
   return error?.message || error?.description || 'Nao foi possivel salvar o tema.';
 };
 
+const getReadableTextColor = color => {
+  const normalized = normalizeHex(color);
+  if (!normalized) return '#111111';
+
+  const red = Number.parseInt(normalized.slice(1, 3), 16);
+  const green = Number.parseInt(normalized.slice(3, 5), 16);
+  const blue = Number.parseInt(normalized.slice(5, 7), 16);
+  const luminance = (red * 0.299) + (green * 0.587) + (blue * 0.114);
+
+  return luminance > 168 ? '#111111' : '#FFFFFF';
+};
+
+const resolveColorHintKey = key => {
+  if (COLOR_HINTS[key]) return key;
+  if (key.startsWith('q-') && COLOR_HINTS[key.slice(2)]) return key.slice(2);
+  return null;
+};
+
+const formatColorHint = key => {
+  const resolvedKey = resolveColorHintKey(key);
+  if (resolvedKey) return COLOR_HINTS[resolvedKey];
+  return `chave de cor "${key}"`;
+};
+
 const pickThemeColor = (themeColors = {}, fallbackValue = '', keys = []) => {
   for (const key of keys) {
     const normalized = normalizeHex(themeColors?.[key]);
@@ -117,27 +178,34 @@ const pickThemeColor = (themeColors = {}, fallbackValue = '', keys = []) => {
   return normalizeHex(fallbackValue) || '#000000';
 };
 
-const buildEditableDraft = (themeColors = {}, fallbackPalette = colors) => ({
-  primary: pickThemeColor(themeColors, fallbackPalette.primary, THEME_ALIASES.primary),
-  secondary: pickThemeColor(themeColors, fallbackPalette.secondary, THEME_ALIASES.secondary),
-  background: pickThemeColor(themeColors, fallbackPalette.background, THEME_ALIASES.background),
-  text: pickThemeColor(themeColors, fallbackPalette.text, THEME_ALIASES.text),
-  textSecondary: pickThemeColor(themeColors, fallbackPalette.textSecondary, THEME_ALIASES.textSecondary),
-  border: pickThemeColor(themeColors, fallbackPalette.border, THEME_ALIASES.border),
+const buildNewThemeDraft = fallbackPalette => ({
+  primary: normalizeHex(fallbackPalette.primary) || '#2563EB',
+  secondary: normalizeHex(fallbackPalette.secondary) || '#0F172A',
+  background: normalizeHex(fallbackPalette.background) || '#F8FAFC',
+  text: normalizeHex(fallbackPalette.text) || '#0F172A',
+  textSecondary: normalizeHex(fallbackPalette.textSecondary) || '#64748B',
+  border: normalizeHex(fallbackPalette.border) || '#E2E8F0',
 });
 
-const buildThemeColorsPayload = (draft, existingColors = {}) => {
-  const nextColors = { ...(existingColors || {}) };
+const buildEditableDraft = (themeColors = {}, fallbackPalette = colors) => {
+  const filteredEntries = Object.entries(themeColors || {})
+    .map(([key, value]) => [key, normalizeHex(value)])
+    .filter(([key, value]) => Boolean(value) && !AUTO_GENERATED_ALIAS_KEYS.has(key))
+    .sort(([leftKey], [rightKey]) => leftKey.localeCompare(rightKey));
 
-  Object.entries(THEME_ALIASES).forEach(([field, aliases]) => {
-    const value = normalizeHex(draft[field]);
-    if (!value) return;
-    aliases.forEach(alias => {
-      nextColors[alias] = value;
-    });
-  });
+  if (filteredEntries.length === 0) {
+    return buildNewThemeDraft(fallbackPalette);
+  }
 
-  return nextColors;
+  return Object.fromEntries(filteredEntries);
+};
+
+const buildThemeColorsPayload = draft => {
+  return Object.fromEntries(
+    Object.entries(draft || {})
+      .map(([key, value]) => [String(key).trim(), normalizeHex(value)])
+      .filter(([key, value]) => Boolean(key) && Boolean(value) && !AUTO_GENERATED_ALIAS_KEYS.has(key)),
+  );
 };
 
 const buildDuplicateName = (baseName, themes = []) => {
@@ -156,13 +224,31 @@ const buildDuplicateName = (baseName, themes = []) => {
   return attempt;
 };
 
+const getThemeColorEntries = themeColors => {
+  return Object.entries(themeColors || {})
+    .map(([key, value]) => [key, normalizeHex(value)])
+    .filter(([key, value]) => Boolean(value) && !AUTO_GENERATED_ALIAS_KEYS.has(key))
+    .sort(([leftKey], [rightKey]) => leftKey.localeCompare(rightKey))
+    .map(([key, value]) => ({ key, value }));
+};
+
+const buildEditorFields = draft => {
+  return Object.keys(draft || {})
+    .sort((leftKey, rightKey) => leftKey.localeCompare(rightKey))
+    .map(key => ({
+      key,
+      label: DEFAULT_THEME_FIELD_MAP[key]?.label || key,
+      helper: DEFAULT_THEME_FIELD_MAP[key]?.helper || formatColorHint(key),
+    }));
+};
+
 const ColorEditor = ({ field, value, onChange }) => {
   const normalizedValue = normalizeHex(value) || value;
 
   return (
     <View style={styles.colorEditor}>
       <View style={styles.colorEditorHeader}>
-        <View>
+        <View style={{ flex: 1 }}>
           <Text style={styles.colorEditorLabel}>{field.label}</Text>
           <Text style={styles.helperText}>{field.helper}</Text>
         </View>
@@ -209,6 +295,7 @@ const ColorEditor = ({ field, value, onChange }) => {
 };
 
 export default function ThemeManagerPage() {
+  const navigation = useNavigation();
   const peopleStore = useStore('people');
   const themeStore = useStore('theme');
   const { showError, showSuccess } = useToastMessage();
@@ -227,28 +314,17 @@ export default function ThemeManagerPage() {
 
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const [assignmentSavingId, setAssignmentSavingId] = useState(null);
   const [themes, setThemes] = useState([]);
-  const [domains, setDomains] = useState([]);
   const [editorVisible, setEditorVisible] = useState(false);
   const [editingTheme, setEditingTheme] = useState(null);
   const [themeName, setThemeName] = useState('');
-  const [themeDraft, setThemeDraft] = useState(buildEditableDraft({}, palette));
-  const [assignmentDomain, setAssignmentDomain] = useState(null);
+  const [themeDraft, setThemeDraft] = useState(buildNewThemeDraft(palette));
+  const [hoveredColorHelp, setHoveredColorHelp] = useState(null);
 
-  const themesById = useMemo(
-    () => Object.fromEntries(themes.map(item => [String(item.id), item])),
-    [themes],
+  const editorFields = useMemo(
+    () => buildEditorFields(themeDraft),
+    [themeDraft],
   );
-
-  const themeUsageCount = useMemo(() => {
-    return domains.reduce((accumulator, domain) => {
-      const themeId = getId(domain?.theme);
-      if (!themeId) return accumulator;
-      accumulator[themeId] = (accumulator[themeId] || 0) + 1;
-      return accumulator;
-    }, {});
-  }, [domains]);
 
   const refreshCurrentThemeIfNeeded = useCallback(async () => {
     if (!currentCompany?.id || String(currentCompany.id) !== String(defaultCompany?.id)) {
@@ -271,40 +347,21 @@ export default function ThemeManagerPage() {
   }, [currentCompany, defaultCompany?.id, peopleActions]);
 
   const loadData = useCallback(async () => {
-    if (!currentCompany?.id) {
-      setThemes([]);
-      setDomains([]);
-      return;
-    }
-
     setIsLoading(true);
     try {
-      const [themesResponse, domainsResponse] = await Promise.all([
-        api.fetch('/themes', { params: { itemsPerPage: 200, page: 1 } }),
-        api.fetch('/people_domains', {
-          params: {
-            people: `/people/${currentCompany.id}`,
-            itemsPerPage: 200,
-            page: 1,
-          },
-        }),
-      ]);
+      const themesResponse = await api.fetch('/themes', { params: { itemsPerPage: 200, page: 1 } });
 
-      const nextThemes = normalizeCollection(themesResponse).sort((a, b) =>
-        String(a?.theme || '').localeCompare(String(b?.theme || '')),
-      );
-      const nextDomains = normalizeCollection(domainsResponse).sort((a, b) =>
-        String(a?.domain || '').localeCompare(String(b?.domain || '')),
+      const nextThemes = normalizeCollection(themesResponse).sort(
+        (a, b) => Number(a?.id || 0) - Number(b?.id || 0),
       );
 
       setThemes(nextThemes);
-      setDomains(nextDomains);
     } catch (error) {
       showError(formatApiError(error));
     } finally {
       setIsLoading(false);
     }
-  }, [currentCompany?.id, showError]);
+  }, [showError]);
 
   useFocusEffect(
     useCallback(() => {
@@ -315,18 +372,18 @@ export default function ThemeManagerPage() {
   const openCreateTheme = useCallback(() => {
     setEditingTheme(null);
     setThemeName('');
-    setThemeDraft(buildEditableDraft({}, palette));
+    setThemeDraft(buildNewThemeDraft(palette));
     setEditorVisible(true);
   }, [palette]);
 
-  const openEditTheme = useCallback((themeItem) => {
+  const openEditTheme = useCallback(themeItem => {
     setEditingTheme(themeItem);
     setThemeName(String(themeItem?.theme || '').trim());
     setThemeDraft(buildEditableDraft(themeItem?.colors || {}, palette));
     setEditorVisible(true);
   }, [palette]);
 
-  const openDuplicateTheme = useCallback((themeItem) => {
+  const openDuplicateTheme = useCallback(themeItem => {
     setEditingTheme(null);
     setThemeName(buildDuplicateName(themeItem?.theme, themes));
     setThemeDraft(buildEditableDraft(themeItem?.colors || {}, palette));
@@ -347,20 +404,18 @@ export default function ThemeManagerPage() {
       return;
     }
 
-    for (const field of COLOR_FIELDS) {
-      if (!normalizeHex(themeDraft[field.key])) {
-        showError(`A cor "${field.label}" precisa estar em formato HEX, por exemplo #0EA5E9.`);
-        return;
-      }
+    const invalidField = editorFields.find(field => !normalizeHex(themeDraft[field.key]));
+    if (invalidField) {
+      showError(`A cor "${invalidField.label}" precisa estar em formato HEX, por exemplo #0EA5E9.`);
+      return;
     }
 
     setIsSaving(true);
     try {
-      const baseColors = editingTheme?.colors || {};
       const payload = {
         theme: normalizedName,
         background: getId(editingTheme?.background) ? Number(getId(editingTheme.background)) : null,
-        colors: buildThemeColorsPayload(themeDraft, baseColors),
+        colors: buildThemeColorsPayload(themeDraft),
       };
 
       if (editingTheme?.id) {
@@ -382,161 +437,25 @@ export default function ThemeManagerPage() {
     } finally {
       setIsSaving(false);
     }
-  }, [editingTheme, loadData, refreshCurrentThemeIfNeeded, showError, showSuccess, themeDraft, themeName]);
-
-  const assignThemeToDomain = useCallback(async (domainItem, themeItem) => {
-    if (!domainItem?.id || !themeItem?.id) return;
-
-    setAssignmentSavingId(String(domainItem.id));
-    try {
-      await api.fetch(getIri(domainItem, 'people_domains'), {
-        method: 'PUT',
-        body: {
-          people: getIri(domainItem?.people, 'people') || `/people/${currentCompany.id}`,
-          domain: domainItem.domain,
-          domainType: domainItem.domainType || domainItem.domain_type || 'ERP',
-          theme: getIri(themeItem, 'themes'),
-        },
-      });
-
-      setDomains(current =>
-        current.map(item =>
-          String(item.id) === String(domainItem.id)
-            ? { ...item, theme: getIri(themeItem, 'themes') }
-            : item,
-        ),
-      );
-      setAssignmentDomain(null);
-      showSuccess('Tema associado ao dominio.');
-      await refreshCurrentThemeIfNeeded();
-    } catch (error) {
-      showError(formatApiError(error));
-    } finally {
-      setAssignmentSavingId(null);
-    }
-  }, [currentCompany?.id, refreshCurrentThemeIfNeeded, showError, showSuccess]);
-
-  if (!currentCompany?.id) {
-    return (
-      <SafeAreaView style={[styles.root, { backgroundColor: palette.background }]}>
-        <View style={styles.loadingWrap}>
-          <Text style={styles.emptyTitle}>Selecione uma empresa para gerenciar temas.</Text>
-        </View>
-      </SafeAreaView>
-    );
-  }
+  }, [editingTheme, editorFields, loadData, refreshCurrentThemeIfNeeded, showError, showSuccess, themeDraft, themeName]);
 
   return (
     <SafeAreaView style={[styles.root, { backgroundColor: palette.background }]} edges={['bottom']}>
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-        <View style={[styles.heroCard, { backgroundColor: palette.primary }]}>
-          <Text style={styles.heroEyebrow}>Temas e dominios</Text>
-          <Text style={styles.heroTitle}>Aparencia por empresa</Text>
-          <Text style={styles.heroText}>
-            Escolha uma paleta, edite as cores em HEX, duplique temas existentes e associe cada dominio da empresa ativa ao tema certo.
-          </Text>
-
-          <View style={styles.heroActionRow}>
-            <TouchableOpacity style={styles.createButton} onPress={openCreateTheme}>
-              <Icon name="plus" size={16} color="#FFFFFF" />
-              <Text style={styles.createButtonText}>Novo tema</Text>
-            </TouchableOpacity>
-
-            <View style={styles.heroBadge}>
-              <Icon name="droplet" size={22} color={palette.primary} />
-            </View>
-          </View>
-        </View>
-
-        <View style={styles.sectionHeader}>
+        <View style={styles.toolbar}>
           <View style={{ flex: 1 }}>
-            <Text style={styles.sectionTitle}>Dominios da empresa</Text>
+            <Text style={styles.sectionTitle}>Temas</Text>
             <Text style={styles.sectionText}>
-              O tema passa a valer quando for associado a um registro de `people_domain`.
+              Um tema por linha, com as cores reais do banco logo abaixo.
             </Text>
           </View>
-          <View style={styles.sectionStat}>
-            <Text style={styles.sectionStatValue}>{domains.length}</Text>
-            <Text style={styles.sectionStatLabel}>Dominios</Text>
-          </View>
-        </View>
-
-        {isLoading ? (
-          <View style={styles.loadingWrap}>
-            <ActivityIndicator size="large" color={palette.primary} />
-          </View>
-        ) : domains.length === 0 ? (
-          <View style={styles.emptyCard}>
-            <Icon name="globe" size={20} color={palette.primary} />
-            <Text style={styles.emptyTitle}>Nenhum dominio encontrado para esta empresa.</Text>
-            <Text style={styles.emptyText}>
-              Assim que houver registros em `people_domain`, voce podera associar um tema a cada um deles aqui.
-            </Text>
-          </View>
-        ) : (
-          <View style={styles.domainsList}>
-            {domains.map(domainItem => {
-              const themeId = getId(domainItem?.theme);
-              const activeTheme = themesById[themeId];
-              const themeLabel = activeTheme?.theme || (themeId ? `Tema #${themeId}` : 'Sem tema');
-              const isAssigning = assignmentSavingId === String(domainItem.id);
-
-              return (
-                <View key={String(domainItem.id)} style={styles.domainCard}>
-                  <View style={styles.domainTop}>
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.domainLabel}>{domainItem?.domain || 'Dominio sem nome'}</Text>
-                      <Text style={styles.domainMeta}>
-                        Tipo: {domainItem?.domainType || domainItem?.domain_type || 'ERP'}
-                      </Text>
-                    </View>
-
-                    <View
-                      style={[
-                        styles.domainThemePill,
-                        {
-                          backgroundColor: withOpacity(palette.primary, 0.1),
-                          borderColor: withOpacity(palette.primary, 0.18),
-                        },
-                      ]}
-                    >
-                      <Text style={[styles.domainThemeText, { color: palette.primary }]}>
-                        {themeLabel}
-                      </Text>
-                    </View>
-                  </View>
-
-                  <TouchableOpacity
-                    style={styles.domainAction}
-                    onPress={() => setAssignmentDomain(domainItem)}
-                    disabled={isAssigning || themes.length === 0}
-                  >
-                    {isAssigning ? (
-                      <ActivityIndicator size="small" color={palette.primary} />
-                    ) : (
-                      <Icon name="refresh-cw" size={14} color="#334155" />
-                    )}
-                    <Text style={styles.domainActionText}>
-                      {themes.length === 0 ? 'Crie um tema primeiro' : 'Escolher tema'}
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-              );
-            })}
-          </View>
-        )}
-
-        <View style={styles.sectionHeader}>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.sectionTitle}>Biblioteca de temas</Text>
-            <Text style={styles.sectionText}>
-              Edite as cores principais do sistema e reaproveite a mesma paleta em quantos dominios quiser.
-            </Text>
-          </View>
-          <View style={styles.sectionStat}>
-            <Text style={styles.sectionStatValue}>{themes.length}</Text>
-            <Text style={styles.sectionStatLabel}>Temas</Text>
-          </View>
+          <TouchableOpacity
+            style={[styles.createButton, { backgroundColor: palette.primary }]}
+            onPress={openCreateTheme}
+          >
+            <Icon name="plus" size={16} color="#FFFFFF" />
+            <Text style={styles.createButtonText}>Novo tema</Text>
+          </TouchableOpacity>
         </View>
 
         {isLoading ? (
@@ -552,79 +471,82 @@ export default function ThemeManagerPage() {
             </Text>
           </View>
         ) : (
-          <View style={styles.themesGrid}>
+          <View style={styles.themeList}>
             {themes.map(themeItem => {
-              const previewPalette = buildEditableDraft(themeItem?.colors || {}, palette);
-              const usageCount = themeUsageCount[String(themeItem.id)] || 0;
+              const colorEntries = getThemeColorEntries(themeItem?.colors || {});
 
               return (
                 <View key={String(themeItem.id)} style={styles.themeCard}>
-                  <View
-                    style={[
-                      styles.themePreview,
-                      { backgroundColor: previewPalette.primary },
-                    ]}
-                  >
-                    <View style={styles.themePreviewHeader}>
-                      <Text
-                        numberOfLines={2}
-                        style={[styles.themeName, { color: previewPalette.background }]}
-                      >
+                  <View style={styles.themeRowTop}>
+                    <View style={styles.themeTitleWrap}>
+                      <Text style={styles.themeName}>
                         {themeItem?.theme || `Tema ${themeItem?.id}`}
+                        {hoveredColorHelp?.themeId === String(themeItem.id)
+                          ? ` (${hoveredColorHelp.hint})`
+                          : ''}
                       </Text>
-                      <View style={styles.themeBadge}>
-                        <Text style={styles.themeBadgeText}>{usageCount} dominios</Text>
-                      </View>
+                      <Text style={styles.themeMetaText}>#{themeItem?.id}</Text>
                     </View>
-
-                    <View
-                      style={[
-                        styles.previewSurface,
-                        {
-                          backgroundColor: previewPalette.background,
-                          borderColor: withOpacity(previewPalette.text, 0.08),
-                        },
-                      ]}
-                    >
-                      <Text style={[styles.previewTitle, { color: previewPalette.text }]}>
-                        Visual do sistema
-                      </Text>
-                      <Text style={[styles.previewText, { color: previewPalette.textSecondary }]}>
-                        Botoes, fundos, textos e bordas desta paleta.
-                      </Text>
-                    </View>
-                  </View>
-
-                  <View style={styles.swatchRow}>
-                    {COLOR_FIELDS.map(field => (
-                      <View
-                        key={`${themeItem.id}-${field.key}`}
-                        style={[
-                          styles.swatchItem,
-                          { backgroundColor: previewPalette[field.key] },
-                        ]}
-                      />
-                    ))}
-                  </View>
-
-                  <View style={styles.themeMetaRow}>
-                    <Text style={styles.themeMetaText}>
-                      {usageCount > 0 ? `Em uso em ${usageCount} dominio(s)` : 'Disponivel para associacao'}
-                    </Text>
                     <View style={styles.themeActions}>
                       <TouchableOpacity
-                        style={styles.iconButton}
-                        onPress={() => openDuplicateTheme(themeItem)}
+                        style={styles.actionButton}
+                        onPress={() => navigation.navigate('ThemePreviewPage', {
+                          themeId: themeItem?.id,
+                          theme: themeItem,
+                        })}
                       >
-                        <Icon name="copy" size={16} color="#334155" />
+                        <Icon name="eye" size={14} color="#334155" />
+                        <Text style={styles.actionButtonText}>Preview</Text>
                       </TouchableOpacity>
                       <TouchableOpacity
-                        style={styles.iconButton}
+                        style={styles.actionButton}
                         onPress={() => openEditTheme(themeItem)}
                       >
-                        <Icon name="edit-3" size={16} color="#334155" />
+                        <Icon name="edit-3" size={14} color="#334155" />
+                        <Text style={styles.actionButtonText}>Editar</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={styles.actionButton}
+                        onPress={() => openDuplicateTheme(themeItem)}
+                      >
+                        <Icon name="copy" size={14} color="#334155" />
+                        <Text style={styles.actionButtonText}>Duplicar</Text>
                       </TouchableOpacity>
                     </View>
+                  </View>
+
+                  <View style={styles.colorTileGrid}>
+                    {colorEntries.length === 0 ? (
+                      <Text style={styles.themeMetaText}>Sem cores validas cadastradas no banco.</Text>
+                    ) : (
+                      colorEntries.map(colorItem => (
+                        <Pressable
+                          key={`${themeItem.id}-${colorItem.key}`}
+                          onHoverIn={() => setHoveredColorHelp({
+                            themeId: String(themeItem.id),
+                            hint: formatColorHint(colorItem.key),
+                          })}
+                          onHoverOut={() => setHoveredColorHelp(null)}
+                          style={[
+                            styles.colorTile,
+                            {
+                              backgroundColor: colorItem.value,
+                              borderColor: withOpacity(getReadableTextColor(colorItem.value), 0.12),
+                            },
+                          ]}
+                        >
+                          <Text
+                            numberOfLines={1}
+                            style={[
+                              styles.colorTileLabel,
+                              { color: getReadableTextColor(colorItem.value) },
+                            ]}
+                          >
+                            {`${colorItem.key} (${colorItem.value})`}
+                          </Text>
+                        </Pressable>
+                      ))
+                    )}
                   </View>
                 </View>
               );
@@ -644,7 +566,7 @@ export default function ThemeManagerPage() {
                       {editingTheme?.id ? 'Editar tema' : 'Novo tema'}
                     </Text>
                     <Text style={styles.modalSubtitle}>
-                      Ajuste as cores principais do sistema usando HEX ou uma das amostras rapidas.
+                      Todas as cores reais do `theme.colors` aparecem aqui para edicao.
                     </Text>
                   </View>
                   <TouchableOpacity style={styles.iconButton} onPress={() => setEditorVisible(false)}>
@@ -664,7 +586,7 @@ export default function ThemeManagerPage() {
                     />
                   </View>
 
-                  {COLOR_FIELDS.map(field => (
+                  {editorFields.map(field => (
                     <ColorEditor
                       key={field.key}
                       field={field}
@@ -696,71 +618,6 @@ export default function ThemeManagerPage() {
                     )}
                   </TouchableOpacity>
                 </View>
-              </View>
-            </TouchableWithoutFeedback>
-          </View>
-        </TouchableWithoutFeedback>
-      </Modal>
-
-      <Modal
-        visible={Boolean(assignmentDomain)}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setAssignmentDomain(null)}
-      >
-        <TouchableWithoutFeedback onPress={() => setAssignmentDomain(null)}>
-          <View style={styles.backdrop}>
-            <TouchableWithoutFeedback>
-              <View style={styles.modalSheet}>
-                <View style={styles.modalHeader}>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.modalTitle}>Associar tema ao dominio</Text>
-                    <Text style={styles.modalSubtitle}>
-                      {assignmentDomain?.domain || 'Dominio selecionado'}
-                    </Text>
-                  </View>
-                  <TouchableOpacity style={styles.iconButton} onPress={() => setAssignmentDomain(null)}>
-                    <Icon name="x" size={16} color="#334155" />
-                  </TouchableOpacity>
-                </View>
-
-                <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.pickerList}>
-                  {themes.map(themeItem => {
-                    const previewPalette = buildEditableDraft(themeItem?.colors || {}, palette);
-                    const selected = String(getId(assignmentDomain?.theme)) === String(themeItem?.id);
-
-                    return (
-                      <TouchableOpacity
-                        key={`assign-${themeItem.id}`}
-                        style={[
-                          styles.pickerThemeCard,
-                          selected && styles.pickerThemeCardActive,
-                        ]}
-                        onPress={() => assignThemeToDomain(assignmentDomain, themeItem)}
-                        disabled={assignmentSavingId === String(assignmentDomain?.id)}
-                      >
-                        <View style={styles.pickerThemeTop}>
-                          <Text style={styles.pickerThemeName}>{themeItem?.theme || `Tema ${themeItem?.id}`}</Text>
-                          {selected ? (
-                            <Icon name="check-circle" size={18} color={palette.primary} />
-                          ) : null}
-                        </View>
-
-                        <View style={styles.swatchRow}>
-                          {COLOR_FIELDS.map(field => (
-                            <View
-                              key={`${themeItem.id}-picker-${field.key}`}
-                              style={[
-                                styles.swatchItem,
-                                { backgroundColor: previewPalette[field.key] },
-                              ]}
-                            />
-                          ))}
-                        </View>
-                      </TouchableOpacity>
-                    );
-                  })}
-                </ScrollView>
               </View>
             </TouchableWithoutFeedback>
           </View>

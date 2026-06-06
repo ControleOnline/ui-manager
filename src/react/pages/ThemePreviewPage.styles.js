@@ -1,0 +1,350 @@
+import { Platform, StyleSheet } from 'react-native';
+
+const cardShadow = Platform.select({
+  ios: {
+    shadowColor: '#0f172a',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.12,
+    shadowRadius: 22,
+  },
+  android: { elevation: 4 },
+  web: { boxShadow: '0 14px 30px rgba(15,23,42,0.12)' },
+});
+
+const styles = StyleSheet.create({
+  root: { flex: 1 },
+  scroll: { padding: 18, paddingBottom: 40, gap: 18 },
+  heroCard: {
+    borderRadius: 24,
+    padding: 22,
+    gap: 14,
+    ...cardShadow,
+  },
+  heroTop: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    gap: 12,
+  },
+  heroMeta: { gap: 6, flex: 1 },
+  heroTitle: {
+    fontSize: 26,
+    fontWeight: '900',
+  },
+  heroSubtitle: {
+    fontSize: 13,
+    lineHeight: 20,
+    fontWeight: '700',
+  },
+  heroPill: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 999,
+    borderWidth: 1,
+    alignSelf: 'flex-start',
+  },
+  heroPillText: {
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  topNav: {
+    borderRadius: 18,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: 10,
+  },
+  topNavBrand: {
+    fontSize: 15,
+    fontWeight: '900',
+  },
+  topNavItems: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    justifyContent: 'flex-end',
+  },
+  topNavItem: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 999,
+  },
+  topNavItemText: {
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  sectionCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 22,
+    padding: 18,
+    gap: 14,
+    ...cardShadow,
+  },
+  sectionHeader: {
+    gap: 4,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: '900',
+    color: '#111111',
+  },
+  sectionText: {
+    fontSize: 13,
+    lineHeight: 20,
+    color: '#667085',
+  },
+  financeChipRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+  },
+  financeChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 999,
+    borderWidth: 1,
+  },
+  financeChipDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 999,
+  },
+  financeChipText: {
+    fontSize: 12,
+    fontWeight: '900',
+  },
+  filterRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+  },
+  filterTrigger: {
+    minWidth: 200,
+    flexBasis: '31%',
+    flexGrow: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    borderRadius: 16,
+    borderWidth: 1,
+  },
+  filterIconWrap: {
+    width: 32,
+    height: 32,
+    borderRadius: 12,
+  },
+  filterTextWrap: {
+    flex: 1,
+    gap: 2,
+  },
+  filterCaption: {
+    fontSize: 11,
+    fontWeight: '800',
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
+  },
+  filterLabel: {
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  buttonRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+  },
+  sampleButton: {
+    minWidth: 132,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+  },
+  sampleButtonText: {
+    fontSize: 13,
+    fontWeight: '900',
+  },
+  cardGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+  },
+  sampleInfoCard: {
+    minWidth: 180,
+    flexBasis: '31%',
+    flexGrow: 1,
+    borderRadius: 18,
+    padding: 16,
+    gap: 12,
+    borderWidth: 1,
+  },
+  statLabel: {
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  statValue: {
+    fontSize: 26,
+    fontWeight: '900',
+  },
+  statHelper: {
+    fontSize: 12,
+    lineHeight: 18,
+    fontWeight: '700',
+  },
+  badgeRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  badge: {
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    borderRadius: 999,
+    borderWidth: 1,
+  },
+  badgeText: {
+    fontSize: 12,
+    fontWeight: '900',
+  },
+  formGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+  },
+  inputWrap: {
+    minWidth: 220,
+    flexBasis: '31%',
+    flexGrow: 1,
+    gap: 8,
+  },
+  inputLabel: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#475467',
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
+  },
+  inputBox: {
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderWidth: 1,
+    minHeight: 48,
+    justifyContent: 'center',
+  },
+  inputText: {
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  inputHelp: {
+    fontSize: 12,
+    lineHeight: 18,
+    color: '#667085',
+  },
+  alertStack: { gap: 10 },
+  alertCard: {
+    borderRadius: 16,
+    padding: 14,
+    gap: 6,
+    borderWidth: 1,
+  },
+  alertTitle: {
+    fontSize: 13,
+    fontWeight: '900',
+  },
+  alertText: {
+    fontSize: 12,
+    lineHeight: 18,
+    fontWeight: '700',
+  },
+  tableWrap: {
+    borderRadius: 18,
+    overflow: 'hidden',
+    borderWidth: 1,
+  },
+  tableHeader: {
+    flexDirection: 'row',
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  tableHeaderCell: {
+    flex: 1,
+    fontSize: 12,
+    fontWeight: '900',
+  },
+  tableRow: {
+    flexDirection: 'row',
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+    alignItems: 'center',
+    borderTopWidth: 1,
+  },
+  tableCell: {
+    flex: 1,
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  tokenGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+  },
+  tokenCard: {
+    minWidth: 160,
+    flexBasis: '23%',
+    flexGrow: 1,
+    borderRadius: 16,
+    padding: 12,
+    gap: 8,
+    borderWidth: 1,
+  },
+  tokenName: {
+    fontSize: 12,
+    fontWeight: '900',
+  },
+  tokenValue: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  tokenUsage: {
+    fontSize: 11,
+    lineHeight: 17,
+    fontWeight: '700',
+  },
+  emptyCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 22,
+    padding: 22,
+    alignItems: 'center',
+    gap: 10,
+    ...cardShadow,
+  },
+  emptyTitle: {
+    fontSize: 16,
+    fontWeight: '900',
+    color: '#111111',
+    textAlign: 'center',
+  },
+  emptyText: {
+    fontSize: 13,
+    lineHeight: 20,
+    color: '#667085',
+    textAlign: 'center',
+  },
+  loadingWrap: {
+    minHeight: 260,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+});
+
+export default styles;
