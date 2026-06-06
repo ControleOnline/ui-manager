@@ -162,7 +162,7 @@ const managerRoutes = [
   {
     name: 'DeliveryRatesInboxPage',
     component: DeliveryRatesInboxPage,
-    path: 'delivery/rates',
+    path: 'delivery/manager/rates',
     options: {
       headerShown: true,
       headerBackVisible: true,
@@ -175,7 +175,7 @@ const managerRoutes = [
   {
     name: 'DeliveryRateVersionPage',
     component: DeliveryRateVersionPage,
-    path: 'delivery/rates/version',
+    path: 'delivery/manager/rates/version',
     options: {
       headerShown: true,
       headerBackVisible: true,
@@ -188,7 +188,7 @@ const managerRoutes = [
   {
     name: 'DeliveryRateHistoryPage',
     component: DeliveryRateHistoryPage,
-    path: 'delivery/rates/history',
+    path: 'delivery/manager/rates/history',
     options: {
       headerShown: true,
       headerBackVisible: true,
@@ -201,7 +201,7 @@ const managerRoutes = [
   {
     name: 'DeliveryRateCompanyPage',
     component: DeliveryRateCompanyPage,
-    path: 'delivery/rates/companies',
+    path: 'delivery/manager/rates/companies',
     options: {
       headerShown: true,
       headerBackVisible: true,
@@ -214,7 +214,7 @@ const managerRoutes = [
   {
     name: 'DeliveryPresenceInboxPage',
     component: DeliveryPresenceInboxPage,
-    path: 'delivery/presence',
+    path: 'delivery/manager/presence',
     options: {
       headerShown: true,
       headerBackVisible: true,
@@ -227,7 +227,7 @@ const managerRoutes = [
   {
     name: 'DeliveryPresenceDetailPage',
     component: DeliveryPresenceDetailPage,
-    path: 'delivery/presence/detail',
+    path: 'delivery/manager/presence/detail',
     options: {
       headerShown: true,
       headerBackVisible: true,
@@ -240,7 +240,7 @@ const managerRoutes = [
   {
     name: 'DeliveryPresenceHistoryPage',
     component: DeliveryPresenceHistoryPage,
-    path: 'delivery/presence/history',
+    path: 'delivery/manager/presence/history',
     options: {
       headerShown: true,
       headerBackVisible: true,

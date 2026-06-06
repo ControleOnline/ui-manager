@@ -7,8 +7,6 @@
 import React from 'react';
 import DeliveryCourierPresencePage from '@controleonline/ui-logistic/src/react/pages/presence/DeliveryCourierPresencePage';
 
-const DeliveryPresenceDetailContent = DeliveryCourierPresencePage;
-
 export default function DeliveryPresenceDetailPage(props) {
-  return <DeliveryPresenceDetailContent {...props} readOnly />;
+  return React.createElement(DeliveryCourierPresencePage, {...props, readOnly: true});
 }

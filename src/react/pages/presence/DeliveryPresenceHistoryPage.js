@@ -8,5 +8,5 @@ import React from 'react';
 import EntityLogPage from '@controleonline/ui-common/src/react/pages/EntityLogPage';
 
 export default function DeliveryPresenceHistoryPage(props) {
-  return <EntityLogPage {...props} />;
+  return React.createElement(EntityLogPage, props);
 }
