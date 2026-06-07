@@ -49,6 +49,7 @@ import ModelTemplatesPage from '@controleonline/ui-manager/src/react/pages/Model
 import WhatsAppConnectionPage from '@controleonline/ui-manager/src/react/pages/WhatsAppConnectionPage';
 import DisplayList from '@controleonline/ui-ppc/src/react/pages/displays/displayPage';
 import DisplayDetails from '@controleonline/ui-ppc/src/react/pages/displays/DisplayDetails';
+import DisplayOrderConference from '@controleonline/ui-ppc/src/react/pages/displays/orders/DisplayOrderConference';
 import DisplayForm from '@controleonline/ui-ppc/src/react/pages/displays/DisplayForm';
 import QueueAddProducts from '@controleonline/ui-ppc/src/react/pages/queues/QueueAddProducts';
 import LinkedOrderSettlementPage from '@controleonline/ui-orders/src/react/pages/checkout/LinkedOrderSettlementPage';
@@ -74,6 +75,18 @@ const managerRoutes = [
       headerBackVisible: true,
       title: () => global.t?.t('configs', 'title', 'displayDetails'),
       showBottomToolBar: true,
+      showCompanyFilter: true,
+      companyFilterMode: 'icon',
+    },
+  },
+  {
+    name: 'DisplayOrderConference',
+    component: DisplayOrderConference,
+    options: {
+      headerShown: true,
+      headerBackVisible: true,
+      title: 'Conferencia',
+      showBottomToolBar: false,
       showCompanyFilter: true,
       companyFilterMode: 'icon',
     },
