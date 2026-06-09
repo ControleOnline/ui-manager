@@ -28,7 +28,7 @@ export const createStyles = (palette = colors) =>
     borderWidth: 1,
     borderColor: palette.border,
     borderRadius: 999,
-    backgroundColor: palette.white,
+    backgroundColor: palette.background,
     paddingHorizontal: 12,
     paddingVertical: 8,
   },
@@ -52,7 +52,7 @@ export const createStyles = (palette = colors) =>
     paddingVertical: 10,
     borderRadius: 999,
     borderWidth: 1,
-    backgroundColor: palette.white,
+    backgroundColor: palette.background,
   },
   tabChipText: {
     fontSize: 13,

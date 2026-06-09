@@ -4,7 +4,7 @@ import {SafeAreaView} from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/Feather';
 import {useStore} from '@store';
 import FinancialEntriesPage from '@controleonline/ui-financial/src/react/pages/FinancialEntriesPage';
-import {resolveThemePalette, withOpacity} from '@controleonline/../../src/styles/branding';
+import {resolveThemePalette} from '@controleonline/../../src/styles/branding';
 import {colors} from '@controleonline/../../src/styles/colors';
 import {createStyles} from './FinancialHubPage.styles';
 
@@ -13,7 +13,6 @@ const getFinancialTabs = () => [
     key: 'receivables',
     label: global.t?.t('invoice', 'label', 'accountsReceivable'),
     icon: 'arrow-up-circle',
-    accentKey: 'success',
     categoryContext: 'receiver',
     categoryTitle: global.t?.t('invoice', 'label', 'revenueCategories'),
     categoryContextLabel: global.t?.t('invoice', 'label', 'revenue'),
@@ -22,7 +21,6 @@ const getFinancialTabs = () => [
     key: 'payables',
     label: global.t?.t('invoice', 'label', 'accountsPayable'),
     icon: 'arrow-down-circle',
-    accentKey: 'error',
     categoryContext: 'payer',
     categoryTitle: global.t?.t('invoice', 'label', 'expenseCategories'),
     categoryContextLabel: global.t?.t('invoice', 'label', 'expense'),
@@ -31,7 +29,6 @@ const getFinancialTabs = () => [
     key: 'ownTransfers',
     label: global.t?.t('invoice', 'label', 'transfers'),
     icon: 'repeat',
-    accentKey: 'info',
     categoryContext: 'payer',
     categoryTitle: global.t?.t('invoice', 'label', 'transferCategories'),
     categoryContextLabel: global.t?.t('invoice', 'label', 'transfers'),
@@ -43,18 +40,26 @@ export default function FinancialHubPage({navigation}) {
   const themeStore = useStore('theme');
   const {currentCompany} = peopleStore.getters;
   const {colors: themeColors} = themeStore.getters;
+  const themeTokens = useMemo(
+    () => ({...themeColors, ...(currentCompany?.theme?.colors || {})}),
+    [currentCompany?.theme?.colors, themeColors],
+  );
 
   const palette = useMemo(
     () =>
       resolveThemePalette(
-        {...themeColors, ...(currentCompany?.theme?.colors || {})},
+        themeTokens,
         colors,
       ),
-    [themeColors, currentCompany?.id],
+    [themeTokens],
   );
   const styles = useMemo(() => createStyles(palette), [palette]);
 
   const FINANCIAL_TABS = getFinancialTabs();
+  const tabSurfaceColor = palette.secondary || palette.text;
+  const tabHighlightColor = palette.primary || palette.background;
+  const tabBorderColor = palette.border;
+  const tabBackgroundColor = palette.background || palette.white;
 
   const [activeTab, setActiveTab] = useState('receivables');
 
@@ -87,7 +92,6 @@ export default function FinancialHubPage({navigation}) {
         <View style={styles.tabsRow}>
           {FINANCIAL_TABS.map(item => {
             const isActive = item.key === activeSection.key;
-            const accent = palette[item.accentKey] || palette.primary;
 
             return (
               <TouchableOpacity
@@ -95,12 +99,8 @@ export default function FinancialHubPage({navigation}) {
                 style={[
                   styles.tabChip,
                   {
-                    backgroundColor: isActive
-                      ? withOpacity(accent, 0.12)
-                      : palette.white,
-                    borderColor: isActive
-                      ? withOpacity(accent, 0.28)
-                      : palette.border,
+                    backgroundColor: isActive ? tabSurfaceColor : tabBackgroundColor,
+                    borderColor: isActive ? tabSurfaceColor : tabBorderColor,
                   },
                 ]}
                 activeOpacity={0.88}
@@ -108,12 +108,12 @@ export default function FinancialHubPage({navigation}) {
                 <Icon
                   name={item.icon}
                   size={14}
-                  color={isActive ? accent : palette.textSecondary}
+                  color={isActive ? tabHighlightColor : palette.textSecondary}
                 />
                 <Text
                   style={[
                     styles.tabChipText,
-                    {color: isActive ? accent : palette.textSecondary},
+                    {color: isActive ? tabHighlightColor : palette.textSecondary},
                   ]}>
                   {item.label}
                 </Text>
@@ -137,14 +137,8 @@ export default function FinancialHubPage({navigation}) {
             style={[
               styles.subtleButton,
               {
-                borderColor: withOpacity(
-                  palette[activeSection.accentKey] || palette.primary,
-                  0.24,
-                ),
-                backgroundColor: withOpacity(
-                  palette[activeSection.accentKey] || palette.primary,
-                  0.08,
-                ),
+                borderColor: tabSurfaceColor,
+                backgroundColor: tabSurfaceColor,
               },
             ]}
             activeOpacity={0.86}
@@ -159,12 +153,12 @@ export default function FinancialHubPage({navigation}) {
             <Icon
               name="tag"
               size={14}
-              color={palette[activeSection.accentKey] || palette.primary}
+              color={tabHighlightColor}
             />
             <Text
               style={[
                 styles.subtleButtonText,
-                {color: palette[activeSection.accentKey] || palette.primary},
+                {color: tabHighlightColor},
               ]}>
               {global.t?.t('invoice', 'label', 'categories')}
             </Text>
