@@ -2,7 +2,6 @@
 
 const assert = require('node:assert/strict');
 const {
-  cloneSeedData,
   buildErpCatalogCsv,
   buildErpExportPayload,
   activeCostSummary,
@@ -16,6 +15,9 @@ const {
   resaleItems,
   validateImportedDb,
 } = require('../../../react/pages/MenuCostsPage/viewModel');
+const seedData = require('../../../react/pages/MenuCostsPage/gyros-custos-cardapio.json');
+
+const cloneSeedData = () => JSON.parse(JSON.stringify(seedData));
 
 test('menu costs seed keeps Gyros engineering entities separated', () => {
   const db = cloneSeedData();

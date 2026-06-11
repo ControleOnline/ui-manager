@@ -1,5 +1,3 @@
-export { MAIN_TABS } from './tabs';
-
 export const STORAGE_KEY = 'controleonline:menu-costs-page:engineering:v1';
 
 export const PRODUCT_DETAIL_TABS = [
@@ -555,16 +553,13 @@ export const uniqueById = items => {
 };
 
 export const productPurchaseRows = (db, computedProduct) => {
-  const nodes = flattenNodes(computedProduct?.nodes || []);
-  return nodes
-    .filter(node => ['ingredient', 'packaging'].includes(node.refType))
-    .flatMap(node =>
-      purchaseItemsForResource(db, node.refType, node.refId).slice(0, 3).map(row => ({
-        ...row,
-        resourceName: node.name,
-        resourceType: node.refType,
-      }))
-    )
+  const productId = computedProduct?.product?.id;
+  if (!productId) {
+    return [];
+  }
+
+  return purchaseItemsForResource(db, 'product', productId)
+    .slice(0, 3)
     .sort((left, right) => String(right.date || '').localeCompare(String(left.date || '')));
 };
 

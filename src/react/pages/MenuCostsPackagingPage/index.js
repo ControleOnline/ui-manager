@@ -22,7 +22,7 @@ import {
 } from '@controleonline/ui-manager/src/react/pages/MenuCostsPage/navigation';
 import {
   buildLivePackagingDb,
-} from '@controleonline/ui-products/src/react/domain/menuCostsPackaging';
+} from '@controleonline/ui-manager/src/react/pages/MenuCostsPage/domain/menuCostsPackaging';
 import { MENU_COSTS_PAGE_SIZE } from '@controleonline/ui-products/src/react/domain/menuCostsPagination';
 import { fetchLatestPurchasesByProductIds, formatCurrency } from '@controleonline/ui-products/src/react/domain/productCosting';
 

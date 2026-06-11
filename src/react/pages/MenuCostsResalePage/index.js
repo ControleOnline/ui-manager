@@ -2,6 +2,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Image,
   ScrollView,
   Text,
   TextInput,
@@ -21,16 +22,21 @@ import {
   resolveMenuCostsTabRoute,
 } from '@controleonline/ui-manager/src/react/pages/MenuCostsPage/navigation';
 import {
-  buildResaleCatalogRows,
-} from '@controleonline/ui-products/src/react/domain/menuCostsResale';
+  buildEngineeringResaleRows,
+  resolveEngineeringBeverageCategoryIds,
+} from '@controleonline/ui-manager/src/react/pages/MenuCostsPage/domain/engineeringCatalogAdapter';
 import {
   formatDate,
   safeArray,
-} from '@controleonline/ui-products/src/react/domain/menuCostsShared';
+} from '@controleonline/ui-manager/src/react/pages/MenuCostsPage/domain/menuCostsShared';
 import {
   fetchLatestPurchasesByProductIds,
   formatCurrency,
 } from '@controleonline/ui-products/src/react/domain/productCosting';
+import {
+  resolveCategoryCoverUrl,
+  resolveProductCoverUrl,
+} from '@controleonline/ui-products/src/react/domain/productMedia';
 import {
   MENU_COSTS_PAGE_SIZE,
   extractCollectionItems,
@@ -44,9 +50,9 @@ const getToneStyle = tone => {
   return styles.toneNeutral;
 };
 
-const Badge = ({ children, tone = 'neutral' }) => (
+const Badge = ({ children, label, tone = 'neutral' }) => (
   <View style={[styles.badge, getToneStyle(tone)]}>
-    <Text style={styles.badgeText}>{children}</Text>
+    <Text style={styles.badgeText}>{children || label}</Text>
   </View>
 );
 
@@ -104,19 +110,59 @@ const InfoGrid = ({ rows }) => (
   </View>
 );
 
-const VisualThumb = ({ label }) => (
+const normalizeEntityId = value => {
+  if (!value && value !== 0) return '';
+  const raw = typeof value === 'object'
+    ? value?.id || value?.['@id'] || value?.value || ''
+    : value;
+
+  return String(raw || '').replace(/\D+/g, '').trim();
+};
+
+const uniqueProducts = products => {
+  const seen = new Set();
+  return safeArray(products).filter(product => {
+    const id = normalizeEntityId(product) || String(product?.sku || product?.product || product?.name || '').trim();
+    if (!id || seen.has(id)) return false;
+    seen.add(id);
+    return true;
+  });
+};
+
+const resolveProductCategoryId = product =>
+  normalizeEntityId(
+    product?.productCategory?.category ||
+      product?.productCategories?.[0]?.category ||
+      product?.category ||
+      product?.categoryId,
+  );
+
+const resolveRowImageUrl = (item, categories = []) => {
+  const productCover = resolveProductCoverUrl(item);
+  if (productCover) return productCover;
+
+  const categoryId = item?.categoryId || resolveProductCategoryId(item);
+  const category = safeArray(categories).find(row => normalizeEntityId(row) === String(categoryId || ''));
+  return resolveCategoryCoverUrl(category) || null;
+};
+
+const VisualThumb = ({ label, imageUrl }) => (
   <View style={[styles.visualThumb, styles.visualThumbSmall]}>
-    <Text style={styles.visualInitial}>{String(label || 'RV').slice(0, 2).toUpperCase()}</Text>
+    {imageUrl ? (
+      <Image source={{ uri: imageUrl }} style={styles.visualImage} resizeMode="cover" />
+    ) : (
+      <Text style={styles.visualInitial}>{String(label || 'RV').slice(0, 2).toUpperCase()}</Text>
+    )}
   </View>
 );
 
-const ProductRow = ({ item, selected, latestPurchase, onPress }) => (
+const ProductRow = ({ item, selected, latestPurchase, onPress, categories }) => (
   <TouchableOpacity
     style={[styles.rowCard, selected && styles.rowCardActive]}
     activeOpacity={0.84}
     onPress={onPress}
   >
-    <VisualThumb label={item.name} />
+    <VisualThumb label={item.name} imageUrl={resolveRowImageUrl(item, categories)} />
     <View style={styles.rowContent}>
       <Text style={styles.rowTitle} numberOfLines={2}>
         {item.name}
@@ -173,6 +219,9 @@ const PurchaseRow = ({ item }) => (
 );
 
 const resolveSectionTitle = () => 'Bebidas de revenda';
+const RESALE_INITIAL_TARGET_ROWS = 24;
+const RESALE_INITIAL_MAX_PAGES = 5;
+const RESALE_CATEGORY_MAX_PAGES = 6;
 
 export default function MenuCostsResalePage({ navigation }) {
   const { showError } = useMessage() || {};
@@ -181,7 +230,7 @@ export default function MenuCostsResalePage({ navigation }) {
   const categoriesStore = useStore('categories');
 
   const { currentCompany } = peopleStore.getters;
-  const categories = categoriesStore.getters?.items || [];
+  const storeCategories = categoriesStore.getters?.items || [];
   const isLoadingStore = productsStore.getters?.isLoading === true || categoriesStore.getters?.isLoading === true;
   const { width } = useWindowDimensions();
   const isWide = width >= 1060;
@@ -190,6 +239,7 @@ export default function MenuCostsResalePage({ navigation }) {
   const latestPurchasesRequestIdRef = useRef(0);
   const rawProductsRef = useRef([]);
   const nextPageRef = useRef(1);
+  const categoriesRef = useRef([]);
 
   const [query, setQuery] = useState('');
   const [debouncedQuery, setDebouncedQuery] = useState('');
@@ -201,6 +251,12 @@ export default function MenuCostsResalePage({ navigation }) {
   const [detailError, setDetailError] = useState('');
   const [latestPurchasesByProductId, setLatestPurchasesByProductId] = useState({});
   const [isLoadingDetails, setIsLoadingDetails] = useState(false);
+  const [catalogCategories, setCatalogCategories] = useState([]);
+  const categories = catalogCategories.length ? catalogCategories : storeCategories;
+
+  useEffect(() => {
+    categoriesRef.current = categories;
+  }, [categories]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -220,12 +276,46 @@ export default function MenuCostsResalePage({ navigation }) {
     setDetailError('');
     setLatestPurchasesByProductId({});
     setIsLoadingDetails(false);
+    setCatalogCategories([]);
   }, []);
+
+  const fetchProductsByBeverageCategories = useCallback(async ({
+    companyId,
+    categoryIds,
+  }) => {
+    const results = [];
+
+    for (const categoryId of categoryIds) {
+      let page = 1;
+      let shouldContinue = true;
+
+      while (shouldContinue && page <= RESALE_CATEGORY_MAX_PAGES) {
+        const response = await productsStore.actions.getItems({
+          active: 1,
+          company: companyId,
+          page,
+          itemsPerPage: MENU_COSTS_PAGE_SIZE,
+          type: ['product', 'feedstock'],
+          'productCategory.category': `/categories/${categoryId}`,
+          'order[product]': 'ASC',
+          'order[description]': 'ASC',
+        });
+
+        const pageItems = extractCollectionItems(response);
+        results.push(...pageItems);
+        shouldContinue = hasHydraNext(response) || pageItems.length === MENU_COSTS_PAGE_SIZE;
+        page += 1;
+      }
+    }
+
+    return uniqueProducts(results);
+  }, [productsStore.actions]);
 
   const loadProductsPage = useCallback(async ({
     pageNumber = 1,
     append = false,
     searchTerm = '',
+    categoriesOverride = null,
   } = {}) => {
     const companyId = currentCompany?.id;
     if (!companyId) {
@@ -241,32 +331,86 @@ export default function MenuCostsResalePage({ navigation }) {
     }
 
     try {
-      const response = await productsStore.actions.getItems({
-        active: 1,
-        company: companyId,
-        page: pageNumber,
-        type: ['product'],
-        'order[product]': 'ASC',
-        'order[description]': 'ASC',
-        ...(searchTerm ? { product: searchTerm } : {}),
-      });
+      const activeCategories = categoriesOverride || categoriesRef.current;
+      const beverageCategoryIds = resolveEngineeringBeverageCategoryIds(activeCategories);
+
+      if (!append && !searchTerm && beverageCategoryIds.length) {
+        const categoryProducts = await fetchProductsByBeverageCategories({
+          companyId,
+          categoryIds: beverageCategoryIds,
+        });
+
+        if (requestId !== requestIdRef.current) {
+          return;
+        }
+
+        rawProductsRef.current = categoryProducts;
+        setRawProducts(categoryProducts);
+        nextPageRef.current = 1;
+        setHasMoreProducts(false);
+        setSelectedId(currentId => {
+          const resaleRows = buildEngineeringResaleRows({
+            products: categoryProducts,
+            categories: activeCategories,
+          });
+          const current = resaleRows.find(product => String(product.id) === String(currentId));
+          return current?.id || resaleRows[0]?.id || null;
+        });
+        return;
+      }
+
+      let response = null;
+      let pageToLoad = pageNumber;
+      let loadedPages = 0;
+      let items = [];
+      let lastPageItems = [];
+      let combined = append ? [...rawProductsRef.current] : [];
+
+      do {
+        response = await productsStore.actions.getItems({
+          active: 1,
+          company: companyId,
+          page: pageToLoad,
+          type: ['product', 'feedstock'],
+          'order[product]': 'ASC',
+          'order[description]': 'ASC',
+          ...(searchTerm ? { product: searchTerm } : {}),
+        });
+
+        const pageItems = extractCollectionItems(response);
+        lastPageItems = pageItems;
+        items = [...items, ...pageItems];
+        combined = [...combined, ...pageItems];
+        loadedPages += 1;
+        pageToLoad += 1;
+
+        const resaleRows = buildEngineeringResaleRows({
+          products: combined,
+          categories: categoriesRef.current,
+        });
+        const canLoadMore = hasHydraNext(response) || pageItems.length === MENU_COSTS_PAGE_SIZE;
+        const reachedInitialTarget = append || resaleRows.length >= RESALE_INITIAL_TARGET_ROWS;
+
+        if (!canLoadMore || reachedInitialTarget || loadedPages >= RESALE_INITIAL_MAX_PAGES) {
+          break;
+        }
+      } while (true);
 
       if (requestId !== requestIdRef.current) {
         return;
       }
 
-      const items = extractCollectionItems(response);
-      const combined = append
-        ? [...rawProductsRef.current, ...items]
-        : items;
-
       rawProductsRef.current = combined;
       setRawProducts(combined);
-      nextPageRef.current = pageNumber + 1;
-      setHasMoreProducts(hasHydraNext(response) || items.length === MENU_COSTS_PAGE_SIZE);
+      nextPageRef.current = pageToLoad;
+      setHasMoreProducts(hasHydraNext(response) || lastPageItems.length === MENU_COSTS_PAGE_SIZE);
       setSelectedId(currentId => {
-        const current = combined.find(product => String(product.id) === String(currentId));
-        return current?.id || combined[0]?.id || null;
+        const resaleRows = buildEngineeringResaleRows({
+          products: combined,
+          categories: categoriesRef.current,
+        });
+        const current = resaleRows.find(product => String(product.id) === String(currentId));
+        return current?.id || resaleRows[0]?.id || null;
       });
     } catch (error) {
       const message =
@@ -286,20 +430,25 @@ export default function MenuCostsResalePage({ navigation }) {
         setIsLoadingMore(false);
       }
     }
-  }, [currentCompany?.id, productsStore.actions, resetCatalogState, showError]);
+  }, [currentCompany?.id, fetchProductsByBeverageCategories, productsStore.actions, resetCatalogState, showError]);
 
   const loadCategories = useCallback(async () => {
     const companyId = currentCompany?.id;
     if (!companyId) {
-      return;
+      return [];
     }
 
     try {
-      await categoriesStore.actions.getItems({
+      const response = await categoriesStore.actions.getItems({
         company: companyId,
         context: 'products',
+        itemsPerPage: 500,
         'order[name]': 'ASC',
       });
+      const nextCategories = extractCollectionItems(response);
+      categoriesRef.current = safeArray(nextCategories);
+      setCatalogCategories(safeArray(nextCategories));
+      return safeArray(nextCategories);
     } catch (error) {
       const message =
         error?.response?.data?.['hydra:description'] ||
@@ -307,32 +456,40 @@ export default function MenuCostsResalePage({ navigation }) {
         error?.message ||
         'Nao foi possivel carregar as categorias da revenda.';
       showError?.(message);
+      return [];
     }
   }, [categoriesStore.actions, currentCompany?.id, showError]);
 
   useFocusEffect(
     useCallback(() => {
-      loadCategories();
-    }, [loadCategories]),
-  );
+      let isActive = true;
 
-  useFocusEffect(
-    useCallback(() => {
       resetCatalogState();
-      loadProductsPage({
-        pageNumber: 1,
-        append: false,
-        searchTerm: debouncedQuery,
-      });
+
+      const loadCatalog = async () => {
+        const nextCategories = await loadCategories();
+
+        if (!isActive) return;
+
+        await loadProductsPage({
+          pageNumber: 1,
+          append: false,
+          searchTerm: debouncedQuery,
+          categoriesOverride: nextCategories,
+        });
+      };
+
+      loadCatalog();
 
       return () => {
+        isActive = false;
         latestPurchasesRequestIdRef.current += 1;
       };
-    }, [debouncedQuery, loadProductsPage, resetCatalogState]),
+    }, [debouncedQuery, loadCategories, loadProductsPage, resetCatalogState]),
   );
 
   const visibleProducts = useMemo(
-    () => buildResaleCatalogRows({
+    () => buildEngineeringResaleRows({
       products: rawProducts,
       categories,
     }),
@@ -362,20 +519,22 @@ export default function MenuCostsResalePage({ navigation }) {
     () => safeArray(latestPurchasesByProductId?.[selectedProduct?.id])[0] || null,
     [latestPurchasesByProductId, selectedProduct?.id],
   );
+  const visibleProductIdsKey = useMemo(
+    () => visibleProducts.map(item => item.id).filter(Boolean).join('|'),
+    [visibleProducts],
+  );
 
   useEffect(() => {
     const companyId = currentCompany?.id;
-    const visibleIds = visibleProducts.map(item => item.id).filter(Boolean);
+    const visibleIds = visibleProductIdsKey ? visibleProductIdsKey.split('|').filter(Boolean) : [];
 
     if (!companyId || visibleIds.length === 0) {
-      setDetailError('');
       setIsLoadingDetails(false);
       return;
     }
 
     const missingIds = visibleIds.filter(productId => !safeArray(latestPurchasesByProductId?.[productId]).length);
     if (missingIds.length === 0) {
-      setDetailError('');
       setIsLoadingDetails(false);
       return;
     }
@@ -433,7 +592,7 @@ export default function MenuCostsResalePage({ navigation }) {
     };
 
     loadLatestPurchases();
-  }, [currentCompany?.id, latestPurchasesByProductId, selectedProduct?.id, showError, visibleProducts]);
+  }, [currentCompany?.id, latestPurchasesByProductId, showError, visibleProductIdsKey]);
 
   const summaryRows = [
     { label: 'Carregados', value: String(rawProducts.length) },
@@ -558,6 +717,7 @@ export default function MenuCostsResalePage({ navigation }) {
                     <ProductRow
                       key={item.id}
                       item={item}
+                      categories={categories}
                       latestPurchase={safeArray(latestPurchasesByProductId?.[item.id])[0] || null}
                       selected={String(selectedProduct?.id) === String(item.id)}
                       onPress={() => setSelectedId(item.id)}
@@ -597,14 +757,20 @@ export default function MenuCostsResalePage({ navigation }) {
                       </View>
                     ) : null}
 
-                    {isLoadingDetails ? (
-                      <View style={[styles.rowCard, { alignItems: 'center', justifyContent: 'center', minHeight: 88, marginBottom: 12 }]}>
-                        <ActivityIndicator size="small" color={MENU_COLORS.brand} />
-                        <Text style={[styles.rowSubtitle, { marginTop: 8 }]}>Carregando ultima compra...</Text>
-                      </View>
-                    ) : null}
-
                     <View style={styles.productHero}>
+                      <View style={[styles.visualThumb, styles.visualThumbLarge]}>
+                        {resolveRowImageUrl(selectedProduct, categories) ? (
+                          <Image
+                            source={{ uri: resolveRowImageUrl(selectedProduct, categories) }}
+                            style={styles.visualImage}
+                            resizeMode="cover"
+                          />
+                        ) : (
+                          <Text style={styles.visualInitial}>
+                            {String(selectedProduct.name || 'RV').slice(0, 2).toUpperCase()}
+                          </Text>
+                        )}
+                      </View>
                       <View style={styles.productHeroText}>
                         <Text style={styles.productHeroTitle}>
                           {formatCurrency(selectedProduct.price)}
@@ -632,6 +798,11 @@ export default function MenuCostsResalePage({ navigation }) {
                       <View style={{ gap: 8, marginTop: 12 }}>
                         {selectedLatestPurchase ? (
                           <PurchaseRow item={selectedLatestPurchase} />
+                        ) : isLoadingDetails ? (
+                          <View style={[styles.rowCard, { alignItems: 'center', justifyContent: 'center', minHeight: 80 }]}>
+                            <ActivityIndicator size="small" color={MENU_COLORS.brand} />
+                            <Text style={[styles.rowSubtitle, { marginTop: 8 }]}>Carregando ultima compra...</Text>
+                          </View>
                         ) : (
                           <Text style={styles.panelSubtitle}>Nenhuma compra recente encontrada para esta bebida.</Text>
                         )}

@@ -293,6 +293,9 @@ export default StyleSheet.create({
     maxWidth: '100%',
     flexShrink: 0,
   },
+  ingredientsTablePanel: {
+    width: 940,
+  },
   listGroup: {
     gap: 8,
   },
@@ -606,12 +609,53 @@ export default StyleSheet.create({
     backgroundColor: MENU_COLORS.surface,
     padding: 10,
   },
-  addonCard: {
+  addonGroupCard: {
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#C8DBF4',
+    padding: 12,
+    backgroundColor: '#F3F8FF',
+    gap: 10,
+  },
+  addonGroupHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: 10,
+    paddingBottom: 6,
+    borderBottomWidth: 1,
+    borderBottomColor: '#D8E8FA',
+  },
+  addonGroupTitle: {
+    color: MENU_COLORS.text,
+    fontSize: 15,
+    fontWeight: '900',
+  },
+  addonGroupMeta: {
+    color: MENU_COLORS.muted,
+    fontSize: 12,
+    marginTop: 3,
+  },
+  addonOptionCard: {
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#D8E8FA',
+    padding: 10,
+    backgroundColor: MENU_COLORS.surface,
+  },
+  recipeComponentBlock: {
     borderRadius: 8,
     borderWidth: 1,
     borderColor: MENU_COLORS.border,
-    padding: 12,
-    backgroundColor: MENU_COLORS.surfaceAlt,
+    backgroundColor: MENU_COLORS.surface,
+    padding: 10,
+    gap: 8,
+  },
+  recipeComponentAudit: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 10,
   },
   emptyState: {
     minHeight: 120,
@@ -643,14 +687,80 @@ export default StyleSheet.create({
     fontWeight: '800',
     padding: 10,
   },
+  tableHeaderTextWide: {
+    width: 260,
+  },
+  tableHeaderTextNarrow: {
+    width: 120,
+  },
+  tableHeaderTextCompactName: {
+    width: 190,
+  },
+  tableHeaderTextCompactUnit: {
+    width: 62,
+  },
+  tableHeaderTextCompactCost: {
+    width: 144,
+  },
+  tableHeaderTextCompactBase: {
+    width: 116,
+  },
+  tableHeaderTextCompactOrigin: {
+    width: 146,
+  },
+  tableHeaderTextCompactAudit: {
+    width: 104,
+  },
+  tableHeaderTextCompactLink: {
+    width: 154,
+  },
+  tableGroupHeader: {
+    width: '100%',
+    backgroundColor: '#EAF4FF',
+    borderBottomWidth: 1,
+    borderBottomColor: '#BFDBFE',
+    paddingHorizontal: 10,
+    paddingVertical: 10,
+  },
+  tableGroupTitle: {
+    color: MENU_COLORS.text,
+    fontSize: 13,
+    fontWeight: '900',
+  },
+  tableGroupSubtitle: {
+    color: MENU_COLORS.muted,
+    fontSize: 12,
+    marginTop: 2,
+  },
   tableRow: {
     flexDirection: 'row',
     borderBottomWidth: 1,
     borderBottomColor: MENU_COLORS.border,
     backgroundColor: MENU_COLORS.surface,
+    borderLeftWidth: 4,
+    borderLeftColor: 'transparent',
+  },
+  tableRowGood: {
+    backgroundColor: '#F0FDF4',
+    borderLeftColor: '#22C55E',
+  },
+  tableRowWarn: {
+    backgroundColor: '#FFFBEB',
+    borderLeftColor: '#F59E0B',
+  },
+  tableRowBad: {
+    backgroundColor: '#FEF2F2',
+    borderLeftColor: '#EF4444',
   },
   tableRowActive: {
-    backgroundColor: '#F5FAFF',
+    backgroundColor: '#EAF4FF',
+    borderLeftColor: MENU_COLORS.brandStrong,
+    ...Platform.select({
+      web: {
+        boxShadow: 'inset 0 0 0 1px #9BC4FF',
+      },
+      default: {},
+    }),
   },
   tableCell: {
     width: 180,
@@ -658,6 +768,44 @@ export default StyleSheet.create({
     fontSize: 12,
     lineHeight: 17,
     padding: 10,
+  },
+  tableCellWide: {
+    width: 260,
+  },
+  tableCellNarrow: {
+    width: 120,
+  },
+  tableCellCompactUnit: {
+    width: 62,
+  },
+  tableCellCompactCost: {
+    width: 144,
+  },
+  tableCellCompactBase: {
+    width: 116,
+  },
+  tableCellCompactOrigin: {
+    width: 146,
+  },
+  tableCellCompactAudit: {
+    width: 104,
+  },
+  tableCellCompactLink: {
+    width: 154,
+  },
+  tableIdentity: {
+    width: 260,
+    padding: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  tableIdentityCompact: {
+    width: 190,
+  },
+  tableIdentityText: {
+    flex: 1,
+    minWidth: 0,
   },
   tableCellText: {
     color: MENU_COLORS.text,
@@ -683,6 +831,79 @@ export default StyleSheet.create({
     paddingHorizontal: 8,
     outlineStyle: 'none',
   },
+  sourceChoiceCard: {
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: MENU_COLORS.border,
+    backgroundColor: MENU_COLORS.surface,
+    padding: 10,
+    gap: 8,
+  },
+  sourceChoiceCardActive: {
+    borderColor: '#9BC4FF',
+    backgroundColor: '#F5FAFF',
+  },
+  sourceChoiceHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: 10,
+  },
+  sourceChoiceActions: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  sourceLinkButton: {
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: MENU_COLORS.border,
+    backgroundColor: MENU_COLORS.surfaceAlt,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    alignSelf: 'flex-start',
+  },
+  evidenceLinkGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 6,
+  },
+  sourceLinkText: {
+    color: MENU_COLORS.brandText,
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  costSummaryHero: {
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#B8D6FF',
+    backgroundColor: '#F5FAFF',
+    padding: 12,
+    marginBottom: 12,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  costSummaryValue: {
+    color: MENU_COLORS.text,
+    fontSize: 24,
+    fontWeight: '900',
+    marginTop: 4,
+  },
+  costSummaryMeta: {
+    flex: 1,
+    minWidth: 180,
+    alignItems: 'flex-end',
+  },
+  sourceDecisionHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: 10,
+    marginBottom: 10,
+  },
   processTable: {
     borderRadius: 8,
     borderWidth: 1,
@@ -696,6 +917,9 @@ export default StyleSheet.create({
     borderColor: MENU_COLORS.border,
     overflow: 'hidden',
     marginTop: 12,
+  },
+  ingredientsCostTable: {
+    minWidth: 770,
   },
   quantityField: {
     minWidth: 120,

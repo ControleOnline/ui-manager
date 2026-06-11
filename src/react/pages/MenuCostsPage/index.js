@@ -72,9 +72,9 @@ import {
   targetMarginPct,
   normalizeEntityId,
   validateImportedDb,
-} from '@controleonline/ui-products/src/react/domain/menuCostsShared';
+} from '@controleonline/ui-manager/src/react/pages/MenuCostsPage/domain/menuCostsShared';
 import { fetchLatestPurchasesByProductIds } from '@controleonline/ui-products/src/react/domain/productCosting';
-import { buildLiveMenuCostsDb } from '@controleonline/ui-products/src/react/domain/menuCostsLiveDb';
+import { buildLiveMenuCostsDb } from '@controleonline/ui-manager/src/react/pages/MenuCostsPage/domain/menuCostsLiveDb';
 import {
   MENU_COSTS_PAGE_SIZE,
   fetchAllPagedItems,
@@ -225,18 +225,40 @@ const Field = ({ label, value, inputProps, onChangeText, multiline }) => (
   </View>
 );
 
-const QuantityField = ({ value, unit, onChangeText, compact }) => (
-  <View style={[styles.quantityField, compact && styles.quantityFieldCompact]}>
-    <TextInput
-      value={String(value ?? '')}
-      onChangeText={onChangeText}
-      keyboardType="numeric"
-      style={styles.quantityInput}
-      placeholderTextColor={MENU_COLORS.muted}
-    />
-    <Text style={styles.quantityUnit}>{unit}</Text>
-  </View>
-);
+const QuantityField = ({ value, unit, onChangeText, onCommitText, compact }) => {
+  const [draft, setDraft] = useState(String(value ?? ''));
+  const lastCommittedRef = useRef(String(value ?? ''));
+
+  useEffect(() => {
+    const nextValue = String(value ?? '');
+    setDraft(nextValue);
+  }, [value]);
+
+  const commit = useCallback(() => {
+    if (lastCommittedRef.current === draft) return;
+    lastCommittedRef.current = draft;
+    onCommitText?.(draft);
+  }, [draft, onCommitText]);
+
+  return (
+    <View style={[styles.quantityField, compact && styles.quantityFieldCompact]}>
+      <TextInput
+        value={draft}
+        onChangeText={nextValue => {
+          setDraft(nextValue);
+          onChangeText?.(nextValue);
+        }}
+        onBlur={commit}
+        onEndEditing={commit}
+        onSubmitEditing={commit}
+        keyboardType="numeric"
+        style={styles.quantityInput}
+        placeholderTextColor={MENU_COLORS.muted}
+      />
+      <Text style={styles.quantityUnit}>{unit}</Text>
+    </View>
+  );
+};
 
 const RowCard = ({ title, subtitle, meta, selected, onPress, right, badges, imageSource }) => (
   <TouchableOpacity style={[styles.rowCard, selected && styles.rowCardActive]} activeOpacity={0.84} onPress={onPress}>
@@ -277,7 +299,105 @@ const InfoGrid = ({ rows }) => (
   </View>
 );
 
-const ComponentNode = ({ db, node, depth = 0, onQtyChange }) => {
+const evidenceTone = value => {
+  const normalized = String(value || '').toLowerCase();
+  if (['documented', 'selected', 'latest', 'calculated'].includes(normalized)) return 'good';
+  if (['manual', 'average'].includes(normalized)) return 'warn';
+  if (['review', 'estimated'].includes(normalized)) return 'bad';
+  return 'neutral';
+};
+
+const activeCostAudit = (db, refType, record = {}) => {
+  const summary = activeCostSummary(db, refType, record);
+  const selected = summary.selected || null;
+  const latest = summary.latest || null;
+  const evidence = selected || latest;
+  const mode = summary.mode;
+  const label =
+    mode === 'selected' && selected
+      ? 'Compra escolhida'
+      : mode === 'latest' && latest
+        ? 'Comprovado'
+        : mode === 'average' && summary.purchaseCount
+          ? 'Média de compras'
+          : mode === 'manual'
+            ? 'Manual'
+            : evidenceLabel(record.evidenceType || record.sourceType);
+  const linkLabel = evidence
+    ? `${formatDate(evidence.date)} · ${evidence.supplierName || evidence.orderLabel || evidence.evidenceSource || evidence.id}`
+    : mode === 'manual'
+      ? 'Valor manual'
+      : summary.purchaseCount
+        ? `${summary.purchaseCount} evidência(s)`
+        : 'Sem evidência';
+
+  return {
+    label,
+    tone: evidenceTone(mode === 'selected' || mode === 'latest' ? 'documented' : mode),
+    linkLabel,
+    evidence,
+    summary,
+  };
+};
+
+const recipeComponentAuditRows = (db, recipe) =>
+  safeArray(recipe?.components).map(component => {
+    const record = getById(db, resourceCollectionForRef(component.refType), component.refId);
+    const audit = record ? activeCostAudit(db, component.refType, record) : null;
+    return {
+      component,
+      record,
+      audit,
+      name: resourceName(db, component.refType, component.refId),
+      cost: componentCost(db, component),
+    };
+  });
+
+const recipeAuditSummary = (db, recipe) => {
+  const rows = recipeComponentAuditRows(db, recipe);
+  if (!rows.length) {
+    return {
+      label: 'Revisar',
+      tone: 'warn',
+      linkLabel: 'Sem ficha técnica',
+      source: 'Nenhum componente vinculado',
+      missingCount: 1,
+      manualCount: 0,
+      documentedCount: 0,
+    };
+  }
+
+  const missingCount = rows.filter(row => !row.record || !row.audit?.summary?.activePrimaryCost).length;
+  const manualCount = rows.filter(row => row.audit?.summary?.mode === 'manual').length;
+  const documentedCount = rows.filter(row => ['selected', 'latest'].includes(row.audit?.summary?.mode)).length;
+  const selectedEvidence = rows.find(row => row.audit?.evidence)?.audit?.evidence;
+
+  if (missingCount) {
+    return {
+      label: 'Revisar custos',
+      tone: 'warn',
+      linkLabel: `${missingCount} item(ns) sem custo`,
+      source: `${rows.length} componente(s) · ${missingCount} pendência(s)`,
+      missingCount,
+      manualCount,
+      documentedCount,
+    };
+  }
+
+  return {
+    label: manualCount ? 'Receita calculada / manual' : 'Receita calculada',
+    tone: manualCount ? 'warn' : 'good',
+    linkLabel: selectedEvidence
+      ? `${formatDate(selectedEvidence.date)} · ${selectedEvidence.supplierName || selectedEvidence.orderLabel || selectedEvidence.id}`
+      : `${rows.length} custo(s) herdado(s)`,
+    source: `${rows.length} componente(s) · ${documentedCount} comprovado(s) · ${manualCount} manual(is)`,
+    missingCount,
+    manualCount,
+    documentedCount,
+  };
+};
+
+const ComponentNode = ({ db, node, depth = 0, onQtyChange, onQtyCommit }) => {
   const costSummary = node.record && ['ingredient', 'recipe', 'packaging'].includes(node.refType)
     ? activeCostSummary(db, node.refType, node.record)
     : null;
@@ -304,7 +424,12 @@ const ComponentNode = ({ db, node, depth = 0, onQtyChange }) => {
       <View style={styles.componentCostGrid}>
         <View style={styles.componentCostCell}>
           <Text style={styles.infoLabel}>Quantidade na ficha</Text>
-          <QuantityField value={node.qty} unit={node.unit} onChangeText={value => onQtyChange(value)} />
+          <QuantityField
+            value={node.qty}
+            unit={node.unit}
+            onChangeText={value => onQtyChange(value)}
+            onCommitText={value => onQtyCommit?.(value)}
+          />
         </View>
         <View style={styles.componentCostCell}>
           <Text style={styles.infoLabel}>Custo-base</Text>
@@ -312,7 +437,7 @@ const ComponentNode = ({ db, node, depth = 0, onQtyChange }) => {
           {costSummary?.source ? <Text style={styles.infoHelper} numberOfLines={2}>{costSummary.source}</Text> : null}
         </View>
         <View style={styles.componentCostCell}>
-          <Text style={styles.infoLabel}>Leitura</Text>
+          <Text style={styles.infoLabel}>Base do cálculo</Text>
           <Text style={styles.infoValue}>{readingLabel}</Text>
           <Text style={styles.infoHelper}>{node.pricingMode}</Text>
         </View>
@@ -331,6 +456,37 @@ const ComponentNode = ({ db, node, depth = 0, onQtyChange }) => {
   );
 };
 
+const AddonCostCells = ({ db, node }) => {
+  const costSummary = node.record && ['ingredient', 'recipe', 'packaging'].includes(node.refType)
+    ? activeCostSummary(db, node.refType, node.record)
+    : null;
+  const baseCostLabel = costSummary
+    ? `${money(costSummary.activePrimaryCost)} / ${costSummary.primaryUnit}`
+    : money(node.cost);
+  const readingLabel = costSummary
+    ? `${preciseMoney(costSummary.activeBaseCost)} / ${costSummary.baseUnit}`
+    : node.unit || 'UN';
+
+  return (
+    <>
+      <View style={styles.componentCostCell}>
+        <Text style={styles.infoLabel}>Custo-base</Text>
+        <Text style={styles.infoValue}>{baseCostLabel}</Text>
+        {costSummary?.source ? <Text style={styles.infoHelper} numberOfLines={2}>{costSummary.source}</Text> : null}
+      </View>
+      <View style={styles.componentCostCell}>
+        <Text style={styles.infoLabel}>Base do cálculo</Text>
+        <Text style={styles.infoValue}>{readingLabel}</Text>
+        <Text style={styles.infoHelper}>{node.pricingMode}</Text>
+      </View>
+      <View style={styles.componentCostCell}>
+        <Text style={styles.infoLabel}>Custo desta quantidade</Text>
+        <Text style={styles.infoValue}>{money(node.cost)}</Text>
+      </View>
+    </>
+  );
+};
+
 export default function MenuCostsPage({ navigation, route }) {
   const messageApi = useMessage() || {};
   const { showError, showSuccess } = messageApi;
@@ -338,6 +494,7 @@ export default function MenuCostsPage({ navigation, route }) {
   const ordersStore = useStore('orders');
   const productsStore = useStore('products');
   const productGroupProductStore = useStore('product_group_product');
+  const productGroupStore = useStore('product_group');
   const categoriesStore = useStore('categories');
   const { currentCompany } = peopleStore.getters || {};
   const ordersActions = ordersStore.actions || {};
@@ -376,6 +533,7 @@ export default function MenuCostsPage({ navigation, route }) {
         peopleActions: peopleStore.actions,
         productsActions: productsStore.actions,
         productGroupProductActions: productGroupProductStore.actions,
+        productGroupActions: productGroupStore.actions,
         categoriesActions: categoriesStore.actions,
         includePurchaseHistory: false,
       });
@@ -414,6 +572,7 @@ export default function MenuCostsPage({ navigation, route }) {
     categoriesStore.actions,
     currentCompany?.id,
     peopleStore.actions,
+    productGroupStore.actions,
     productGroupProductStore.actions,
     productsStore.actions,
     route,
@@ -554,6 +713,48 @@ export default function MenuCostsPage({ navigation, route }) {
     persistDb(nextDb);
   }, [db, persistDb]);
 
+  const saveProductComponentQuantity = useCallback(async (productId, componentIndex, node, quantity) => {
+    const relationId = normalizeEntityId(node?.relationId);
+    if (!relationId) {
+      return;
+    }
+
+    const product = safeArray(db.products).find(item => String(item.id) === String(productId));
+    const component = safeArray(product?.components)[componentIndex] || {};
+    const nextQuantity = num(quantity) || 0;
+
+    if (nextQuantity <= 0) {
+      showError?.('Informe uma quantidade maior que zero para esta ficha.');
+      loadLiveDb();
+      return;
+    }
+
+    try {
+      const productType = node?.productType || component.productType || (node?.refType === 'packaging' ? 'package' : 'feedstock');
+      const productIri = node?.productIri || component.productIri || '';
+      await productGroupProductStore.actions.save({
+        id: relationId,
+        ...(productType === 'feedstock' && productIri ? { product: productIri } : {}),
+        ...(productType !== 'feedstock' ? { product: null } : {}),
+        ...(node?.productGroupIri || component.productGroupIri ? { productGroup: node.productGroupIri || component.productGroupIri } : {}),
+        ...(node?.productChildIri || component.productChildIri ? { productChild: node.productChildIri || component.productChildIri } : {}),
+        productType,
+        price: num(node?.price ?? component.price),
+        quantity: nextQuantity,
+        active: node?.active ?? component.active ?? true,
+      });
+      showSuccess?.('Quantidade da ficha atualizada no ERP.');
+    } catch (error) {
+      const message =
+        error?.response?.data?.['hydra:description'] ||
+        error?.response?.data?.detail ||
+        error?.message ||
+        'Não foi possível salvar a quantidade desta ficha no ERP.';
+      showError?.(message);
+      loadLiveDb();
+    }
+  }, [db.products, loadLiveDb, productGroupProductStore.actions, showError, showSuccess]);
+
   const patchProductAddonComponent = useCallback((productId, addonId, componentIndex, patch) => {
     const nextDb = {
       ...db,
@@ -591,6 +792,47 @@ export default function MenuCostsPage({ navigation, route }) {
     };
     persistDb(nextDb);
   }, [db, persistDb]);
+
+  const saveRecipeComponentQuantity = useCallback(async (recipeId, componentIndex, node, quantity) => {
+    const relationId = normalizeEntityId(node?.relationId);
+    if (!relationId) {
+      return;
+    }
+
+    const recipe = safeArray(db.recipes).find(item => String(item.id) === String(recipeId));
+    const component = safeArray(recipe?.components)[componentIndex] || {};
+    const nextQuantity = num(quantity) || 0;
+
+    if (nextQuantity <= 0) {
+      showError?.('Informe uma quantidade maior que zero para a receita.');
+      loadLiveDb();
+      return;
+    }
+
+    try {
+      const productType = node?.productType || component.productType || 'feedstock';
+      const productIri = node?.productIri || component.productIri || '';
+      await productGroupProductStore.actions.save({
+        id: relationId,
+        ...(productIri ? { product: productIri } : {}),
+        ...(node?.productGroupIri || component.productGroupIri ? { productGroup: node.productGroupIri || component.productGroupIri } : {}),
+        ...(node?.productChildIri || component.productChildIri ? { productChild: node.productChildIri || component.productChildIri } : {}),
+        productType,
+        price: num(node?.price ?? component.price),
+        quantity: nextQuantity,
+        active: node?.active ?? component.active ?? true,
+      });
+      showSuccess?.('Quantidade da receita atualizada no ERP.');
+    } catch (error) {
+      const message =
+        error?.response?.data?.['hydra:description'] ||
+        error?.response?.data?.detail ||
+        error?.message ||
+        'Não foi possível salvar a quantidade desta receita no ERP.';
+      showError?.(message);
+      loadLiveDb();
+    }
+  }, [db.recipes, loadLiveDb, productGroupProductStore.actions, showError, showSuccess]);
 
   const patchActiveCost = useCallback((collection, id, patch) => {
     const nextDb = {
@@ -721,8 +963,10 @@ export default function MenuCostsPage({ navigation, route }) {
                 openModal: setModal,
                 patchCollectionItem,
                 patchProductComponent,
+                saveProductComponentQuantity,
                 patchProductAddonComponent,
                 patchRecipeComponent,
+                saveRecipeComponentQuantity,
                 patchActiveCost,
                 persistDb,
                 showError,
@@ -732,7 +976,7 @@ export default function MenuCostsPage({ navigation, route }) {
           </View>
         </View>
       </View>
-      <StateStore stores={['products', 'product_group_product', 'product_unit']} />
+      <StateStore stores={['products', 'product_group', 'product_group_product', 'product_unit']} />
       <EditModal
         modal={modal}
         db={db}
@@ -760,7 +1004,7 @@ function renderContent(props) {
   if (activeTab === 'dashboard') return <Dashboard {...props} />;
   if (activeTab === 'products') return <ProductsView {...props} />;
   if (['ingredients', 'packaging'].includes(activeTab)) return <SupplyResourceView {...props} collection={activeTab} />;
-  if (activeTab === 'recipes') return <ResourceView {...props} collection={activeTab} />;
+  if (activeTab === 'recipes') return <RecipesView {...props} />;
   if (activeTab === 'resale') return <ResaleView {...props} />;
   if (activeTab === 'purchases') return <PurchasesView {...props} />;
   if (activeTab === 'processes') return <ProcessesView {...props} />;
@@ -843,6 +1087,7 @@ function ProductsView({
   setActiveProductTab,
   openModal,
   patchProductComponent,
+  saveProductComponentQuantity,
   patchProductAddonComponent,
 }) {
   const products = filterBySearch(computeEngineeringProducts(db), query, [
@@ -969,7 +1214,10 @@ function ProductsView({
         setActiveProductTab={setActiveProductTab}
         openModal={openModal}
         patchProductComponent={patchProductComponent}
+        saveProductComponentQuantity={saveProductComponentQuantity}
         patchProductAddonComponent={patchProductAddonComponent}
+        canEditComposition
+        canEditAddons
         readOnly
       />
     </View>
@@ -984,12 +1232,16 @@ function ProductDetail({
   setActiveProductTab,
   openModal,
   patchProductComponent,
+  saveProductComponentQuantity,
   patchProductAddonComponent,
+  canEditComposition = false,
+  canEditAddons = false,
   readOnly = false,
 }) {
   if (!computed) return <EmptyState text="Selecione um produto para ver a ficha." />;
   const product = computed.product;
   const purchases = purchaseRows || productPurchaseRows(db, computed);
+  const addonGroupEntries = Object.entries(groupBy(safeArray(computed.addons), addon => addon.group || 'Adicional'));
 
   return (
     <DetailShell
@@ -1007,7 +1259,7 @@ function ProductDetail({
         <View style={styles.productHeroText}>
           <Text style={styles.productHeroTitle}>{categoryName(db, product.categoryId)}</Text>
           <Text style={styles.productHeroSubtitle}>
-            {safeArray(product.components).length} componente(s) base · {safeArray(product.addons).length} grupo(s)/adicional(is) · {product.includeInCatalogCount === false ? 'fora da contagem' : 'conta no cardápio'}
+            {safeArray(product.components).length} componente(s) base · {addonGroupEntries.length} grupo(s) · {safeArray(computed.addons).length} adicional(is) · {product.includeInCatalogCount === false ? 'fora da contagem' : 'conta no cardápio'}
           </Text>
         </View>
       </View>
@@ -1042,7 +1294,8 @@ function ProductDetail({
                 key={node.key}
                 db={db}
                 node={node}
-                onQtyChange={readOnly ? undefined : value => patchProductComponent?.(product.id, index, { qty: num(value) })}
+                onQtyChange={!canEditComposition ? undefined : value => patchProductComponent?.(product.id, index, { qty: num(value) })}
+                onQtyCommit={!canEditComposition ? undefined : value => saveProductComponentQuantity?.(product.id, index, node, num(value))}
               />
             ))}
           </View>
@@ -1050,29 +1303,61 @@ function ProductDetail({
       ) : null}
       {activeProductTab === 'addons' ? (
         <View style={styles.stack}>
-          {safeArray(computed.addons).length ? safeArray(computed.addons).map(addon => (
-            <View key={addon.id || addon.name} style={styles.addonCard}>
-              <View style={styles.nodeHeader}>
-                <VisualThumb source={imageForAddon(db, addon)} label={addon.name} size="sm" />
-                <View>
-                  <Text style={styles.nodeTitle}>{addon.name}</Text>
-                  <Text style={styles.nodeMeta}>
-                    {addon.group || 'Adicional'} · {addon.required ? 'obrigatório' : 'opcional'} · min {addon.minimum || 0} · max {addon.maximum || 'livre'}
-                  </Text>
+          {addonGroupEntries.length ? addonGroupEntries.map(([groupName, addons]) => {
+            const firstAddon = addons[0] || {};
+            return (
+              <View key={groupName} style={styles.addonGroupCard}>
+                <View style={styles.addonGroupHeader}>
+                  <View style={styles.nodeTitleWrap}>
+                    <Text style={styles.addonGroupTitle}>{groupName}</Text>
+                    <Text style={styles.addonGroupMeta}>
+                      {firstAddon.required ? 'obrigatório' : 'opcional'} · min {firstAddon.minimum || 0} · max {firstAddon.maximum || 'livre'} · {addons.length} opção(ões)
+                    </Text>
+                  </View>
+                  <Text style={styles.nodeCost}>{money(addons.reduce((sum, addon) => sum + num(addon.directCost), 0))}</Text>
                 </View>
-                <Text style={styles.nodeCost}>{money(addon.directCost)} / + {money(addon.salePriceDelta)}</Text>
+                {addons.map(addon => {
+                  const addonNodes = safeArray(addon.nodes);
+                  const singleNode = addonNodes.length === 1 ? addonNodes[0] : null;
+                  return (
+                    <View key={addon.id || addon.name} style={styles.addonOptionCard}>
+                      <View style={styles.nodeHeader}>
+                        <VisualThumb source={imageForAddon(db, addon)} label={addon.name} size="sm" />
+                        <View style={styles.nodeTitleWrap}>
+                          <Text style={styles.nodeTitle}>{addon.name}</Text>
+                          <Text style={styles.nodeMeta}>{addon.required ? 'entra no obrigatório' : 'opção vendida à parte'}</Text>
+                        </View>
+                        <Text style={styles.nodeCost}>{money(addon.directCost)} / + {money(addon.salePriceDelta)}</Text>
+                      </View>
+                      {addon.notes ? <Text style={styles.infoHelper}>{addon.notes}</Text> : null}
+                      {singleNode ? (
+                        <View style={styles.componentCostGrid}>
+                          <View style={styles.componentCostCell}>
+                            <Text style={styles.infoLabel}>Quantidade na ficha</Text>
+                            <QuantityField
+                              value={singleNode.qty}
+                              unit={singleNode.unit}
+                              onChangeText={!canEditAddons ? undefined : value => patchProductAddonComponent?.(product.id, addon.id, 0, { qty: num(value) })}
+                              onCommitText={!canEditAddons ? undefined : value => saveProductComponentQuantity?.(product.id, -1, singleNode, num(value))}
+                            />
+                          </View>
+                          <AddonCostCells db={db} node={singleNode} />
+                        </View>
+                      ) : addonNodes.length ? addonNodes.map((node, index) => (
+                        <ComponentNode
+                          key={node.key}
+                          db={db}
+                          node={node}
+                          onQtyChange={!canEditAddons ? undefined : value => patchProductAddonComponent?.(product.id, addon.id, index, { qty: num(value) })}
+                          onQtyCommit={!canEditAddons ? undefined : value => saveProductComponentQuantity?.(product.id, -1, node, num(value))}
+                        />
+                      )) : <Text style={styles.infoHelper}>Opção sem custo direto. Obrigatoriedade e regra continuam preservadas.</Text>}
+                    </View>
+                  );
+                })}
               </View>
-              <Text style={styles.infoHelper}>{addon.notes}</Text>
-              {addon.nodes.length ? addon.nodes.map((node, index) => (
-                <ComponentNode
-                  key={node.key}
-                  db={db}
-                  node={node}
-                  onQtyChange={readOnly ? undefined : value => patchProductAddonComponent?.(product.id, addon.id, index, { qty: num(value) })}
-                />
-              )) : <Text style={styles.infoHelper}>Grupo sem custo direto. Obrigatoriedade e regra continuam preservadas.</Text>}
-            </View>
-          )) : <EmptyState text="Produto sem grupos ou adicionais." />}
+            );
+          }) : <EmptyState text="Produto sem grupos ou adicionais." />}
         </View>
       ) : null}
       {activeProductTab === 'packaging' ? (
@@ -1143,6 +1428,233 @@ function ResourceView({
   );
 }
 
+function RecipesView({
+  db,
+  query,
+  selectedId,
+  setSelectedId,
+  patchRecipeComponent,
+  saveRecipeComponentQuantity,
+}) {
+  const rows = filterBySearch(safeArray(db.recipes), query, [
+    item => item.name,
+    item => item.code,
+    item => item.description,
+    item => item.notes,
+    item => categoryName(db, item.categoryId),
+  ]);
+  const selected = getById(db, 'recipes', selectedId) || rows[0] || null;
+
+  return (
+    <View style={styles.splitLayout}>
+      <View style={styles.resourceTablePanel}>
+        <RecipesTable db={db} rows={rows} selectedId={selected?.id} onSelect={setSelectedId} />
+      </View>
+      <RecipeDetail
+        db={db}
+        item={selected}
+        patchRecipeComponent={patchRecipeComponent}
+        saveRecipeComponentQuantity={saveRecipeComponentQuantity}
+      />
+    </View>
+  );
+}
+
+const recipeGroupEntries = (db, rows) =>
+  Object.entries(groupBy(rows, item => categoryName(db, item.categoryId) || 'Sem categoria'))
+    .sort(([left], [right]) => String(left).localeCompare(String(right), 'pt-BR'));
+
+function RecipesTable({ db, rows, selectedId, onSelect }) {
+  const calculatedCount = safeArray(rows).filter(item => safeArray(item.components).length > 0).length;
+  const reviewCount = safeArray(rows).filter(item => safeArray(item.components).length === 0).length;
+
+  return (
+    <View style={styles.panel}>
+      <View style={styles.activeCostHeader}>
+        <View>
+          <Text style={styles.panelTitle}>Preparos</Text>
+          <Text style={styles.panelSubtitle}>Receitas internas com rendimento, componentes e custo calculado.</Text>
+        </View>
+        <Badge>{rows.length} item(ns)</Badge>
+      </View>
+      <View style={styles.badgeLine}>
+        <Badge tone="good">{calculatedCount} calculado(s)</Badge>
+        <Badge tone={reviewCount ? 'warn' : 'good'}>{reviewCount} para revisar</Badge>
+      </View>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+        <View style={styles.activeCostTable}>
+          <View style={styles.tableHeader}>
+            <Text style={[styles.tableHeaderText, styles.tableHeaderTextWide]}>Preparo</Text>
+          <Text style={styles.tableHeaderText}>Rendimento</Text>
+          <Text style={styles.tableHeaderText}>Custo ativo</Text>
+          <Text style={styles.tableHeaderText}>Base do cálculo</Text>
+          <Text style={[styles.tableHeaderText, styles.tableHeaderTextWide]}>Origem resumida</Text>
+          <Text style={styles.tableHeaderText}>Auditoria</Text>
+            <Text style={styles.tableHeaderText}>Vínculos</Text>
+          </View>
+          {recipeGroupEntries(db, rows).map(([groupName, groupRows]) => (
+            <View key={groupName}>
+              <View style={styles.tableGroupHeader}>
+                <Text style={styles.tableGroupTitle}>{groupName}</Text>
+                <Text style={styles.tableGroupSubtitle}>{groupRows.length} item(ns) nesta família operacional.</Text>
+              </View>
+              {groupRows.map(item => {
+                const summary = activeCostSummary(db, 'recipe', item);
+                const audit = recipeAuditSummary(db, item);
+                const selected = String(selectedId) === String(item.id);
+
+                return (
+                  <TouchableOpacity
+                    key={item.id}
+                    style={[
+                      styles.tableRow,
+                      audit.tone === 'good' && styles.tableRowGood,
+                      audit.tone === 'warn' && styles.tableRowWarn,
+                      audit.tone === 'bad' && styles.tableRowBad,
+                      selected && styles.tableRowActive,
+                    ]}
+                    activeOpacity={0.82}
+                    onPress={() => onSelect?.(item.id)}
+                  >
+                    <View style={styles.tableIdentity}>
+                      <VisualThumb source={imageForProduct(db, item)} label={item.name} size="sm" />
+                      <View style={styles.tableIdentityText}>
+                        <Text style={styles.rowTitle} numberOfLines={1}>{item.name}</Text>
+                        <Text style={styles.rowSubtitle} numberOfLines={2}>
+                          {[item.code || item.sku, item.description].filter(Boolean).join(' · ')}
+                        </Text>
+                      </View>
+                    </View>
+                    <Text style={styles.tableCell}>{decimal(item.yieldQty, 3)} {item.yieldUnit || 'un'}</Text>
+                    <Text style={styles.tableCell}>{money(summary.activePrimaryCost)} / {summary.primaryUnit}</Text>
+                    <Text style={styles.tableCell}>{preciseMoney(summary.activeBaseCost)} / {summary.baseUnit}</Text>
+                    <Text style={[styles.tableCell, styles.tableCellWide]}>
+                      Receita proporcional{'\n'}{audit.source}
+                    </Text>
+                    <View style={styles.tableCell}>
+                      <Badge tone={audit.tone}>{audit.label}</Badge>
+                    </View>
+                    <View style={styles.tableCell}>
+                      {audit.evidence ? (
+                        <View style={styles.evidenceLinkGroup}>
+                          <TouchableOpacity
+                            style={styles.sourceLinkButton}
+                            activeOpacity={0.82}
+                            onPress={() => onSelect?.(item.id)}
+                          >
+                            <Text style={styles.sourceLinkText}>Mapa</Text>
+                          </TouchableOpacity>
+                          <TouchableOpacity
+                            style={styles.sourceLinkButton}
+                            activeOpacity={0.82}
+                            onPress={() => onSelect?.(item.id)}
+                          >
+                            <Text style={styles.sourceLinkText} numberOfLines={1}>{audit.linkLabel}</Text>
+                          </TouchableOpacity>
+                        </View>
+                      ) : (
+                        <Text style={styles.tableCellText} numberOfLines={2}>{audit.linkLabel}</Text>
+                      )}
+                    </View>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          ))}
+        </View>
+      </ScrollView>
+    </View>
+  );
+}
+
+function RecipeDetail({ db, item, patchRecipeComponent, saveRecipeComponentQuantity }) {
+  if (!item) return <EmptyState />;
+  const summary = activeCostSummary(db, 'recipe', item);
+  const batchCost = recipeBatchCost(db, item);
+  const audit = recipeAuditSummary(db, item);
+
+  return (
+    <DetailShell
+      title={item.name}
+      subtitle={item.description || item.notes || 'Receita interna da engenharia'}
+      badges={[
+        { label: 'Preparo', tone: 'neutral' },
+        { label: audit.label, tone: audit.tone },
+        { label: item.code || item.id, tone: 'neutral' },
+      ]}
+    >
+      <View style={styles.costSummaryHero}>
+        <View>
+          <Text style={styles.infoLabel}>Custo ativo</Text>
+          <Text style={styles.costSummaryValue}>{money(summary.activePrimaryCost)} / {summary.primaryUnit}</Text>
+          <Text style={styles.infoHelper}>{preciseMoney(summary.activeBaseCost)} / {summary.baseUnit}</Text>
+        </View>
+        <View style={styles.costSummaryMeta}>
+          <Text style={styles.infoLabel}>Origem</Text>
+          <Text style={styles.rowTitle}>Receita proporcional</Text>
+          <Text style={styles.infoHelper} numberOfLines={2}>
+            {audit.source}
+          </Text>
+        </View>
+      </View>
+
+      <InfoGrid rows={[
+        { label: 'Custo do lote', value: money(batchCost), helper: 'Soma dos componentes' },
+        { label: 'Rendimento', value: `${decimal(item.yieldQty, 3)} ${item.yieldUnit || 'un'}`, helper: 'Base da divisão do lote' },
+        { label: 'Unidade ERP', value: item.erpUnit || item.yieldUnit || 'UN', helper: item.erpProductType || 'preparation' },
+        { label: 'Vínculos herdados', value: audit.linkLabel, helper: 'Vêm dos ingredientes e preparos usados' },
+      ]} />
+
+      <View style={styles.panelNested}>
+        <Text style={styles.panelTitle}>Receita e rendimento</Text>
+        <Text style={styles.panelSubtitle}>
+          Altere as quantidades dos componentes para recalcular o custo do lote e da unidade técnica.
+        </Text>
+        {safeArray(item.components).length ? safeArray(item.components).map((component, index) => {
+          const componentRecord = getById(db, resourceCollectionForRef(component.refType), component.refId);
+          const componentAudit = componentRecord ? activeCostAudit(db, component.refType, componentRecord) : null;
+          const node = {
+            key: `${component.relationId || ''}:${component.refType}:${component.refId}:${component.qty}`,
+            relationId: component.relationId || '',
+            productIri: component.productIri || '',
+            productGroupIri: component.productGroupIri || '',
+            productChildIri: component.productChildIri || '',
+            productType: component.productType || '',
+            price: component.price,
+            active: component.active !== false,
+            refType: component.refType,
+            refId: component.refId,
+            record: componentRecord,
+            name: resourceName(db, component.refType, component.refId),
+            qty: component.qty,
+            unit: component.unit || baseUnitForNode(db, component),
+            cost: componentCost(db, component),
+            pricingMode: 'receita',
+            children: [],
+          };
+
+          return (
+            <View key={node.key} style={styles.recipeComponentBlock}>
+              <View style={styles.recipeComponentAudit}>
+                <Badge tone={componentAudit?.tone || 'warn'}>{componentAudit?.label || 'Revisar'}</Badge>
+                <Text style={styles.infoHelper} numberOfLines={2}>
+                  {componentAudit?.linkLabel || 'Sem evidência de custo'}
+                </Text>
+              </View>
+              <ComponentNode
+                db={db}
+                node={node}
+                onQtyChange={value => patchRecipeComponent?.(item.id, index, { qty: num(value) })}
+                onQtyCommit={value => saveRecipeComponentQuantity?.(item.id, index, node, value)}
+              />
+            </View>
+          );
+        }) : <EmptyState text="Nenhum componente vinculado a este preparo." />}
+      </View>
+    </DetailShell>
+  );
+}
+
 function TechnicalSectionSummary({ db, collection, rows, selectedId, onSelect, onPatch }) {
   const meta = RESOURCE_META[collection];
   const refType = meta.refType;
@@ -1184,43 +1696,78 @@ function ActiveCostTable({ db, collection, refType, rows, selectedId, onSelect, 
     <ScrollView horizontal showsHorizontalScrollIndicator={false}>
       <View style={styles.activeCostTable}>
         <View style={styles.tableHeader}>
-          {['Item', 'Fonte ativa', 'Custo ativo', 'Leitura', 'Histórico', 'Auditoria'].map(label => (
-            <Text key={label} style={styles.tableHeaderText}>{label}</Text>
-          ))}
+          <Text style={[styles.tableHeaderText, styles.tableHeaderTextWide]}>Item</Text>
+          <Text style={styles.tableHeaderText}>Unidade</Text>
+          <Text style={styles.tableHeaderText}>Custo ativo</Text>
+          <Text style={styles.tableHeaderText}>Base do cálculo</Text>
+          <Text style={[styles.tableHeaderText, styles.tableHeaderTextWide]}>Origem resumida</Text>
+          <Text style={styles.tableHeaderText}>Auditoria</Text>
+          <Text style={styles.tableHeaderText}>Vínculos</Text>
         </View>
-        {safeArray(rows).map(item => {
-          const summary = activeCostSummary(db, refType, item);
-          const selected = String(selectedId) === String(item.id);
-          return (
-            <TouchableOpacity
-              key={item.id}
-              style={[styles.tableRow, selected && styles.tableRowActive]}
-              activeOpacity={0.82}
-              onPress={() => onSelect?.(item.id)}
-            >
-              <Text style={styles.tableCell}>{item.name}</Text>
-              <Text style={styles.tableCell}>{summary.modeLabel}{'\n'}{summary.source}</Text>
-              <View style={styles.tableCell}>
-                {selected && onPatch ? (
-                  <View style={styles.tableEditableCost}>
-                    <TextInput
-                      value={String(item.manualUnitCost ?? item.fixedUnitCost ?? item.overrideUnitCost ?? summary.activePrimaryCost)}
-                      onChangeText={value => onPatch(collection, item.id, { activeCostMode: 'manual', manualUnitCost: num(value), evidenceType: 'manual' })}
-                      keyboardType="numeric"
-                      style={styles.tableInput}
-                    />
-                    <Text style={styles.quantityUnit}>/{summary.primaryUnit}</Text>
-                  </View>
-                ) : (
-                  <Text style={styles.tableCellText}>{money(summary.activePrimaryCost)} / {summary.primaryUnit}</Text>
-                )}
+        {Object.entries(groupBy(safeArray(rows), item => categoryName(db, item.categoryId) || 'Sem categoria'))
+          .sort(([left], [right]) => String(left).localeCompare(String(right), 'pt-BR'))
+          .map(([groupName, groupRows]) => (
+            <View key={groupName}>
+              <View style={styles.tableGroupHeader}>
+                <Text style={styles.tableGroupTitle}>{groupName}</Text>
+                <Text style={styles.tableGroupSubtitle}>{groupRows.length} item(ns) nesta família operacional.</Text>
               </View>
-              <Text style={styles.tableCell}>{preciseMoney(summary.activeBaseCost)} / {summary.baseUnit}</Text>
-              <Text style={styles.tableCell}>{summary.purchaseCount} compra(s)</Text>
-              <Text style={styles.tableCell}>{evidenceLabel(item.evidenceType || item.sourceType)}</Text>
-            </TouchableOpacity>
-          );
-        })}
+              {groupRows.map(item => {
+                const summary = activeCostSummary(db, refType, item);
+                const audit = activeCostAudit(db, refType, item);
+                const selected = String(selectedId) === String(item.id);
+
+                return (
+                  <TouchableOpacity
+                    key={item.id}
+                    style={[
+                      styles.tableRow,
+                      audit.tone === 'good' && styles.tableRowGood,
+                      audit.tone === 'warn' && styles.tableRowWarn,
+                      audit.tone === 'bad' && styles.tableRowBad,
+                      selected && styles.tableRowActive,
+                    ]}
+                    activeOpacity={0.82}
+                    onPress={() => onSelect?.(item.id)}
+                  >
+                    <View style={styles.tableIdentity}>
+                      <VisualThumb source={buildImageSource(resolveEntityCoverUrl(item))} label={item.name} size="sm" />
+                      <View style={styles.tableIdentityText}>
+                        <Text style={styles.rowTitle} numberOfLines={1}>{item.name}</Text>
+                        <Text style={styles.rowSubtitle} numberOfLines={2}>
+                          {[resourceTypeLabel(refType), item.code || item.sku].filter(Boolean).join(' · ')}
+                        </Text>
+                      </View>
+                    </View>
+                    <Text style={styles.tableCell}>{summary.primaryUnit}{'\n'}<Text style={styles.infoHelper}>ERP {item.erpUnit || item.baseUnit || 'UN'}</Text></Text>
+                    <View style={styles.tableCell}>
+                      {selected && onPatch ? (
+                        <View style={styles.tableEditableCost}>
+                          <TextInput
+                            value={String(item.manualUnitCost ?? item.fixedUnitCost ?? item.overrideUnitCost ?? summary.activePrimaryCost)}
+                            onChangeText={value => onPatch(collection, item.id, { activeCostMode: 'manual', manualUnitCost: num(value), evidenceType: 'manual' })}
+                            keyboardType="numeric"
+                            style={styles.tableInput}
+                          />
+                          <Text style={styles.quantityUnit}>/{summary.primaryUnit}</Text>
+                        </View>
+                      ) : (
+                        <Text style={styles.tableCellText}>{money(summary.activePrimaryCost)} / {summary.primaryUnit}</Text>
+                      )}
+                    </View>
+                    <Text style={styles.tableCell}>{preciseMoney(summary.activeBaseCost)} / {summary.baseUnit}</Text>
+                    <Text style={[styles.tableCell, styles.tableCellWide]} numberOfLines={3}>{summary.source}</Text>
+                    <View style={styles.tableCell}>
+                      <Badge tone={audit.tone}>{audit.label}</Badge>
+                    </View>
+                    <View style={styles.tableCell}>
+                      <Text style={styles.tableCellText} numberOfLines={2}>{audit.linkLabel}</Text>
+                    </View>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          ))}
       </View>
     </ScrollView>
   );

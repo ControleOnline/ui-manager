@@ -21,10 +21,10 @@
 - O cadastro de ingredientes deve sinalizar duplicidade por codigo ou nome antes de gravar, para nao criar feedstock repetido.
 - A escrita continua restrita a insumos; nada de produto de venda ou componente nessa rota.
 - A rota `/menu-costs-page/revenda` é a tela oficial de revenda da engenharia.
-- Essa tela carrega apenas produtos do tipo `product` classificados como bebidas no ERP, com paginação e carregamento infinito.
-- A classificacao de revenda deve ficar em `ui-products`; `ui-manager` deve apenas consumir o helper e orquestrar a apresentacao.
-- `manufactured`, `component`, `feedstock` e `package` nao entram no recorte de revenda.
+- Essa tela usa a classificacao operacional local da `MenuCostsPage` para concentrar bebidas prontas de revenda, inclusive quando o ERP ainda as traz como `feedstock`.
+- A classificacao local deve ficar em `src/react/pages/MenuCostsPage/domain` e nao deve alterar o tipo gravado no banco.
+- `manufactured`, `component`, `package`, `preparation`, `custom` e `service` nao entram no recorte de revenda.
 - A rota `/menu-costs-page/compras-e-evidencias` é a tela oficial de compras e evidencias da engenharia.
 - Essa tela carrega apenas pedidos do ERP com `orderType=purchase`, usando `orders` para a listagem e `order_file`/`files` para evidencias e anexos.
-- A regra de negocio e o mini gerenciador de anexos devem ficar em `ui-orders`; `ui-manager` deve apenas orquestrar a rota e a apresentacao.
+- A experiencia especifica do mapa de compras da engenharia deve ficar neste modulo; `ui-orders` deve fornecer apenas componentes e utilitarios canonicos de pedido/anexo quando necessario.
 - O seed JSON nao deve ser usado como fonte dessa tela.
