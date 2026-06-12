@@ -5,6 +5,7 @@ import {
   Image,
   Modal,
   Pressable,
+  PanResponder,
   ScrollView,
   Text,
   TextInput,
@@ -27,8 +28,12 @@ import {
 import {
   PRODUCT_DETAIL_TABS,
   RESOURCE_META,
+  COST_ENGINE_ROUNDING_OPTIONS,
   activeCostOptionsForRef,
   activeCostSummary,
+  buildDashboardRadar,
+  buildCostEngineOverview,
+  buildCostEngineChannelPreview,
   buildErpCatalogCsv,
   buildErpExportPayload,
   buildExportPayload,
@@ -38,7 +43,6 @@ import {
   computeAllProducts,
   computeEngineeringProducts,
   computeProduct,
-  dashboardMetrics,
   decimal,
   defaultMarkupPct,
   evidenceLabel,
@@ -71,10 +75,16 @@ import {
   safeArray,
   targetMarginPct,
   normalizeEntityId,
+  normalizeCostEngineRules,
   validateImportedDb,
 } from '@controleonline/ui-manager/src/react/pages/MenuCostsPage/domain/menuCostsShared';
 import { fetchLatestPurchasesByProductIds } from '@controleonline/ui-products/src/react/domain/productCosting';
-import { buildLiveMenuCostsDb } from '@controleonline/ui-manager/src/react/pages/MenuCostsPage/domain/menuCostsLiveDb';
+import {
+  buildAddonsForProducts,
+  buildLiveMenuCostsDb,
+  buildRecipeComponentsByProductId,
+  normalizeLiveProduct,
+} from '@controleonline/ui-manager/src/react/pages/MenuCostsPage/domain/menuCostsLiveDb';
 import {
   MENU_COSTS_PAGE_SIZE,
   fetchAllPagedItems,
@@ -92,8 +102,18 @@ import {
   resolvePurchaseOrderLabel,
   resolvePurchaseSupplierLabel,
 } from '@controleonline/ui-orders/src/react/utils/menuCostsPurchases';
+import {
+  buildCostEngineRulesCache,
+  buildCostEngineRulesRequestConfig,
+  isMethodNotAllowedError,
+  resolveCostEngineRulesFromConfigs,
+  resolveEffectiveConfigs,
+  resolveErrorMessage,
+  resolveMenuCostsSettingsFromConfigs,
+} from '@controleonline/ui-manager/src/react/pages/MenuCostsParametersPage/viewModel';
 
 const STORAGE_KEY = 'controleonline:menu-costs-page:engineering-live:v1';
+const PRODUCT_CATEGORY_ORDER_STORAGE_KEY = 'controleonline:menu-costs-page:product-category-order:v1';
 const EMPTY_DB = {
   categories: [],
   ingredients: [],
@@ -106,6 +126,14 @@ const EMPTY_DB = {
   suppliers: [],
   settings: {},
 };
+
+const applyOfficialMenuCostsSettings = (db, settings) => ({
+  ...db,
+  settings: {
+    ...(db?.settings || {}),
+    ...(settings || {}),
+  },
+});
 
 const getSectionDefaultSelection = (db, tab) => {
   if (tab === 'products') return computeEngineeringProducts(db)[0]?.product?.id || null;
@@ -172,6 +200,77 @@ const imageForAddon = (db, addon) => {
   return fromNode || null;
 };
 
+const ENGINEERING_UNCATEGORIZED_KEY = 'uncategorized';
+
+const categorySortValue = category => {
+  const rawOrder =
+    category?.extraData?.sortOrder ??
+    category?.sortOrder ??
+    category?.groupOrder ??
+    category?.order;
+  const order = Number.parseInt(String(rawOrder ?? ''), 10);
+  return Number.isFinite(order) ? order : 9999;
+};
+
+const buildEngineeringMenuCategoryRows = (db, products) => {
+  const productRows = safeArray(products);
+  const productsByCategoryId = productRows.reduce((map, item) => {
+    const categoryId = normalizeEntityId(item?.product?.categoryId) || ENGINEERING_UNCATEGORIZED_KEY;
+    if (!map.has(categoryId)) map.set(categoryId, []);
+    map.get(categoryId).push(item);
+    return map;
+  }, new Map());
+
+  const categories = safeArray(db?.categories)
+    .filter(category => {
+      const context = String(category?.context || 'products').trim().toLowerCase();
+      return category?.active !== false && context === 'products';
+    })
+    .map(category => {
+      const id = normalizeEntityId(category) || String(category?.name || category?.category || '');
+      return {
+        key: id,
+        category,
+        title: category?.name || category?.category || 'Categoria',
+        order: categorySortValue(category),
+        products: safeArray(productsByCategoryId.get(id)),
+      };
+    })
+    .filter(row => row.key);
+
+  const knownCategoryIds = new Set(categories.map(row => row.key));
+  const uncategorizedProducts = [
+    ...safeArray(productsByCategoryId.get(ENGINEERING_UNCATEGORIZED_KEY)),
+    ...Array.from(productsByCategoryId.entries())
+      .filter(([categoryId]) => categoryId !== ENGINEERING_UNCATEGORIZED_KEY && !knownCategoryIds.has(categoryId))
+      .flatMap(([, rows]) => rows),
+  ];
+
+  if (uncategorizedProducts.length) {
+    categories.push({
+      key: ENGINEERING_UNCATEGORIZED_KEY,
+      category: null,
+      title: 'Sem categoria',
+      order: 10000,
+      products: uncategorizedProducts,
+    });
+  }
+
+  return categories.sort((left, right) =>
+    left.order - right.order ||
+    String(left.title || '').localeCompare(String(right.title || ''), 'pt-BR')
+  );
+};
+
+const applyLocalCategoryOrder = (rows, orderKeys) => {
+  const orderMap = new Map(safeArray(orderKeys).map((key, index) => [String(key), index]));
+  return [...safeArray(rows)].sort((left, right) => {
+    const leftIndex = orderMap.has(String(left.key)) ? orderMap.get(String(left.key)) : 9999;
+    const rightIndex = orderMap.has(String(right.key)) ? orderMap.get(String(right.key)) : 9999;
+    return leftIndex - rightIndex || left.order - right.order || String(left.title).localeCompare(String(right.title), 'pt-BR');
+  });
+};
+
 const VisualThumb = ({ source, label, size = 'md' }) => (
   <View style={[styles.visualThumb, size === 'lg' && styles.visualThumbLarge, size === 'sm' && styles.visualThumbSmall]}>
     {source ? (
@@ -182,12 +281,39 @@ const VisualThumb = ({ source, label, size = 'md' }) => (
   </View>
 );
 
-const MetricCard = ({ label, value, tone }) => (
+const MetricCard = ({ label, value, tone, helper }) => (
   <View style={styles.metricCard}>
-    <Text style={[styles.metricValue, tone === 'warn' && styles.metricValueWarn, tone === 'good' && styles.metricValueGood]}>
+    <Text style={[styles.metricValue, tone === 'warn' && styles.metricValueWarn, tone === 'good' && styles.metricValueGood, tone === 'bad' && styles.metricValueBad]}>
       {value}
     </Text>
     <Text style={styles.metricLabel}>{label}</Text>
+    {helper ? <Text style={styles.metricHelper}>{helper}</Text> : null}
+  </View>
+);
+
+const QuickAction = ({ icon, title, subtitle, onPress, tone = 'neutral' }) => (
+  <TouchableOpacity
+    style={[styles.quickAction, tone === 'primary' && styles.quickActionPrimary]}
+    activeOpacity={0.82}
+    onPress={onPress}
+  >
+    <View style={styles.quickActionIcon}>
+      <Icon name={icon} size={17} color={MENU_COLORS.brandText} />
+    </View>
+    <View style={styles.quickActionText}>
+      <Text style={[styles.quickActionTitle, tone === 'primary' && styles.quickActionTitlePrimary]}>{title}</Text>
+      {subtitle ? <Text style={[styles.quickActionSubtitle, tone === 'primary' && styles.quickActionSubtitlePrimary]}>{subtitle}</Text> : null}
+    </View>
+  </TouchableOpacity>
+);
+
+const CountTile = ({ label, value, icon }) => (
+  <View style={styles.countTile}>
+    <Icon name={icon} size={16} color={MENU_COLORS.brandStrong} />
+    <View>
+      <Text style={styles.countValue}>{value}</Text>
+      <Text style={styles.countLabel}>{label}</Text>
+    </View>
   </View>
 );
 
@@ -496,8 +622,10 @@ export default function MenuCostsPage({ navigation, route }) {
   const productGroupProductStore = useStore('product_group_product');
   const productGroupStore = useStore('product_group');
   const categoriesStore = useStore('categories');
+  const configsStore = useStore('configs');
   const { currentCompany } = peopleStore.getters || {};
   const ordersActions = ordersStore.actions || {};
+  const configActions = configsStore.actions || {};
   const { width } = useWindowDimensions();
   const isWide = width >= 1060;
   const routeSection = route?.params?.section;
@@ -514,6 +642,10 @@ export default function MenuCostsPage({ navigation, route }) {
   const [query, setQuery] = useState('');
   const [selectedId, setSelectedId] = useState(null);
   const [modal, setModal] = useState(null);
+  const effectiveConfigs = useMemo(
+    () => resolveEffectiveConfigs(configsStore.getters?.items, currentCompany?.configs),
+    [configsStore.getters?.items, currentCompany?.configs],
+  );
 
   const loadLiveDb = useCallback(async () => {
     const companyId = currentCompany?.id;
@@ -540,7 +672,11 @@ export default function MenuCostsPage({ navigation, route }) {
 
       if (requestId !== loadRequestRef.current) return;
 
-      const nextDb = validateImportedDb(liveDb);
+      const validatedDb = validateImportedDb(liveDb);
+      const nextDb = applyOfficialMenuCostsSettings(
+        validatedDb,
+        resolveMenuCostsSettingsFromConfigs(effectiveConfigs, validatedDb.settings),
+      );
       setDb(nextDb);
       setSelectedId(getSectionDefaultSelection(nextDb, resolveMenuCostsInitialSection(route)));
       AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(nextDb)).catch(() => null);
@@ -548,7 +684,11 @@ export default function MenuCostsPage({ navigation, route }) {
       const cachedValue = await AsyncStorage.getItem(STORAGE_KEY).catch(() => null);
       if (cachedValue) {
         try {
-          const cachedDb = validateImportedDb(JSON.parse(cachedValue));
+          const validatedCachedDb = validateImportedDb(JSON.parse(cachedValue));
+          const cachedDb = applyOfficialMenuCostsSettings(
+            validatedCachedDb,
+            resolveMenuCostsSettingsFromConfigs(effectiveConfigs, validatedCachedDb.settings),
+          );
           if (requestId !== loadRequestRef.current) return;
           setDb(cachedDb);
           setSelectedId(getSectionDefaultSelection(cachedDb, resolveMenuCostsInitialSection(route)));
@@ -577,6 +717,7 @@ export default function MenuCostsPage({ navigation, route }) {
     productsStore.actions,
     route,
     showError,
+    effectiveConfigs,
   ]);
 
   useFocusEffect(
@@ -585,6 +726,34 @@ export default function MenuCostsPage({ navigation, route }) {
       return undefined;
     }, [loadLiveDb]),
   );
+
+  useFocusEffect(
+    useCallback(() => {
+      if (!currentCompany?.id || typeof configActions.discoveryMainConfigs !== 'function') {
+        return undefined;
+      }
+
+      let alive = true;
+      configActions
+        .discoveryMainConfigs({ people: `/people/${currentCompany.id}` })
+        .catch(error => {
+          if (alive) {
+            showError?.(resolveErrorMessage(error));
+          }
+        });
+
+      return () => {
+        alive = false;
+      };
+    }, [configActions, currentCompany?.id, showError]),
+  );
+
+  useEffect(() => {
+    setDb(currentDb => applyOfficialMenuCostsSettings(
+      currentDb,
+      resolveMenuCostsSettingsFromConfigs(effectiveConfigs, currentDb.settings),
+    ));
+  }, [effectiveConfigs]);
 
   const loadDashboardPurchases = useCallback(async ({ force = false } = {}) => {
     const companyId = currentCompany?.id;
@@ -945,7 +1114,7 @@ export default function MenuCostsPage({ navigation, route }) {
                 <Text style={styles.sectionEyebrow}>{activeTabMeta.label}</Text>
                 <Text style={styles.sectionTitle}>{getSectionTitle(activeTab)}</Text>
               </View>
-              {activeTab !== 'dashboard' && activeTab !== 'settings' ? (
+              {activeTab !== 'dashboard' && activeTab !== 'cost_engine' && activeTab !== 'settings' ? (
                 <SearchBox value={query} onChangeText={setQuery} placeholder="Buscar na engenharia" />
               ) : null}
             </View>
@@ -969,6 +1138,11 @@ export default function MenuCostsPage({ navigation, route }) {
                 saveRecipeComponentQuantity,
                 patchActiveCost,
                 persistDb,
+                switchTab,
+                effectiveConfigs,
+                productsActions: productsStore.actions,
+                productGroupActions: productGroupStore.actions,
+                productGroupProductActions: productGroupProductStore.actions,
                 showError,
                 showSuccess,
               })}
@@ -976,7 +1150,7 @@ export default function MenuCostsPage({ navigation, route }) {
           </View>
         </View>
       </View>
-      <StateStore stores={['products', 'product_group', 'product_group_product', 'product_unit']} />
+      <StateStore stores={['products', 'product_group', 'product_group_product', 'product_unit', 'configs']} />
       <EditModal
         modal={modal}
         db={db}
@@ -992,16 +1166,18 @@ export default function MenuCostsPage({ navigation, route }) {
 
 function getSectionTitle(activeTab) {
   if (activeTab === 'dashboard') return 'Resumo técnico da operação';
+  if (activeTab === 'cost_engine') return 'Como o ERP calcula custo, margem e preço';
   if (activeTab === 'purchases') return 'Mapa auditável de compras, notas e comprovantes';
   if (activeTab === 'processes') return 'Matriz de processo operacional';
   if (activeTab === 'pending') return 'Itens que pedem revisão';
-  if (activeTab === 'settings') return 'Parâmetros locais da engenharia';
+  if (activeTab === 'settings') return 'Premissas de preço e rateio da engenharia';
   return RESOURCE_META[activeTab]?.description || 'Engenharia';
 }
 
 function renderContent(props) {
   const { activeTab } = props;
   if (activeTab === 'dashboard') return <Dashboard {...props} />;
+  if (activeTab === 'cost_engine') return <CostEngineView {...props} />;
   if (activeTab === 'products') return <ProductsView {...props} />;
   if (['ingredients', 'packaging'].includes(activeTab)) return <SupplyResourceView {...props} collection={activeTab} />;
   if (activeTab === 'recipes') return <RecipesView {...props} />;
@@ -1017,48 +1193,172 @@ function renderContent(props) {
 function Dashboard({
   db,
   setSelectedId,
+  switchTab,
   dashboardPurchases = [],
   dashboardPurchasesLoading = false,
 }) {
-  const metrics = dashboardMetrics(db);
-  const products = computeAllProducts(db);
-  const byMargin = [...products].sort((left, right) => left.marginPct - right.marginPct).slice(0, 8);
+  const mergedPurchases = [
+    ...safeArray(db.purchaseOrders),
+    ...safeArray(dashboardPurchases),
+  ].reduce((accumulator, order) => {
+    const key = String(order?.id || `${resolvePurchaseOrderDate(order)}:${order?.totalAmount || order?.price || order?.total || ''}`);
+    if (!key || accumulator.seen.has(key)) return accumulator;
+    accumulator.seen.add(key);
+    accumulator.items.push(order);
+    return accumulator;
+  }, { seen: new Set(), items: [] }).items;
+  const radar = buildDashboardRadar(db, { purchaseOrders: mergedPurchases });
   const purchases = safeArray(dashboardPurchases)
     .filter(order => resolvePurchaseOrderDate(order))
     .sort((left, right) => String(resolvePurchaseOrderDate(right) || '').localeCompare(String(resolvePurchaseOrderDate(left) || '')))
-    .slice(0, 8);
+    .slice(0, 5);
+  const showPurchasePanel = dashboardPurchasesLoading || purchases.length > 0;
+  const openProduct = productId => {
+    switchTab?.('products');
+    setSelectedId?.(productId);
+  };
 
   return (
-    <View style={styles.stack}>
+    <View style={styles.dashboardStack}>
+      <View style={[styles.dashboardHero, radar.diagnosis.tone === 'bad' && styles.dashboardHeroBad, radar.diagnosis.tone === 'warn' && styles.dashboardHeroWarn]}>
+        <View style={styles.dashboardHeroMain}>
+          <Badge tone={radar.diagnosis.tone === 'bad' ? 'bad' : radar.diagnosis.tone === 'warn' ? 'warn' : 'good'}>
+            Radar da operação
+          </Badge>
+          <Text style={styles.dashboardHeroTitle}>{radar.diagnosis.title}</Text>
+          <Text style={styles.dashboardHeroText}>{radar.diagnosis.description}</Text>
+          <View style={styles.quickActionGrid}>
+            <QuickAction
+              icon="book-open"
+              title="Abrir cardápio técnico"
+              subtitle="Produtos, ficha e margem"
+              tone="primary"
+              onPress={() => switchTab?.('products')}
+            />
+            <QuickAction
+              icon="sliders"
+              title="Ajustar premissas e rateio"
+              subtitle="Markup, meta e volume"
+              onPress={() => switchTab?.('settings')}
+            />
+            <QuickAction
+              icon="cpu"
+              title="Entender motor de custo"
+              subtitle="Fórmulas e leitura atual"
+              onPress={() => switchTab?.('cost_engine')}
+            />
+            <QuickAction
+              icon="file-text"
+              title="Revisar compras"
+              subtitle="Notas, evidências e histórico"
+              onPress={() => switchTab?.('purchases')}
+            />
+          </View>
+        </View>
+        <View style={styles.dashboardHeroSide}>
+          <CountTile label="Ingredientes" value={radar.counts.ingredients} icon="package" />
+          <CountTile label="Preparos" value={radar.counts.recipes} icon="git-branch" />
+          <CountTile label="Categorias" value={radar.counts.categories} icon="grid" />
+          <CountTile label="Pendências" value={radar.counts.pending} icon="alert-circle" />
+        </View>
+      </View>
+
       <View style={styles.metricGrid}>
-        {metrics.map(metric => (
+        {radar.primaryMetrics.map(metric => (
           <MetricCard
             key={metric.key}
             label={metric.label}
             value={metric.value}
             tone={metric.tone}
+            helper={metric.helper}
           />
         ))}
       </View>
+
       <View style={styles.gridTwo}>
         <View style={styles.panel}>
-          <Text style={styles.panelTitle}>Produtos que pedem atenção</Text>
-          {byMargin.map(item => (
+          <View style={styles.panelIntro}>
+            <Text style={styles.panelTitle}>Alertas de margem</Text>
+            <Text style={styles.panelSubtitle}>Itens que mais precisam de decisão de preço, ficha ou compra.</Text>
+          </View>
+          {radar.marginAlerts.length ? radar.marginAlerts.map(item => (
             <RowCard
               key={item.product.id}
               title={item.product.name}
               subtitle={categoryName(db, item.product.categoryId)}
               meta={`Custo ${money(item.directCost)} · Preço ${money(item.salePrice)}`}
-              onPress={() => setSelectedId(item.product.id)}
-              badges={[{ label: percent(item.marginPct), tone: item.marginPct >= targetMarginPct(db) ? 'good' : 'warn' }]}
+              onPress={() => openProduct(item.product.id)}
+              badges={[{ label: percent(item.marginPct), tone: item.marginPct >= radar.finance.targetMarginPct ? 'good' : 'warn' }]}
             />
-          ))}
+          )) : <EmptyState text="Nenhum produto ativo para analisar." />}
         </View>
         <View style={styles.panel}>
-          <Text style={styles.panelTitle}>Últimas compras</Text>
+          <View style={styles.panelIntro}>
+            <Text style={styles.panelTitle}>Maior impacto de custo</Text>
+            <Text style={styles.panelSubtitle}>Itens mais caros para produzir hoje, mesmo quando a margem está saudável.</Text>
+          </View>
+          {radar.highCostItems.length ? radar.highCostItems.map(item => (
+            <RowCard
+              key={item.product.id}
+              title={item.product.name}
+              subtitle={categoryName(db, item.product.categoryId)}
+              meta={`Preço pela regra ${money(item.autoSalePrice)} · Margem ${percent(item.marginPct)}`}
+              onPress={() => openProduct(item.product.id)}
+              right={<Text style={styles.rowMoney}>{money(item.directCost)}</Text>}
+            />
+          )) : <EmptyState text="Nenhum custo técnico calculado ainda." />}
+        </View>
+      </View>
+
+      <View style={styles.gridTwo}>
+        <View style={styles.panel}>
+          <View style={styles.panelIntro}>
+            <Text style={styles.panelTitle}>Resumo por categoria</Text>
+            <Text style={styles.panelSubtitle}>Quantidade de itens, custo médio e margem média por grupo do cardápio.</Text>
+          </View>
+          <View style={styles.categorySummaryGrid}>
+            {radar.categorySummaries.length ? radar.categorySummaries.map(category => (
+              <View key={category.name} style={styles.categorySummaryCard}>
+                <Text style={styles.categorySummaryTitle}>{category.name}</Text>
+                <Text style={styles.categorySummaryValue}>{category.count} item(ns)</Text>
+                <View style={styles.categorySummaryMeta}>
+                  <Badge tone="neutral">{money(category.averageCost)} méd.</Badge>
+                  <Badge tone={category.marginPct >= radar.finance.targetMarginPct ? 'good' : 'warn'}>{percent(category.marginPct)}</Badge>
+                </View>
+              </View>
+            )) : <EmptyState text="Nenhuma categoria ativa encontrada." />}
+          </View>
+        </View>
+
+        <View style={styles.panel}>
+          <View style={styles.panelIntro}>
+            <Text style={styles.panelTitle}>Base técnica carregada</Text>
+            <Text style={styles.panelSubtitle}>Tamanho atual da engenharia usada neste radar.</Text>
+          </View>
+          <View style={styles.operationalSummaryGrid}>
+            <CountTile label="Produtos de venda" value={radar.counts.products} icon="shopping-bag" />
+            <CountTile label="Embalagens" value={radar.counts.packaging} icon="archive" />
+            <CountTile label="Evidências" value={radar.counts.evidences} icon="paperclip" />
+            <CountTile label="Compras no histórico" value={mergedPurchases.length} icon="file-text" />
+          </View>
+          <View style={styles.costLogicNote}>
+            <Text style={styles.costLogicTitle}>Leitura de CMV, margem e markup</Text>
+            <Text style={styles.costLogicText}>
+              O radar usa custo técnico direto para margem do item, compara o CMV estimado com a faixa de referência da alimentação e mantém o rateio fixo como leitura gerencial quando a base mensal estiver cadastrada.
+            </Text>
+          </View>
+        </View>
+      </View>
+
+      {showPurchasePanel ? (
+        <View style={styles.panel}>
+          <View style={styles.panelIntro}>
+            <Text style={styles.panelTitle}>Últimas compras</Text>
+            <Text style={styles.panelSubtitle}>Amostra recente usada para orientar revisão de custos e evidências.</Text>
+          </View>
           {dashboardPurchasesLoading ? (
             <View style={styles.emptyState}>
-              <ActivityIndicator size="small" color={MENU_COLORS.brand} />
+              <ActivityIndicator size="small" color={MENU_COLORS.brandStrong} />
               <Text style={styles.emptyStateText}>Carregando últimas compras...</Text>
             </View>
           ) : null}
@@ -1072,6 +1372,263 @@ function Dashboard({
               badges={[{ label: paymentLabel(order.paymentStatus), tone: order.paymentStatus === 'paid' ? 'good' : 'warn' }]}
             />
           ))}
+        </View>
+      ) : null}
+    </View>
+  );
+}
+
+function CostEngineView({
+  db,
+  effectiveConfigs,
+  switchTab,
+  persistDb,
+  showError,
+  showSuccess,
+}) {
+  const peopleStore = useStore('people');
+  const configsStore = useStore('configs');
+  const configActions = configsStore.actions || {};
+  const { currentCompany } = peopleStore.getters || {};
+  const overview = buildCostEngineOverview(db);
+  const officialRules = useMemo(
+    () => resolveCostEngineRulesFromConfigs(effectiveConfigs, db?.settings?.costEngineRules),
+    [effectiveConfigs, db?.settings?.costEngineRules],
+  );
+  const [draftRules, setDraftRules] = useState(() => officialRules);
+
+  useEffect(() => {
+    setDraftRules(officialRules);
+  }, [officialRules]);
+
+  const draftPreviews = draftRules.channels.map(channel =>
+    buildCostEngineChannelPreview(db, channel)
+  );
+
+  const updateChannel = (channelId, patch) => {
+    setDraftRules(current => ({
+      ...current,
+      channels: current.channels.map(channel =>
+        channel.id === channelId ? { ...channel, ...patch } : channel
+      ),
+    }));
+  };
+
+  const cycleRoundingMode = channel => {
+    const currentIndex = COST_ENGINE_ROUNDING_OPTIONS.findIndex(option => option.value === channel.roundingMode);
+    const nextOption = COST_ENGINE_ROUNDING_OPTIONS[(currentIndex + 1) % COST_ENGINE_ROUNDING_OPTIONS.length];
+    updateChannel(channel.id, { roundingMode: nextOption.value });
+  };
+
+  const saveRules = async () => {
+    if (!currentCompany?.id) {
+      showError?.('Selecione uma empresa para salvar as regras do motor de custo.');
+      return;
+    }
+
+    const normalizedRules = normalizeCostEngineRules(draftRules);
+    const requestConfig = buildCostEngineRulesRequestConfig(normalizedRules);
+    const companyRef = `/people/${currentCompany.id}`;
+
+    try {
+      try {
+        await configActions.addManyConfigs({
+          configs: [requestConfig],
+          people: companyRef,
+          module: 4,
+          visibility: 'public',
+        });
+      } catch (error) {
+        if (!isMethodNotAllowedError(error)) {
+          throw error;
+        }
+
+        await configActions.addConfigs({
+          configKey: requestConfig.configKey,
+          configValue: requestConfig.configValue,
+          people: companyRef,
+          module: 4,
+          visibility: 'public',
+        });
+      }
+
+      configActions.setItems({
+        ...(effectiveConfigs || {}),
+        ...buildCostEngineRulesCache(normalizedRules),
+      });
+      persistDb?.({
+        ...db,
+        settings: {
+          ...(db.settings || {}),
+          costEngineRules: normalizedRules,
+        },
+      });
+      showSuccess?.('Regras do motor de custo salvas na empresa.');
+    } catch (error) {
+      showError?.(resolveErrorMessage(error));
+    }
+  };
+
+  return (
+    <View style={styles.dashboardStack}>
+      <View style={styles.costEngineHero}>
+        <View style={styles.dashboardHeroMain}>
+          <Badge tone="neutral">Regra atual</Badge>
+          <Text style={styles.dashboardHeroTitle}>{overview.headline.title}</Text>
+          <Text style={styles.dashboardHeroText}>{overview.headline.description}</Text>
+          <View style={styles.quickActionGrid}>
+            <QuickAction
+              icon="sliders"
+              title="Editar premissas"
+              subtitle="Markup, meta e volume"
+              tone="primary"
+              onPress={() => switchTab?.('settings')}
+            />
+            <QuickAction
+              icon="shopping-bag"
+              title="Ver produtos"
+              subtitle="Ficha, preço e margem"
+              onPress={() => switchTab?.('products')}
+            />
+          </View>
+        </View>
+        <View style={styles.dashboardHeroSide}>
+          {overview.ruleCards.map(card => (
+            <MetricCard
+              key={card.key}
+              label={card.label}
+              value={card.value}
+              tone={card.tone}
+              helper={card.helper}
+            />
+          ))}
+        </View>
+      </View>
+
+      <View style={styles.gridTwo}>
+        <View style={styles.panel}>
+          <View style={styles.panelIntro}>
+            <Text style={styles.panelTitle}>Fluxo de cálculo</Text>
+            <Text style={styles.panelSubtitle}>Etapas usadas hoje para sair da ficha técnica até a leitura de margem e rateio.</Text>
+          </View>
+          <View style={styles.costEngineTimeline}>
+            {overview.steps.map(step => (
+              <View key={step.key} style={styles.costEngineStep}>
+                <View style={styles.costEngineStepIcon}>
+                  <Icon name="arrow-down" size={15} color={MENU_COLORS.brandText} />
+                </View>
+                <View style={styles.costEngineStepText}>
+                  <Text style={styles.costEngineStepTitle}>{step.title}</Text>
+                  <Text style={styles.costEngineFormula}>{step.formula}</Text>
+                  <Text style={styles.costEngineDescription}>{step.description}</Text>
+                </View>
+              </View>
+            ))}
+          </View>
+        </View>
+
+        <View style={styles.panel}>
+          <View style={styles.panelIntro}>
+            <Text style={styles.panelTitle}>Regras por canal</Text>
+            <Text style={styles.panelSubtitle}>Margem, taxas, comissão, repasse e arredondamento usados para simular preço sugerido por canal.</Text>
+          </View>
+          <View style={styles.channelRuleList}>
+            {draftPreviews.map(channel => (
+              <View key={channel.id} style={styles.channelRuleCard}>
+                <View style={styles.channelRuleHeader}>
+                  <View style={styles.channelRuleTitleBlock}>
+                    <Text style={styles.channelRuleTitle}>{channel.name}</Text>
+                    <Text style={styles.channelRuleSubtitle}>
+                      Preço sugerido {money(channel.suggestedPrice)} · base {money(channel.pricingBase)}
+                    </Text>
+                  </View>
+                  <Badge tone={channel.totalPct >= 85 ? 'bad' : channel.totalPct >= 65 ? 'warn' : 'good'}>
+                    {percent(channel.totalPct)}
+                  </Badge>
+                </View>
+                <View style={styles.channelFieldGrid}>
+                  <View style={styles.channelField}>
+                    <Text style={styles.modalLabel}>Margem (%)</Text>
+                    <TextInput
+                      value={String(channel.marginPct)}
+                      onChangeText={value => updateChannel(channel.id, { marginPct: value })}
+                      style={styles.modalInput}
+                      keyboardType="numeric"
+                    />
+                  </View>
+                  <View style={styles.channelField}>
+                    <Text style={styles.modalLabel}>Taxa (%)</Text>
+                    <TextInput
+                      value={String(channel.feePct)}
+                      onChangeText={value => updateChannel(channel.id, { feePct: value })}
+                      style={styles.modalInput}
+                      keyboardType="numeric"
+                    />
+                  </View>
+                  <View style={styles.channelField}>
+                    <Text style={styles.modalLabel}>Comissão (%)</Text>
+                    <TextInput
+                      value={String(channel.commissionPct)}
+                      onChangeText={value => updateChannel(channel.id, { commissionPct: value })}
+                      style={styles.modalInput}
+                      keyboardType="numeric"
+                    />
+                  </View>
+                  <View style={styles.channelField}>
+                    <Text style={styles.modalLabel}>Imposto (%)</Text>
+                    <TextInput
+                      value={String(channel.taxPct)}
+                      onChangeText={value => updateChannel(channel.id, { taxPct: value })}
+                      style={styles.modalInput}
+                      keyboardType="numeric"
+                    />
+                  </View>
+                  <View style={styles.channelField}>
+                    <Text style={styles.modalLabel}>Repasse (R$)</Text>
+                    <TextInput
+                      value={String(channel.passThroughAmount)}
+                      onChangeText={value => updateChannel(channel.id, { passThroughAmount: value })}
+                      style={styles.modalInput}
+                      keyboardType="numeric"
+                    />
+                  </View>
+                  <View style={styles.channelField}>
+                    <Text style={styles.modalLabel}>Arredondamento</Text>
+                    <TouchableOpacity
+                      style={styles.roundingButton}
+                      activeOpacity={0.82}
+                      onPress={() => cycleRoundingMode(channel)}
+                    >
+                      <Text style={styles.roundingButtonText}>{channel.roundingLabel}</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+                <View style={styles.channelResultGrid}>
+                  <Badge tone="neutral">Custo médio {money(channel.averageDirectCost)}</Badge>
+                  <Badge tone="neutral">Taxas {money(channel.feesAmount + channel.commissionAmount + channel.taxAmount)}</Badge>
+                  <Badge tone={channel.contributionAmount > 0 ? 'good' : 'bad'}>Contribuição {money(channel.contributionAmount)}</Badge>
+                </View>
+              </View>
+            ))}
+          </View>
+          <TouchableOpacity style={styles.primaryButton} onPress={saveRules}>
+            <Icon name="save" size={16} color={MENU_COLORS.white} />
+            <Text style={styles.primaryButtonText}>Salvar regras do motor</Text>
+          </TouchableOpacity>
+          <View style={styles.costLogicNote}>
+            <Text style={styles.costLogicTitle}>Separação importante</Text>
+            <Text style={styles.costLogicText}>
+              Custo técnico, CMV, markup, margem e rateio fixo não são a mesma coisa. Esta aba deixa essa leitura explícita antes de permitir regras editáveis por canal.
+            </Text>
+          </View>
+          <View style={styles.nextRuleList}>
+            {overview.nextRules.map(rule => (
+              <View key={rule} style={styles.nextRuleItem}>
+                <Icon name="plus-circle" size={16} color={MENU_COLORS.brandStrong} />
+                <Text style={styles.nextRuleText}>{rule}</Text>
+              </View>
+            ))}
+          </View>
         </View>
       </View>
     </View>
@@ -1089,26 +1646,315 @@ function ProductsView({
   patchProductComponent,
   saveProductComponentQuantity,
   patchProductAddonComponent,
+  persistDb,
+  productsActions,
+  productGroupActions,
+  productGroupProductActions,
+  showError,
 }) {
-  const products = filterBySearch(computeEngineeringProducts(db), query, [
+  const allProducts = useMemo(() => computeEngineeringProducts(db), [db]);
+  const products = useMemo(() => filterBySearch(allProducts, query, [
     item => item.product.name,
     item => item.product.code,
     item => categoryName(db, item.product.categoryId),
-  ]);
+  ]), [allProducts, db, query]);
   const peopleStore = useStore('people');
   const { currentCompany } = peopleStore.getters || {};
-  const [visibleCount, setVisibleCount] = useState(MENU_COSTS_PAGE_SIZE);
+  const [expandedCategories, setExpandedCategories] = useState({});
+  const [categoryOrder, setCategoryOrder] = useState([]);
+  const [draggingCategoryKey, setDraggingCategoryKey] = useState('');
+  const categoryOrderLoadedRef = useRef(false);
   const selectedProduct = products.find(item => String(item.product.id) === String(selectedId)) || products[0] || null;
   const selected = selectedProduct ? computeProduct(db, selectedProduct.product.id) : null;
   const [selectedPurchaseRows, setSelectedPurchaseRows] = useState([]);
   const selectedPurchaseCacheRef = useRef(new Map());
   const selectedPurchaseRequestRef = useRef(0);
-  const visibleProducts = products.slice(0, visibleCount);
-  const grouped = groupBy(visibleProducts, item => categoryName(db, item.product.categoryId));
+  const selectedAddonsCacheRef = useRef(new Map());
+  const selectedAddonsRequestRef = useRef(0);
+  const selectedRecipeComponentsCacheRef = useRef(new Map());
+  const selectedRecipeComponentsRequestRef = useRef(0);
+  const categoryProductsCacheRef = useRef(new Map());
+  const categoryProductsRequestRef = useRef({});
+  const categoryDragRef = useRef({ key: '', startIndex: 0, lastIndex: 0 });
+  const categoryRows = useMemo(
+    () => buildEngineeringMenuCategoryRows(db, products),
+    [db, products],
+  );
+  const visibleCategoryRows = useMemo(
+    () => query ? categoryRows.filter(row => row.products.length > 0) : categoryRows,
+    [categoryRows, query],
+  );
+  const orderedCategoryRows = useMemo(
+    () => applyLocalCategoryOrder(visibleCategoryRows, categoryOrder),
+    [visibleCategoryRows, categoryOrder],
+  );
+  const expandedCount = orderedCategoryRows.filter(row => expandedCategories[row.key]).length;
+  const allExpanded = orderedCategoryRows.length > 0 && expandedCount === orderedCategoryRows.length;
 
   useEffect(() => {
-    setVisibleCount(MENU_COSTS_PAGE_SIZE);
-  }, [query, db.products.length]);
+    categoryOrderLoadedRef.current = false;
+    const companyId = normalizeEntityId(currentCompany);
+    if (!companyId) {
+      setCategoryOrder([]);
+      categoryOrderLoadedRef.current = true;
+      return undefined;
+    }
+
+    let alive = true;
+    AsyncStorage
+      .getItem(`${PRODUCT_CATEGORY_ORDER_STORAGE_KEY}:${companyId}`)
+      .then(value => {
+        if (!alive) return;
+        try {
+          const parsed = JSON.parse(value || '[]');
+          setCategoryOrder(Array.isArray(parsed) ? parsed.map(String) : []);
+        } catch {
+          setCategoryOrder([]);
+        }
+      })
+      .finally(() => {
+        if (alive) categoryOrderLoadedRef.current = true;
+      });
+
+    return () => {
+      alive = false;
+    };
+  }, [currentCompany?.id]);
+
+  useEffect(() => {
+    const companyId = normalizeEntityId(currentCompany);
+    if (!companyId || !categoryOrderLoadedRef.current) return;
+    AsyncStorage
+      .setItem(`${PRODUCT_CATEGORY_ORDER_STORAGE_KEY}:${companyId}`, JSON.stringify(categoryOrder))
+      .catch(() => null);
+  }, [categoryOrder, currentCompany?.id]);
+
+  useEffect(() => {
+    const currentKeys = new Set(categoryRows.map(row => String(row.key)));
+    setCategoryOrder(currentOrder => {
+      const keptKeys = currentOrder.filter(key => currentKeys.has(String(key)));
+      const missingKeys = categoryRows
+        .map(row => String(row.key))
+        .filter(key => !keptKeys.includes(key));
+      return [...keptKeys, ...missingKeys];
+    });
+    setExpandedCategories(current => {
+      const next = {};
+      categoryRows.forEach(row => {
+        const key = String(row.key);
+        next[key] = query ? row.products.length > 0 : Boolean(current[key]);
+      });
+      return next;
+    });
+  }, [categoryRows, query]);
+
+  const toggleCategory = useCallback(categoryKey => {
+    setExpandedCategories(current => ({
+      ...current,
+      [categoryKey]: !current[categoryKey],
+    }));
+  }, []);
+
+  const mergeCategoryProducts = useCallback((categoryRow, remoteProducts) => {
+    const categoryId = normalizeEntityId(categoryRow?.category);
+    const normalizedProducts = safeArray(remoteProducts)
+      .map(product => ({
+        ...normalizeLiveProduct(product),
+        categoryId: normalizeLiveProduct(product).categoryId || categoryId,
+      }))
+      .filter(product => product.id);
+
+    if (!normalizedProducts.length) return;
+
+    const loadedById = new Map(normalizedProducts.map(product => [String(product.id), product]));
+    const existingIds = new Set(safeArray(db.products).map(product => String(product.id)));
+    persistDb?.({
+      ...db,
+      products: [
+        ...safeArray(db.products).map(product => {
+          const loaded = loadedById.get(String(product.id));
+          if (!loaded) return product;
+          return {
+            ...product,
+            ...loaded,
+            components: safeArray(product.components).length ? product.components : safeArray(loaded.components),
+            addons: safeArray(product.addons).length ? product.addons : safeArray(loaded.addons),
+            extraData: {
+              ...(loaded.extraData || {}),
+              ...(product.extraData || {}),
+            },
+          };
+        }),
+        ...normalizedProducts.filter(product => !existingIds.has(String(product.id))),
+      ],
+    });
+  }, [db, persistDb]);
+
+  const loadProductsForCategory = useCallback(async categoryRow => {
+    const categoryId = normalizeEntityId(categoryRow?.category);
+    if (
+      !categoryId ||
+      categoryRow?.key === ENGINEERING_UNCATEGORIZED_KEY ||
+      !productsActions?.getItems
+    ) {
+      return;
+    }
+
+    const cacheKey = String(categoryId);
+    if (categoryProductsCacheRef.current.has(cacheKey)) {
+      mergeCategoryProducts(categoryRow, categoryProductsCacheRef.current.get(cacheKey));
+      return;
+    }
+
+    const requestId = `${cacheKey}:${Date.now()}`;
+    categoryProductsRequestRef.current = {
+      ...categoryProductsRequestRef.current,
+      [cacheKey]: requestId,
+    };
+
+    try {
+      const remoteProducts = await productsActions.getItems({
+        active: 1,
+        company: currentCompany?.id,
+        type: ['product', 'custom', 'drink', 'manufactured'],
+        itemsPerPage: 100,
+        'order[product]': 'ASC',
+        'order[description]': 'ASC',
+        'productCategory.category': categoryRow?.category?.['@id'] || `/categories/${categoryId}`,
+      });
+
+      if (categoryProductsRequestRef.current?.[cacheKey] !== requestId) return;
+
+      const rows = safeArray(remoteProducts);
+      categoryProductsCacheRef.current.set(cacheKey, rows);
+      mergeCategoryProducts(categoryRow, rows);
+    } catch (error) {
+      showError?.(
+        error?.response?.data?.['hydra:description'] ||
+        error?.response?.data?.detail ||
+        error?.message ||
+        'Não foi possível carregar os produtos desta categoria.',
+      );
+    }
+  }, [
+    currentCompany?.id,
+    mergeCategoryProducts,
+    productsActions,
+    showError,
+  ]);
+
+  const toggleCategoryRow = useCallback(categoryRow => {
+    const willExpand = !expandedCategories[categoryRow.key];
+    toggleCategory(categoryRow.key);
+    if (willExpand && categoryRow.products.length === 0) {
+      void loadProductsForCategory(categoryRow);
+    }
+  }, [expandedCategories, loadProductsForCategory, toggleCategory]);
+
+  const toggleAllCategories = useCallback(() => {
+    setExpandedCategories(() => {
+      const nextExpanded = !allExpanded;
+      if (nextExpanded) {
+        orderedCategoryRows.forEach(row => {
+          if (row.products.length === 0) {
+            void loadProductsForCategory(row);
+          }
+        });
+      }
+      return Object.fromEntries(orderedCategoryRows.map(row => [row.key, nextExpanded]));
+    });
+  }, [allExpanded, loadProductsForCategory, orderedCategoryRows]);
+
+  const reorderCategoryToIndex = useCallback((categoryKey, nextIndex) => {
+    setCategoryOrder(current => {
+      const keys = current.length ? current.map(String) : orderedCategoryRows.map(row => String(row.key));
+      const fromIndex = keys.indexOf(String(categoryKey));
+      const boundedIndex = Math.max(0, Math.min(keys.length - 1, nextIndex));
+      if (fromIndex < 0 || fromIndex === boundedIndex) return keys;
+      const nextKeys = [...keys];
+      const [item] = nextKeys.splice(fromIndex, 1);
+      nextKeys.splice(boundedIndex, 0, item);
+      return nextKeys;
+    });
+  }, [orderedCategoryRows]);
+
+  const startCategoryMouseDrag = useCallback((event, categoryKey, index) => {
+    const startY = event?.nativeEvent?.clientY ?? event?.clientY;
+    if (typeof window === 'undefined' || !Number.isFinite(startY)) return;
+
+    const dragState = {
+      key: String(categoryKey),
+      startIndex: index,
+      lastIndex: index,
+      startY,
+    };
+    categoryDragRef.current = dragState;
+    setDraggingCategoryKey(categoryKey);
+
+    const handleMove = moveEvent => {
+      const currentY = moveEvent?.clientY ?? moveEvent?.touches?.[0]?.clientY;
+      if (!Number.isFinite(currentY)) return;
+
+      const rowStep = 62;
+      const nextIndex = Math.max(
+        0,
+        Math.min(
+          orderedCategoryRows.length - 1,
+          dragState.startIndex + Math.round((currentY - dragState.startY) / rowStep),
+        ),
+      );
+
+      if (nextIndex !== dragState.lastIndex) {
+        dragState.lastIndex = nextIndex;
+        reorderCategoryToIndex(categoryKey, nextIndex);
+      }
+    };
+
+    const finishDrag = () => {
+      window.removeEventListener('mousemove', handleMove);
+      window.removeEventListener('mouseup', finishDrag);
+      window.removeEventListener('touchmove', handleMove);
+      window.removeEventListener('touchend', finishDrag);
+      setDraggingCategoryKey('');
+    };
+
+    window.addEventListener('mousemove', handleMove);
+    window.addEventListener('mouseup', finishDrag);
+    window.addEventListener('touchmove', handleMove, { passive: true });
+    window.addEventListener('touchend', finishDrag);
+  }, [orderedCategoryRows.length, reorderCategoryToIndex]);
+
+  const createCategoryDragHandlers = useCallback((categoryKey, index) =>
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: () => true,
+      onPanResponderGrant: () => {
+        categoryDragRef.current = {
+          key: String(categoryKey),
+          startIndex: index,
+          lastIndex: index,
+        };
+        setDraggingCategoryKey(categoryKey);
+      },
+      onPanResponderMove: (event, gestureState) => {
+        const rowStep = 62;
+        const nextIndex = Math.max(
+          0,
+          Math.min(
+            orderedCategoryRows.length - 1,
+            categoryDragRef.current.startIndex + Math.round(gestureState.dy / rowStep),
+          ),
+        );
+
+        if (nextIndex !== categoryDragRef.current.lastIndex) {
+          categoryDragRef.current.lastIndex = nextIndex;
+          reorderCategoryToIndex(categoryKey, nextIndex);
+        }
+      },
+      onPanResponderRelease: () => setDraggingCategoryKey(''),
+      onPanResponderTerminate: () => setDraggingCategoryKey(''),
+    }).panHandlers, [orderedCategoryRows.length, reorderCategoryToIndex]);
+
 
   useEffect(() => {
     const productId = String(selectedProduct?.product?.id || '').trim();
@@ -1150,61 +1996,289 @@ function ProductsView({
     loadPurchases();
   }, [currentCompany?.id, selectedProduct?.product?.id]);
 
-  const hasMoreProducts = visibleCount < products.length;
-  const loadMoreProducts = useCallback(() => {
-    if (!hasMoreProducts) return;
-    setVisibleCount(current => Math.min(current + MENU_COSTS_PAGE_SIZE, products.length));
-  }, [hasMoreProducts, products.length]);
-
-  const handleListScroll = useCallback(event => {
-    if (!hasMoreProducts) return;
-
-    const layoutHeight = event?.nativeEvent?.layoutMeasurement?.height || 0;
-    const contentOffsetY = event?.nativeEvent?.contentOffset?.y || 0;
-    const contentHeight = event?.nativeEvent?.contentSize?.height || 0;
-
-    if (layoutHeight + contentOffsetY >= contentHeight - 360) {
-      loadMoreProducts();
+  useEffect(() => {
+    if (
+      activeProductTab !== 'composition' ||
+      !selected?.nodes?.length ||
+      !productGroupProductActions?.getItems
+    ) {
+      return undefined;
     }
-  }, [hasMoreProducts, loadMoreProducts]);
+
+    const recipeIds = Array.from(new Set(
+      selected.nodes
+        .filter(node => node.refType === 'recipe' && node.record)
+        .filter(node => !node.record?.extraData?.menuCostsComponentsLoaded)
+        .map(node => String(node.refId || '').trim())
+        .filter(Boolean),
+    ));
+
+    if (!recipeIds.length) {
+      return undefined;
+    }
+
+    const cachedEntries = recipeIds.filter(recipeId =>
+      selectedRecipeComponentsCacheRef.current.has(recipeId)
+    );
+    const missingIds = recipeIds.filter(recipeId =>
+      !selectedRecipeComponentsCacheRef.current.has(recipeId)
+    );
+
+    const applyRecipeComponents = componentsByRecipeId => {
+      persistDb?.({
+        ...db,
+        recipes: safeArray(db.recipes).map(recipe => {
+          const recipeId = String(recipe.id || '').trim();
+          if (!recipeIds.includes(recipeId)) return recipe;
+          return {
+            ...recipe,
+            components: safeArray(componentsByRecipeId[recipeId]),
+            extraData: {
+              ...(recipe.extraData || {}),
+              menuCostsComponentsLoaded: true,
+            },
+          };
+        }),
+      });
+    };
+
+    if (!missingIds.length) {
+      applyRecipeComponents(Object.fromEntries(
+        cachedEntries.map(recipeId => [
+          recipeId,
+          selectedRecipeComponentsCacheRef.current.get(recipeId),
+        ]),
+      ));
+      return undefined;
+    }
+
+    const requestId = ++selectedRecipeComponentsRequestRef.current;
+
+    const loadRecipeComponents = async () => {
+      try {
+        const recipesToLoad = safeArray(db.recipes).filter(recipe =>
+          missingIds.includes(String(recipe.id || '').trim())
+        );
+        const loadedComponentsByRecipeId = await buildRecipeComponentsByProductId({
+          recipes: recipesToLoad,
+          productGroupProductActions,
+        });
+        const componentsByRecipeId = {
+          ...Object.fromEntries(
+            cachedEntries.map(recipeId => [
+              recipeId,
+              selectedRecipeComponentsCacheRef.current.get(recipeId),
+            ]),
+          ),
+          ...Object.fromEntries(
+            missingIds.map(recipeId => {
+              const components = safeArray(loadedComponentsByRecipeId[recipeId]);
+              selectedRecipeComponentsCacheRef.current.set(recipeId, components);
+              return [recipeId, components];
+            }),
+          ),
+        };
+
+        if (requestId !== selectedRecipeComponentsRequestRef.current) return;
+
+        applyRecipeComponents(componentsByRecipeId);
+      } catch (error) {
+        if (requestId === selectedRecipeComponentsRequestRef.current) {
+          showError?.(
+            error?.response?.data?.['hydra:description'] ||
+            error?.response?.data?.detail ||
+            error?.message ||
+            'Não foi possível carregar os componentes dos preparos desta ficha.',
+          );
+        }
+      }
+    };
+
+    loadRecipeComponents();
+    return undefined;
+  }, [
+    activeProductTab,
+    db,
+    persistDb,
+    productGroupProductActions,
+    selected?.nodes,
+    showError,
+  ]);
+
+  useEffect(() => {
+    const product = selectedProduct?.product;
+    const productId = String(product?.id || '').trim();
+
+    if (
+      activeProductTab !== 'addons' ||
+      !productId ||
+      product?.extraData?.menuCostsAddonsLoaded ||
+      !productGroupActions?.getItems ||
+      !productGroupProductActions?.getItems
+    ) {
+      return undefined;
+    }
+
+    const cachedAddons = selectedAddonsCacheRef.current.get(productId);
+    if (cachedAddons) {
+      persistDb?.({
+        ...db,
+        products: safeArray(db.products).map(item => (
+          String(item.id) === productId
+            ? {
+              ...item,
+              addons: cachedAddons,
+              extraData: {
+                ...(item.extraData || {}),
+                menuCostsAddonsLoaded: true,
+              },
+            }
+            : item
+        )),
+      });
+      return undefined;
+    }
+
+    const requestId = ++selectedAddonsRequestRef.current;
+
+    const loadSelectedAddons = async () => {
+      try {
+        const addonsByProductId = await buildAddonsForProducts({
+          products: [product],
+          productGroupActions,
+          productGroupProductActions,
+        });
+
+        if (requestId !== selectedAddonsRequestRef.current) return;
+
+        const addons = safeArray(addonsByProductId[productId]);
+        selectedAddonsCacheRef.current.set(productId, addons);
+        persistDb?.({
+          ...db,
+          products: safeArray(db.products).map(item => (
+            String(item.id) === productId
+              ? {
+                ...item,
+                addons,
+                extraData: {
+                  ...(item.extraData || {}),
+                  menuCostsAddonsLoaded: true,
+                },
+              }
+              : item
+          )),
+        });
+      } catch (error) {
+        if (requestId === selectedAddonsRequestRef.current) {
+          showError?.(
+            error?.response?.data?.['hydra:description'] ||
+            error?.response?.data?.detail ||
+            error?.message ||
+            'Não foi possível carregar os grupos deste produto.',
+          );
+        }
+      }
+    };
+
+    loadSelectedAddons();
+    return undefined;
+  }, [
+    activeProductTab,
+    db,
+    persistDb,
+    productGroupActions,
+    productGroupProductActions,
+    selectedProduct?.product,
+    showError,
+  ]);
 
   return (
     <View style={styles.splitLayout}>
-      <ScrollView
-        style={styles.listPanel}
-        onScroll={handleListScroll}
-        scrollEventThrottle={200}
-        nestedScrollEnabled
-      >
-        {Object.entries(grouped).map(([category, rows]) => (
-          <View key={category} style={styles.listGroup}>
-            <Text style={styles.listGroupTitle}>{category}</Text>
-            {rows.map(item => (
-              <RowCard
-                key={item.product.id}
-                title={item.product.name}
-                subtitle={item.product.description || item.product.notes}
-                imageSource={imageForProduct(db, item.product)}
-                selected={selected?.product?.id === item.product.id}
-                onPress={() => {
-                  setSelectedId(item.product.id);
-                  setActiveProductTab('composition');
-                }}
-                right={<Text style={styles.rowMoney}>{money(item.salePrice)}</Text>}
-                badges={[
-                  { label: `Custo ${money(item.directCost)}`, tone: 'neutral' },
-                  { label: percent(item.marginPct), tone: item.marginPct >= targetMarginPct(db) ? 'good' : 'warn' },
-                ]}
-              />
-            ))}
+      <ScrollView style={styles.listPanel} nestedScrollEnabled>
+        <View style={styles.menuCatalogToolbar}>
+          <View style={styles.menuCatalogTitleBlock}>
+            <Text style={styles.panelTitle}>Cardápio de engenharia</Text>
+            <Text style={styles.panelSubtitle}>
+              {orderedCategoryRows.length} categoria(s) · {allProducts.length} produto(s) no cardápio carregado
+            </Text>
           </View>
-        ))}
-        {hasMoreProducts ? (
-          <View style={styles.emptyState}>
-            <ActivityIndicator size="small" color={MENU_COLORS.brand} />
-            <Text style={styles.emptyStateText}>Carregando mais produtos...</Text>
-          </View>
-        ) : null}
+          <TouchableOpacity style={styles.secondaryButton} activeOpacity={0.82} onPress={toggleAllCategories}>
+            <Icon name={allExpanded ? 'minimize-2' : 'maximize-2'} size={15} color={MENU_COLORS.brandText} />
+            <Text style={styles.secondaryButtonText}>{allExpanded ? 'Recolher todas' : 'Expandir todas'}</Text>
+          </TouchableOpacity>
+        </View>
+        {orderedCategoryRows.length ? orderedCategoryRows.map((categoryRow, index) => {
+          const expanded = Boolean(expandedCategories[categoryRow.key]);
+          const categoryCost = categoryRow.products.reduce((sum, item) => sum + num(item.directCost), 0);
+          const categoryPrice = categoryRow.products.reduce((sum, item) => sum + num(item.salePrice), 0);
+          const categoryMargin = categoryPrice ? ((categoryPrice - categoryCost) / categoryPrice) * 100 : 0;
+
+          return (
+            <View
+              key={categoryRow.key}
+              testID={`menu-category-card-${categoryRow.key}`}
+              style={[
+                styles.menuCategoryCard,
+                draggingCategoryKey === categoryRow.key && styles.menuCategoryCardDragging,
+              ]}
+            >
+              <TouchableOpacity
+                style={styles.menuCategoryHeader}
+                activeOpacity={0.82}
+                onMouseDown={event => startCategoryMouseDrag(event, categoryRow.key, index)}
+                onPress={() => toggleCategoryRow(categoryRow)}
+                {...createCategoryDragHandlers(categoryRow.key, index)}
+              >
+                <View style={styles.menuCategoryOrderBadge}>
+                  <Text style={styles.menuCategoryOrderText}>{index + 1}</Text>
+                </View>
+                <View style={styles.menuCategoryHeaderText}>
+                  <Text style={styles.menuCategoryTitle}>{categoryRow.title}</Text>
+                  <Text style={styles.menuCategoryMeta}>
+                    {categoryRow.products.length} produto(s) · custo {money(categoryCost)} · margem {percent(categoryMargin)}
+                  </Text>
+                </View>
+                <View style={styles.menuCategoryActions}>
+                  <Pressable
+                    style={styles.menuCategoryDragHandle}
+                    accessible
+                    accessibilityRole="button"
+                    accessibilityLabel={`Reordenar ${categoryRow.title}`}
+                    onMouseDown={event => startCategoryMouseDrag(event, categoryRow.key, index)}
+                    {...createCategoryDragHandlers(categoryRow.key, index)}
+                  >
+                    <Icon name="move" size={15} color={MENU_COLORS.brandText} />
+                  </Pressable>
+                  <Icon name={expanded ? 'chevron-up' : 'chevron-down'} size={18} color={MENU_COLORS.brandText} />
+                </View>
+              </TouchableOpacity>
+              {expanded ? (
+                <View style={styles.menuCategoryProducts}>
+                  {categoryRow.products.length ? categoryRow.products.map(item => (
+                    <RowCard
+                      key={item.product.id}
+                      title={item.product.name}
+                      subtitle={item.product.description || item.product.notes}
+                      imageSource={imageForProduct(db, item.product)}
+                      selected={selected?.product?.id === item.product.id}
+                      onPress={() => {
+                        setSelectedId(item.product.id);
+                        setActiveProductTab('composition');
+                      }}
+                      right={<Text style={styles.rowMoney}>{money(item.salePrice)}</Text>}
+                      badges={[
+                        { label: `Custo ${money(item.directCost)}`, tone: 'neutral' },
+                        { label: percent(item.marginPct), tone: item.marginPct >= targetMarginPct(db) ? 'good' : 'warn' },
+                      ]}
+                    />
+                  )) : <EmptyState text="Categoria sem produtos de venda carregados." />}
+                </View>
+              ) : null}
+            </View>
+          );
+        }) : (
+          <EmptyState text={query ? 'Nenhum produto encontrado para a busca.' : 'Nenhuma categoria do cardápio encontrada.'} />
+        )}
       </ScrollView>
       <ProductDetail
         db={db}
@@ -1242,6 +2316,10 @@ function ProductDetail({
   const product = computed.product;
   const purchases = purchaseRows || productPurchaseRows(db, computed);
   const addonGroupEntries = Object.entries(groupBy(safeArray(computed.addons), addon => addon.group || 'Adicional'));
+  const compositionCounts = safeArray(computed.nodes).reduce((accumulator, node) => ({
+    ...accumulator,
+    [node.refType]: (accumulator[node.refType] || 0) + 1,
+  }), {});
 
   return (
     <DetailShell
@@ -1287,9 +2365,16 @@ function ProductDetail({
       {activeProductTab === 'composition' ? (
         <View style={styles.stack}>
           <View style={styles.panelNested}>
-            <Text style={styles.panelTitle}>Componentes fixos auditáveis</Text>
-            <Text style={styles.panelSubtitle}>A quantidade nesta ficha recalcula custo técnico, obrigatórios, margem e preço pela regra.</Text>
-            {computed.nodes.map((node, index) => (
+            <Text style={styles.panelTitle}>Composição técnica do produto</Text>
+            <Text style={styles.panelSubtitle}>
+              Ingredientes diretos, preparos/receitas e embalagens que formam a ficha fixa deste item do cardápio.
+            </Text>
+            <View style={styles.badgeLine}>
+              <Badge tone={compositionCounts.ingredient ? 'good' : 'neutral'}>{compositionCounts.ingredient || 0} ingrediente(s)</Badge>
+              <Badge tone={compositionCounts.recipe ? 'good' : 'neutral'}>{compositionCounts.recipe || 0} preparo(s)</Badge>
+              <Badge tone={compositionCounts.packaging ? 'good' : 'neutral'}>{compositionCounts.packaging || 0} embalagem(ns)</Badge>
+            </View>
+            {computed.nodes.length ? computed.nodes.map((node, index) => (
               <ComponentNode
                 key={node.key}
                 db={db}
@@ -1297,12 +2382,18 @@ function ProductDetail({
                 onQtyChange={!canEditComposition ? undefined : value => patchProductComponent?.(product.id, index, { qty: num(value) })}
                 onQtyCommit={!canEditComposition ? undefined : value => saveProductComponentQuantity?.(product.id, index, node, num(value))}
               />
-            ))}
+            )) : <EmptyState text="Produto sem composição técnica mapeada." />}
           </View>
         </View>
       ) : null}
       {activeProductTab === 'addons' ? (
         <View style={styles.stack}>
+          <View style={styles.costLogicNote}>
+            <Text style={styles.costLogicTitle}>Grupos comerciais do cardápio</Text>
+            <Text style={styles.costLogicText}>
+              Estes grupos vêm dos adicionais/modificadores do produto. O preço adicional é comercial; o custo técnico vem dos ingredientes, preparos e embalagens carregados por cada opção.
+            </Text>
+          </View>
           {addonGroupEntries.length ? addonGroupEntries.map(([groupName, addons]) => {
             const firstAddon = addons[0] || {};
             return (
@@ -2808,7 +3899,7 @@ function SettingsView({ db, persistDb }) {
 
   return (
     <View style={styles.panel}>
-      <Text style={styles.panelTitle}>Parâmetros locais</Text>
+      <Text style={styles.panelTitle}>Premissas e rateio</Text>
       <Text style={styles.panelSubtitle}>Nesta primeira etapa, estes valores atualizam apenas a base local da rota.</Text>
       <View style={styles.modalGrid}>
         <Field label="Markup padrão (%)" value={draft.defaultMarkupPct} onChangeText={value => setDraft(prev => ({ ...prev, defaultMarkupPct: value }))} inputProps={{ keyboardType: 'numeric' }} />
@@ -2817,7 +3908,7 @@ function SettingsView({ db, persistDb }) {
       </View>
       <TouchableOpacity style={styles.primaryButton} onPress={save}>
         <Icon name="save" size={16} color={MENU_COLORS.white} />
-        <Text style={styles.primaryButtonText}>Salvar parâmetros</Text>
+        <Text style={styles.primaryButtonText}>Salvar premissas</Text>
       </TouchableOpacity>
     </View>
   );

@@ -1,7 +1,12 @@
+import {
+  normalizeCostEngineRules,
+} from '@controleonline/ui-manager/src/react/pages/MenuCostsPage/domain/menuCostsShared';
+
 export const MENU_COSTS_PARAMETER_CONFIG_KEYS = {
   markupPct: 'menu-costs-default-markup-pct',
   marginPct: 'menu-costs-target-margin-pct',
   monthlyUnits: 'menu-costs-estimated-monthly-units',
+  costEngineRules: 'menu-costs-cost-engine-rules',
 };
 
 export const MENU_COSTS_PARAMETER_DEFAULTS = {
@@ -47,6 +52,59 @@ export const resolveParameterDraft = configs => ({
   ),
 });
 
+const parseJsonConfigValue = value => {
+  if (value && typeof value === 'object' && !Array.isArray(value)) {
+    return value;
+  }
+
+  if (typeof value !== 'string') {
+    return null;
+  }
+
+  try {
+    const parsed = JSON.parse(value);
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+      ? parsed
+      : null;
+  } catch {
+    return null;
+  }
+};
+
+export const resolveCostEngineRulesFromConfigs = (configs, fallbackRules = null) =>
+  normalizeCostEngineRules(
+    parseJsonConfigValue(configs?.[MENU_COSTS_PARAMETER_CONFIG_KEYS.costEngineRules]) ||
+      fallbackRules,
+  );
+
+export const resolveMenuCostsSettingsFromConfigs = (configs, fallbackSettings = {}) => {
+  const monthlyUnits = normalizeNumericValue(
+    configs?.[MENU_COSTS_PARAMETER_CONFIG_KEYS.monthlyUnits],
+    fallbackSettings?.monthlyUnits ??
+      fallbackSettings?.estimatedMonthlyUnits ??
+      MENU_COSTS_PARAMETER_DEFAULTS.monthlyUnits,
+  );
+
+  return {
+    ...fallbackSettings,
+    defaultMarkupPct: normalizeNumericValue(
+      configs?.[MENU_COSTS_PARAMETER_CONFIG_KEYS.markupPct],
+      fallbackSettings?.defaultMarkupPct ?? MENU_COSTS_PARAMETER_DEFAULTS.markupPct,
+    ),
+    targetMarginPct: normalizeNumericValue(
+      configs?.[MENU_COSTS_PARAMETER_CONFIG_KEYS.marginPct],
+      fallbackSettings?.targetMarginPct ?? MENU_COSTS_PARAMETER_DEFAULTS.marginPct,
+    ),
+    monthlyUnits,
+    estimatedMonthlyUnits: monthlyUnits,
+    customMonthlyUnits: monthlyUnits,
+    costEngineRules: resolveCostEngineRulesFromConfigs(
+      configs,
+      fallbackSettings?.costEngineRules,
+    ),
+  };
+};
+
 export const buildParameterRequestConfigs = draft => [
   {
     configKey: MENU_COSTS_PARAMETER_CONFIG_KEYS.markupPct,
@@ -77,6 +135,16 @@ export const buildParameterRequestConfigs = draft => [
   },
 ];
 
+export const buildCostEngineRulesRequestConfig = rules => ({
+  configKey: MENU_COSTS_PARAMETER_CONFIG_KEYS.costEngineRules,
+  configValue: JSON.stringify(normalizeCostEngineRules(rules)),
+});
+
+export const buildCostEngineRulesCache = rules => ({
+  [MENU_COSTS_PARAMETER_CONFIG_KEYS.costEngineRules]:
+    buildCostEngineRulesRequestConfig(rules).configValue,
+});
+
 export const buildParameterCache = draft => ({
   [MENU_COSTS_PARAMETER_CONFIG_KEYS.markupPct]: String(
     normalizeNumericValue(
@@ -104,7 +172,7 @@ export const resolveErrorMessage = error =>
       error?.response?.data?.message ||
       error?.detail ||
       error?.message ||
-      'Não foi possível salvar os parâmetros.',
+      'Não foi possível salvar as premissas.',
   );
 
 export const isMethodNotAllowedError = error => {

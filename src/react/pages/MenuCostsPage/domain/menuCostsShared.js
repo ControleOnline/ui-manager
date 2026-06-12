@@ -175,7 +175,9 @@ export const getById = (db, collection, id) =>
   safeArray(db?.[collection]).find(item => String(item.id) === String(id)) || null;
 
 export const categoryName = (db, categoryId) =>
-  getById(db, 'categories', categoryId)?.name || 'Sem categoria';
+  getById(db, 'categories', categoryId)?.name ||
+  getById(db, 'categories', categoryId)?.category ||
+  'Sem categoria';
 
 export const resourceCollectionForRef = refType => {
   if (refType === 'ingredient') return 'ingredients';
@@ -1041,6 +1043,388 @@ export const comparableCostLabel = (refType, record) => {
 export const resourceActiveCostLabel = (db, refType, record) => {
   const summary = activeCostSummary(db, refType, record);
   return `${money(summary.activePrimaryCost)} / ${summary.primaryUnit}`;
+};
+
+const purchaseOrderAmount = order =>
+  num(order?.totalAmount ?? order?.price ?? order?.total ?? order?.value ?? order?.amount);
+
+const purchaseOrderDate = order =>
+  String(order?.date || order?.createdAt || order?.created_at || order?.orderDate || '').slice(0, 10);
+
+const fixedMonthlyCost = db => {
+  const fixedCostsTotal = safeArray(db?.fixedCosts).reduce((sum, item) => (
+    sum + num(item?.amount ?? item?.value ?? item?.total)
+  ), 0);
+  if (fixedCostsTotal > 0) return fixedCostsTotal;
+
+  return num(
+    db?.settings?.fixedMonthlyCost ??
+    db?.settings?.monthlyFixedCost ??
+    db?.settings?.fixedCostsMonthly ??
+    db?.settings?.totalFixedCosts
+  );
+};
+
+const monthlyUnitsEstimate = (db, productsCount) =>
+  num(
+    db?.settings?.customMonthlyUnits ??
+    db?.settings?.estimatedMonthlyUnits ??
+    db?.settings?.monthlyUnits
+  ) ||
+  Object.values(db?.settings?.operationMonthlyUnits || {}).reduce((sum, value) => sum + num(value), 0) ||
+  productsCount ||
+  0;
+
+const marginTone = (marginPct, targetPct) => {
+  if (marginPct <= 0 || marginPct < targetPct - 20) return 'bad';
+  if (marginPct < targetPct) return 'warn';
+  return 'good';
+};
+
+const cmvTone = cmvPct => {
+  if (cmvPct > 45) return 'bad';
+  if (cmvPct > 35) return 'warn';
+  return 'good';
+};
+
+export const COST_ENGINE_ROUNDING_OPTIONS = [
+  { value: 'none', label: 'Sem arredondamento' },
+  { value: 'up_90', label: 'Terminar em ,90' },
+  { value: 'up_99', label: 'Terminar em ,99' },
+  { value: 'nearest_50', label: 'Múltiplo de R$ 0,50' },
+];
+
+export const DEFAULT_COST_ENGINE_CHANNEL_RULES = [
+  {
+    id: 'counter',
+    name: 'Balcão / salão',
+    marginPct: 35,
+    feePct: 0,
+    commissionPct: 0,
+    taxPct: 0,
+    passThroughAmount: 0,
+    roundingMode: 'up_90',
+  },
+  {
+    id: 'own_delivery',
+    name: 'Delivery próprio',
+    marginPct: 35,
+    feePct: 3,
+    commissionPct: 0,
+    taxPct: 0,
+    passThroughAmount: 0,
+    roundingMode: 'up_90',
+  },
+  {
+    id: 'marketplace',
+    name: 'Marketplace',
+    marginPct: 35,
+    feePct: 3,
+    commissionPct: 27,
+    taxPct: 0,
+    passThroughAmount: 0,
+    roundingMode: 'up_99',
+  },
+];
+
+export const normalizeCostEngineRules = value => {
+  const source = safeArray(value?.channels).length
+    ? value.channels
+    : DEFAULT_COST_ENGINE_CHANNEL_RULES;
+  const defaultById = new Map(DEFAULT_COST_ENGINE_CHANNEL_RULES.map(rule => [rule.id, rule]));
+
+  return {
+    channels: source.map((rule, index) => {
+      const fallback = defaultById.get(rule?.id) || DEFAULT_COST_ENGINE_CHANNEL_RULES[index] || {};
+      const roundingMode = COST_ENGINE_ROUNDING_OPTIONS.some(option => option.value === rule?.roundingMode)
+        ? rule.roundingMode
+        : fallback.roundingMode || 'none';
+
+      return {
+        id: String(rule?.id || fallback.id || `channel_${index + 1}`),
+        name: normalizeText(rule?.name || fallback.name || `Canal ${index + 1}`),
+        marginPct: num(rule?.marginPct ?? fallback.marginPct),
+        feePct: num(rule?.feePct ?? fallback.feePct),
+        commissionPct: num(rule?.commissionPct ?? fallback.commissionPct),
+        taxPct: num(rule?.taxPct ?? fallback.taxPct),
+        passThroughAmount: num(rule?.passThroughAmount ?? fallback.passThroughAmount),
+        roundingMode,
+      };
+    }),
+  };
+};
+
+const roundSuggestedPrice = (value, mode) => {
+  const price = Math.max(0, num(value));
+  if (mode === 'up_90') return Math.max(0, Math.ceil(price) - 0.1);
+  if (mode === 'up_99') return Math.max(0, Math.ceil(price) - 0.01);
+  if (mode === 'nearest_50') return Math.ceil(price * 2) / 2;
+  return price;
+};
+
+const roundingLabel = mode =>
+  COST_ENGINE_ROUNDING_OPTIONS.find(option => option.value === mode)?.label ||
+  COST_ENGINE_ROUNDING_OPTIONS[0].label;
+
+export const buildCostEngineChannelPreview = (db, channelRule) => {
+  const radar = buildDashboardRadar(db);
+  const productsCount = Math.max(1, radar.counts.products);
+  const averageDirectCost = radar.finance.directCost / productsCount;
+  const rule = normalizeCostEngineRules({ channels: [channelRule] }).channels[0];
+  const totalPct = rule.marginPct + rule.feePct + rule.commissionPct + rule.taxPct;
+  const denominator = Math.max(0.01, 1 - totalPct / 100);
+  const pricingBase = averageDirectCost + rule.passThroughAmount;
+  const rawSuggestedPrice = pricingBase / denominator;
+  const suggestedPrice = roundSuggestedPrice(rawSuggestedPrice, rule.roundingMode);
+  const marginAmount = suggestedPrice * (rule.marginPct / 100);
+  const feesAmount = suggestedPrice * (rule.feePct / 100);
+  const commissionAmount = suggestedPrice * (rule.commissionPct / 100);
+  const taxAmount = suggestedPrice * (rule.taxPct / 100);
+  const contributionAmount =
+    suggestedPrice -
+    averageDirectCost -
+    rule.passThroughAmount -
+    feesAmount -
+    commissionAmount -
+    taxAmount;
+
+  return {
+    ...rule,
+    averageDirectCost,
+    pricingBase,
+    totalPct,
+    rawSuggestedPrice,
+    suggestedPrice,
+    marginAmount,
+    feesAmount,
+    commissionAmount,
+    taxAmount,
+    contributionAmount,
+    roundingLabel: roundingLabel(rule.roundingMode),
+  };
+};
+
+export const buildDashboardRadar = (db, options = {}) => {
+  const products = computeAllProducts(db);
+  const productsCount = products.length;
+  const directCost = products.reduce((sum, item) => sum + item.directCost, 0);
+  const salePrice = products.reduce((sum, item) => sum + item.salePrice, 0);
+  const averageMarginPct = salePrice ? ((salePrice - directCost) / salePrice) * 100 : 0;
+  const cmvPct = salePrice ? (directCost / salePrice) * 100 : 0;
+  const targetPct = targetMarginPct(db);
+  const fixedCost = fixedMonthlyCost(db);
+  const monthlyUnits = monthlyUnitsEstimate(db, productsCount);
+  const fixedCostPerItem = fixedCost && monthlyUnits ? fixedCost / monthlyUnits : 0;
+  const purchaseOrders = safeArray(options.purchaseOrders || db?.purchaseOrders);
+  const purchaseLifetime = purchaseOrders.reduce((sum, order) => sum + purchaseOrderAmount(order), 0);
+  const referenceDate = options.referenceDate ? new Date(options.referenceDate) : new Date();
+  const referenceMonth = Number.isNaN(referenceDate.getTime())
+    ? ''
+    : referenceDate.toISOString().slice(0, 7);
+  const purchaseMonth = purchaseOrders
+    .filter(order => referenceMonth && purchaseOrderDate(order).startsWith(referenceMonth))
+    .reduce((sum, order) => sum + purchaseOrderAmount(order), 0);
+  const pendingCount = pendingItems(db).length;
+  const belowTarget = products.filter(item => item.marginPct < targetPct);
+  const critical = products.filter(item => marginTone(item.marginPct, targetPct) === 'bad');
+  const categorySummaries = Object.entries(groupBy(products, item => categoryName(db, item.product.categoryId)))
+    .map(([name, items]) => {
+      const categoryCost = items.reduce((sum, item) => sum + item.directCost, 0);
+      const categoryPrice = items.reduce((sum, item) => sum + item.salePrice, 0);
+      return {
+        name,
+        count: items.length,
+        averageCost: items.length ? categoryCost / items.length : 0,
+        marginPct: categoryPrice ? ((categoryPrice - categoryCost) / categoryPrice) * 100 : 0,
+      };
+    })
+    .sort((left, right) => right.count - left.count || left.name.localeCompare(right.name, 'pt-BR'));
+
+  let diagnosisTitle = 'Cardápio técnico pronto para leitura';
+  let diagnosisTone = 'good';
+  if (!productsCount) {
+    diagnosisTitle = 'Cardápio técnico ainda sem produtos ativos';
+    diagnosisTone = 'warn';
+  } else if (critical.length) {
+    diagnosisTitle = `${critical.length} item(ns) com margem crítica`;
+    diagnosisTone = 'bad';
+  } else if (belowTarget.length) {
+    diagnosisTitle = `${belowTarget.length} item(ns) abaixo da meta de margem`;
+    diagnosisTone = 'warn';
+  } else if (pendingCount) {
+    diagnosisTitle = `${pendingCount} pendência(s) pedem revisão técnica`;
+    diagnosisTone = 'warn';
+  }
+
+  return {
+    diagnosis: {
+      title: diagnosisTitle,
+      tone: diagnosisTone,
+      description: `Meta de margem ${percent(targetPct)}, markup padrão ${percent(defaultMarkupPct(db))} e CMV atual ${percent(cmvPct)}.`,
+    },
+    counts: {
+      products: productsCount,
+      ingredients: safeArray(db?.ingredients).length,
+      recipes: safeArray(db?.recipes).length,
+      packaging: safeArray(db?.packaging).length,
+      categories: safeArray(db?.categories).filter(category => category?.active !== false).length,
+      pending: pendingCount,
+      evidences: safeArray(db?.inputs).length,
+    },
+    finance: {
+      directCost,
+      salePrice,
+      averageMarginPct,
+      cmvPct,
+      targetMarginPct: targetPct,
+      defaultMarkupPct: defaultMarkupPct(db),
+      fixedMonthlyCost: fixedCost,
+      monthlyUnits,
+      fixedCostPerItem,
+      purchaseMonth,
+      purchaseLifetime,
+    },
+    primaryMetrics: [
+      {
+        key: 'products',
+        label: 'Produtos no cardápio',
+        value: String(productsCount),
+        helper: `${safeArray(db?.categories).filter(category => category?.active !== false).length} categoria(s) ativa(s)`,
+        tone: 'neutral',
+      },
+      {
+        key: 'margin',
+        label: 'Margem média',
+        value: percent(averageMarginPct),
+        helper: `Meta ${percent(targetPct)}`,
+        tone: marginTone(averageMarginPct, targetPct),
+      },
+      {
+        key: 'cmv',
+        label: 'CMV estimado',
+        value: percent(cmvPct),
+        helper: 'Referência alimentação: 28% a 35%',
+        tone: cmvTone(cmvPct),
+      },
+      {
+        key: 'monthPurchases',
+        label: 'Compras do mês',
+        value: money(purchaseMonth),
+        helper: `${money(purchaseLifetime)} no histórico carregado`,
+        tone: 'neutral',
+      },
+      {
+        key: 'fixedAllocation',
+        label: 'Rateio fixo por item',
+        value: fixedCost ? money(fixedCostPerItem) : 'Sem base',
+        helper: fixedCost ? `${money(fixedCost)} em custos fixos mensais` : 'Cadastre custos fixos para ativar',
+        tone: fixedCost ? 'neutral' : 'warn',
+      },
+    ],
+    marginAlerts: [...products]
+      .sort((left, right) => left.marginPct - right.marginPct)
+      .slice(0, 6),
+    highCostItems: [...products]
+      .sort((left, right) => right.directCost - left.directCost)
+      .slice(0, 6),
+    categorySummaries: categorySummaries.slice(0, 8),
+  };
+};
+
+export const buildCostEngineOverview = db => {
+  const radar = buildDashboardRadar(db);
+  const markupMultiplier = 1 + radar.finance.defaultMarkupPct / 100;
+  const rules = normalizeCostEngineRules(db?.settings?.costEngineRules);
+  const channelPreviews = rules.channels.map(rule => buildCostEngineChannelPreview(db, rule));
+  const fixedCostLabel = radar.finance.fixedMonthlyCost
+    ? money(radar.finance.fixedMonthlyCost)
+    : 'Sem custos fixos cadastrados';
+  const fixedAllocationLabel = radar.finance.fixedMonthlyCost
+    ? money(radar.finance.fixedCostPerItem)
+    : 'Sem base mensal';
+
+  return {
+    headline: {
+      title: 'Motor de custo atual',
+      description: 'Leitura da regra que a engenharia usa hoje para transformar ficha técnica, preço e margem em uma visão gerencial da operação.',
+    },
+    ruleCards: [
+      {
+        key: 'markup',
+        label: 'Markup padrão',
+        value: percent(radar.finance.defaultMarkupPct),
+        helper: `Multiplicador técnico x ${decimal(markupMultiplier, 2)}`,
+        tone: 'neutral',
+      },
+      {
+        key: 'targetMargin',
+        label: 'Margem alvo',
+        value: percent(radar.finance.targetMarginPct),
+        helper: `Margem média atual ${percent(radar.finance.averageMarginPct)}`,
+        tone: radar.finance.averageMarginPct >= radar.finance.targetMarginPct ? 'good' : 'warn',
+      },
+      {
+        key: 'cmv',
+        label: 'CMV estimado',
+        value: percent(radar.finance.cmvPct),
+        helper: 'Faixa de referência em alimentação: 28% a 35%',
+        tone: radar.finance.cmvPct <= 35 ? 'good' : radar.finance.cmvPct <= 45 ? 'warn' : 'bad',
+      },
+      {
+        key: 'fixedAllocation',
+        label: 'Rateio fixo',
+        value: fixedAllocationLabel,
+        helper: `${fixedCostLabel} / ${decimal(radar.finance.monthlyUnits)} unidade(s) estimadas`,
+        tone: radar.finance.fixedMonthlyCost ? 'neutral' : 'warn',
+      },
+    ],
+    steps: [
+      {
+        key: 'activeCost',
+        title: '1. Custo ativo do insumo',
+        formula: 'custo_unitario = custo_da_compra / quantidade_da_compra',
+        description: 'Ingredientes, preparos e embalagens usam o custo ativo configurado na engenharia. Quando houver compra escolhida ou custo manual, essa leitura substitui o cadastro base.',
+      },
+      {
+        key: 'recipe',
+        title: '2. Receita e preparo',
+        formula: 'custo_do_lote = soma(componentes) / rendimento',
+        description: 'Preparos diluem o custo dos componentes pelo rendimento informado, para que o produto use só a fração real consumida.',
+      },
+      {
+        key: 'product',
+        title: '3. Custo técnico do produto',
+        formula: 'custo_direto = ficha_base + adicionais_obrigatorios',
+        description: 'O produto soma componentes fixos e o menor cenário obrigatório dos grupos de adicionais. Adicionais opcionais ficam separados para decisão comercial.',
+      },
+      {
+        key: 'price',
+        title: '4. Preço sugerido pela regra',
+        formula: `preco_sugerido = custo_direto x ${decimal(markupMultiplier, 2)}`,
+        description: 'A regra base usa markup padrão sobre o custo direto, e as regras por canal simulam margem, taxas, comissão, repasse e arredondamento antes de sugerir preço.',
+      },
+      {
+        key: 'margin',
+        title: '5. Margem e CMV',
+        formula: 'margem = (preco - custo_direto) / preco',
+        description: 'A margem olha o item vendido. O CMV estimado olha a relação entre custo técnico e preço do cardápio carregado.',
+      },
+      {
+        key: 'fixed',
+        title: '6. Rateio fixo gerencial',
+        formula: 'rateio = custos_fixos_mensais / unidades_mensais',
+        description: 'O rateio ajuda a entender se a operação paga a estrutura, mas não altera a ficha técnica do produto nesta fase.',
+      },
+    ],
+    nextRules: [
+      'Vincular estes canais aos canais homologados do ERP',
+      'Separar regras por categoria, produto ou operação',
+      'Definir preço mínimo e exceções comerciais',
+      'Metas por categoria, canal ou operação',
+    ],
+    editableRules: rules,
+    channelPreviews,
+  };
 };
 
 export const dashboardMetrics = db => {

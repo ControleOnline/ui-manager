@@ -28,3 +28,6 @@
 - Essa tela carrega apenas pedidos do ERP com `orderType=purchase`, usando `orders` para a listagem e `order_file`/`files` para evidencias e anexos.
 - A experiencia especifica do mapa de compras da engenharia deve ficar neste modulo; `ui-orders` deve fornecer apenas componentes e utilitarios canonicos de pedido/anexo quando necessario.
 - O seed JSON nao deve ser usado como fonte dessa tela.
+- A aba `Motor de custo` da `MenuCostsPage` e a leitura explicativa/editavel da regra atual de precificacao da engenharia.
+- `Motor de custo` deve ler e gravar o contrato oficial em `configs` da empresa selecionada, pela chave `menu-costs-cost-engine-rules`, mantendo `settings.costEngineRules` apenas como compatibilidade/cache local da rota.
+- As regras devem explicar e simular custo tecnico, markup, margem, taxas, comissao, repasse, arredondamento, CMV e rateio fixo gerencial sem alterar produto, pedido, catalogo ou canais globais fora da engenharia.

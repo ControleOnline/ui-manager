@@ -73,6 +73,10 @@ describe('menuCostsLiveDb', () => {
       settings: { targetMarginPct: 55 },
     });
 
+    const productGroupProductActions = {
+      getItems: jest.fn(),
+    };
+
     const liveDb = await buildLiveMenuCostsDb({
       companyId: 3,
       companyIri: '/people/3',
@@ -123,9 +127,7 @@ describe('menuCostsLiveDb', () => {
           ];
         }),
       },
-      productGroupProductActions: {
-        getItems: jest.fn(),
-      },
+      productGroupProductActions,
       ordersActions: {
         getItems: jest.fn(),
       },
@@ -151,6 +153,7 @@ describe('menuCostsLiveDb', () => {
     assert.equal(liveDb.settings.targetMarginPct, 55);
     assert.equal(liveDb.products.find(item => item.id === 30).name, 'Coca-Cola 350ml');
     assert.equal(liveDb.recipes[0].name, 'Preparo Combo Alpha');
+    assert.equal(productGroupProductActions.getItems.mock.calls.length, 0);
   });
 
   it('preserves ERP component relation ids and quantities when merging sale product supplies', async () => {
@@ -237,6 +240,7 @@ describe('menuCostsLiveDb', () => {
             type: 'product',
             active: true,
             price: 35,
+            productCategory: [{ category: { id: 9, name: 'Lanches' } }],
           }];
         }),
       },
@@ -251,6 +255,7 @@ describe('menuCostsLiveDb', () => {
       product.components.map(component => component.relationId).sort(),
       [501, 502],
     );
+    assert.equal(product.categoryId, '9');
     assert.equal(product.components.find(component => component.refType === 'ingredient').qty, 150);
     assert.equal(product.components.find(component => component.refType === 'packaging').qty, 1);
   });
@@ -328,6 +333,7 @@ describe('menuCostsLiveDb', () => {
       },
       productGroupProductActions,
       categoriesActions: { getItems: jest.fn(async () => []) },
+      includeRecipeComponents: true,
     });
 
     assert.equal(liveDb.recipes.length, 1);
@@ -422,6 +428,7 @@ describe('menuCostsLiveDb', () => {
         }]),
       },
       categoriesActions: { getItems: jest.fn(async () => []) },
+      includeProductAddons: true,
     });
 
     const product = liveDb.products.find(item => item.id === 30);

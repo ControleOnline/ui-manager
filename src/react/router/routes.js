@@ -611,7 +611,7 @@ const managerRoutes = [
       headerBackFallback: {
         name: 'MenuCostsPage',
       },
-      title: 'Parâmetros',
+      title: 'Premissas e rateio',
       showCompanyFilter: true,
       companyFilterMode: 'icon',
     },

@@ -1,5 +1,6 @@
 export const MAIN_TABS = [
   { key: 'dashboard', label: 'Dashboard', icon: 'bar-chart-2' },
+  { key: 'cost_engine', label: 'Motor de custo', icon: 'cpu' },
   { key: 'products', label: 'Produtos de venda', icon: 'shopping-bag' },
   { key: 'ingredients', label: 'Ingredientes', icon: 'package' },
   { key: 'recipes', label: 'Preparos', icon: 'git-branch' },
@@ -9,5 +10,5 @@ export const MAIN_TABS = [
   { key: 'processes', label: 'Processos', icon: 'activity' },
   { key: 'suppliers', label: 'Fornecedores', icon: 'truck' },
   { key: 'pending', label: 'Pendências', icon: 'alert-circle' },
-  { key: 'settings', label: 'Parâmetros', icon: 'sliders' },
+  { key: 'settings', label: 'Premissas e rateio', icon: 'sliders' },
 ];

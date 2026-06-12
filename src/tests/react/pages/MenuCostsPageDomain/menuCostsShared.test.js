@@ -5,10 +5,14 @@ const assert = require('node:assert/strict');
 const {
   activeCostSummary,
   activeProducts,
+  buildCostEngineOverview,
+  buildCostEngineChannelPreview,
+  buildDashboardRadar,
   comparableCostLabel,
   computeProduct,
   filterBySearch,
   formatDate,
+  normalizeCostEngineRules,
   purchaseItemsForResource,
   resourceParentUsageRows,
   RESOURCE_META,
@@ -107,6 +111,7 @@ const db = {
       date: '2026-06-01',
       supplierName: 'Fornecedor A',
       paymentStatus: 'paid',
+      totalAmount: 10,
     },
   ],
   purchaseItems: [
@@ -122,7 +127,12 @@ const db = {
     },
   ],
   inputs: [],
-  settings: {},
+  fixedCosts: [
+    { id: 1, name: 'Aluguel', amount: 100 },
+  ],
+  settings: {
+    customMonthlyUnits: 50,
+  },
 };
 
 test('menu costs shared helpers expose ingredient costing and usage rows', () => {
@@ -173,4 +183,55 @@ test('sale product composition uses active ingredient cost and keeps ERP relatio
   assert.equal(updated.nodes[0].cost, 14);
   assert.equal(updated.requiredCost, 7);
   assert.equal(updated.directCost, 21);
+});
+
+test('dashboard radar summarizes current engineering operation', () => {
+  const radar = buildDashboardRadar(db, { referenceDate: '2026-06-15' });
+
+  assert.equal(radar.counts.products, 1);
+  assert.equal(radar.counts.ingredients, 1);
+  assert.equal(radar.counts.categories, 1);
+  assert.equal(radar.finance.fixedMonthlyCost, 100);
+  assert.equal(radar.finance.fixedCostPerItem, 2);
+  assert.equal(radar.finance.purchaseMonth, 10);
+  assert.equal(radar.finance.purchaseLifetime, 10);
+  assert.equal(radar.primaryMetrics.find(metric => metric.key === 'cmv').value, '33,3%');
+  assert.equal(radar.marginAlerts[0].product.name, 'Combo A');
+  assert.equal(radar.categorySummaries[0].name, 'Temperos');
+});
+
+test('cost engine overview explains the current pricing rule', () => {
+  const overview = buildCostEngineOverview(db);
+
+  assert.equal(overview.headline.title, 'Motor de custo atual');
+  assert.equal(overview.ruleCards.find(card => card.key === 'markup').value, '200%');
+  assert.equal(overview.ruleCards.find(card => card.key === 'fixedAllocation').value, 'R$\u00a02,00');
+  assert.equal(overview.steps.length, 6);
+  assert.equal(overview.steps[2].key, 'product');
+  assert.equal(overview.channelPreviews.length, 3);
+  assert.ok(overview.nextRules.includes('Vincular estes canais aos canais homologados do ERP'));
+});
+
+test('cost engine channel rules normalize and project suggested prices', () => {
+  const rules = normalizeCostEngineRules({
+    channels: [
+      {
+        id: 'marketplace',
+        name: 'Marketplace',
+        marginPct: '30',
+        feePct: '3',
+        commissionPct: '27',
+        taxPct: '5',
+        passThroughAmount: '2',
+        roundingMode: 'up_99',
+      },
+    ],
+  });
+  const preview = buildCostEngineChannelPreview(db, rules.channels[0]);
+
+  assert.equal(rules.channels[0].marginPct, 30);
+  assert.equal(rules.channels[0].commissionPct, 27);
+  assert.equal(preview.totalPct, 65);
+  assert.equal(preview.roundingLabel, 'Terminar em ,99');
+  assert.ok(preview.suggestedPrice > preview.averageDirectCost);
 });

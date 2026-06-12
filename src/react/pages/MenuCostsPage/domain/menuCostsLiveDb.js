@@ -64,7 +64,32 @@ const mergeById = items => {
   return Array.from(map.values());
 };
 
-const normalizeLiveProduct = product => {
+const collectionFrom = value => {
+  if (!value) return [];
+  if (Array.isArray(value)) return value;
+  if (Array.isArray(value.member)) return value.member;
+  if (Array.isArray(value['hydra:member'])) return value['hydra:member'];
+  return [value];
+};
+
+const resolveProductCategoryId = product => {
+  const productCategory = collectionFrom(product?.productCategory)[0];
+  const productCategories = collectionFrom(product?.productCategories)[0];
+  const categories = collectionFrom(product?.categories)[0];
+  const category =
+    productCategory?.category ||
+    productCategory?.categoryId ||
+    productCategories?.category ||
+    productCategories?.categoryId ||
+    categories?.category ||
+    categories?.categoryId ||
+    product?.category ||
+    product?.categoryId;
+
+  return normalizeEntityId(category);
+};
+
+export const normalizeLiveProduct = product => {
   const normalized = mapProductToCatalogItem(product || {}, {});
 
   return {
@@ -73,7 +98,7 @@ const normalizeLiveProduct = product => {
     name: normalized.name || product?.product || product?.name || '',
     code: normalized.sku || product?.code || String(normalized.id || product?.id || ''),
     sku: normalized.sku || product?.sku || '',
-    categoryId: normalized.categoryId || product?.categoryId || '',
+    categoryId: normalized.categoryId || resolveProductCategoryId(product) || '',
     type: normalized.type || product?.type || 'product',
     active: normalized.active !== false && product?.active !== false,
     description: normalized.description || product?.description || '',
@@ -99,7 +124,7 @@ const normalizeRecipeProduct = (product, components = null) => {
     name: normalized.name || product?.product || product?.name || '',
     code: normalized.sku || product?.code || String(normalized.id || product?.id || ''),
     sku: normalized.sku || product?.sku || '',
-    categoryId: normalized.categoryId || product?.categoryId || '',
+    categoryId: normalized.categoryId || resolveProductCategoryId(product) || '',
     type: 'recipe',
     active: normalized.active !== false && product?.active !== false,
     description: normalized.description || product?.description || '',
@@ -202,7 +227,7 @@ const productTypeForRefType = refType => {
   return 'product';
 };
 
-const buildRecipeComponentsByProductId = async ({ recipes, productGroupProductActions }) => {
+export const buildRecipeComponentsByProductId = async ({ recipes, productGroupProductActions }) => {
   if (!productGroupProductActions?.getItems) return {};
 
   const componentsByRecipeId = {};
@@ -273,7 +298,7 @@ const buildAddonFromRelation = ({ relation, group, parentProductId }) => {
   };
 };
 
-const buildAddonsForProducts = async ({ products, productGroupActions, productGroupProductActions }) => {
+export const buildAddonsForProducts = async ({ products, productGroupActions, productGroupProductActions }) => {
   if (!productGroupActions?.getItems || !productGroupProductActions?.getItems) return {};
 
   const addonsByProductId = {};
@@ -341,6 +366,8 @@ export const buildLiveMenuCostsDb = async ({
   productGroupActions,
   ordersActions,
   categoriesActions,
+  includeProductAddons = false,
+  includeRecipeComponents = false,
 }) => {
   if (!companyId) {
     return {
@@ -446,11 +473,13 @@ export const buildLiveMenuCostsDb = async ({
     String(left.name || '').localeCompare(String(right.name || ''), 'pt-BR'),
   );
 
-  const addonsByProductId = await buildAddonsForProducts({
-    products: productsWithoutAddons,
-    productGroupActions,
-    productGroupProductActions,
-  });
+  const addonsByProductId = includeProductAddons
+    ? await buildAddonsForProducts({
+      products: productsWithoutAddons,
+      productGroupActions,
+      productGroupProductActions,
+    })
+    : {};
 
   const products = productsWithoutAddons.map(product => ({
     ...product,
@@ -460,10 +489,12 @@ export const buildLiveMenuCostsDb = async ({
   }));
 
   const rawRecipes = dedupeByType(liveRecipeProducts);
-  const recipeComponentsByProductId = await buildRecipeComponentsByProductId({
-    recipes: rawRecipes,
-    productGroupProductActions,
-  });
+  const recipeComponentsByProductId = includeRecipeComponents
+    ? await buildRecipeComponentsByProductId({
+      recipes: rawRecipes,
+      productGroupProductActions,
+    })
+    : {};
 
   const recipes = rawRecipes
     .map(product => normalizeRecipeProduct(product, recipeComponentsByProductId[normalizeEntityId(product)]))

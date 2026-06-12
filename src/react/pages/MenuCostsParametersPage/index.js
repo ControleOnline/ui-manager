@@ -65,7 +65,7 @@ const Field = ({ label, value, onChangeText, wide = false }) => (
   </View>
 );
 
-const resolveSectionTitle = () => 'Parâmetros locais da engenharia';
+const resolveSectionTitle = () => 'Premissas de preço e rateio da engenharia';
 
 export default function MenuCostsParametersPage({ navigation }) {
   const messageApi = useMessage() || {};
@@ -131,7 +131,7 @@ export default function MenuCostsParametersPage({ navigation }) {
 
   const handleSave = useCallback(async () => {
     if (!currentCompany?.id) {
-      showError?.('Selecione uma empresa para salvar os parâmetros.');
+      showError?.('Selecione uma empresa para salvar as premissas.');
       return;
     }
 
@@ -167,7 +167,7 @@ export default function MenuCostsParametersPage({ navigation }) {
         ...effectiveConfigs,
         ...cacheConfigs,
       });
-      showSuccess?.('Parâmetros salvos na empresa.');
+      showSuccess?.('Premissas salvas na empresa.');
     } catch (error) {
       showError?.(resolveErrorMessage(error));
     }
@@ -205,17 +205,18 @@ export default function MenuCostsParametersPage({ navigation }) {
           <View style={styles.content}>
             <View style={styles.sectionTop}>
               <View>
-                <Text style={styles.sectionEyebrow}>Parâmetros</Text>
+                <Text style={styles.sectionEyebrow}>Premissas e rateio</Text>
                 <Text style={styles.sectionTitle}>{resolveSectionTitle()}</Text>
               </View>
             </View>
 
             <ScrollView style={styles.contentScroll} contentContainerStyle={styles.contentScrollBody}>
               <View style={styles.panel}>
-                <Text style={styles.panelTitle}>Parâmetros locais</Text>
+                <Text style={styles.panelTitle}>Premissas da operação</Text>
                 <Text style={styles.panelSubtitle}>
-                  Os valores desta tela são carregados ao abrir a rota e salvos nos
-                  parâmetros públicos da empresa selecionada.
+                  Os valores desta tela são carregados ao abrir a rota e salvos nas
+                  configurações públicas da empresa selecionada para orientar margem,
+                  markup e rateio mensal.
                 </Text>
 
                 <View style={styles.modalGrid}>
@@ -244,7 +245,7 @@ export default function MenuCostsParametersPage({ navigation }) {
                 >
                   <Icon name="save" size={16} color={MENU_COLORS.white} />
                   <Text style={styles.primaryButtonText}>
-                    {isSaving ? 'Salvando...' : 'Salvar parâmetros'}
+                    {isSaving ? 'Salvando...' : 'Salvar premissas'}
                   </Text>
                 </TouchableOpacity>
               </View>
