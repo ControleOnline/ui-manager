@@ -19,6 +19,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/Feather';
 import { useStore } from '@store';
 import { useMessage } from '@controleonline/ui-common/src/react/components/MessageService';
+import CompactFilterSelector from '@controleonline/ui-default/src/react/components/filters/CompactFilterSelector';
 import StateStore from '@controleonline/ui-layout/src/react/components/StateStore';
 import styles, { MENU_COLORS } from './index.styles';
 import {
@@ -40,8 +41,8 @@ import {
   categoryName,
   comparableCostLabel,
   componentCost,
+  convertQty,
   computeAllProducts,
-  computeEngineeringProducts,
   computeProduct,
   decimal,
   defaultMarkupPct,
@@ -111,6 +112,35 @@ import {
   resolveErrorMessage,
   resolveMenuCostsSettingsFromConfigs,
 } from '@controleonline/ui-manager/src/react/pages/MenuCostsParametersPage/viewModel';
+import {
+  buildMenuCostsCatalogTree,
+  buildPreparationLinkSuggestions,
+  filterMenuCostsCatalogTree,
+  flattenMenuCostsCatalogTree,
+  productCatalogPaths,
+} from '@controleonline/ui-manager/src/react/pages/MenuCostsPage/domain/menuCostsCatalog';
+import {
+  TECHNICAL_AUDIT_META,
+  buildProductTechnicalTreeAudit,
+} from '@controleonline/ui-manager/src/react/pages/MenuCostsPage/domain/menuCostsTechnicalTree';
+import { createMenuCostsDraftRepository } from '@controleonline/ui-manager/src/react/pages/MenuCostsPage/domain/menuCostsDraftRepository';
+import {
+  buildMenuCostsTechnicalWorkspace,
+} from '@controleonline/ui-manager/src/react/pages/MenuCostsPage/domain/menuCostsTechnicalWorkspace';
+import { ensureGyrosLegacyDraftImport } from '@controleonline/ui-manager/src/react/pages/MenuCostsPage/domain/menuCostsLegacyDraftImport';
+import {
+  buildMenuCostsCompositionPieces,
+  buildMenuCostsPackagingPieces,
+  updateMenuCostsCompositionLinkQuantity,
+} from '@controleonline/ui-manager/src/react/pages/MenuCostsPage/domain/menuCostsComposition';
+import {
+  setMenuCostsTechnicalRole,
+} from '@controleonline/ui-manager/src/react/pages/MenuCostsPage/domain/menuCostsDraftWorkspace';
+import {
+  collectMenuCostsComponentRecordIds,
+  fetchMenuCostsComponentRecords,
+} from '@controleonline/ui-manager/src/react/pages/MenuCostsPage/domain/menuCostsComponentRecords';
+import legacyGyrosEngineeringDb from './gyros-custos-cardapio.json';
 
 const STORAGE_KEY = 'controleonline:menu-costs-page:engineering-live:v1';
 const PRODUCT_CATEGORY_ORDER_STORAGE_KEY = 'controleonline:menu-costs-page:product-category-order:v1';
@@ -119,6 +149,7 @@ const EMPTY_DB = {
   ingredients: [],
   recipes: [],
   packaging: [],
+  componentProducts: [],
   products: [],
   purchaseOrders: [],
   purchaseItems: [],
@@ -126,6 +157,21 @@ const EMPTY_DB = {
   suppliers: [],
   settings: {},
 };
+
+const TECHNICAL_ROLE_OPTIONS = [
+  { key: 'ingredient', label: 'Ingrediente' },
+  { key: 'preparation', label: 'Preparo' },
+  { key: 'packaging', label: 'Embalagem' },
+  { key: 'resale', label: 'Revenda' },
+  { key: 'sale_product', label: 'Produto de venda' },
+];
+const COMPOSITION_TECHNICAL_ROLE_OPTIONS = TECHNICAL_ROLE_OPTIONS.filter(option => (
+  ['ingredient', 'preparation', 'packaging'].includes(option.key)
+));
+
+const technicalRoleLabel = role => (
+  TECHNICAL_ROLE_OPTIONS.find(option => option.key === role)?.label || 'Revisar papel'
+);
 
 const applyOfficialMenuCostsSettings = (db, settings) => ({
   ...db,
@@ -136,7 +182,7 @@ const applyOfficialMenuCostsSettings = (db, settings) => ({
 });
 
 const getSectionDefaultSelection = (db, tab) => {
-  if (tab === 'products') return computeEngineeringProducts(db)[0]?.product?.id || null;
+  if (tab === 'products') return computeAllProducts(db)[0]?.product?.id || null;
   if (tab === 'resale') return resaleItems(db)[0]?.id || null;
   if (tab === 'purchases') return safeArray(db.purchaseOrders)[0]?.id || null;
   if (tab === 'processes') return processRows(db)[0]?.key || null;
@@ -200,75 +246,12 @@ const imageForAddon = (db, addon) => {
   return fromNode || null;
 };
 
-const ENGINEERING_UNCATEGORIZED_KEY = 'uncategorized';
-
-const categorySortValue = category => {
-  const rawOrder =
-    category?.extraData?.sortOrder ??
-    category?.sortOrder ??
-    category?.groupOrder ??
-    category?.order;
-  const order = Number.parseInt(String(rawOrder ?? ''), 10);
-  return Number.isFinite(order) ? order : 9999;
-};
-
-const buildEngineeringMenuCategoryRows = (db, products) => {
-  const productRows = safeArray(products);
-  const productsByCategoryId = productRows.reduce((map, item) => {
-    const categoryId = normalizeEntityId(item?.product?.categoryId) || ENGINEERING_UNCATEGORIZED_KEY;
-    if (!map.has(categoryId)) map.set(categoryId, []);
-    map.get(categoryId).push(item);
-    return map;
-  }, new Map());
-
-  const categories = safeArray(db?.categories)
-    .filter(category => {
-      const context = String(category?.context || 'products').trim().toLowerCase();
-      return category?.active !== false && context === 'products';
-    })
-    .map(category => {
-      const id = normalizeEntityId(category) || String(category?.name || category?.category || '');
-      return {
-        key: id,
-        category,
-        title: category?.name || category?.category || 'Categoria',
-        order: categorySortValue(category),
-        products: safeArray(productsByCategoryId.get(id)),
-      };
-    })
-    .filter(row => row.key);
-
-  const knownCategoryIds = new Set(categories.map(row => row.key));
-  const uncategorizedProducts = [
-    ...safeArray(productsByCategoryId.get(ENGINEERING_UNCATEGORIZED_KEY)),
-    ...Array.from(productsByCategoryId.entries())
-      .filter(([categoryId]) => categoryId !== ENGINEERING_UNCATEGORIZED_KEY && !knownCategoryIds.has(categoryId))
-      .flatMap(([, rows]) => rows),
-  ];
-
-  if (uncategorizedProducts.length) {
-    categories.push({
-      key: ENGINEERING_UNCATEGORIZED_KEY,
-      category: null,
-      title: 'Sem categoria',
-      order: 10000,
-      products: uncategorizedProducts,
-    });
-  }
-
-  return categories.sort((left, right) =>
-    left.order - right.order ||
-    String(left.title || '').localeCompare(String(right.title || ''), 'pt-BR')
-  );
-};
-
-const applyLocalCategoryOrder = (rows, orderKeys) => {
-  const orderMap = new Map(safeArray(orderKeys).map((key, index) => [String(key), index]));
-  return [...safeArray(rows)].sort((left, right) => {
-    const leftIndex = orderMap.has(String(left.key)) ? orderMap.get(String(left.key)) : 9999;
-    const rightIndex = orderMap.has(String(right.key)) ? orderMap.get(String(right.key)) : 9999;
-    return leftIndex - rightIndex || left.order - right.order || String(left.title).localeCompare(String(right.title), 'pt-BR');
-  });
+const operationalLabelForRefType = refType => {
+  if (refType === 'recipe') return 'Produzido aqui';
+  if (refType === 'ingredient') return 'Ingrediente direto';
+  if (refType === 'packaging') return 'Embalagem';
+  if (refType === 'product') return 'Produto de venda';
+  return 'Custo ainda não classificado';
 };
 
 const VisualThumb = ({ source, label, size = 'md' }) => (
@@ -523,7 +506,9 @@ const recipeAuditSummary = (db, recipe) => {
   };
 };
 
-const ComponentNode = ({ db, node, depth = 0, onQtyChange, onQtyCommit }) => {
+const ComponentNode = ({ db, node, depth = 0, onQtyChange, onQtyCommit, auditBySourceKey = {} }) => {
+  const auditNode = auditBySourceKey[node.key];
+  const auditMeta = TECHNICAL_AUDIT_META[auditNode?.status];
   const costSummary = node.record && ['ingredient', 'recipe', 'packaging'].includes(node.refType)
     ? activeCostSummary(db, node.refType, node.record)
     : null;
@@ -543,6 +528,11 @@ const ComponentNode = ({ db, node, depth = 0, onQtyChange, onQtyCommit }) => {
         <Text style={styles.nodeMeta}>
           {resourceTypeLabel(node.refType)} · {decimal(node.qty, 3)} {node.unit} · {node.pricingMode}
         </Text>
+        {auditMeta ? (
+          <View style={styles.badgeLine}>
+            <Badge tone={auditMeta.tone}>{auditMeta.label}</Badge>
+          </View>
+        ) : null}
       </View>
       <Text style={styles.nodeCost}>{money(node.cost)}</Text>
     </View>
@@ -575,10 +565,171 @@ const ComponentNode = ({ db, node, depth = 0, onQtyChange, onQtyCommit }) => {
     ) : null}
     {safeArray(node.children).length ? (
       <View style={styles.nodeChildren}>
-        {node.children.map(child => <ComponentNode key={child.key} db={db} node={child} depth={depth + 1} />)}
+        {node.children.map(child => (
+          <ComponentNode
+            key={child.key}
+            db={db}
+            node={child}
+            depth={depth + 1}
+            auditBySourceKey={auditBySourceKey}
+          />
+        ))}
       </View>
     ) : null}
   </View>
+  );
+};
+
+const compositionPieceRefType = piece => {
+  if (piece.targetType === 'preparation') return 'recipe';
+  if (piece.targetType === 'packaging') return 'packaging';
+  return 'ingredient';
+};
+
+const compositionPieceRecord = piece => (
+  piece.node?.record
+  || (piece.entity?.origins?.includes('erp') ? piece.entity.record : null)
+  || null
+);
+
+const compositionPieceReference = (piece, record) => (
+  piece.productRecord?.sku
+  || piece.productRecord?.code
+  || piece.productRecord?.id
+  || record?.code
+  || record?.sku
+  || record?.id
+  || piece.node?.refId
+  || piece.entity?.record?.metadata?.code
+  || piece.entity?.record?.metadata?.legacyId
+  || piece.entity?.id
+  || ''
+);
+
+const CompositionPiece = ({
+  db,
+  piece,
+  auditBySourceKey,
+  onQuantityCommit,
+  onTechnicalRoleChange,
+}) => {
+  const refType = compositionPieceRefType(piece);
+  const record = compositionPieceRecord(piece);
+  const name = piece.entity?.name
+    || piece.productRecord?.product
+    || piece.productRecord?.name
+    || piece.node?.name
+    || compositionPieceReference(piece, record);
+  const reference = compositionPieceReference(piece, record);
+  const costAudit = record ? activeCostAudit(db, refType, record) : null;
+  const costSummary = costAudit?.summary || null;
+  const calculatedCost = record
+    ? componentCost(db, {
+      refType,
+      refId: record.costRecordId || record.id,
+      qty: piece.quantity,
+      unit: piece.unit,
+    })
+    : num(piece.node?.cost);
+  const convertedQuantity = costSummary
+    ? convertQty(piece.quantity, piece.unit, costSummary.baseUnit)
+    : piece.quantity;
+  const auditNode = piece.node ? auditBySourceKey[piece.node.key] : null;
+  const auditMeta = TECHNICAL_AUDIT_META[auditNode?.status];
+  const isDraft = piece.origin === 'draft';
+  const isRegistered = Boolean(record);
+  const technicalRole = piece.technicalRole || piece.targetType;
+  const roleLabel = technicalRoleLabel(technicalRole);
+  const roleIcon = technicalRole === 'preparation'
+    ? 'git-branch'
+    : technicalRole === 'packaging'
+      ? 'archive'
+      : technicalRole === 'resale'
+        ? 'repeat'
+        : technicalRole === 'sale_product'
+          ? 'shopping-bag'
+          : 'box';
+  const roleTargetId = piece.productRecord?.id || record?.id || piece.node?.refId || piece.entity?.erpReference?.id || piece.entity?.id;
+
+  return (
+    <View style={[
+      styles.compositionPiece,
+      isDraft ? styles.compositionPieceDraft : styles.compositionPieceErp,
+    ]}>
+      <View style={styles.compositionPieceIdentity}>
+        <View style={[
+          styles.compositionPieceIcon,
+          isDraft ? styles.compositionPieceIconDraft : styles.compositionPieceIconErp,
+        ]}>
+          <Icon name={roleIcon} size={16} color={isDraft ? MENU_COLORS.warnText : MENU_COLORS.brandText} />
+        </View>
+        <View style={styles.nodeTitleWrap}>
+          <View style={styles.compositionPieceBadges}>
+            <Badge tone={isDraft ? 'warn' : 'neutral'}>{isDraft ? 'Rascunho local' : 'ERP'}</Badge>
+          </View>
+          <Text testID={`menu-costs-composition-name-${roleTargetId}`} style={styles.nodeTitle}>{name}</Text>
+          {!isRegistered ? <Text style={styles.compositionPieceMissing}>Cadastrar ou vincular em {technicalRole === 'preparation' ? 'Preparos' : technicalRole === 'packaging' ? 'Embalagens' : 'Ingredientes'}</Text> : null}
+          {auditMeta ? <Badge tone={auditMeta.tone}>{auditMeta.label}</Badge> : null}
+        </View>
+      </View>
+
+      <View style={styles.compositionPieceRole}>
+        <Text style={styles.infoLabel}>Papel técnico</Text>
+        <CompactFilterSelector
+          dense
+          icon={roleIcon}
+          label={roleLabel}
+          title="Definir papel técnico"
+          active={technicalRole !== piece.targetType}
+          options={COMPOSITION_TECHNICAL_ROLE_OPTIONS}
+          selectedKey={technicalRole}
+          disabled={isDraft || !roleTargetId}
+          onSelect={role => {
+            onTechnicalRoleChange?.(roleTargetId, role);
+            return true;
+          }}
+        />
+      </View>
+
+      <View style={styles.compositionPieceCode}>
+        <Text style={styles.infoLabel}>Código ERP</Text>
+        <Text style={styles.compositionPieceCodeValue}>{reference || 'Sem código'}</Text>
+        <Text style={styles.compositionPieceReference}>Tipo oficial: {piece.productRecord?.type || (refType === 'recipe' ? 'preparation' : refType)}</Text>
+      </View>
+
+      <View style={styles.compositionPieceCost}>
+        <Text style={styles.infoLabel}>Custo ativo</Text>
+        <Text style={styles.compositionPieceValue}>
+          {costSummary ? `${money(costSummary.activePrimaryCost)} / ${costSummary.primaryUnit}` : 'Sem custo cadastrado'}
+        </Text>
+        {costSummary ? (
+          <Text style={styles.compositionPieceCalculation}>
+            {preciseMoney(costSummary.activeBaseCost)} / {costSummary.baseUnit}
+          </Text>
+        ) : null}
+        <Badge tone={costAudit?.tone || 'bad'}>{costAudit?.label || 'Sem cadastro'}</Badge>
+      </View>
+
+      <View style={styles.compositionPieceQuantity}>
+        <Text style={styles.infoLabel}>Quantidade na ficha</Text>
+        <QuantityField
+          value={piece.quantity}
+          unit={String(piece.unit || '').toUpperCase()}
+          onCommitText={onQuantityCommit}
+          compact
+        />
+      </View>
+
+      <View style={styles.compositionPieceResult}>
+        <Text style={styles.infoLabel}>Custo no produto</Text>
+        <Text style={styles.compositionPieceResultValue}>{money(calculatedCost)}</Text>
+        {costSummary ? (
+          <Text style={styles.compositionPieceFormula}>
+            {decimal(convertedQuantity, 3)} {String(costSummary.baseUnit || '').toUpperCase()} × {preciseMoney(costSummary.activeBaseCost)}
+          </Text>
+        ) : null}
+      </View>
+    </View>
   );
 };
 
@@ -633,6 +784,13 @@ export default function MenuCostsPage({ navigation, route }) {
   const loadRequestRef = useRef(0);
   const dashboardPurchasesLoadKeyRef = useRef('');
   const [db, setDb] = useState(() => EMPTY_DB);
+  const draftRepository = useMemo(
+    () => createMenuCostsDraftRepository(AsyncStorage),
+    [],
+  );
+  const [technicalWorkspace, setTechnicalWorkspace] = useState(() =>
+    buildMenuCostsTechnicalWorkspace({ companyId: '', erpDb: EMPTY_DB }),
+  );
   const [activeTab, setActiveTab] = useState(initialSection);
   const [activeProductTab, setActiveProductTab] = useState(
     resolveInitialProductTab(initialSection),
@@ -755,6 +913,46 @@ export default function MenuCostsPage({ navigation, route }) {
     ));
   }, [effectiveConfigs]);
 
+  useEffect(() => {
+    const companyId = currentCompany?.id;
+    let alive = true;
+
+    if (!companyId) {
+      setTechnicalWorkspace(buildMenuCostsTechnicalWorkspace({ companyId: '', erpDb: EMPTY_DB }));
+      return () => {
+        alive = false;
+      };
+    }
+
+    const draftPromise = safeArray(db?.products).length
+      ? ensureGyrosLegacyDraftImport({
+        company: currentCompany,
+        erpDb: db,
+        legacyDb: legacyGyrosEngineeringDb,
+        draftRepository,
+      })
+      : draftRepository.load(companyId);
+
+    draftPromise
+      .then(draftWorkspace => {
+        if (alive) {
+          setTechnicalWorkspace(buildMenuCostsTechnicalWorkspace({
+            companyId,
+            erpDb: db,
+            draftWorkspace,
+          }));
+        }
+      })
+      .catch(error => {
+        if (!alive) return;
+        showError?.(error?.message || 'Não foi possível ler os rascunhos técnicos locais.');
+      });
+
+    return () => {
+      alive = false;
+    };
+  }, [currentCompany, db, draftRepository, showError]);
+
   const loadDashboardPurchases = useCallback(async ({ force = false } = {}) => {
     const companyId = currentCompany?.id;
     if (!companyId || typeof ordersActions.fetchHistoryPage !== 'function') {
@@ -828,6 +1026,27 @@ export default function MenuCostsPage({ navigation, route }) {
     }
   }, [showError]);
 
+  const mergeComponentProducts = useCallback(records => {
+    const incoming = safeArray(records);
+    if (!incoming.length) return;
+
+    setDb(currentDb => {
+      const recordsById = new Map(
+        [...safeArray(currentDb?.componentProducts), ...incoming]
+          .map(record => [String(normalizeEntityId(record)), record])
+          .filter(([id]) => id),
+      );
+      const nextDb = {
+        ...currentDb,
+        componentProducts: Array.from(recordsById.values()),
+      };
+      AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(nextDb)).catch(() => {
+        showError?.('Não foi possível salvar as identidades técnicas carregadas.');
+      });
+      return nextDb;
+    });
+  }, [showError]);
+
   useEffect(() => {
     const nextSection = resolveMenuCostsInitialSection(route);
     setActiveTab(nextSection);
@@ -881,6 +1100,50 @@ export default function MenuCostsPage({ navigation, route }) {
     };
     persistDb(nextDb);
   }, [db, persistDb]);
+
+  const saveLocalCompositionQuantity = useCallback(async (relationId, quantity) => {
+    const nextQuantity = num(quantity) || 0;
+    if (nextQuantity <= 0) {
+      showError?.('Informe uma quantidade maior que zero para esta ficha.');
+      return;
+    }
+
+    try {
+      const companyId = currentCompany?.id;
+      const currentDraft = await draftRepository.load(companyId);
+      const nextDraft = updateMenuCostsCompositionLinkQuantity(
+        currentDraft,
+        relationId,
+        nextQuantity,
+      );
+      const savedDraft = await draftRepository.save(companyId, nextDraft);
+      setTechnicalWorkspace(buildMenuCostsTechnicalWorkspace({
+        companyId,
+        erpDb: db,
+        draftWorkspace: savedDraft,
+      }));
+      showSuccess?.('Quantidade da ficha local atualizada.');
+    } catch (error) {
+      showError?.(error?.message || 'Não foi possível salvar a quantidade da ficha local.');
+    }
+  }, [currentCompany?.id, db, draftRepository, showError, showSuccess]);
+
+  const saveLocalTechnicalRole = useCallback(async (targetId, role) => {
+    try {
+      const companyId = currentCompany?.id;
+      const currentDraft = await draftRepository.load(companyId);
+      const nextDraft = setMenuCostsTechnicalRole(currentDraft, targetId, role);
+      const savedDraft = await draftRepository.save(companyId, nextDraft);
+      setTechnicalWorkspace(buildMenuCostsTechnicalWorkspace({
+        companyId,
+        erpDb: db,
+        draftWorkspace: savedDraft,
+      }));
+      showSuccess?.(`Item organizado como ${technicalRoleLabel(role).toLowerCase()}.`);
+    } catch (error) {
+      showError?.(error?.message || 'Não foi possível atualizar o papel técnico local.');
+    }
+  }, [currentCompany?.id, db, draftRepository, showError, showSuccess]);
 
   const saveProductComponentQuantity = useCallback(async (productId, componentIndex, node, quantity) => {
     const relationId = normalizeEntityId(node?.relationId);
@@ -1122,6 +1385,7 @@ export default function MenuCostsPage({ navigation, route }) {
               {renderContent({
                 activeTab,
                 db,
+                technicalWorkspace,
                 dashboardPurchases,
                 dashboardPurchasesLoading,
                 query,
@@ -1133,11 +1397,14 @@ export default function MenuCostsPage({ navigation, route }) {
                 patchCollectionItem,
                 patchProductComponent,
                 saveProductComponentQuantity,
+                saveLocalCompositionQuantity,
+                saveLocalTechnicalRole,
                 patchProductAddonComponent,
                 patchRecipeComponent,
                 saveRecipeComponentQuantity,
                 patchActiveCost,
                 persistDb,
+                mergeComponentProducts,
                 switchTab,
                 effectiveConfigs,
                 productsActions: productsStore.actions,
@@ -1637,6 +1904,7 @@ function CostEngineView({
 
 function ProductsView({
   db,
+  technicalWorkspace,
   query,
   selectedId,
   setSelectedId,
@@ -1645,14 +1913,17 @@ function ProductsView({
   openModal,
   patchProductComponent,
   saveProductComponentQuantity,
+  saveLocalCompositionQuantity,
+  saveLocalTechnicalRole,
   patchProductAddonComponent,
   persistDb,
+  mergeComponentProducts,
   productsActions,
   productGroupActions,
   productGroupProductActions,
   showError,
 }) {
-  const allProducts = useMemo(() => computeEngineeringProducts(db), [db]);
+  const allProducts = useMemo(() => computeAllProducts(db), [db]);
   const products = useMemo(() => filterBySearch(allProducts, query, [
     item => item.product.name,
     item => item.product.code,
@@ -1661,7 +1932,7 @@ function ProductsView({
   const peopleStore = useStore('people');
   const { currentCompany } = peopleStore.getters || {};
   const [expandedCategories, setExpandedCategories] = useState({});
-  const [categoryOrder, setCategoryOrder] = useState([]);
+  const [categoryOrderByParent, setCategoryOrderByParent] = useState({});
   const [draggingCategoryKey, setDraggingCategoryKey] = useState('');
   const categoryOrderLoadedRef = useRef(false);
   const selectedProduct = products.find(item => String(item.product.id) === String(selectedId)) || products[0] || null;
@@ -1673,29 +1944,52 @@ function ProductsView({
   const selectedAddonsRequestRef = useRef(0);
   const selectedRecipeComponentsCacheRef = useRef(new Map());
   const selectedRecipeComponentsRequestRef = useRef(0);
+  const componentRecordsCacheRef = useRef(new Map());
+  const componentRecordsInFlightRef = useRef(new Set());
   const categoryProductsCacheRef = useRef(new Map());
   const categoryProductsRequestRef = useRef({});
   const categoryDragRef = useRef({ key: '', startIndex: 0, lastIndex: 0 });
-  const categoryRows = useMemo(
-    () => buildEngineeringMenuCategoryRows(db, products),
-    [db, products],
+  const categoryTree = useMemo(
+    () => buildMenuCostsCatalogTree({
+      categories: db?.categories,
+      products,
+      orderByParent: categoryOrderByParent,
+    }),
+    [categoryOrderByParent, db?.categories, products],
   );
-  const visibleCategoryRows = useMemo(
-    () => query ? categoryRows.filter(row => row.products.length > 0) : categoryRows,
-    [categoryRows, query],
+  const filteredCategoryTree = useMemo(
+    () => filterMenuCostsCatalogTree(categoryTree, query),
+    [categoryTree, query],
   );
-  const orderedCategoryRows = useMemo(
-    () => applyLocalCategoryOrder(visibleCategoryRows, categoryOrder),
-    [visibleCategoryRows, categoryOrder],
+  const allCategoryRows = useMemo(
+    () => flattenMenuCostsCatalogTree(filteredCategoryTree),
+    [filteredCategoryTree],
   );
-  const expandedCount = orderedCategoryRows.filter(row => expandedCategories[row.key]).length;
-  const allExpanded = orderedCategoryRows.length > 0 && expandedCount === orderedCategoryRows.length;
+  const categoryNodesByParent = useMemo(() => {
+    const entries = { root: filteredCategoryTree };
+    flattenMenuCostsCatalogTree(filteredCategoryTree).forEach(row => {
+      entries[String(row.key)] = row.children;
+    });
+    return entries;
+  }, [filteredCategoryTree]);
+  const visibleCategoryRows = useMemo(() => {
+    const rows = [];
+    const visit = (nodes, depth = 0) => {
+      safeArray(nodes).forEach((node, siblingIndex) => {
+        rows.push({ ...node, depth, siblingIndex });
+        if (query || expandedCategories[node.key]) visit(node.children, depth + 1);
+      });
+    };
+    visit(filteredCategoryTree);
+    return rows;
+  }, [expandedCategories, filteredCategoryTree, query]);
+  const allExpanded = allCategoryRows.length > 0 && allCategoryRows.every(row => expandedCategories[row.key]);
 
   useEffect(() => {
     categoryOrderLoadedRef.current = false;
     const companyId = normalizeEntityId(currentCompany);
     if (!companyId) {
-      setCategoryOrder([]);
+      setCategoryOrderByParent({});
       categoryOrderLoadedRef.current = true;
       return undefined;
     }
@@ -1706,10 +2000,15 @@ function ProductsView({
       .then(value => {
         if (!alive) return;
         try {
-          const parsed = JSON.parse(value || '[]');
-          setCategoryOrder(Array.isArray(parsed) ? parsed.map(String) : []);
+          const parsed = JSON.parse(value || '{}');
+          setCategoryOrderByParent(Array.isArray(parsed)
+            ? { root: parsed.map(String) }
+            : Object.fromEntries(Object.entries(parsed || {}).map(([key, ids]) => [
+              key,
+              safeArray(ids).map(String),
+            ])));
         } catch {
-          setCategoryOrder([]);
+          setCategoryOrderByParent({});
         }
       })
       .finally(() => {
@@ -1725,28 +2024,38 @@ function ProductsView({
     const companyId = normalizeEntityId(currentCompany);
     if (!companyId || !categoryOrderLoadedRef.current) return;
     AsyncStorage
-      .setItem(`${PRODUCT_CATEGORY_ORDER_STORAGE_KEY}:${companyId}`, JSON.stringify(categoryOrder))
+      .setItem(`${PRODUCT_CATEGORY_ORDER_STORAGE_KEY}:${companyId}`, JSON.stringify(categoryOrderByParent))
       .catch(() => null);
-  }, [categoryOrder, currentCompany?.id]);
+  }, [categoryOrderByParent, currentCompany?.id]);
 
   useEffect(() => {
-    const currentKeys = new Set(categoryRows.map(row => String(row.key)));
-    setCategoryOrder(currentOrder => {
-      const keptKeys = currentOrder.filter(key => currentKeys.has(String(key)));
-      const missingKeys = categoryRows
-        .map(row => String(row.key))
-        .filter(key => !keptKeys.includes(key));
-      return [...keptKeys, ...missingKeys];
+    const siblingKeysByParent = {};
+    const collect = (nodes, parentKey = 'root') => {
+      siblingKeysByParent[parentKey] = safeArray(nodes).map(node => String(node.key));
+      safeArray(nodes).forEach(node => collect(node.children, String(node.key)));
+    };
+    collect(categoryTree);
+
+    setCategoryOrderByParent(current => {
+      const next = {};
+      Object.entries(siblingKeysByParent).forEach(([parentKey, siblingKeys]) => {
+        const currentKeys = safeArray(current[parentKey]).map(String);
+        next[parentKey] = [
+          ...currentKeys.filter(key => siblingKeys.includes(key)),
+          ...siblingKeys.filter(key => !currentKeys.includes(key)),
+        ];
+      });
+      return JSON.stringify(next) === JSON.stringify(current) ? current : next;
     });
     setExpandedCategories(current => {
-      const next = {};
-      categoryRows.forEach(row => {
+      const next = { ...current };
+      allCategoryRows.forEach(row => {
         const key = String(row.key);
-        next[key] = query ? row.products.length > 0 : Boolean(current[key]);
+        next[key] = query ? true : Boolean(current[key]);
       });
       return next;
     });
-  }, [categoryRows, query]);
+  }, [allCategoryRows, categoryTree, query]);
 
   const toggleCategory = useCallback(categoryKey => {
     setExpandedCategories(current => ({
@@ -1758,10 +2067,16 @@ function ProductsView({
   const mergeCategoryProducts = useCallback((categoryRow, remoteProducts) => {
     const categoryId = normalizeEntityId(categoryRow?.category);
     const normalizedProducts = safeArray(remoteProducts)
-      .map(product => ({
-        ...normalizeLiveProduct(product),
-        categoryId: normalizeLiveProduct(product).categoryId || categoryId,
-      }))
+      .map(product => {
+        const normalized = normalizeLiveProduct(product);
+        return {
+          ...normalized,
+          categoryId: normalized.categoryId || categoryId,
+          categoryIds: normalized.categoryIds?.length
+            ? normalized.categoryIds
+            : [categoryId].filter(Boolean),
+        };
+      })
       .filter(product => product.id);
 
     if (!normalizedProducts.length) return;
@@ -1794,7 +2109,7 @@ function ProductsView({
     const categoryId = normalizeEntityId(categoryRow?.category);
     if (
       !categoryId ||
-      categoryRow?.key === ENGINEERING_UNCATEGORIZED_KEY ||
+      categoryRow?.key === 'uncategorized' ||
       !productsActions?.getItems
     ) {
       return;
@@ -1846,7 +2161,7 @@ function ProductsView({
   const toggleCategoryRow = useCallback(categoryRow => {
     const willExpand = !expandedCategories[categoryRow.key];
     toggleCategory(categoryRow.key);
-    if (willExpand && categoryRow.products.length === 0) {
+    if (willExpand && categoryRow.directProducts.length === 0) {
       void loadProductsForCategory(categoryRow);
     }
   }, [expandedCategories, loadProductsForCategory, toggleCategory]);
@@ -1855,58 +2170,76 @@ function ProductsView({
     setExpandedCategories(() => {
       const nextExpanded = !allExpanded;
       if (nextExpanded) {
-        orderedCategoryRows.forEach(row => {
-          if (row.products.length === 0) {
+        allCategoryRows.forEach(row => {
+          if (row.directProducts.length === 0) {
             void loadProductsForCategory(row);
           }
         });
       }
-      return Object.fromEntries(orderedCategoryRows.map(row => [row.key, nextExpanded]));
+      return Object.fromEntries(allCategoryRows.map(row => [row.key, nextExpanded]));
     });
-  }, [allExpanded, loadProductsForCategory, orderedCategoryRows]);
+  }, [allCategoryRows, allExpanded, loadProductsForCategory]);
 
-  const reorderCategoryToIndex = useCallback((categoryKey, nextIndex) => {
-    setCategoryOrder(current => {
-      const keys = current.length ? current.map(String) : orderedCategoryRows.map(row => String(row.key));
+  const reorderCategoryToIndex = useCallback((categoryKey, parentKey, siblingRows, nextIndex) => {
+    setCategoryOrderByParent(current => {
+      const currentKeys = safeArray(current[parentKey]).map(String);
+      const siblingKeys = safeArray(siblingRows).map(row => String(row.key));
+      const keys = currentKeys.length ? currentKeys : siblingKeys;
       const fromIndex = keys.indexOf(String(categoryKey));
       const boundedIndex = Math.max(0, Math.min(keys.length - 1, nextIndex));
-      if (fromIndex < 0 || fromIndex === boundedIndex) return keys;
+      if (fromIndex < 0 || fromIndex === boundedIndex) return current;
       const nextKeys = [...keys];
       const [item] = nextKeys.splice(fromIndex, 1);
       nextKeys.splice(boundedIndex, 0, item);
-      return nextKeys;
+      return { ...current, [parentKey]: nextKeys };
     });
-  }, [orderedCategoryRows]);
+  }, []);
 
-  const startCategoryMouseDrag = useCallback((event, categoryKey, index) => {
+  const startCategoryMouseDrag = useCallback((event, categoryRow, siblingRows) => {
     const startY = event?.nativeEvent?.clientY ?? event?.clientY;
     if (typeof window === 'undefined' || !Number.isFinite(startY)) return;
+    event?.stopPropagation?.();
+    const index = categoryRow.siblingIndex;
+    const parentKey = categoryRow.parentId || 'root';
 
     const dragState = {
-      key: String(categoryKey),
+      key: String(categoryRow.key),
       startIndex: index,
       lastIndex: index,
       startY,
     };
     categoryDragRef.current = dragState;
-    setDraggingCategoryKey(categoryKey);
+    setDraggingCategoryKey(categoryRow.key);
 
     const handleMove = moveEvent => {
       const currentY = moveEvent?.clientY ?? moveEvent?.touches?.[0]?.clientY;
       if (!Number.isFinite(currentY)) return;
 
-      const rowStep = 62;
-      const nextIndex = Math.max(
-        0,
-        Math.min(
-          orderedCategoryRows.length - 1,
-          dragState.startIndex + Math.round((currentY - dragState.startY) / rowStep),
-        ),
-      );
+      const siblingPositions = typeof document === 'undefined'
+        ? []
+        : safeArray(siblingRows).map((row, siblingIndex) => {
+          const element = Array.from(document.querySelectorAll('[data-testid^="menu-category-card-"]'))
+            .find(candidate => candidate.getAttribute('data-testid') === `menu-category-card-${row.key}`);
+          const bounds = element?.getBoundingClientRect?.();
+          return bounds ? { siblingIndex, centerY: bounds.top + (bounds.height / 2) } : null;
+        }).filter(Boolean);
+      const nextIndex = siblingPositions.length
+        ? siblingPositions.reduce((closest, position) => (
+          Math.abs(position.centerY - currentY) < Math.abs(closest.centerY - currentY)
+            ? position
+            : closest
+        )).siblingIndex
+        : Math.max(
+          0,
+          Math.min(
+            siblingRows.length - 1,
+            dragState.startIndex + Math.round((currentY - dragState.startY) / 62),
+          ),
+        );
 
       if (nextIndex !== dragState.lastIndex) {
         dragState.lastIndex = nextIndex;
-        reorderCategoryToIndex(categoryKey, nextIndex);
+        reorderCategoryToIndex(categoryRow.key, parentKey, siblingRows, nextIndex);
       }
     };
 
@@ -1922,39 +2255,92 @@ function ProductsView({
     window.addEventListener('mouseup', finishDrag);
     window.addEventListener('touchmove', handleMove, { passive: true });
     window.addEventListener('touchend', finishDrag);
-  }, [orderedCategoryRows.length, reorderCategoryToIndex]);
+  }, [reorderCategoryToIndex]);
 
-  const createCategoryDragHandlers = useCallback((categoryKey, index) =>
+  const createCategoryDragHandlers = useCallback((categoryRow, siblingRows) =>
     PanResponder.create({
       onStartShouldSetPanResponder: () => true,
       onMoveShouldSetPanResponder: () => true,
       onPanResponderGrant: () => {
         categoryDragRef.current = {
-          key: String(categoryKey),
-          startIndex: index,
-          lastIndex: index,
+          key: String(categoryRow.key),
+          startIndex: categoryRow.siblingIndex,
+          lastIndex: categoryRow.siblingIndex,
         };
-        setDraggingCategoryKey(categoryKey);
+        setDraggingCategoryKey(categoryRow.key);
       },
       onPanResponderMove: (event, gestureState) => {
         const rowStep = 62;
         const nextIndex = Math.max(
           0,
           Math.min(
-            orderedCategoryRows.length - 1,
+            siblingRows.length - 1,
             categoryDragRef.current.startIndex + Math.round(gestureState.dy / rowStep),
           ),
         );
 
         if (nextIndex !== categoryDragRef.current.lastIndex) {
           categoryDragRef.current.lastIndex = nextIndex;
-          reorderCategoryToIndex(categoryKey, nextIndex);
+          reorderCategoryToIndex(
+            categoryRow.key,
+            categoryRow.parentId || 'root',
+            siblingRows,
+            nextIndex,
+          );
         }
       },
       onPanResponderRelease: () => setDraggingCategoryKey(''),
       onPanResponderTerminate: () => setDraggingCategoryKey(''),
-    }).panHandlers, [orderedCategoryRows.length, reorderCategoryToIndex]);
+    }).panHandlers, [reorderCategoryToIndex]);
 
+
+  useEffect(() => {
+    if (
+      !['composition', 'packaging'].includes(activeProductTab) ||
+      !selected?.nodes?.length ||
+      typeof productsActions?.get !== 'function'
+    ) {
+      return undefined;
+    }
+
+    const knownIds = new Set(safeArray(db?.componentProducts).map(record => String(normalizeEntityId(record))));
+    const unresolvedIds = collectMenuCostsComponentRecordIds(selected.nodes)
+      .filter(id => !knownIds.has(String(id)));
+    const cachedRecords = unresolvedIds
+      .map(id => componentRecordsCacheRef.current.get(String(id)))
+      .filter(Boolean);
+    const missingIds = unresolvedIds.filter(id => (
+      !componentRecordsCacheRef.current.has(String(id))
+      && !componentRecordsInFlightRef.current.has(String(id))
+    ));
+
+    if (cachedRecords.length) {
+      mergeComponentProducts?.(cachedRecords);
+      return undefined;
+    }
+
+    if (!missingIds.length) return undefined;
+
+    missingIds.forEach(id => componentRecordsInFlightRef.current.add(String(id)));
+    fetchMenuCostsComponentRecords({ ids: missingIds, productsActions })
+      .then(records => {
+        records.forEach(record => {
+          componentRecordsCacheRef.current.set(String(normalizeEntityId(record)), record);
+        });
+        mergeComponentProducts?.(records);
+      })
+      .finally(() => {
+        missingIds.forEach(id => componentRecordsInFlightRef.current.delete(String(id)));
+      });
+
+    return undefined;
+  }, [
+    activeProductTab,
+    db,
+    mergeComponentProducts,
+    productsActions,
+    selected?.nodes,
+  ]);
 
   useEffect(() => {
     const productId = String(selectedProduct?.product?.id || '').trim();
@@ -2199,7 +2585,7 @@ function ProductsView({
           <View style={styles.menuCatalogTitleBlock}>
             <Text style={styles.panelTitle}>Cardápio de engenharia</Text>
             <Text style={styles.panelSubtitle}>
-              {orderedCategoryRows.length} categoria(s) · {allProducts.length} produto(s) no cardápio carregado
+              {categoryTree.length} categoria(s) principal(is) · {Math.max(0, allCategoryRows.length - categoryTree.length)} subcategoria(s) · {allProducts.length} produto(s)
             </Text>
           </View>
           <TouchableOpacity style={styles.secondaryButton} activeOpacity={0.82} onPress={toggleAllCategories}>
@@ -2207,11 +2593,13 @@ function ProductsView({
             <Text style={styles.secondaryButtonText}>{allExpanded ? 'Recolher todas' : 'Expandir todas'}</Text>
           </TouchableOpacity>
         </View>
-        {orderedCategoryRows.length ? orderedCategoryRows.map((categoryRow, index) => {
+        {visibleCategoryRows.length ? visibleCategoryRows.map(categoryRow => {
           const expanded = Boolean(expandedCategories[categoryRow.key]);
-          const categoryCost = categoryRow.products.reduce((sum, item) => sum + num(item.directCost), 0);
-          const categoryPrice = categoryRow.products.reduce((sum, item) => sum + num(item.salePrice), 0);
+          const categoryCost = categoryRow.aggregateProducts.reduce((sum, item) => sum + num(item.directCost), 0);
+          const categoryPrice = categoryRow.aggregateProducts.reduce((sum, item) => sum + num(item.salePrice), 0);
           const categoryMargin = categoryPrice ? ((categoryPrice - categoryCost) / categoryPrice) * 100 : 0;
+          const siblingRows = categoryNodesByParent[categoryRow.parentId || 'root'] || [];
+          const categoryImage = buildImageSource(resolveCategoryCoverUrl(categoryRow.category));
 
           return (
             <View
@@ -2219,23 +2607,29 @@ function ProductsView({
               testID={`menu-category-card-${categoryRow.key}`}
               style={[
                 styles.menuCategoryCard,
+                categoryRow.depth > 0 && styles.menuCategoryCardChild,
+                categoryRow.depth > 0 && { marginLeft: Math.min(categoryRow.depth, 3) * 18 },
                 draggingCategoryKey === categoryRow.key && styles.menuCategoryCardDragging,
               ]}
             >
               <TouchableOpacity
                 style={styles.menuCategoryHeader}
                 activeOpacity={0.82}
-                onMouseDown={event => startCategoryMouseDrag(event, categoryRow.key, index)}
                 onPress={() => toggleCategoryRow(categoryRow)}
-                {...createCategoryDragHandlers(categoryRow.key, index)}
               >
                 <View style={styles.menuCategoryOrderBadge}>
-                  <Text style={styles.menuCategoryOrderText}>{index + 1}</Text>
+                  <Text style={styles.menuCategoryOrderText}>{categoryRow.siblingIndex + 1}</Text>
                 </View>
+                {categoryImage ? <VisualThumb source={categoryImage} label={categoryRow.title} size="sm" /> : null}
                 <View style={styles.menuCategoryHeaderText}>
-                  <Text style={styles.menuCategoryTitle}>{categoryRow.title}</Text>
+                  <View style={styles.menuCategoryTitleLine}>
+                    {categoryRow.depth > 0 ? <Icon name="corner-down-right" size={14} color={MENU_COLORS.muted} /> : null}
+                    <Text style={styles.menuCategoryTitle}>{categoryRow.title}</Text>
+                  </View>
                   <Text style={styles.menuCategoryMeta}>
-                    {categoryRow.products.length} produto(s) · custo {money(categoryCost)} · margem {percent(categoryMargin)}
+                    {categoryRow.aggregateProductCount} produto(s)
+                    {categoryRow.children.length ? ` · ${categoryRow.children.length} subcategoria(s)` : ''}
+                    {' · '}custo {money(categoryCost)} · margem {percent(categoryMargin)}
                   </Text>
                 </View>
                 <View style={styles.menuCategoryActions}>
@@ -2243,9 +2637,9 @@ function ProductsView({
                     style={styles.menuCategoryDragHandle}
                     accessible
                     accessibilityRole="button"
-                    accessibilityLabel={`Reordenar ${categoryRow.title}`}
-                    onMouseDown={event => startCategoryMouseDrag(event, categoryRow.key, index)}
-                    {...createCategoryDragHandlers(categoryRow.key, index)}
+                    accessibilityLabel={`Arrastar ${categoryRow.title} entre categorias do mesmo nível`}
+                    onMouseDown={event => startCategoryMouseDrag(event, categoryRow, siblingRows)}
+                    {...createCategoryDragHandlers(categoryRow, siblingRows)}
                   >
                     <Icon name="move" size={15} color={MENU_COLORS.brandText} />
                   </Pressable>
@@ -2254,9 +2648,12 @@ function ProductsView({
               </TouchableOpacity>
               {expanded ? (
                 <View style={styles.menuCategoryProducts}>
-                  {categoryRow.products.length ? categoryRow.products.map(item => (
+                  {categoryRow.children.length && categoryRow.directProducts.length ? (
+                    <Text style={styles.menuCategoryDirectLabel}>Itens diretamente em {categoryRow.title}</Text>
+                  ) : null}
+                  {categoryRow.directProducts.length ? categoryRow.directProducts.map(item => (
                     <RowCard
-                      key={item.product.id}
+                      key={`${categoryRow.key}:${item.product.id}`}
                       title={item.product.name}
                       subtitle={item.product.description || item.product.notes}
                       imageSource={imageForProduct(db, item.product)}
@@ -2267,11 +2664,19 @@ function ProductsView({
                       }}
                       right={<Text style={styles.rowMoney}>{money(item.salePrice)}</Text>}
                       badges={[
+                        ...(String(item.product.type || '').toLowerCase() === 'custom'
+                          ? [{ label: 'Escolha configurável', tone: 'good' }]
+                          : []),
+                        ...(item.catalogPlacementCount > 1
+                          ? [{ label: `${item.catalogPlacementCount} locais no cardápio`, tone: 'neutral' }]
+                          : []),
                         { label: `Custo ${money(item.directCost)}`, tone: 'neutral' },
                         { label: percent(item.marginPct), tone: item.marginPct >= targetMarginPct(db) ? 'good' : 'warn' },
                       ]}
                     />
-                  )) : <EmptyState text="Categoria sem produtos de venda carregados." />}
+                  )) : categoryRow.children.length ? (
+                    <Text style={styles.menuCategoryChildrenHint}>Os produtos estão organizados nas subcategorias abaixo.</Text>
+                  ) : <EmptyState text="Categoria sem produtos de venda carregados." />}
                 </View>
               ) : null}
             </View>
@@ -2282,6 +2687,7 @@ function ProductsView({
       </ScrollView>
       <ProductDetail
         db={db}
+        technicalWorkspace={technicalWorkspace}
         computed={selected}
         purchaseRows={selectedPurchaseRows}
         activeProductTab={activeProductTab}
@@ -2289,6 +2695,8 @@ function ProductsView({
         openModal={openModal}
         patchProductComponent={patchProductComponent}
         saveProductComponentQuantity={saveProductComponentQuantity}
+        saveLocalCompositionQuantity={saveLocalCompositionQuantity}
+        saveLocalTechnicalRole={saveLocalTechnicalRole}
         patchProductAddonComponent={patchProductAddonComponent}
         canEditComposition
         canEditAddons
@@ -2300,6 +2708,7 @@ function ProductsView({
 
 function ProductDetail({
   db,
+  technicalWorkspace,
   computed,
   purchaseRows = null,
   activeProductTab,
@@ -2307,6 +2716,8 @@ function ProductDetail({
   openModal,
   patchProductComponent,
   saveProductComponentQuantity,
+  saveLocalCompositionQuantity,
+  saveLocalTechnicalRole,
   patchProductAddonComponent,
   canEditComposition = false,
   canEditAddons = false,
@@ -2316,18 +2727,45 @@ function ProductDetail({
   const product = computed.product;
   const purchases = purchaseRows || productPurchaseRows(db, computed);
   const addonGroupEntries = Object.entries(groupBy(safeArray(computed.addons), addon => addon.group || 'Adicional'));
-  const compositionCounts = safeArray(computed.nodes).reduce((accumulator, node) => ({
-    ...accumulator,
-    [node.refType]: (accumulator[node.refType] || 0) + 1,
-  }), {});
+  const catalogPaths = productCatalogPaths(db?.categories, product);
+  const preparationSuggestions = buildPreparationLinkSuggestions({
+    product,
+    recipes: db?.recipes,
+    linkedNodes: computed.nodes,
+  });
+  const technicalTree = buildProductTechnicalTreeAudit({
+    computed,
+    preparationSuggestions,
+  });
+  const localCompositionRelations = safeArray(technicalWorkspace?.relations?.composition)
+    .filter(relation => relation.origin === 'draft' && String(relation.ownerId) === String(product.id));
+  const localPreparationNames = new Set(localCompositionRelations
+    .filter(relation => relation.targetType === 'preparation')
+    .map(relation => technicalWorkspace?.entityIndex?.[`preparation:${relation.targetId}`]?.name)
+    .filter(Boolean));
+  const visiblePreparationSuggestions = preparationSuggestions.filter(
+    suggestion => !localPreparationNames.has(suggestion.name),
+  );
+  const compositionPieces = buildMenuCostsCompositionPieces({
+    productId: product.id,
+    officialNodes: computed.nodes,
+    technicalWorkspace,
+  });
+  const packagingPieces = buildMenuCostsPackagingPieces({
+    productId: product.id,
+    officialNodes: computed.nodes,
+    technicalWorkspace,
+  });
+  const isConfigurableChoice = String(product?.type || product?.erpProductType || '').toLowerCase() === 'custom';
 
   return (
     <DetailShell
       title={product.name}
       subtitle={product.description || product.notes}
       badges={[
-        { label: 'Produto de venda', tone: 'neutral' },
-        { label: categoryName(db, product.categoryId), tone: 'neutral' },
+        { label: isConfigurableChoice ? 'Escolha configurável' : 'Produto de venda', tone: isConfigurableChoice ? 'good' : 'neutral' },
+        { label: catalogPaths[0] || categoryName(db, product.categoryId), tone: 'neutral' },
+        ...(catalogPaths.length > 1 ? [{ label: `${catalogPaths.length} locais no cardápio`, tone: 'neutral' }] : []),
         { label: product.active === false ? 'Inativo' : 'Ativo', tone: product.active === false ? 'warn' : 'good' },
       ]}
       actions={readOnly ? null : <IconButton icon="edit-3" label="Editar" onPress={() => openModal({ collection: 'products', id: product.id })} />}
@@ -2335,9 +2773,9 @@ function ProductDetail({
       <View style={styles.productHero}>
         <VisualThumb source={imageForProduct(db, product)} label={product.name} size="lg" />
         <View style={styles.productHeroText}>
-          <Text style={styles.productHeroTitle}>{categoryName(db, product.categoryId)}</Text>
+          <Text style={styles.productHeroTitle}>{catalogPaths.join(' · ') || categoryName(db, product.categoryId)}</Text>
           <Text style={styles.productHeroSubtitle}>
-            {safeArray(product.components).length} componente(s) base · {addonGroupEntries.length} grupo(s) · {safeArray(computed.addons).length} adicional(is) · {product.includeInCatalogCount === false ? 'fora da contagem' : 'conta no cardápio'}
+            {safeArray(product.components).length} item(ns) fixo(s) · {addonGroupEntries.length} grupo(s) de escolha · {safeArray(computed.addons).length} opção(ões) · {product.includeInCatalogCount === false ? 'fora da contagem' : 'conta no cardápio'}
           </Text>
         </View>
       </View>
@@ -2347,6 +2785,9 @@ function ProductDetail({
             key={tab.key}
             style={[styles.detailTabButton, activeProductTab === tab.key && styles.detailTabButtonActive]}
             onPress={() => setActiveProductTab(tab.key)}
+            accessibilityRole="tab"
+            accessibilityState={{ selected: activeProductTab === tab.key }}
+            accessibilityLabel={tab.label}
           >
             <Text style={[styles.detailTabText, activeProductTab === tab.key && styles.detailTabTextActive]}>{tab.label}</Text>
           </TouchableOpacity>
@@ -2367,31 +2808,51 @@ function ProductDetail({
           <View style={styles.panelNested}>
             <Text style={styles.panelTitle}>Composição técnica do produto</Text>
             <Text style={styles.panelSubtitle}>
-              Ingredientes diretos, preparos/receitas e embalagens que formam a ficha fixa deste item do cardápio.
+              Ingredientes diretos e preparos/receitas que formam a ficha fixa deste item do cardápio.
             </Text>
-            <View style={styles.badgeLine}>
-              <Badge tone={compositionCounts.ingredient ? 'good' : 'neutral'}>{compositionCounts.ingredient || 0} ingrediente(s)</Badge>
-              <Badge tone={compositionCounts.recipe ? 'good' : 'neutral'}>{compositionCounts.recipe || 0} preparo(s)</Badge>
-              <Badge tone={compositionCounts.packaging ? 'good' : 'neutral'}>{compositionCounts.packaging || 0} embalagem(ns)</Badge>
-            </View>
-            {computed.nodes.length ? computed.nodes.map((node, index) => (
-              <ComponentNode
-                key={node.key}
+            {compositionPieces.length ? compositionPieces.map(piece => (
+              <CompositionPiece
+                key={piece.key}
                 db={db}
-                node={node}
-                onQtyChange={!canEditComposition ? undefined : value => patchProductComponent?.(product.id, index, { qty: num(value) })}
-                onQtyCommit={!canEditComposition ? undefined : value => saveProductComponentQuantity?.(product.id, index, node, num(value))}
+                piece={piece}
+                auditBySourceKey={technicalTree.nodeBySourceKey}
+                onQuantityCommit={!canEditComposition ? undefined : value => (
+                  piece.origin === 'draft'
+                    ? saveLocalCompositionQuantity?.(piece.localRelationId, num(value))
+                    : saveProductComponentQuantity?.(product.id, piece.officialIndex, piece.node, num(value))
+                )}
+                onTechnicalRoleChange={saveLocalTechnicalRole}
               />
-            )) : <EmptyState text="Produto sem composição técnica mapeada." />}
+            )) : <EmptyState text="Produto sem composição confirmada. O custo ainda não deve ser tratado como zero confiável." />}
+            {visiblePreparationSuggestions.length ? (
+              <View style={styles.preparationSuggestionBlock}>
+                <View style={styles.preparationSuggestionHeader}>
+                  <Icon name="link" size={16} color={MENU_COLORS.warnText} />
+                  <View style={styles.nodeTitleWrap}>
+                    <Text style={styles.preparationSuggestionTitle}>Preparos mencionados, ainda sem vínculo</Text>
+                    <Text style={styles.preparationSuggestionText}>Confirme o preparo e informe a quantidade usada antes de incluí-lo no custo.</Text>
+                  </View>
+                </View>
+                {visiblePreparationSuggestions.map(suggestion => (
+                  <View key={suggestion.id} style={styles.preparationSuggestionRow}>
+                    <View style={styles.nodeTitleWrap}>
+                      <Text style={styles.nodeTitle}>{suggestion.name}</Text>
+                      <Text style={styles.nodeMeta}>{suggestion.reason}</Text>
+                    </View>
+                    <Badge tone="warn">Pendente</Badge>
+                  </View>
+                ))}
+              </View>
+            ) : null}
           </View>
         </View>
       ) : null}
       {activeProductTab === 'addons' ? (
         <View style={styles.stack}>
           <View style={styles.costLogicNote}>
-            <Text style={styles.costLogicTitle}>Grupos comerciais do cardápio</Text>
+            <Text style={styles.costLogicTitle}>Grupos de escolha do cardápio</Text>
             <Text style={styles.costLogicText}>
-              Estes grupos vêm dos adicionais/modificadores do produto. O preço adicional é comercial; o custo técnico vem dos ingredientes, preparos e embalagens carregados por cada opção.
+              Aqui ficam as escolhas feitas durante a venda. Cada opção pode ser um produto comprado pronto, um preparo, um ingrediente ou uma embalagem.
             </Text>
           </View>
           {addonGroupEntries.length ? addonGroupEntries.map(([groupName, addons]) => {
@@ -2417,6 +2878,11 @@ function ProductDetail({
                         <View style={styles.nodeTitleWrap}>
                           <Text style={styles.nodeTitle}>{addon.name}</Text>
                           <Text style={styles.nodeMeta}>{addon.required ? 'entra no obrigatório' : 'opção vendida à parte'}</Text>
+                          <View style={styles.badgeLine}>
+                            <Badge tone={singleNode?.refType === 'recipe' ? 'good' : 'neutral'}>
+                              {operationalLabelForRefType(singleNode?.refType)}
+                            </Badge>
+                          </View>
                         </View>
                         <Text style={styles.nodeCost}>{money(addon.directCost)} / + {money(addon.salePriceDelta)}</Text>
                       </View>
@@ -2453,9 +2919,19 @@ function ProductDetail({
       ) : null}
       {activeProductTab === 'packaging' ? (
         <View style={styles.stack}>
-          {computed.nodes.filter(node => node.refType === 'packaging').length ? computed.nodes
-            .filter(node => node.refType === 'packaging')
-            .map(node => <ComponentNode key={node.key} db={db} node={node} />) : <EmptyState text="Nenhuma embalagem mapeada neste produto." />}
+          <View style={styles.panelNested}>
+            <Text style={styles.panelTitle}>Embalagens vinculadas ao produto</Text>
+            <Text style={styles.panelSubtitle}>Materiais de acondicionamento e despacho ficam separados da composição alimentar.</Text>
+            {packagingPieces.length ? packagingPieces.map(piece => (
+              <CompositionPiece
+                key={piece.key}
+                db={db}
+                piece={piece}
+                auditBySourceKey={technicalTree.nodeBySourceKey}
+                onTechnicalRoleChange={saveLocalTechnicalRole}
+              />
+            )) : <EmptyState text="Nenhuma embalagem mapeada neste produto." />}
+          </View>
         </View>
       ) : null}
       {activeProductTab === 'purchases' ? (
@@ -2472,6 +2948,46 @@ function ProductDetail({
         ]} />
       ) : null}
     </DetailShell>
+  );
+}
+
+function LocalDraftRelationCard({ relation, technicalWorkspace }) {
+  const entity = technicalWorkspace?.entityIndex?.[`${relation.targetType}:${relation.targetId}`] || null;
+  const draftRecord = entity?.draftRecord || entity?.record || {};
+  const isLinked = entity?.origins?.includes('erp');
+  const recipeComponents = relation.targetType === 'preparation'
+    ? safeArray(technicalWorkspace?.relations?.preparationComponents)
+      .filter(component => String(component.ownerId) === String(relation.targetId) && component.origin === 'draft')
+    : [];
+  const yieldLabel = relation.targetType === 'preparation' && draftRecord?.yieldQuantity
+    ? ` · rendimento ${decimal(draftRecord.yieldQuantity)} ${draftRecord.yieldUnit || ''}`
+    : '';
+
+  return (
+    <View style={styles.localDraftRelationCard}>
+      <View style={styles.localDraftRelationMain}>
+        <View style={styles.localDraftTypeIcon}>
+          <Icon
+            name={relation.targetType === 'preparation' ? 'git-branch' : relation.targetType === 'packaging' ? 'archive' : 'package'}
+            size={15}
+            color={MENU_COLORS.warnText}
+          />
+        </View>
+        <View style={styles.nodeTitleWrap}>
+          <Text style={styles.nodeTitle}>{entity?.name || relation.targetId}</Text>
+          <Text style={styles.nodeMeta}>
+            {relation.targetType === 'preparation' ? 'Preparo/receita' : relation.targetType === 'packaging' ? 'Embalagem' : 'Ingrediente'}
+            {recipeComponents.length ? ` · ${recipeComponents.length} componente(s) na receita` : ''}
+            {yieldLabel}
+          </Text>
+        </View>
+        <Badge tone={isLinked ? 'good' : 'warn'}>{isLinked ? 'Vinculado ao ERP' : 'Cadastrar/vincular'}</Badge>
+      </View>
+      <View style={styles.localDraftQuantityBox}>
+        <Text style={styles.infoLabel}>Quantidade na ficha</Text>
+        <Text style={styles.localDraftQuantityValue}>{decimal(relation.quantity)} {String(relation.unit || '').toUpperCase()}</Text>
+      </View>
+    </View>
   );
 }
 

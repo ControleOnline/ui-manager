@@ -89,6 +89,20 @@ const resolveProductCategoryId = product => {
   return normalizeEntityId(category);
 };
 
+const resolveProductCategoryIds = product => {
+  const relations = [
+    ...collectionFrom(product?.productCategory),
+    ...collectionFrom(product?.productCategories),
+    ...collectionFrom(product?.categories),
+  ];
+  const ids = relations
+    .map(relation => normalizeEntityId(relation?.category || relation?.categoryId || relation))
+    .filter(Boolean);
+  const fallbackId = resolveProductCategoryId(product);
+  if (fallbackId) ids.push(fallbackId);
+  return Array.from(new Set(ids));
+};
+
 export const normalizeLiveProduct = product => {
   const normalized = mapProductToCatalogItem(product || {}, {});
 
@@ -99,6 +113,7 @@ export const normalizeLiveProduct = product => {
     code: normalized.sku || product?.code || String(normalized.id || product?.id || ''),
     sku: normalized.sku || product?.sku || '',
     categoryId: normalized.categoryId || resolveProductCategoryId(product) || '',
+    categoryIds: resolveProductCategoryIds(product),
     type: normalized.type || product?.type || 'product',
     active: normalized.active !== false && product?.active !== false,
     description: normalized.description || product?.description || '',

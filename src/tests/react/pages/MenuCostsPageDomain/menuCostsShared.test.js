@@ -9,6 +9,7 @@ const {
   buildCostEngineChannelPreview,
   buildDashboardRadar,
   comparableCostLabel,
+  componentCost,
   computeProduct,
   filterBySearch,
   formatDate,
@@ -183,6 +184,27 @@ test('sale product composition uses active ingredient cost and keeps ERP relatio
   assert.equal(updated.nodes[0].cost, 14);
   assert.equal(updated.requiredCost, 7);
   assert.equal(updated.directCost, 21);
+});
+
+test('ingredient composition converts the requested unit before calculating cost', () => {
+  const costDb = {
+    ingredients: [{
+      id: 30,
+      name: 'Fraldinha',
+      baseUnit: 'g',
+      erpUnit: 'KG',
+      activeCostMode: 'manual',
+      manualUnitCost: 40,
+    }],
+    purchaseItems: [],
+  };
+
+  assert.equal(componentCost(costDb, {
+    refType: 'ingredient',
+    refId: 30,
+    qty: 0.15,
+    unit: 'kg',
+  }), 6);
 });
 
 test('dashboard radar summarizes current engineering operation', () => {

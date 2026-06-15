@@ -394,7 +394,11 @@ export const componentCost = (db, component, stack = []) => {
   const record = collection ? getById(db, collection, refId) : null;
   if (!record) return 0;
 
-  if (refType === 'ingredient') return activeCostSummary(db, 'ingredient', record).activeBaseCost * qty;
+  if (refType === 'ingredient') {
+    const summary = activeCostSummary(db, 'ingredient', record);
+    const requestedUnit = component?.unit || summary.baseUnit;
+    return summary.activeBaseCost * convertQty(qty, requestedUnit, summary.baseUnit);
+  }
   if (refType === 'packaging') return activeCostSummary(db, 'packaging', record).activeBaseCost * qty;
   if (refType === 'recipe') {
     const unitCost = activeCostSummary(db, 'recipe', record).activeBaseCost;

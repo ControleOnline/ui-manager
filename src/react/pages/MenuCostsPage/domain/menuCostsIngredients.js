@@ -413,6 +413,17 @@ export const buildLiveIngredientsDb = async ({
         sourceIds: group.products
           .map(product => String(normalizeEntityId(product) || product?.id || '').trim())
           .filter(Boolean),
+        sourceRecords: group.products.map(product => ({
+          id: String(normalizeEntityId(product) || product?.id || '').trim(),
+          name: product?.product || product?.name || '',
+          product: product?.product || product?.name || '',
+          code: product?.sku || product?.code || '',
+          sku: product?.sku || '',
+          description: product?.description || '',
+          baseUnit: extractUnit(product),
+          erpUnit: extractUnit(product),
+          type: product?.type || 'feedstock',
+        })),
         duplicateCount: group.products.length,
         duplicateIds,
         name: normalized?.name || masterProduct?.product || masterProduct?.name || '',
