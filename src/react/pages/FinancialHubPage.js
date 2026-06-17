@@ -66,6 +66,52 @@ export default function FinancialHubPage({navigation}) {
   const activeSection =
     FINANCIAL_TABS.find(item => item.key === activeTab) || FINANCIAL_TABS[0];
 
+  const toolbarActions = useMemo(
+    () => [
+      {
+        key: 'wallets',
+        label: global.t?.t('invoice', 'label', 'wallets'),
+        icon: 'briefcase',
+        color: palette.textSecondary,
+        style: {
+          backgroundColor: palette.background || '#FFFFFF',
+          borderColor: palette.border,
+          paddingHorizontal: 10,
+        },
+        onPress: () => navigation.navigate('WalletsPage'),
+      },
+      {
+        key: 'categories',
+        label: global.t?.t('invoice', 'label', 'categories'),
+        icon: 'tag',
+        color: tabHighlightColor,
+        style: {
+          backgroundColor: tabSurfaceColor,
+          borderColor: tabSurfaceColor,
+          paddingHorizontal: 10,
+        },
+        onPress: () =>
+          navigation.navigate('InvoiceCategoriesPage', {
+            context: activeSection.categoryContext,
+            contextLabel: activeSection.categoryContextLabel,
+            lockContext: true,
+            title: activeSection.categoryTitle,
+          }),
+      },
+    ],
+    [
+      activeSection.categoryContext,
+      activeSection.categoryContextLabel,
+      activeSection.categoryTitle,
+      navigation,
+      palette.background,
+      palette.border,
+      palette.textSecondary,
+      tabHighlightColor,
+      tabSurfaceColor,
+    ],
+  );
+
   if (!currentCompany?.id) {
     return (
       <SafeAreaView
@@ -121,53 +167,10 @@ export default function FinancialHubPage({navigation}) {
             );
           })}
         </View>
-
-        <View style={styles.actionsRow}>
-          <TouchableOpacity
-            style={styles.subtleButton}
-            activeOpacity={0.86}
-            onPress={() => navigation.navigate('WalletsPage')}>
-            <Icon name="briefcase" size={14} color={palette.textSecondary} />
-            <Text style={styles.subtleButtonText}>
-              {global.t?.t('invoice', 'label', 'wallets')}
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[
-              styles.subtleButton,
-              {
-                borderColor: tabSurfaceColor,
-                backgroundColor: tabSurfaceColor,
-              },
-            ]}
-            activeOpacity={0.86}
-            onPress={() =>
-              navigation.navigate('InvoiceCategoriesPage', {
-                context: activeSection.categoryContext,
-                contextLabel: activeSection.categoryContextLabel,
-                lockContext: true,
-                title: activeSection.categoryTitle,
-              })
-            }>
-            <Icon
-              name="tag"
-              size={14}
-              color={tabHighlightColor}
-            />
-            <Text
-              style={[
-                styles.subtleButtonText,
-                {color: tabHighlightColor},
-              ]}>
-              {global.t?.t('invoice', 'label', 'categories')}
-            </Text>
-          </TouchableOpacity>
-        </View>
       </View>
 
       <View style={styles.entriesContainer}>
-        <FinancialEntriesPage mode={activeSection.key} />
+        <FinancialEntriesPage mode={activeSection.key} toolbarActions={toolbarActions} />
       </View>
     </SafeAreaView>
   );
