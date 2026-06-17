@@ -128,7 +128,6 @@ export default function LabelsPage() {
             active: 1,
             type: PRODUCT_TYPES,
             'order[product]': 'ASC',
-            itemsPerPage: 8,
           })
           .catch(() => []);
 

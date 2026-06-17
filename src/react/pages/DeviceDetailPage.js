@@ -608,7 +608,6 @@ const DeviceDetailPage = () => {
       displayStore.actions
         .getItems({
           company: currentCompany.id,
-          itemsPerPage: 200,
         })
         .catch(() => {});
       printerStore.actions

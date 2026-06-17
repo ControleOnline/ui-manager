@@ -1280,7 +1280,6 @@ const PrinterDeviceDetailPage = () => {
     const ordersResponse = await api.fetch('orders', {
       params: {
         company: companyId,
-        itemsPerPage: 80,
         'order[id]': 'desc',
       },
     });
@@ -1334,7 +1333,6 @@ const PrinterDeviceDetailPage = () => {
     const orderProductsResponse = await api.fetch('order_products', {
       params: {
         order: `/orders/${orderId}`,
-        itemsPerPage: 250,
       },
     });
     const orderProducts = extractCollectionMembers(orderProductsResponse);
@@ -1915,3 +1913,4 @@ const PrinterDeviceDetailPage = () => {
 };
 
 export default PrinterDeviceDetailPage;
+// TODO(store-first): quando este arquivo for mexido, mover a leitura para stores, remover api.fetch e evitar repassar dados em objetos quando o store ja resolver isso.

@@ -349,7 +349,7 @@ export default function ThemeManagerPage() {
   const loadData = useCallback(async () => {
     setIsLoading(true);
     try {
-      const themesResponse = await api.fetch('/themes', { params: { itemsPerPage: 200, page: 1 } });
+      const themesResponse = await api.fetch('/themes', { params: { page: 1 } });
 
       const nextThemes = normalizeCollection(themesResponse).sort(
         (a, b) => Number(a?.id || 0) - Number(b?.id || 0),
@@ -626,3 +626,4 @@ export default function ThemeManagerPage() {
     </SafeAreaView>
   );
 }
+// TODO(store-first): quando este arquivo for mexido, mover a leitura para stores, remover api.fetch e evitar repassar dados em objetos quando o store ja resolver isso.

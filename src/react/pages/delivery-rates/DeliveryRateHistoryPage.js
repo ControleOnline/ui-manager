@@ -63,7 +63,6 @@ export default function DeliveryRateHistoryPage() {
       () => ({
         code: resolvedCode,
         company: currentCompanyIri,
-        itemsPerPage: 100,
       }),
       [currentCompanyIri, resolvedCode],
     ),

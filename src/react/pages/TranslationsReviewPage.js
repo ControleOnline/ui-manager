@@ -263,7 +263,7 @@ export default function TranslationsReviewPage() {
   const loadLanguages = useCallback(async () => {
     try {
       const response = await api.fetch('/languages', {
-        params: { itemsPerPage: 200 },
+        params: { },
       });
       const languageItems = Array.isArray(response?.member) ? response.member : [];
       setLanguages(languageItems);
@@ -314,7 +314,6 @@ export default function TranslationsReviewPage() {
 
     const loadAllTranslates = async peopleId => {
       const collectedItems = [];
-      const itemsPerPage = 200;
       let page = 1;
       let totalItems = null;
 
@@ -323,7 +322,6 @@ export default function TranslationsReviewPage() {
           params: {
             people: peopleId,
             'language.language': activeLanguage,
-            itemsPerPage,
             page,
             ...(filters.store ? { store: filters.store } : {}),
             ...(filters.type ? { type: filters.type } : {}),
@@ -341,10 +339,7 @@ export default function TranslationsReviewPage() {
           totalItems = normalizeCollectionTotalItems(response);
         }
 
-        if (
-          pageItems.length < itemsPerPage
-          || (totalItems != null && collectedItems.length >= totalItems)
-        ) {
+        if (pageItems.length === 0 || (totalItems != null && collectedItems.length >= totalItems)) {
           break;
         }
 
@@ -783,3 +778,4 @@ export default function TranslationsReviewPage() {
     </SafeAreaView>
   );
 }
+// TODO(store-first): quando este arquivo for mexido, mover a leitura para stores, remover api.fetch e evitar repassar dados em objetos quando o store ja resolver isso.

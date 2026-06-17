@@ -294,7 +294,6 @@ export default function MenuCostsResalePage({ navigation }) {
           active: 1,
           company: companyId,
           page,
-          itemsPerPage: MENU_COSTS_PAGE_SIZE,
           type: ['product', 'feedstock'],
           'productCategory.category': `/categories/${categoryId}`,
           'order[product]': 'ASC',
@@ -442,7 +441,6 @@ export default function MenuCostsResalePage({ navigation }) {
       const response = await categoriesStore.actions.getItems({
         company: companyId,
         context: 'products',
-        itemsPerPage: 500,
         'order[name]': 'ASC',
       });
       const nextCategories = extractCollectionItems(response);

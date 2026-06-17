@@ -224,7 +224,6 @@ export default function ManagerCategoriesPage({ navigation, route }) {
 
     return categoryActions.getItems({
       company: currentCompanyIri,
-      itemsPerPage: 500,
       'order[name]': 'ASC',
     });
   }, [categoryActions, currentCompanyIri]);

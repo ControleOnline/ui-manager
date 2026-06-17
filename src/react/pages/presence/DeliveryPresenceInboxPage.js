@@ -77,7 +77,6 @@ export default function DeliveryPresenceInboxPage() {
     try {
       const response = await actions.getItems({
         company: currentCompanyIri,
-        itemsPerPage: PAGE_SIZE,
       });
       setItems(Array.isArray(response) ? response : []);
     } catch (caughtError) {

@@ -256,7 +256,6 @@ export const buildRecipeComponentsByProductId = async ({ recipes, productGroupPr
       response = await productGroupProductActions.getItems({
         product: `/products/${recipeId}`,
         'order[id]': 'ASC',
-        itemsPerPage: 500,
       });
     } catch {
       response = [];
@@ -325,7 +324,6 @@ export const buildAddonsForProducts = async ({ products, productGroupActions, pr
 
     const groupsResponse = await productGroupActions.getItems({
       product: productId,
-      itemsPerPage: 200,
       'order[groupOrder]': 'ASC',
       'order[productGroup]': 'ASC',
     }).catch(() => []);
@@ -340,7 +338,6 @@ export const buildAddonsForProducts = async ({ products, productGroupActions, pr
       if (!groupItemsById.has(groupId)) {
         const itemsResponse = await productGroupProductActions.getItems({
           productGroup: groupIri,
-          itemsPerPage: 500,
         }).catch(() => []);
         const items = safeArray(itemsResponse?.['hydra:member'] || itemsResponse?.member || itemsResponse)
           .filter(item => item?.active !== false);

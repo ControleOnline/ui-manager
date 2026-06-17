@@ -2132,7 +2132,6 @@ function ProductsView({
         active: 1,
         company: currentCompany?.id,
         type: ['product', 'custom', 'drink', 'manufactured'],
-        itemsPerPage: 100,
         'order[product]': 'ASC',
         'order[description]': 'ASC',
         'productCategory.category': categoryRow?.category?.['@id'] || `/categories/${categoryId}`,

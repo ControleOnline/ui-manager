@@ -79,8 +79,8 @@ export default function HomePage({ navigation }) {
       try {
         const [ordersRes, clientsRes] =
           await Promise.all([
-            api.fetch('/orders', { params: { provider: currentCompany.id, itemsPerPage: 1 } }).catch(() => null),
-            api.fetch('/people', { params: { 'link.company': `/people/${currentCompany.id}`, 'link.linkType': 'client', itemsPerPage: 1 } }).catch(() => null),
+            api.fetch('/orders', { params: { provider: currentCompany.id} }).catch(() => null),
+            api.fetch('/people', { params: { 'link.company': `/people/${currentCompany.id}`, 'link.linkType': 'client'} }).catch(() => null),
           ]);
 
         setStats([
@@ -161,3 +161,4 @@ export default function HomePage({ navigation }) {
     </View>
   );
 }
+// TODO(store-first): quando este arquivo for mexido, mover a leitura para stores, remover api.fetch e evitar repassar dados em objetos quando o store ja resolver isso.

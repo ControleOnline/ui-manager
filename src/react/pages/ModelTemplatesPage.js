@@ -627,7 +627,6 @@ export default function ModelTemplatesPage({ route, navigation }) {
     try {
       const params = {
         people: peopleIri,
-        itemsPerPage: 200,
       };
 
       if (filterContext !== 'all') params.context = filterContext;
@@ -659,14 +658,12 @@ export default function ModelTemplatesPage({ route, navigation }) {
             'link.company': peopleIri,
             'link.linkType': 'employee',
             peopleType: 'F',
-            itemsPerPage: 200,
           },
         }).catch(() => null),
         api.fetch('/categories', {
           params: {
             company: peopleIri,
             context: categoryContext,
-            itemsPerPage: 200,
           },
         }).catch(() => null),
       ]);
@@ -1461,3 +1458,4 @@ export default function ModelTemplatesPage({ route, navigation }) {
     </SafeAreaView>
   );
 }
+// TODO(store-first): quando este arquivo for mexido, mover a leitura para stores, remover api.fetch e evitar repassar dados em objetos quando o store ja resolver isso.

@@ -493,7 +493,6 @@ export default function Food99IntegrationPage() {
           ? walletStore.actions
               .getItems({
                 people: providerId,
-                itemsPerPage: 200,
               })
               .catch(() => null)
           : Promise.resolve(null);
@@ -1457,3 +1456,4 @@ export default function Food99IntegrationPage() {
     </SafeAreaView>
   );
 }
+// TODO(store-first): quando este arquivo for mexido, mover a leitura para stores, remover api.fetch e evitar repassar dados em objetos quando o store ja resolver isso.

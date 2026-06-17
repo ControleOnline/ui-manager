@@ -209,7 +209,6 @@ const buildDeviceListParams = ({
 }) => {
   const params = {
     people: `/people/${companyId}`,
-    itemsPerPage: pageSize,
     page,
     'order[id]': 'DESC',
   };
@@ -687,3 +686,4 @@ export const createDeviceTypeTab = ({
 
   return DeviceTypeTab;
 };
+// TODO(store-first): quando este arquivo for mexido, mover a leitura para stores, remover api.fetch e evitar repassar dados em objetos quando o store ja resolver isso.

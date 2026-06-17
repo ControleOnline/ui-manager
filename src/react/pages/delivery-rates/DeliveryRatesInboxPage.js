@@ -43,7 +43,7 @@ export default function DeliveryRatesInboxPage() {
   const currentCompanyIri = currentCompanyId ? `/people/${currentCompanyId}` : '';
 
   const {items, isLoading, error, reload} = useDeliveryRateGroupsCollection(
-    useMemo(() => ({ company: currentCompanyIri, itemsPerPage: 100 }), [currentCompanyIri]),
+    useMemo(() => ({ company: currentCompanyIri}), [currentCompanyIri]),
     Boolean(currentCompanyIri),
   );
 
