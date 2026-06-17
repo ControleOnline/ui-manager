@@ -70,7 +70,7 @@ export default function FinancialHubPage({navigation}) {
     () => [
       {
         key: 'wallets',
-        label: global.t?.t('invoice', 'label', 'wallets'),
+        label: global.t?.t('invoice', 'label', 'wallets') || 'Carteiras',
         icon: 'briefcase',
         color: palette.textSecondary,
         style: {
@@ -82,7 +82,7 @@ export default function FinancialHubPage({navigation}) {
       },
       {
         key: 'categories',
-        label: global.t?.t('invoice', 'label', 'categories'),
+        label: global.t?.t('invoice', 'label', 'categories') || 'Categorias',
         icon: 'tag',
         color: tabHighlightColor,
         style: {
