@@ -27,6 +27,7 @@ import Food99PreviewModal from './components/Food99PreviewModal';
 import Food99SettingsTab from './components/Food99SettingsTab';
 import Food99QuickWalletModal from './components/Food99QuickWalletModal';
 import Food99StoreTab from './components/Food99StoreTab';
+import RemoteMarketplaceMenuTab from '../MarketplaceIntegrationPage/components/RemoteMarketplaceMenuTab';
 import styles from './styles';
 import {
   createEmptyStoreSettingsDraft,
@@ -106,6 +107,8 @@ export default function Food99IntegrationPage() {
   const [manualShopId, setManualShopId] = useState('');
   const [quickWalletModalVisible, setQuickWalletModalVisible] = useState(false);
   const [quickWalletName, setQuickWalletName] = useState('');
+  const [remoteMenuSnapshot, setRemoteMenuSnapshot] = useState(null);
+  const [remoteMenuError, setRemoteMenuError] = useState('');
   const hasHydratedSelection = useRef(false);
   const ignoreNextProductCardPressRef = useRef(false);
   const hasLoadedOnceRef = useRef(false);
@@ -1275,6 +1278,33 @@ export default function Food99IntegrationPage() {
     });
   }, [loadData, providerId, showError, showInfo, showSuccess, withAction]);
 
+  const handleLoadRemoteMenu = useCallback(async () => {
+    if (!providerId) return;
+
+    setRemoteMenuError('');
+    await withAction('remote-menu', async () => {
+      try {
+        const response = await api.fetch(
+          '/marketplace/integrations/99food/menu/import',
+          {
+            method: 'POST',
+            body: JSON.stringify({provider_id: providerId, mode: 'snapshot'}),
+          },
+        );
+        const result = response?.result || {};
+        if (String(result?.errno ?? '0') !== '0') {
+          setRemoteMenuError(
+            result?.errmsg ||
+              'Nao foi possivel ler o cardapio remoto da 99Food.',
+          );
+        }
+        setRemoteMenuSnapshot(result?.data || null);
+      } catch (error) {
+        setRemoteMenuError(formatFood99ApiError(error));
+      }
+    });
+  }, [providerId, withAction]);
+
   const selectionSummaryTone =
     selectedEligibleProducts.length >= MINIMUM_REQUIRED_ITEMS
       ? brandColors.success
@@ -1285,6 +1315,7 @@ export default function Food99IntegrationPage() {
     {key: 'store', label: 'Loja'},
     {key: 'settings', label: 'Operação'},
     {key: 'catalog', label: 'Cardápio', badge: selectedEligibleProducts.length},
+    {key: 'remoteCatalog', label: 'Cardápio no 99'},
   ];
 
   if (!providerId) {
@@ -1428,6 +1459,21 @@ export default function Food99IntegrationPage() {
             selectedProductSet={selectedProductSet}
             onToggleProduct={handleProductCardPress}
             onMarkCardPressHandled={markNextProductCardPressAsHandled}
+          />
+        )}
+
+        {activeTab === 'remoteCatalog' && (
+          <RemoteMarketplaceMenuTab
+            shadowStyle={integrationCardShadowStyle}
+            accentColor={brandColors.primary}
+            palette={brandColors}
+            title="Cardapio no 99"
+            subtitle="Leitura direta do cardapio remoto da loja selecionada na 99Food."
+            buttonLabel="Ler cardapio do 99"
+            loading={actionLoading === 'remote-menu'}
+            snapshot={remoteMenuSnapshot}
+            errorMessage={remoteMenuError}
+            onLoad={handleLoadRemoteMenu}
           />
         )}
       </ScrollView>

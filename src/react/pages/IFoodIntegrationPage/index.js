@@ -25,6 +25,7 @@ import IFoodOperationsTab from './components/IFoodOperationsTab';
 import IFoodOverviewTab from './components/IFoodOverviewTab';
 import IFoodPreviewModal from './components/IFoodPreviewModal';
 import IFoodStoreTab from './components/IFoodStoreTab';
+import RemoteMarketplaceMenuTab from '../MarketplaceIntegrationPage/components/RemoteMarketplaceMenuTab';
 import styles from './styles';
 import {
   calcDuration,
@@ -81,6 +82,8 @@ export default function IFoodIntegrationPage() {
   const [optStatusLoading, setOptStatusLoading] = useState(new Set());
   const [optPriceEditing, setOptPriceEditing] = useState({});
   const [optPriceLoading, setOptPriceLoading] = useState(new Set());
+  const [remoteMenuSnapshot, setRemoteMenuSnapshot] = useState(null);
+  const [remoteMenuError, setRemoteMenuError] = useState('');
   const ignoreNextProductCardPressRef = useRef(false);
   const hasLoadedOnceRef = useRef(false);
 
@@ -400,6 +403,33 @@ export default function IFoodIntegrationPage() {
       }
     });
   }, [applyDetailResponse, providerId, showError, showInfo, withAction]);
+
+  const handleLoadRemoteMenu = useCallback(async () => {
+    if (!providerId) return;
+
+    setRemoteMenuError('');
+    await withAction('remote-menu', async () => {
+      try {
+        const response = await api.fetch(
+          '/marketplace/integrations/ifood/menu/import',
+          {
+            method: 'POST',
+            body: JSON.stringify({provider_id: providerId, mode: 'snapshot'}),
+          },
+        );
+        const result = response?.result || {};
+        if (String(result?.errno ?? '0') !== '0') {
+          setRemoteMenuError(
+            result?.errmsg ||
+              'Nao foi possivel ler o cardapio remoto do iFood.',
+          );
+        }
+        setRemoteMenuSnapshot(result?.data || null);
+      } catch (error) {
+        setRemoteMenuError(formatIFoodApiError(error));
+      }
+    });
+  }, [providerId, withAction]);
 
   const handleMenuUpload = useCallback(
     async (selectedProducts = selectedEligible) => {
@@ -1103,6 +1133,7 @@ export default function IFoodIntegrationPage() {
     {key: 'store', label: 'Loja', badge: stores.length},
     {key: 'operations', label: 'Operação'},
     {key: 'catalog', label: 'Cardápio', badge: selectedEligible.length},
+    {key: 'remoteCatalog', label: 'Cardápio no iFood'},
   ];
 
   return (
@@ -1232,6 +1263,21 @@ export default function IFoodIntegrationPage() {
             onSaveOptionPrice={handleOptionPriceSave}
             onToggleOptionStatus={handleOptionStatusToggle}
             onSyncCatalog={handleCatalogSync}
+          />
+        )}
+
+        {activeTab === 'remoteCatalog' && (
+          <RemoteMarketplaceMenuTab
+            shadowStyle={integrationCardShadowStyle}
+            accentColor={brandColors.primary}
+            palette={brandColors}
+            title="Cardapio no iFood"
+            subtitle="Leitura direta do cardapio remoto da loja selecionada no iFood."
+            buttonLabel="Ler cardapio do iFood"
+            loading={actionLoading === 'remote-menu'}
+            snapshot={remoteMenuSnapshot}
+            errorMessage={remoteMenuError}
+            onLoad={handleLoadRemoteMenu}
           />
         )}
       </ScrollView>
