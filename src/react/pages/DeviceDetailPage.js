@@ -13,6 +13,7 @@ import styles from './DeviceDetailPage.styles';
 
 import {
   canDisplayChangePrinter,
+  DEVICE_ANDROID_KIOSK_ENABLED_CONFIG_KEY,
   DISPLAY_AUTO_PRINT_PRODUCT_CONFIG_KEY,
   DISPLAY_ALLOW_PRINTER_CHANGE_CONFIG_KEY,
   DEVICE_ALERT_SOUND_ENABLED_KEY,
@@ -43,6 +44,7 @@ import {
   POS_PRINT_MODE_FORM,
   POS_PRINT_MODE_ORDER,
   getPosOperationModeOption,
+  isAndroidKioskEnabled,
   isPosDeliveryEnabled,
   resolvePosCheckOrderManagementMode,
   resolvePosCheckOrderType,
@@ -228,6 +230,9 @@ const DeviceDetailPage = () => {
   const [posOperationMode, setPosOperationMode] = useState(
     resolvePosOperationMode(normalizedInitialConfigs),
   );
+  const [androidKioskEnabled, setAndroidKioskEnabled] = useState(
+    isAndroidKioskEnabled(normalizedInitialConfigs),
+  );
   const [counterAutoPrintEnabled, setCounterAutoPrintEnabled] = useState(
     isPosAutoPrintEnabled(normalizedInitialConfigs),
   );
@@ -384,6 +389,7 @@ const DeviceDetailPage = () => {
       setPdvGateway(getPaymentGatewayFromConfigs(nextConfigs));
       setPdvPrinterEnabled(isPdvPrinterEnabled(nextConfigs));
       setPosOperationMode(resolvePosOperationMode(nextConfigs));
+      setAndroidKioskEnabled(isAndroidKioskEnabled(nextConfigs));
       setCounterAutoPrintEnabled(isPosAutoPrintEnabled(nextConfigs));
       setCounterPrintMode(resolvePosPrintMode(nextConfigs));
       setCounterCashManagementMode(resolvePosCashManagementMode(nextConfigs));
@@ -766,6 +772,9 @@ const DeviceDetailPage = () => {
     try {
       const nextOperationConfigs = {
         [POS_OPERATION_MODE_CONFIG_KEY]: posOperationMode,
+        [DEVICE_ANDROID_KIOSK_ENABLED_CONFIG_KEY]: androidKioskEnabled
+          ? '1'
+          : '0',
         [POS_CHECK_ORDER_TYPE_CONFIG_KEY]: checkOrderType,
         [POS_CHECK_ORDER_MANAGEMENT_MODE_CONFIG_KEY]:
           checkOrderType === POS_CHECK_ORDER_TYPE_NONE
@@ -802,6 +811,7 @@ const DeviceDetailPage = () => {
     counterPrintMode,
     deviceString,
     deviceType,
+    androidKioskEnabled,
     isPdvDevice,
     posOperationMode,
     refreshCurrentConfig,
@@ -1265,6 +1275,34 @@ const DeviceDetailPage = () => {
                   'description',
                   selectedPosOperationModeOption?.descriptionKey,
                 )}
+              </Text>
+
+              <TouchableOpacity
+                style={[
+                  styles.toggleRow,
+                  androidKioskEnabled && styles.toggleRowActive,
+                ]}
+                activeOpacity={0.85}
+                onPress={() =>
+                  setAndroidKioskEnabled(currentValue => !currentValue)
+                }>
+                <View>
+                  <Text style={styles.toggleRowLabel}>
+                    {tt('label', 'androidKiosk')}
+                  </Text>
+                  <Text style={styles.toggleRowValue}>
+                    {androidKioskEnabled ? 'Sim' : 'Nao'}
+                  </Text>
+                </View>
+                <Icon
+                  name={androidKioskEnabled ? 'toggle-right' : 'toggle-left'}
+                  size={28}
+                  color={androidKioskEnabled ? hex.success : '#94A3B8'}
+                />
+              </TouchableOpacity>
+
+              <Text style={styles.configHint}>
+                {tt('description', 'androidKioskDescription')}
               </Text>
 
               <View style={styles.textInputWrap}>
