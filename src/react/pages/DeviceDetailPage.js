@@ -1288,10 +1288,7 @@ const DeviceDetailPage = () => {
                 }>
                 <View>
                   <Text style={styles.toggleRowLabel}>
-                    {tt('label', 'androidKiosk')}
-                  </Text>
-                  <Text style={styles.toggleRowValue}>
-                    {androidKioskEnabled ? 'Sim' : 'Nao'}
+                    Modo Kiosk?
                   </Text>
                 </View>
                 <Icon
