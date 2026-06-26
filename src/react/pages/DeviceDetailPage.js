@@ -6,10 +6,13 @@ import {Picker} from '@react-native-picker/picker';
 import { useStore } from '@store';
 import Formatter from '@controleonline/ui-common/src/utils/formatter';
 import StateStore from '@controleonline/ui-layout/src/react/components/StateStore';
+import PaymentTypesByWalletTab from '@controleonline/ui-common/src/react/pages/SettingsPage/PaymentTypesByWalletTab';
+import { appendScreenMetrics } from '@controleonline/ui-common/src/react/utils/screenMetrics';
 import { resolveThemePalette, withOpacity } from '@controleonline/../../src/styles/branding';
 import { colors } from '@controleonline/../../src/styles/colors';
 import Icon from 'react-native-vector-icons/Feather';
 import styles from './DeviceDetailPage.styles';
+import packageJson from '@package';
 
 import {
   canDisplayChangePrinter,
@@ -63,6 +66,7 @@ import {
   isPdvPrinterEnabled,
   normalizeDeviceId,
   normalizeEntityId,
+  PAYMENT_TYPE_IDS_CONFIG_KEY,
   PAYMENT_GATEWAY_CIELO,
   PDV_PRINTER_ENABLED_CONFIG_KEY,
   ORDER_PAYMENT_DEVICE_CONFIG_KEY,
@@ -112,12 +116,14 @@ const tt = (type, key) => global.t?.t('configs', type, key);
 const PDV_TAB_OPERATION = 'operation';
 const PDV_TAB_ORDERS = 'orders';
 const PDV_TAB_DEVICE = 'device';
+const PDV_TAB_PAYMENT_TYPES = 'payment-types';
 const PDV_TAB_MOVEMENT = 'movement';
 
 const PDV_DETAIL_TABS = [
   {key: PDV_TAB_OPERATION, icon: 'sliders', labelKey: 'pdvOperation'},
   {key: PDV_TAB_ORDERS, icon: 'list', labelKey: 'pdvOrders'},
   {key: PDV_TAB_DEVICE, icon: 'cpu', labelKey: 'pdvDevice'},
+  {key: PDV_TAB_PAYMENT_TYPES, icon: 'credit-card', labelKey: 'pdvPayments'},
   {key: PDV_TAB_MOVEMENT, icon: 'bar-chart-2', labelKey: 'pdvMovement'},
 ];
 
@@ -210,6 +216,7 @@ const DeviceDetailPage = () => {
   const [activePdvTab, setActivePdvTab] = useState(PDV_TAB_OPERATION);
   const [savingPaymentTarget, setSavingPaymentTarget] = useState(false);
   const [savingPdvSettings, setSavingPdvSettings] = useState(false);
+  const [savingPaymentTypes, setSavingPaymentTypes] = useState(false);
   const [savingPosOperationMode, setSavingPosOperationMode] = useState(false);
   const [savingAlertSound, setSavingAlertSound] = useState(false);
   const [savingOrderVisibility, setSavingOrderVisibility] = useState(false);
@@ -339,6 +346,8 @@ const DeviceDetailPage = () => {
     [posOperationMode],
   );
   const pickerMode = Platform.OS === 'android' ? 'dropdown' : undefined;
+  const packageVersion = packageJson?.version || packageJson?.default?.version;
+  const appVersion = packageVersion || runtimeDevice?.appVersion || '';
   const runtimeDeviceId = useMemo(
     () => normalizeDeviceId(runtimeDevice?.id || runtimeDevice?.device),
     [runtimeDevice?.device, runtimeDevice?.id],
@@ -758,6 +767,48 @@ const DeviceDetailPage = () => {
     savingPdvSettings,
   ]);
 
+  const savePaymentTypeConfigs = useCallback(
+    async nextSelectedPaymentTypeIds => {
+      if (
+        !currentCompany?.id ||
+        !deviceString ||
+        savingPaymentTypes
+      ) {
+        return;
+      }
+
+      setSavingPaymentTypes(true);
+      try {
+        const nextConfigs = appendScreenMetrics({
+          ...(configs || {}),
+          [PAYMENT_TYPE_IDS_CONFIG_KEY]: nextSelectedPaymentTypeIds,
+          'config-version': appVersion,
+        });
+
+        await actionsRef.current.deviceConfigActions.addDeviceConfigs({
+          device: deviceString,
+          configs: JSON.stringify(nextConfigs),
+          people: '/people/' + currentCompany.id,
+          type: deviceType,
+        });
+        await refreshCurrentConfig();
+      } catch {
+        // silencioso
+      } finally {
+        setSavingPaymentTypes(false);
+      }
+    },
+    [
+      currentCompany?.id,
+      appVersion,
+      configs,
+      deviceString,
+      deviceType,
+      refreshCurrentConfig,
+      savingPaymentTypes,
+    ],
+  );
+
   const savePosOperationMode = useCallback(async () => {
     if (
       !isPdvDevice ||
@@ -1069,6 +1120,8 @@ const DeviceDetailPage = () => {
     isPdvDevice && activePdvTab === PDV_TAB_OPERATION;
   const showPdvOrdersTab = isPdvDevice && activePdvTab === PDV_TAB_ORDERS;
   const showPdvDeviceTab = isPdvDevice && activePdvTab === PDV_TAB_DEVICE;
+  const showPdvPaymentTypesTab =
+    isPdvDevice && activePdvTab === PDV_TAB_PAYMENT_TYPES;
   const showPdvMovementTab =
     isPdvDevice && activePdvTab === PDV_TAB_MOVEMENT;
   const loadingActiveTabData = isPdvDevice && (
@@ -1195,7 +1248,10 @@ const DeviceDetailPage = () => {
                         styles.tabButtonText,
                         active && {color: brandColors.primary},
                       ]}>
-                      {tt('tab', tab.labelKey)}
+                      {tt('tab', tab.labelKey) ||
+                        (tab.key === PDV_TAB_PAYMENT_TYPES
+                          ? 'Pagamentos'
+                          : tab.labelKey)}
                     </Text>
                   </TouchableOpacity>
                 );
@@ -2097,6 +2153,26 @@ const DeviceDetailPage = () => {
                 )}
               </TouchableOpacity>
             </View>
+          </View>
+        )}
+
+        {showPdvPaymentTypesTab && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>
+              <Icon name="credit-card" size={13} /> {'  '}Pagamentos do device
+            </Text>
+            <Text style={styles.sectionHelperText}>
+              Selecione os meios de pagamento que este device pode exibir e
+              usar nas opções de pagamento. Os wallets entram só para
+              organizar a lista.
+            </Text>
+            <PaymentTypesByWalletTab
+              currentCompanyId={currentCompany?.id}
+              configs={configs}
+              disableSelection={savingPaymentTypes}
+              isSaving={savingPaymentTypes}
+              onPersistSelectedPaymentTypeIds={savePaymentTypeConfigs}
+            />
           </View>
         )}
 
