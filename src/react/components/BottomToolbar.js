@@ -3,6 +3,7 @@ import {useStore} from '@store';
 import React, {useMemo} from 'react';
 import { Text, TouchableOpacity, View } from 'react-native';
 import Icon from 'react-native-vector-icons/Feather';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {colors} from '@controleonline/../../src/styles/colors';
 import {resolveThemePalette} from '@controleonline/../../src/styles/branding';
 import createStyles from './BottomToolbar.styles';
@@ -20,6 +21,7 @@ const BottomToolbar = ({navigation}) => {
   const getters = themeStore.getters;
   const {colors: themeColors} = getters;
   const {currentCompany} = peopleGetters;
+  const insets = useSafeAreaInsets();
   const brandColors = useMemo(
     () =>
       resolveThemePalette(
@@ -28,100 +30,102 @@ const BottomToolbar = ({navigation}) => {
       ),
     [themeColors, currentCompany?.id],
   );
-  const styles = createStyles(brandColors);
+  const styles = createStyles(brandColors, insets);
   const activeIconColor = brandColors.primary;
   const inactiveIconColor = brandColors.textSecondary;
 
   return (
-    <View style={styles.toolbar}>
-    <TouchableOpacity
-      style={styles.button}
-      disabled={
-        !currentCompany || Object.entries(currentCompany).length === 0
-      }
-      onPress={() => {
-        navigation.navigate('HomePage');
-      }}>
-      <Icon
-        name="home"
-        size={15}
-        color={activeTab === 'HomePage' ? activeIconColor : inactiveIconColor}
-      />
-      <Text
-        style={[
-          styles.buttonText,
-          activeTab === 'HomePage' && styles.activeText,
-        ]}>
-        Home
-      </Text>
-    </TouchableOpacity>
+    <View pointerEvents="box-none" style={styles.overlay}>
+      <View accessibilityRole="navigation" style={styles.toolbar} testID="bottom-navigation">
+        <TouchableOpacity
+          disabled={
+            !currentCompany || Object.entries(currentCompany).length === 0
+          }
+          onPress={() => {
+            navigation.navigate('HomePage');
+          }}
+          style={styles.button}>
+          <Icon
+            name="home"
+            size={18}
+            color={activeTab === 'HomePage' ? activeIconColor : inactiveIconColor}
+          />
+          <Text
+            style={[
+              styles.buttonText,
+              activeTab === 'HomePage' && styles.activeText,
+            ]}>
+            Home
+          </Text>
+        </TouchableOpacity>
 
-    <TouchableOpacity
-      style={styles.button}
-      onPress={() => {
-        navigation.navigate('CrmIndex');
-      }}
-      disabled={
-        !currentCompany || Object.entries(currentCompany).length === 0
-      }>
-      <Icon
-        name="dollar-sign"
-        size={15}
-        color={activeTab === 'CrmIndex' ? activeIconColor : inactiveIconColor}
-      />
-      <Text
-        style={[
-          styles.buttonText,
-          activeTab === 'CrmIndex' && styles.activeText,
-        ]}>
-        Oportunidades
-      </Text>
-    </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.button}
+          onPress={() => {
+            navigation.navigate('CrmIndex');
+          }}
+          disabled={
+            !currentCompany || Object.entries(currentCompany).length === 0
+          }>
+          <Icon
+            name="dollar-sign"
+            size={18}
+            color={activeTab === 'CrmIndex' ? activeIconColor : inactiveIconColor}
+          />
+          <Text
+            style={[
+              styles.buttonText,
+              activeTab === 'CrmIndex' && styles.activeText,
+            ]}>
+            Oportunidades
+          </Text>
+        </TouchableOpacity>
 
-    <TouchableOpacity
-      style={styles.button}
-      onPress={() => {
-        navigation.navigate('ClientsIndex');
-      }}
-      disabled={
-        !currentCompany || Object.entries(currentCompany).length === 0
-      }>
-      <Icon
-        name="shopping-bag"
-        size={15}
-        color={activeTab === 'ClientsIndex' ? activeIconColor : inactiveIconColor}
-      />
-      <Text
-        style={[
-          styles.buttonText,
-          activeTab === 'ClientsIndex' && styles.activeText,
-        ]}>
-        Clientes
-      </Text>
-    </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.button}
+          onPress={() => {
+            navigation.navigate('ClientsIndex');
+          }}
+          disabled={
+            !currentCompany || Object.entries(currentCompany).length === 0
+          }>
+          <Icon
+            name="shopping-bag"
+            size={18}
+            color={activeTab === 'ClientsIndex' ? activeIconColor : inactiveIconColor}
+          />
+          <Text
+            style={[
+              styles.buttonText,
+              activeTab === 'ClientsIndex' && styles.activeText,
+            ]}>
+            Clientes
+          </Text>
+        </TouchableOpacity>
 
-    <TouchableOpacity
-      style={styles.button}
-      onPress={() => {
-        navigation.navigate('ProfilePage');
-      }}
-      disabled={
-        !currentCompany || Object.entries(currentCompany).length === 0
-      }>
-      <Icon
-        name="user"
-        size={15}
-        color={activeTab === 'ProfilePage' ? activeIconColor : inactiveIconColor}
-      />
-      <Text
-        style={[
-          styles.buttonText,
-          activeTab === 'ProfilePage' && styles.activeText,
-        ]}>
-        Perfil
-      </Text>
-    </TouchableOpacity>
-  </View>
+        <TouchableOpacity
+          style={styles.button}
+          onPress={() => {
+            navigation.navigate('ProfilePage');
+          }}
+          disabled={
+            !currentCompany || Object.entries(currentCompany).length === 0
+          }>
+          <Icon
+            name="user"
+            size={18}
+            color={activeTab === 'ProfilePage' ? activeIconColor : inactiveIconColor}
+          />
+          <Text
+            style={[
+              styles.buttonText,
+              activeTab === 'ProfilePage' && styles.activeText,
+            ]}>
+            Perfil
+          </Text>
+        </TouchableOpacity>
+      </View>
+    </View>
   );
 };
 export default BottomToolbar;

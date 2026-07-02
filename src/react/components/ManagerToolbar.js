@@ -52,13 +52,13 @@ const ManagerToolbar = ({ navigation }) => {
     [themeColors, currentCompany?.id],
   );
 
-  const styles = useMemo(() => createStyles(brandColors), [brandColors]);
+  const styles = useMemo(() => createStyles(brandColors, insets), [brandColors, insets]);
   const tabItems = getTabItems();
 
   return (
     <View pointerEvents="box-none" style={styles.overlay}>
-      <View style={[styles.wrapper, { paddingBottom: Math.max(insets.bottom, 8) }]}>
-        <View style={styles.toolbarShadow}>
+      <View style={styles.wrapper}>
+        <View accessibilityRole="navigation" style={styles.toolbarShadow} testID="bottom-navigation">
           <View style={styles.toolbar}>
             {tabItems.map(item => {
               const isActive = activeTab === item.key;
