@@ -190,6 +190,8 @@ export default function DeliveryRateVersionPage() {
           <View style={styles.actionBar}>
             <TouchableOpacity
               activeOpacity={0.86}
+              accessibilityLabel="Histórico"
+              accessibilityRole="button"
               style={styles.secondaryButton}
               onPress={() => navigation.navigate('DeliveryRateHistoryPage', { code: group.code || groupId })}
             >
@@ -199,6 +201,8 @@ export default function DeliveryRateVersionPage() {
 
             <TouchableOpacity
               activeOpacity={0.86}
+              accessibilityLabel="Empresas"
+              accessibilityRole="button"
               style={styles.secondaryButton}
               onPress={() => navigation.navigate('DeliveryRateCompanyPage', { id: groupId })}
             >
@@ -206,7 +210,13 @@ export default function DeliveryRateVersionPage() {
               <Text style={styles.secondaryButtonText}>Empresas</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity activeOpacity={0.86} style={styles.primaryButton} onPress={reload}>
+            <TouchableOpacity
+              activeOpacity={0.86}
+              accessibilityLabel="Atualizar"
+              accessibilityRole="button"
+              style={styles.primaryButton}
+              onPress={reload}
+            >
               <Text style={styles.primaryButtonText}>Atualizar</Text>
             </TouchableOpacity>
           </View>

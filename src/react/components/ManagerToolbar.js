@@ -65,6 +65,8 @@ const ManagerToolbar = ({ navigation }) => {
               return (
                 <TouchableOpacity
                   key={item.key}
+                  accessibilityLabel={item.label}
+                  accessibilityRole="button"
                   style={styles.tab}
                   disabled={disabled}
                   onPress={() => navigation?.navigate?.(item.key)}
