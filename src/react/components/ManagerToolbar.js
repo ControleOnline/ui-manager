@@ -1,13 +1,11 @@
 import { useStore } from '@store';
 import React, { useMemo } from 'react';
-import { Text, TouchableOpacity, View } from 'react-native';
-import Icon from 'react-native-vector-icons/Feather';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigationState } from '@react-navigation/native';
 
 import { colors } from '@controleonline/../../src/styles/colors';
 import { resolveThemePalette } from '@controleonline/../../src/styles/branding';
-import createStyles from './ManagerToolbar.styles';
+import BottomNavigationBar from '@controleonline/ui-common/src/react/components/BottomNavigationBar';
 
 const tt = key => global.t?.t('configs', 'toolbar', key);
 
@@ -51,42 +49,21 @@ const ManagerToolbar = ({ navigation }) => {
     ),
     [themeColors, currentCompany?.id],
   );
-
-  const styles = useMemo(() => createStyles(brandColors, insets), [brandColors, insets]);
-  const tabItems = getTabItems();
+  const tabItems = getTabItems().map(item => ({
+    route: item.key,
+    icon: item.icon,
+    label: item.label,
+  }));
 
   return (
-    <View pointerEvents="box-none" style={styles.overlay}>
-      <View style={styles.wrapper}>
-        <View accessibilityRole="navigation" style={styles.toolbarShadow} testID="bottom-navigation">
-          <View style={styles.toolbar}>
-            {tabItems.map(item => {
-              const isActive = activeTab === item.key;
-              return (
-                <TouchableOpacity
-                  key={item.key}
-                  style={styles.tab}
-                  disabled={disabled}
-                  onPress={() => navigation?.navigate?.(item.key)}
-                  activeOpacity={0.75}
-                >
-                  <View style={[styles.iconWrap, isActive && styles.iconWrapActive]}>
-                    <Icon
-                      name={item.icon}
-                      size={20}
-                      color={isActive ? brandColors.white : brandColors.textSecondary}
-                    />
-                  </View>
-                  <Text style={[styles.label, isActive && styles.labelActive]}>
-                    {item.label}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-        </View>
-      </View>
-    </View>
+    <BottomNavigationBar
+      activeRouteName={activeTab}
+      colors={brandColors}
+      disabled={disabled}
+      insets={insets}
+      items={tabItems}
+      navigation={navigation}
+    />
   );
 };
 
