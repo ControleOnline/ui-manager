@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
-import { View, Text, TouchableOpacity, Modal, ScrollView, Animated, Image, useWindowDimensions } from 'react-native';
+import { View, Text, TouchableOpacity, Modal, ScrollView, Animated, Image } from 'react-native';
 import Icon from 'react-native-vector-icons/Feather';
 import { useStore } from '@store';
 import md5 from 'md5';
@@ -29,7 +29,6 @@ const CompanyFilter = ({ navigation, mode }) => {
 
   const [selectedCompany, setSelectedCompany] = useState(currentCompany);
   const [modalVisible, setModalVisible] = useState(false);
-  const { width } = useWindowDimensions();
 
   const [fadeAnim] = useState(new Animated.Value(0));
   const [slideAnim] = useState(new Animated.Value(-50));
@@ -54,7 +53,6 @@ const CompanyFilter = ({ navigation, mode }) => {
     );
   const firstName = currentUser?.name?.split(' ')[0] || 'Usuário';
   const canSwitchCompany = Array.isArray(companies) && companies.length > 1;
-  const showHeaderCompanyName = width >= 920;
   const headerCompanyLabel = selectedCompany?.alias ||
     selectedCompany?.name ||
     'Selecionar empresa';
@@ -186,7 +184,7 @@ const CompanyFilter = ({ navigation, mode }) => {
   );
 
   if (mode === 'icon') {
-    if (!canSwitchCompany && !showHeaderCompanyName) {
+    if (!canSwitchCompany && !headerCompanyLabel) {
       return null;
     }
 
@@ -201,16 +199,15 @@ const CompanyFilter = ({ navigation, mode }) => {
           <Icon name="briefcase" size={18} color={brandColors.primary} />
         )}
 
-        {showHeaderCompanyName ? (
-          <Text
-            numberOfLines={1}
-            style={[styles.iconCompanyName, { color: brandColors.textSecondary }]}
-          >
-            {headerCompanyLabel}
-          </Text>
-        ) : null}
+        <Text
+          numberOfLines={1}
+          ellipsizeMode="tail"
+          style={[styles.iconCompanyName, { color: brandColors.textSecondary }]}
+        >
+          {headerCompanyLabel}
+        </Text>
 
-        {canSwitchCompany && showHeaderCompanyName ? (
+        {canSwitchCompany ? (
           <Icon
             name="chevron-down"
             size={14}
@@ -229,7 +226,7 @@ const CompanyFilter = ({ navigation, mode }) => {
               onPress={openModal}
               style={[
                 styles.iconButton,
-                showHeaderCompanyName ? styles.iconButtonExpanded : styles.iconButtonCompact,
+                styles.iconButtonExpanded,
               ]}
               activeOpacity={0.8}>
               {triggerContent}

@@ -18,6 +18,8 @@ const createStyles = (brandColors = colors) =>
     alignItems: 'center',
     flexDirection: 'row',
     gap: 8,
+    maxWidth: '100%',
+    flexShrink: 1,
   },
 
   iconButtonCompact: {
@@ -25,7 +27,7 @@ const createStyles = (brandColors = colors) =>
   },
 
   iconButtonExpanded: {
-    maxWidth: 220,
+    maxWidth: '100%',
     paddingHorizontal: 10,
   },
 
@@ -39,7 +41,8 @@ const createStyles = (brandColors = colors) =>
     justifyContent: 'flex-end',
     gap: 8,
     width: '100%',
-    maxWidth: 220,
+    maxWidth: '100%',
+    minWidth: 0,
   },
 
   iconCompanyLogo: {
@@ -49,7 +52,8 @@ const createStyles = (brandColors = colors) =>
   },
 
   iconCompanyName: {
-    maxWidth: 150,
+    flexShrink: 1,
+    minWidth: 0,
     fontSize: 13,
     fontWeight: '700',
   },
