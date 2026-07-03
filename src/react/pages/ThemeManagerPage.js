@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Modal,
@@ -71,6 +71,45 @@ const AUTO_GENERATED_ALIAS_KEYS = new Set([
   'q-bg-even-light',
 ]);
 
+const LEGACY_THEME_KEYS = [
+  'info',
+  'accent',
+  'bg-dark',
+  'primary',
+  'bg-light',
+  'negative',
+  'positive',
+  'secondary',
+  'bg-odd-dark',
+  'btn-primary',
+  'bg-even-dark',
+  'bg-menu-dark',
+  'bg-odd-light',
+  'text-primary',
+  'bg-even-light',
+  'bg-menu-light',
+  'text-menu-dark',
+  'text-secondary',
+  'bg-headers-dark',
+  'text-menu-light',
+  'bg-headers-light',
+  'text-headers-dark',
+  'text-headers-light',
+  'bg-menu-avatar-dark',
+  'bg-menu-avatar-light',
+  'scrollbar-thumb-dark',
+  'scrollbar-track-dark',
+  'scrollbar-thumb-light',
+  'scrollbar-track-light',
+  'scrollbar-thumb-hover-dark',
+  'scrollbar-thumb-hover-light',
+  'success',
+  'warning',
+  'error',
+];
+
+const LEGACY_THEME_KEY_SET = new Set(LEGACY_THEME_KEYS);
+
 const COLOR_HINTS = {
   primary: 'cor principal da interface',
   secondary: 'cor secundaria de apoio',
@@ -93,6 +132,392 @@ const COLOR_HINTS = {
   'bg-headers-light': 'fundo claro de cabecalhos',
 };
 
+const THEME_REFERENCE_GROUPS = [
+  {
+    label: 'estrutura da tela',
+    tokens: [
+      'appBackground',
+      'containerBackground',
+      'containerTransparentBackground',
+      'containerBorder',
+      'pageBackground',
+      'pageBorder',
+      'panelBackground',
+      'panelBorder',
+      'screenBackground',
+      'sectionBackground',
+      'sectionBorder',
+      'sheetBackground',
+      'sheetBorder',
+      'surface',
+    ],
+  },
+  {
+    label: 'barra',
+    tokens: [
+      'navbarBackground',
+      'navbarBorder',
+      'tabBarBackground',
+      'tabBarBorder',
+      'toolbarBackground',
+      'toolbarBorder',
+    ],
+  },
+  {
+    label: 'badge',
+    tokens: [
+      'badgeBackground',
+      'badgeBorder',
+      'badgeDisabledBackground',
+      'badgeDisabledText',
+      'badgeIcon',
+      'badgeSelectedBackground',
+      'badgeSelectedBorder',
+      'badgeSelectedText',
+      'badgeShadow',
+      'badgeText',
+    ],
+  },
+  {
+    label: 'button',
+    tokens: [
+      'buttonBackground',
+      'buttonBackgroundSecondary',
+      'buttonBorder',
+      'buttonBorderSecondary',
+      'buttonDisabledBackground',
+      'buttonDisabledOpacity',
+      'buttonDisabledText',
+      'buttonFocusBorder',
+      'buttonHoverBackground',
+      'buttonIcon',
+      'buttonIconSecondary',
+      'buttonPressedBackground',
+      'buttonShadow',
+      'buttonText',
+      'buttonTextSecondary',
+    ],
+  },
+  {
+    label: 'card',
+    tokens: [
+      'cardBackground',
+      'cardBorder',
+      'cardDisabledBackground',
+      'cardDisabledText',
+      'cardHeaderBackground',
+      'cardHeaderText',
+      'cardIcon',
+      'cardSelectedBackground',
+      'cardSelectedBorder',
+      'cardSelectedText',
+      'cardShadow',
+      'cardText',
+    ],
+  },
+  {
+    label: 'checkbox',
+    tokens: [
+      'checkboxBackground',
+      'checkboxBorder',
+      'checkboxDisabledBackground',
+      'checkboxDisabledBorder',
+      'checkboxDisabledMark',
+      'checkboxSelectedBackground',
+      'checkboxSelectedBorder',
+      'checkboxSelectedMark',
+      'checkboxText',
+    ],
+  },
+  {
+    label: 'chip',
+    tokens: [
+      'chipBackground',
+      'chipBorder',
+      'chipDisabledBackground',
+      'chipDisabledText',
+      'chipIcon',
+      'chipSelectedBackground',
+      'chipSelectedBorder',
+      'chipSelectedText',
+      'chipShadow',
+      'chipText',
+    ],
+  },
+  {
+    label: 'divider',
+    tokens: ['dividerBackground', 'dividerBorder', 'dividerText'],
+  },
+  {
+    label: 'footer',
+    tokens: [
+      'footerBackground',
+      'footerBorder',
+      'footerIcon',
+      'footerLink',
+      'footerText',
+    ],
+  },
+  {
+    label: 'header',
+    tokens: [
+      'headerBackground',
+      'headerBorder',
+      'headerIcon',
+      'headerLink',
+      'headerText',
+    ],
+  },
+  {
+    label: 'icon',
+    tokens: [
+      'iconColor',
+      'iconActive',
+      'iconDanger',
+      'iconDisabled',
+      'iconInfo',
+      'iconInverse',
+      'iconMuted',
+      'iconSuccess',
+      'iconText',
+      'iconWarning',
+    ],
+  },
+  {
+    label: 'input',
+    tokens: [
+      'inputBackground',
+      'inputBorder',
+      'inputFilledBorder',
+      'inputDisabledBackground',
+      'inputDisabledBorder',
+      'inputDisabledText',
+      'inputErrorBackground',
+      'inputErrorBorder',
+      'inputErrorText',
+      'inputFocusBorder',
+      'inputIcon',
+      'inputPlaceholderText',
+      'inputText',
+    ],
+  },
+  {
+    label: 'link',
+    tokens: ['linkDisabledText', 'linkHoverText', 'linkText', 'linkVisitedText'],
+  },
+  {
+    label: 'listItem',
+    tokens: [
+      'listItemActiveBackground',
+      'listItemActiveBorder',
+      'listItemBackground',
+      'listItemBorder',
+      'listItemDisabledText',
+      'listItemIcon',
+      'listItemSelectedBackground',
+      'listItemSelectedBorder',
+      'listItemSubtitleText',
+      'listItemText',
+    ],
+  },
+  {
+    label: 'loading',
+    tokens: [
+      'loadingBackground',
+      'loadingBorder',
+      'loadingDisabledBackground',
+      'loadingDisabledText',
+      'loadingIcon',
+      'loadingOverlay',
+      'loadingShadow',
+      'loadingSpinner',
+      'loadingText',
+    ],
+  },
+  {
+    label: 'menu',
+    tokens: [
+      'menuActiveBackground',
+      'menuActiveBorder',
+      'menuActiveIcon',
+      'menuActiveText',
+      'menuBackground',
+      'menuBorder',
+      'menuDisabledBackground',
+      'menuDisabledBorder',
+      'menuDisabledIcon',
+      'menuDisabledText',
+      'menuIcon',
+      'menuSelectedBackground',
+      'menuSelectedBorder',
+      'menuSelectedText',
+      'menuShadow',
+      'menuText',
+    ],
+  },
+  {
+    label: 'modal',
+    tokens: [
+      'modalBackground',
+      'modalBorder',
+      'modalCloseIcon',
+      'modalHeaderText',
+      'modalOverlay',
+      'modalShadow',
+      'modalText',
+    ],
+  },
+  {
+    label: 'select',
+    tokens: [
+      'selectBackground',
+      'selectBorder',
+      'selectIcon',
+      'selectOptionBackground',
+      'selectOptionBorder',
+      'selectOptionSelectedBackground',
+      'selectOptionSelectedText',
+      'selectPlaceholderText',
+      'selectText',
+    ],
+  },
+  {
+    label: 'navigation',
+    tokens: [
+      'navigationActiveBackground',
+      'navigationActiveBorder',
+      'navigationActiveIcon',
+      'navigationActiveText',
+      'navigationBackground',
+      'navigationBorder',
+      'navigationDisabledBackground',
+      'navigationDisabledBorder',
+      'navigationDisabledIcon',
+      'navigationDisabledText',
+      'navigationIcon',
+      'navigationShadow',
+      'navigationText',
+    ],
+  },
+  {
+    label: 'overlay',
+    tokens: ['overlayBackground', 'overlayBorder', 'overlayShadow'],
+  },
+  {
+    label: 'radio',
+    tokens: [
+      'radioBackground',
+      'radioBorder',
+      'radioDisabledBackground',
+      'radioDisabledBorder',
+      'radioDisabledDot',
+      'radioSelectedBackground',
+      'radioSelectedBorder',
+      'radioSelectedDot',
+      'radioText',
+    ],
+  },
+  {
+    label: 'switch',
+    tokens: [
+      'switchBorder',
+      'switchDisabledThumb',
+      'switchDisabledTrack',
+      'switchFocusBorder',
+      'switchOffThumb',
+      'switchOffTrack',
+      'switchOnThumb',
+      'switchOnTrack',
+    ],
+  },
+  {
+    label: 'text',
+    tokens: [
+      'textDanger',
+      'textDisabled',
+      'textInverse',
+      'textLink',
+      'textMuted',
+      'textPlaceholder',
+      'textPrimary',
+      'textSecondary',
+      'textSuccess',
+      'textWarning',
+    ],
+  },
+  {
+    label: 'toast',
+    tokens: [
+      'toastBackground',
+      'toastBorder',
+      'toastDangerBackground',
+      'toastDangerBorder',
+      'toastDangerIcon',
+      'toastDangerText',
+      'toastIcon',
+      'toastInfoBackground',
+      'toastInfoBorder',
+      'toastInfoIcon',
+      'toastInfoText',
+      'toastShadow',
+      'toastSuccessBackground',
+      'toastSuccessBorder',
+      'toastSuccessIcon',
+      'toastSuccessText',
+      'toastText',
+      'toastWarningBackground',
+      'toastWarningBorder',
+      'toastWarningIcon',
+      'toastWarningText',
+    ],
+  },
+];
+
+const THEME_PREVIEW_GROUPS = [
+  {
+    label: 'tokens base',
+    tokens: [
+      'background',
+      'border',
+      'googleLoading',
+      'placeholderText',
+      'shadow',
+      'surface',
+      'textPrimary',
+      'textSecondary',
+    ],
+  },
+  ...THEME_REFERENCE_GROUPS,
+];
+
+const UNIQUE_THEME_PREVIEW_GROUPS = (() => {
+  const seenTokens = new Set();
+
+  return THEME_PREVIEW_GROUPS.map(group => ({
+    ...group,
+    tokens: group.tokens.filter(token => {
+      if (seenTokens.has(token)) return false;
+      seenTokens.add(token);
+      return true;
+    }),
+  })).filter(group => group.tokens.length > 0);
+})();
+
+const THEME_REFERENCE_TOKENS = Array.from(
+  new Set(THEME_REFERENCE_GROUPS.flatMap(group => group.tokens)),
+);
+const THEME_REFERENCE_TOKEN_SET = new Set(THEME_REFERENCE_TOKENS);
+const THEME_REFERENCE_GROUP_MAP = THEME_REFERENCE_GROUPS.reduce((accumulator, group) => {
+  group.tokens.forEach(token => {
+    accumulator[token] = group.label;
+  });
+  return accumulator;
+}, {});
+
+const findTokenGroupLabel = tokenKey => {
+  return THEME_REFERENCE_GROUP_MAP[tokenKey] || 'tokens base';
+};
+
 const HEX_COLOR_REGEX = /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/;
 
 const normalizeCollection = payload => {
@@ -103,6 +528,21 @@ const normalizeCollection = payload => {
   if (Array.isArray(payload.items)) return payload.items;
   if (Array.isArray(payload.response?.data)) return payload.response.data;
   return [];
+};
+
+const normalizeThemeColors = themeColors => {
+  if (!themeColors) return {};
+  if (typeof themeColors === 'object' && !Array.isArray(themeColors)) return themeColors;
+  if (typeof themeColors !== 'string') return {};
+
+  try {
+    const parsedColors = JSON.parse(themeColors);
+    return parsedColors && typeof parsedColors === 'object' && !Array.isArray(parsedColors)
+      ? parsedColors
+      : {};
+  } catch (error) {
+    return {};
+  }
 };
 
 const normalizeHex = value => {
@@ -188,7 +628,7 @@ const buildNewThemeDraft = fallbackPalette => ({
 });
 
 const buildEditableDraft = (themeColors = {}, fallbackPalette = colors) => {
-  const filteredEntries = Object.entries(themeColors || {})
+  const filteredEntries = Object.entries(normalizeThemeColors(themeColors))
     .map(([key, value]) => [key, normalizeHex(value)])
     .filter(([key, value]) => Boolean(value) && !AUTO_GENERATED_ALIAS_KEYS.has(key))
     .sort(([leftKey], [rightKey]) => leftKey.localeCompare(rightKey));
@@ -224,22 +664,532 @@ const buildDuplicateName = (baseName, themes = []) => {
   return attempt;
 };
 
-const getThemeColorEntries = themeColors => {
-  return Object.entries(themeColors || {})
-    .map(([key, value]) => [key, normalizeHex(value)])
-    .filter(([key, value]) => Boolean(value) && !AUTO_GENERATED_ALIAS_KEYS.has(key))
-    .sort(([leftKey], [rightKey]) => leftKey.localeCompare(rightKey))
-    .map(([key, value]) => ({ key, value }));
+const buildThemeColumns = themeColors => {
+  const rawEntries = Object.entries(normalizeThemeColors(themeColors))
+    .map(([key, value]) => [key, typeof value === 'string' ? value.trim() : value])
+    .filter(([key]) => Boolean(key) && !AUTO_GENERATED_ALIAS_KEYS.has(key))
+    .sort(([leftKey], [rightKey]) => leftKey.localeCompare(rightKey));
+
+  const rawMap = Object.fromEntries(rawEntries);
+
+  const legacyEntries = rawEntries
+    .filter(([key]) => !THEME_REFERENCE_TOKEN_SET.has(key))
+    .map(([key, value]) => ({
+    key,
+      value,
+      isUnexpected: !LEGACY_THEME_KEY_SET.has(key),
+    }));
+
+  const newEntries = THEME_REFERENCE_TOKENS.map(key => ({
+      key,
+      value: rawMap[key] ?? '',
+      groupLabel: findTokenGroupLabel(key),
+    }));
+
+  const previewGroups = UNIQUE_THEME_PREVIEW_GROUPS.map(group => ({
+    ...group,
+    filledCount: group.tokens.filter(token => Boolean(normalizeHex(themeColors?.[token]))).length,
+  }));
+
+  const newEntriesByGroup = previewGroups.reduce((accumulator, group) => {
+    const groupEntries = newEntries.filter(item => item.groupLabel === group.label);
+    if (groupEntries.length > 0) accumulator[group.label] = groupEntries;
+    return accumulator;
+  }, {});
+
+  return {
+    legacyEntries,
+    newEntries,
+    newEntriesByGroup,
+    newCount: newEntries.length,
+    previewGroups,
+  };
+};
+
+const buildEditorField = key => ({
+  key,
+  label: DEFAULT_THEME_FIELD_MAP[key]?.label || key,
+  helper: DEFAULT_THEME_FIELD_MAP[key]?.helper || formatColorHint(key),
+});
+
+const getPreviewColor = (themeColors, keys, fallbackValue) => {
+  return pickThemeColor(themeColors, fallbackValue, Array.isArray(keys) ? keys : [keys]);
+};
+
+const renderGenericPreview = (group, themeColors) => {
+  return (
+    <View style={styles.previewTokenGrid}>
+      {group.tokens.slice(0, 6).map(token => {
+        const colorValue = normalizeHex(themeColors?.[token]);
+
+        return (
+          <View key={`${group.label}-${token}`} style={styles.previewTokenCard}>
+            <View
+              style={[
+                styles.previewTokenSwatch,
+                colorValue
+                  ? {
+                    backgroundColor: colorValue,
+                    borderColor: withOpacity(getReadableTextColor(colorValue), 0.18),
+                  }
+                  : styles.previewTokenSwatchEmpty,
+              ]}
+            />
+            <Text numberOfLines={1} style={styles.previewTokenLabel}>
+              {token}
+            </Text>
+          </View>
+        );
+      })}
+    </View>
+  );
+};
+
+const renderThemeObjectPreview = (group, themeColors) => {
+  const sectionBackground = getPreviewColor(themeColors, ['sectionBackground', 'surface', 'background'], '#F8FAFC');
+  const sectionBorder = getPreviewColor(themeColors, ['sectionBorder', 'border'], '#E2E8F0');
+  const textPrimary = getPreviewColor(themeColors, ['textPrimary', 'text'], '#0F172A');
+  const textSecondary = getPreviewColor(themeColors, ['textSecondary', 'placeholderText'], '#64748B');
+
+  switch (group.label) {
+    case 'button': {
+      const primaryBackground = getPreviewColor(themeColors, ['buttonBackground', 'primary'], '#2563EB');
+      const primaryBorder = getPreviewColor(themeColors, ['buttonBorder', 'primary'], primaryBackground);
+      const primaryText = getPreviewColor(themeColors, ['buttonText', 'textInverse'], getReadableTextColor(primaryBackground));
+      const secondaryBackground = getPreviewColor(themeColors, ['buttonBackgroundSecondary', 'surface', 'background'], '#FFFFFF');
+      const secondaryBorder = getPreviewColor(themeColors, ['buttonBorderSecondary', 'buttonBorder', 'border'], '#CBD5E1');
+      const secondaryText = getPreviewColor(themeColors, ['buttonTextSecondary', 'textPrimary', 'text'], '#0F172A');
+      const disabledBackground = getPreviewColor(themeColors, ['buttonDisabledBackground'], '#E2E8F0');
+      const disabledText = getPreviewColor(themeColors, ['buttonDisabledText', 'textDisabled'], '#94A3B8');
+
+      return (
+        <View style={styles.previewStack}>
+          <View style={styles.previewRow}>
+            <View style={[styles.previewButton, { backgroundColor: primaryBackground, borderColor: primaryBorder }]}>
+              <Icon name="check" size={12} color={primaryText} />
+              <Text style={[styles.previewButtonText, { color: primaryText }]}>Primario</Text>
+            </View>
+            <View style={[styles.previewButton, { backgroundColor: secondaryBackground, borderColor: secondaryBorder }]}>
+              <Text style={[styles.previewButtonText, { color: secondaryText }]}>Secundario</Text>
+            </View>
+          </View>
+          <View style={[styles.previewButton, styles.previewButtonDisabled, { backgroundColor: disabledBackground, borderColor: disabledBackground }]}>
+            <Text style={[styles.previewButtonText, { color: disabledText }]}>Desabilitado</Text>
+          </View>
+        </View>
+      );
+    }
+    case 'icon': {
+      const iconColor = getPreviewColor(themeColors, ['iconColor', 'iconText'], '#2563EB');
+      const iconMuted = getPreviewColor(themeColors, ['iconMuted', 'textSecondary'], '#64748B');
+      const iconDanger = getPreviewColor(themeColors, ['iconDanger', 'textDanger'], '#DC2626');
+      const iconSuccess = getPreviewColor(themeColors, ['iconSuccess', 'textSuccess'], '#16A34A');
+
+      return (
+        <View style={styles.previewIconRow}>
+          {[
+            { name: 'star', color: iconColor },
+            { name: 'settings', color: iconMuted },
+            { name: 'alert-triangle', color: iconDanger },
+            { name: 'check-circle', color: iconSuccess },
+          ].map(item => (
+            <View key={`${group.label}-${item.name}`} style={[styles.previewIconBubble, { backgroundColor: withOpacity(item.color, 0.12) }]}>
+              <Icon name={item.name} size={16} color={item.color} />
+            </View>
+          ))}
+        </View>
+      );
+    }
+    case 'checkbox': {
+      const checkboxBackground = getPreviewColor(themeColors, ['checkboxBackground', 'surface', 'background'], '#FFFFFF');
+      const checkboxBorder = getPreviewColor(themeColors, ['checkboxBorder', 'border'], '#94A3B8');
+      const checkboxSelectedBackground = getPreviewColor(themeColors, ['checkboxSelectedBackground', 'primary'], '#2563EB');
+      const checkboxSelectedBorder = getPreviewColor(themeColors, ['checkboxSelectedBorder', 'primary'], checkboxSelectedBackground);
+      const checkboxSelectedMark = getPreviewColor(themeColors, ['checkboxSelectedMark', 'textInverse'], '#FFFFFF');
+      const checkboxDisabledBackground = getPreviewColor(themeColors, ['checkboxDisabledBackground'], '#E2E8F0');
+      const checkboxDisabledBorder = getPreviewColor(themeColors, ['checkboxDisabledBorder'], '#CBD5E1');
+      const checkboxText = getPreviewColor(themeColors, ['checkboxText', 'textPrimary', 'text'], '#0F172A');
+
+      return (
+        <View style={styles.previewStack}>
+          <View style={styles.previewChoiceRow}>
+            <View style={[styles.previewCheckbox, { backgroundColor: checkboxBackground, borderColor: checkboxBorder }]} />
+            <Text style={[styles.previewChoiceText, { color: checkboxText }]}>Normal</Text>
+          </View>
+          <View style={styles.previewChoiceRow}>
+            <View style={[styles.previewCheckbox, { backgroundColor: checkboxSelectedBackground, borderColor: checkboxSelectedBorder }]}>
+              <Icon name="check" size={12} color={checkboxSelectedMark} />
+            </View>
+            <Text style={[styles.previewChoiceText, { color: checkboxText }]}>Selecionado</Text>
+          </View>
+          <View style={styles.previewChoiceRow}>
+            <View style={[styles.previewCheckbox, { backgroundColor: checkboxDisabledBackground, borderColor: checkboxDisabledBorder }]} />
+            <Text style={[styles.previewChoiceText, { color: textSecondary }]}>Desabilitado</Text>
+          </View>
+        </View>
+      );
+    }
+    case 'header':
+    case 'footer':
+    case 'barra': {
+      const barBackground = getPreviewColor(
+        themeColors,
+        group.label === 'footer'
+          ? ['footerBackground', 'toolbarBackground', 'navbarBackground']
+          : group.label === 'barra'
+            ? ['toolbarBackground', 'navbarBackground', 'tabBarBackground']
+            : ['headerBackground', 'toolbarBackground', 'navbarBackground'],
+        '#0F172A',
+      );
+      const barBorder = getPreviewColor(
+        themeColors,
+        group.label === 'footer'
+          ? ['footerBorder', 'toolbarBorder', 'navbarBorder']
+          : group.label === 'barra'
+            ? ['toolbarBorder', 'navbarBorder', 'tabBarBorder']
+            : ['headerBorder', 'toolbarBorder', 'navbarBorder'],
+        withOpacity(barBackground, 0.24),
+      );
+      const barText = getPreviewColor(
+        themeColors,
+        group.label === 'footer'
+          ? ['footerText', 'footerLink', 'textInverse']
+          : group.label === 'barra'
+            ? ['headerText', 'footerText', 'textInverse']
+            : ['headerText', 'headerLink', 'textInverse'],
+        getReadableTextColor(barBackground),
+      );
+
+      return (
+        <View style={[styles.previewBar, { backgroundColor: barBackground, borderColor: barBorder }]}>
+          <View style={styles.previewBarSide}>
+            <Icon name="menu" size={15} color={barText} />
+            <Text style={[styles.previewBarTitle, { color: barText }]}>
+              {group.label === 'footer' ? 'Footer' : group.label === 'barra' ? 'Barra' : 'Header'}
+            </Text>
+          </View>
+          <View style={styles.previewBarSide}>
+            <Icon name="bell" size={14} color={barText} />
+            <Icon name="user" size={14} color={barText} />
+          </View>
+        </View>
+      );
+    }
+    case 'card': {
+      const cardBackground = getPreviewColor(themeColors, ['cardBackground', 'surface', 'background'], '#FFFFFF');
+      const cardBorder = getPreviewColor(themeColors, ['cardBorder', 'border'], '#E2E8F0');
+      const cardHeaderBackground = getPreviewColor(themeColors, ['cardHeaderBackground', 'sectionBackground'], '#F8FAFC');
+      const cardHeaderText = getPreviewColor(themeColors, ['cardHeaderText', 'textPrimary', 'text'], '#0F172A');
+      const cardText = getPreviewColor(themeColors, ['cardText', 'textPrimary', 'text'], '#0F172A');
+
+      return (
+        <View style={[styles.previewInnerCard, { backgroundColor: cardBackground, borderColor: cardBorder }]}>
+          <View style={[styles.previewInnerCardHeader, { backgroundColor: cardHeaderBackground }]}>
+            <Text style={[styles.previewInnerCardTitle, { color: cardHeaderText }]}>Resumo</Text>
+            <Icon name="more-horizontal" size={14} color={cardHeaderText} />
+          </View>
+          <View style={styles.previewInnerCardContent}>
+            <Text style={[styles.previewParagraph, { color: cardText }]}>
+              Card com titulo, texto e estrutura visual do grupo.
+            </Text>
+          </View>
+        </View>
+      );
+    }
+    case 'chip':
+    case 'badge': {
+      const pillBackground = getPreviewColor(
+        themeColors,
+        group.label === 'chip' ? ['chipBackground', 'surface'] : ['badgeBackground', 'surface'],
+        '#E2E8F0',
+      );
+      const pillBorder = getPreviewColor(
+        themeColors,
+        group.label === 'chip' ? ['chipBorder', 'border'] : ['badgeBorder', 'border'],
+        pillBackground,
+      );
+      const pillText = getPreviewColor(
+        themeColors,
+        group.label === 'chip' ? ['chipText', 'textPrimary', 'text'] : ['badgeText', 'textPrimary', 'text'],
+        '#0F172A',
+      );
+      const selectedBackground = getPreviewColor(
+        themeColors,
+        group.label === 'chip' ? ['chipSelectedBackground', 'primary'] : ['badgeSelectedBackground', 'primary'],
+        '#2563EB',
+      );
+      const selectedText = getPreviewColor(
+        themeColors,
+        group.label === 'chip' ? ['chipSelectedText', 'textInverse'] : ['badgeSelectedText', 'textInverse'],
+        '#FFFFFF',
+      );
+
+      return (
+        <View style={styles.previewRowWrap}>
+          <View style={[styles.previewPill, { backgroundColor: pillBackground, borderColor: pillBorder }]}>
+            <Text style={[styles.previewPillText, { color: pillText }]}>Base</Text>
+          </View>
+          <View style={[styles.previewPill, { backgroundColor: selectedBackground, borderColor: selectedBackground }]}>
+            <Text style={[styles.previewPillText, { color: selectedText }]}>Selecionado</Text>
+          </View>
+        </View>
+      );
+    }
+    case 'input':
+    case 'select': {
+      const fieldBackground = getPreviewColor(
+        themeColors,
+        group.label === 'select' ? ['selectBackground', 'inputBackground', 'surface'] : ['inputBackground', 'surface', 'background'],
+        '#FFFFFF',
+      );
+      const fieldBorder = getPreviewColor(
+        themeColors,
+        group.label === 'select' ? ['selectBorder', 'inputBorder', 'border'] : ['inputBorder', 'border'],
+        '#CBD5E1',
+      );
+      const fieldText = getPreviewColor(
+        themeColors,
+        group.label === 'select' ? ['selectText', 'inputText', 'textPrimary', 'text'] : ['inputText', 'textPrimary', 'text'],
+        '#0F172A',
+      );
+      const placeholderColor = getPreviewColor(
+        themeColors,
+        group.label === 'select' ? ['selectPlaceholderText', 'inputPlaceholderText', 'textSecondary'] : ['inputPlaceholderText', 'textSecondary'],
+        '#94A3B8',
+      );
+      const focusBorder = getPreviewColor(themeColors, ['inputFocusBorder', 'selectOptionSelectedBackground', 'primary'], '#2563EB');
+      const errorBorder = getPreviewColor(themeColors, ['inputErrorBorder', 'textDanger'], '#DC2626');
+
+      return (
+        <View style={styles.previewStack}>
+          <View style={[styles.previewField, { backgroundColor: fieldBackground, borderColor: fieldBorder }]}>
+            <Text style={[styles.previewFieldText, { color: placeholderColor }]}>
+              {group.label === 'select' ? 'Selecione uma opcao' : 'Placeholder'}
+            </Text>
+            {group.label === 'select' ? <Icon name="chevron-down" size={14} color={placeholderColor} /> : null}
+          </View>
+          <View style={[styles.previewField, { backgroundColor: fieldBackground, borderColor: focusBorder }]}>
+            <Text style={[styles.previewFieldText, { color: fieldText }]}>
+              {group.label === 'select' ? 'Opcao ativa' : 'Valor preenchido'}
+            </Text>
+          </View>
+          {group.label === 'input' ? (
+            <View style={[styles.previewField, { backgroundColor: fieldBackground, borderColor: errorBorder }]}>
+              <Text style={[styles.previewFieldText, { color: textSecondary }]}>Estado com erro</Text>
+            </View>
+          ) : null}
+        </View>
+      );
+    }
+    case 'link':
+    case 'text': {
+      const linkColor = getPreviewColor(themeColors, ['linkText', 'textLink', 'primary'], '#2563EB');
+      const dangerColor = getPreviewColor(themeColors, ['textDanger'], '#DC2626');
+      const successColor = getPreviewColor(themeColors, ['textSuccess'], '#16A34A');
+
+      return (
+        <View style={styles.previewStack}>
+          <Text style={[styles.previewHeadline, { color: textPrimary }]}>Titulo principal</Text>
+          <Text style={[styles.previewParagraph, { color: textSecondary }]}>
+            Texto secundario para validar contraste e leitura.
+          </Text>
+          <View style={styles.previewRowWrap}>
+            <Text style={[styles.previewInlineLink, { color: linkColor }]}>Link</Text>
+            <Text style={[styles.previewInlineLink, { color: successColor }]}>Sucesso</Text>
+            <Text style={[styles.previewInlineLink, { color: dangerColor }]}>Erro</Text>
+          </View>
+        </View>
+      );
+    }
+    case 'listItem':
+    case 'menu':
+    case 'navigation': {
+      const itemBackground = getPreviewColor(
+        themeColors,
+        group.label === 'listItem' ? ['listItemBackground', 'surface', 'background'] : ['menuBackground', 'navigationBackground', 'surface'],
+        '#FFFFFF',
+      );
+      const itemBorder = getPreviewColor(
+        themeColors,
+        group.label === 'listItem' ? ['listItemBorder', 'border'] : ['menuBorder', 'navigationBorder', 'border'],
+        '#E2E8F0',
+      );
+      const activeBackground = getPreviewColor(
+        themeColors,
+        group.label === 'listItem' ? ['listItemSelectedBackground', 'listItemActiveBackground', 'primary'] : ['menuActiveBackground', 'navigationActiveBackground', 'primary'],
+        '#DBEAFE',
+      );
+      const itemText = getPreviewColor(
+        themeColors,
+        group.label === 'listItem' ? ['listItemText', 'textPrimary', 'text'] : ['menuText', 'navigationText', 'textPrimary', 'text'],
+        '#0F172A',
+      );
+      const activeText = getPreviewColor(
+        themeColors,
+        group.label === 'listItem' ? ['listItemText', 'textPrimary'] : ['menuActiveText', 'navigationActiveText', 'textInverse'],
+        group.label === 'listItem' ? itemText : getReadableTextColor(activeBackground),
+      );
+
+      return (
+        <View style={styles.previewStack}>
+          <View style={[styles.previewListItem, { backgroundColor: itemBackground, borderColor: itemBorder }]}>
+            <Icon name="circle" size={12} color={textSecondary} />
+            <Text style={[styles.previewListText, { color: itemText }]}>Item base</Text>
+          </View>
+          <View style={[styles.previewListItem, { backgroundColor: activeBackground, borderColor: activeBackground }]}>
+            <Icon name="check-circle" size={12} color={activeText} />
+            <Text style={[styles.previewListText, { color: activeText }]}>Item ativo</Text>
+          </View>
+        </View>
+      );
+    }
+    case 'loading':
+    case 'modal':
+    case 'overlay': {
+      const shellBackground = getPreviewColor(
+        themeColors,
+        group.label === 'modal' ? ['modalBackground', 'surface', 'background'] : ['loadingBackground', 'surface', 'background'],
+        '#FFFFFF',
+      );
+      const shellBorder = getPreviewColor(
+        themeColors,
+        group.label === 'modal' ? ['modalBorder', 'border'] : ['loadingBorder', 'border'],
+        '#E2E8F0',
+      );
+      const overlayBackground = getPreviewColor(themeColors, ['modalOverlay', 'loadingOverlay', 'overlayBackground'], '#CBD5E1');
+      const spinnerColor = getPreviewColor(themeColors, ['loadingSpinner', 'loadingIcon', 'primary'], '#2563EB');
+
+      return (
+        <View style={styles.previewOverlayShell}>
+          <View style={[styles.previewOverlayBackdrop, { backgroundColor: withOpacity(overlayBackground, 0.28) }]} />
+          <View style={[styles.previewOverlayCard, { backgroundColor: shellBackground, borderColor: shellBorder }]}>
+            {group.label === 'loading' ? (
+              <>
+                <ActivityIndicator size="small" color={spinnerColor} />
+                <Text style={[styles.previewParagraph, { color: textPrimary }]}>Carregando...</Text>
+              </>
+            ) : (
+              <>
+                <Text style={[styles.previewInnerCardTitle, { color: textPrimary }]}>
+                  {group.label === 'modal' ? 'Modal' : 'Overlay'}
+                </Text>
+                <Text style={[styles.previewParagraph, { color: textSecondary }]}>Bloco de visualizacao</Text>
+              </>
+            )}
+          </View>
+        </View>
+      );
+    }
+    case 'radio': {
+      const radioBorder = getPreviewColor(themeColors, ['radioBorder', 'border'], '#94A3B8');
+      const radioSelectedBorder = getPreviewColor(themeColors, ['radioSelectedBorder', 'primary'], '#2563EB');
+      const radioSelectedDot = getPreviewColor(themeColors, ['radioSelectedDot', 'primary'], '#2563EB');
+
+      return (
+        <View style={styles.previewStack}>
+          <View style={styles.previewChoiceRow}>
+            <View style={[styles.previewRadio, { borderColor: radioBorder }]} />
+            <Text style={[styles.previewChoiceText, { color: textPrimary }]}>Opcao base</Text>
+          </View>
+          <View style={styles.previewChoiceRow}>
+            <View style={[styles.previewRadio, { borderColor: radioSelectedBorder }]}>
+              <View style={[styles.previewRadioDot, { backgroundColor: radioSelectedDot }]} />
+            </View>
+            <Text style={[styles.previewChoiceText, { color: textPrimary }]}>Opcao ativa</Text>
+          </View>
+        </View>
+      );
+    }
+    case 'switch': {
+      const offTrack = getPreviewColor(themeColors, ['switchOffTrack', 'border'], '#CBD5E1');
+      const offThumb = getPreviewColor(themeColors, ['switchOffThumb', 'surface'], '#FFFFFF');
+      const onTrack = getPreviewColor(themeColors, ['switchOnTrack', 'primary'], '#2563EB');
+      const onThumb = getPreviewColor(themeColors, ['switchOnThumb', 'textInverse'], '#FFFFFF');
+
+      return (
+        <View style={styles.previewRowWrap}>
+          <View style={[styles.previewSwitch, { backgroundColor: offTrack }]}>
+            <View style={[styles.previewSwitchThumb, { backgroundColor: offThumb, alignSelf: 'flex-start' }]} />
+          </View>
+          <View style={[styles.previewSwitch, { backgroundColor: onTrack }]}>
+            <View style={[styles.previewSwitchThumb, { backgroundColor: onThumb, alignSelf: 'flex-end' }]} />
+          </View>
+        </View>
+      );
+    }
+    case 'toast': {
+      const toastBackground = getPreviewColor(themeColors, ['toastBackground', 'surface', 'background'], '#FFFFFF');
+      const toastBorder = getPreviewColor(themeColors, ['toastBorder', 'border'], '#E2E8F0');
+      const toastInfoBackground = getPreviewColor(themeColors, ['toastInfoBackground', 'info', 'primary'], '#DBEAFE');
+      const toastSuccessBackground = getPreviewColor(themeColors, ['toastSuccessBackground', 'positive'], '#DCFCE7');
+
+      return (
+        <View style={styles.previewStack}>
+          <View style={[styles.previewToast, { backgroundColor: toastBackground, borderColor: toastBorder }]}>
+            <Icon name="info" size={13} color={textPrimary} />
+            <Text style={[styles.previewToastText, { color: textPrimary }]}>Toast base</Text>
+          </View>
+          <View style={[styles.previewToast, { backgroundColor: toastInfoBackground, borderColor: toastInfoBackground }]}>
+            <Icon name="bell" size={13} color={textPrimary} />
+            <Text style={[styles.previewToastText, { color: textPrimary }]}>Toast info</Text>
+          </View>
+          <View style={[styles.previewToast, { backgroundColor: toastSuccessBackground, borderColor: toastSuccessBackground }]}>
+            <Icon name="check-circle" size={13} color={textPrimary} />
+            <Text style={[styles.previewToastText, { color: textPrimary }]}>Toast sucesso</Text>
+          </View>
+        </View>
+      );
+    }
+    case 'divider': {
+      const dividerColor = getPreviewColor(themeColors, ['dividerBackground', 'dividerBorder', 'border'], '#CBD5E1');
+
+      return (
+        <View style={styles.previewStack}>
+          <Text style={[styles.previewParagraph, { color: textSecondary }]}>Secao acima</Text>
+          <View style={[styles.previewDivider, { backgroundColor: dividerColor }]} />
+          <Text style={[styles.previewParagraph, { color: textPrimary }]}>Secao abaixo</Text>
+        </View>
+      );
+    }
+    case 'tokens base':
+    case 'estrutura da tela': {
+      return (
+        <View style={[styles.previewSurfaceCard, { backgroundColor: sectionBackground, borderColor: sectionBorder }]}>
+          <Text style={[styles.previewHeadline, { color: textPrimary }]}>Base da tela</Text>
+          <Text style={[styles.previewParagraph, { color: textSecondary }]}>
+            Fundo, superficie, borda e contraste principal.
+          </Text>
+        </View>
+      );
+    }
+    default:
+      return renderGenericPreview(group, themeColors);
+  }
+};
+
+const ThemeObjectPreviewCard = ({ group, themeColors, onPress, onLayout }) => {
+  const Container = onPress ? Pressable : View;
+
+  return (
+    <Container style={styles.objectPreviewCard} onPress={onPress} onLayout={onLayout}>
+      <View style={styles.objectPreviewHeader}>
+        <Text style={styles.objectPreviewTitle}>{group.label}</Text>
+        <Text style={styles.objectPreviewMeta}>
+          {group.filledCount}/{group.tokens.length}
+        </Text>
+      </View>
+
+      <View style={styles.objectPreviewBody}>
+        {renderThemeObjectPreview(group, themeColors)}
+      </View>
+    </Container>
+  );
 };
 
 const buildEditorFields = draft => {
   return Object.keys(draft || {})
     .sort((leftKey, rightKey) => leftKey.localeCompare(rightKey))
-    .map(key => ({
-      key,
-      label: DEFAULT_THEME_FIELD_MAP[key]?.label || key,
-      helper: DEFAULT_THEME_FIELD_MAP[key]?.helper || formatColorHint(key),
-    }));
+    .map(buildEditorField);
 };
 
 const ColorEditor = ({ field, value, onChange }) => {
@@ -308,8 +1258,14 @@ export default function ThemeManagerPage() {
   const { colors: themeColors } = themeGetters;
 
   const palette = useMemo(
-    () => resolveThemePalette({ ...themeColors, ...(currentCompany?.theme?.colors || {}) }, colors),
-    [themeColors, currentCompany?.id],
+    () => resolveThemePalette(
+      {
+        ...normalizeThemeColors(themeColors),
+        ...normalizeThemeColors(currentCompany?.theme?.colors),
+      },
+      colors,
+    ),
+    [themeColors, currentCompany?.id, currentCompany?.theme?.colors],
   );
 
   const [isLoading, setIsLoading] = useState(false);
@@ -317,14 +1273,21 @@ export default function ThemeManagerPage() {
   const [themes, setThemes] = useState([]);
   const [editorVisible, setEditorVisible] = useState(false);
   const [editingTheme, setEditingTheme] = useState(null);
+  const [editingFieldKey, setEditingFieldKey] = useState(null);
   const [themeName, setThemeName] = useState('');
   const [themeDraft, setThemeDraft] = useState(buildNewThemeDraft(palette));
-  const [hoveredColorHelp, setHoveredColorHelp] = useState(null);
-
+  const newColumnRefs = useRef({});
+  const newEntryLayouts = useRef({});
+  const previewColumnRefs = useRef({});
+  const previewGroupLayouts = useRef({});
   const editorFields = useMemo(
     () => buildEditorFields(themeDraft),
     [themeDraft],
   );
+  const visibleEditorFields = useMemo(() => {
+    if (!editingFieldKey) return editorFields;
+    return [buildEditorField(editingFieldKey)];
+  }, [editingFieldKey, editorFields]);
 
   const refreshCurrentThemeIfNeeded = useCallback(async () => {
     if (!currentCompany?.id || String(currentCompany.id) !== String(defaultCompany?.id)) {
@@ -351,9 +1314,12 @@ export default function ThemeManagerPage() {
     try {
       const themesResponse = await api.fetch('/themes', { params: { page: 1 } });
 
-      const nextThemes = normalizeCollection(themesResponse).sort(
-        (a, b) => Number(a?.id || 0) - Number(b?.id || 0),
-      );
+      const nextThemes = normalizeCollection(themesResponse)
+        .map(item => ({
+          ...item,
+          colors: normalizeThemeColors(item?.colors),
+        }))
+        .sort((a, b) => Number(a?.id || 0) - Number(b?.id || 0));
 
       setThemes(nextThemes);
     } catch (error) {
@@ -371,6 +1337,7 @@ export default function ThemeManagerPage() {
 
   const openCreateTheme = useCallback(() => {
     setEditingTheme(null);
+    setEditingFieldKey(null);
     setThemeName('');
     setThemeDraft(buildNewThemeDraft(palette));
     setEditorVisible(true);
@@ -378,6 +1345,7 @@ export default function ThemeManagerPage() {
 
   const openEditTheme = useCallback(themeItem => {
     setEditingTheme(themeItem);
+    setEditingFieldKey(null);
     setThemeName(String(themeItem?.theme || '').trim());
     setThemeDraft(buildEditableDraft(themeItem?.colors || {}, palette));
     setEditorVisible(true);
@@ -385,10 +1353,56 @@ export default function ThemeManagerPage() {
 
   const openDuplicateTheme = useCallback(themeItem => {
     setEditingTheme(null);
+    setEditingFieldKey(null);
     setThemeName(buildDuplicateName(themeItem?.theme, themes));
     setThemeDraft(buildEditableDraft(themeItem?.colors || {}, palette));
     setEditorVisible(true);
   }, [palette, themes]);
+
+  const openSingleColorEditor = useCallback((themeItem, fieldKey) => {
+    setEditingTheme(themeItem);
+    setEditingFieldKey(fieldKey);
+    setThemeName(String(themeItem?.theme || '').trim());
+    setThemeDraft({
+      ...buildEditableDraft(themeItem?.colors || {}, palette),
+      [fieldKey]: themeItem?.colors?.[fieldKey] || '',
+    });
+    setEditorVisible(true);
+  }, [palette]);
+
+  const closeEditor = useCallback(() => {
+    setEditorVisible(false);
+    setEditingFieldKey(null);
+  }, []);
+
+  const registerNewEntryLayout = useCallback((themeId, itemKey, layoutY) => {
+    newEntryLayouts.current[`${themeId}:${itemKey}`] = layoutY;
+  }, []);
+
+  const registerPreviewGroupLayout = useCallback((themeId, groupLabel, layoutY) => {
+    previewGroupLayouts.current[`${themeId}:${groupLabel}`] = layoutY;
+  }, []);
+
+  const jumpToPreviewGroup = useCallback((themeId, groupLabel) => {
+    const scrollRef = previewColumnRefs.current[themeId];
+    const targetY = previewGroupLayouts.current[`${themeId}:${groupLabel}`];
+
+    if (scrollRef?.scrollTo && Number.isFinite(targetY)) {
+      scrollRef.scrollTo({ y: Math.max(targetY - 10, 0), animated: true });
+    }
+  }, []);
+
+  const jumpToFirstNewEntryOfGroup = useCallback((themeId, groupLabel, newEntriesByGroup = {}) => {
+    const firstEntry = newEntriesByGroup[groupLabel]?.[0];
+    if (!firstEntry) return;
+
+    const scrollRef = newColumnRefs.current[themeId];
+    const targetY = newEntryLayouts.current[`${themeId}:${firstEntry.key}`];
+
+    if (scrollRef?.scrollTo && Number.isFinite(targetY)) {
+      scrollRef.scrollTo({ y: Math.max(targetY - 10, 0), animated: true });
+    }
+  }, []);
 
   const setDraftColor = useCallback((fieldKey, value) => {
     setThemeDraft(current => ({
@@ -429,7 +1443,7 @@ export default function ThemeManagerPage() {
         showSuccess('Tema criado.');
       }
 
-      setEditorVisible(false);
+      closeEditor();
       await loadData();
       await refreshCurrentThemeIfNeeded();
     } catch (error) {
@@ -437,7 +1451,7 @@ export default function ThemeManagerPage() {
     } finally {
       setIsSaving(false);
     }
-  }, [editingTheme, editorFields, loadData, refreshCurrentThemeIfNeeded, showError, showSuccess, themeDraft, themeName]);
+  }, [closeEditor, editingTheme, editorFields, loadData, refreshCurrentThemeIfNeeded, showError, showSuccess, themeDraft, themeName]);
 
   return (
     <SafeAreaView style={[styles.root, { backgroundColor: palette.background }]} edges={['bottom']}>
@@ -473,7 +1487,9 @@ export default function ThemeManagerPage() {
         ) : (
           <View style={styles.themeList}>
             {themes.map(themeItem => {
-              const colorEntries = getThemeColorEntries(themeItem?.colors || {});
+              const { legacyEntries, newEntries, newEntriesByGroup, newCount, previewGroups } = buildThemeColumns(
+                themeItem?.colors || {},
+              );
 
               return (
                 <View key={String(themeItem.id)} style={styles.themeCard}>
@@ -481,9 +1497,6 @@ export default function ThemeManagerPage() {
                     <View style={styles.themeTitleWrap}>
                       <Text style={styles.themeName}>
                         {themeItem?.theme || `Tema ${themeItem?.id}`}
-                        {hoveredColorHelp?.themeId === String(themeItem.id)
-                          ? ` (${hoveredColorHelp.hint})`
-                          : ''}
                       </Text>
                       <Text style={styles.themeMetaText}>#{themeItem?.id}</Text>
                     </View>
@@ -515,38 +1528,166 @@ export default function ThemeManagerPage() {
                     </View>
                   </View>
 
-                  <View style={styles.colorTileGrid}>
-                    {colorEntries.length === 0 ? (
-                      <Text style={styles.themeMetaText}>Sem cores validas cadastradas no banco.</Text>
-                    ) : (
-                      colorEntries.map(colorItem => (
-                        <Pressable
-                          key={`${themeItem.id}-${colorItem.key}`}
-                          onHoverIn={() => setHoveredColorHelp({
-                            themeId: String(themeItem.id),
-                            hint: formatColorHint(colorItem.key),
-                          })}
-                          onHoverOut={() => setHoveredColorHelp(null)}
-                          style={[
-                            styles.colorTile,
-                            {
-                              backgroundColor: colorItem.value,
-                              borderColor: withOpacity(getReadableTextColor(colorItem.value), 0.12),
-                            },
-                          ]}
-                        >
-                          <Text
-                            numberOfLines={1}
-                            style={[
-                              styles.colorTileLabel,
-                              { color: getReadableTextColor(colorItem.value) },
-                            ]}
-                          >
-                            {`${colorItem.key} (${colorItem.value})`}
-                          </Text>
-                        </Pressable>
-                      ))
-                    )}
+                  <View style={styles.columnsRow}>
+                    <View style={[styles.themeColumn, styles.themeColumnQuarter]}>
+                      <View style={styles.columnHeader}>
+                        <Text style={styles.columnTitle}>Atual</Text>
+                        <Text style={styles.columnMeta}>{legacyEntries.length}</Text>
+                      </View>
+
+                      <ScrollView
+                        style={styles.columnScroll}
+                        contentContainerStyle={styles.columnBody}
+                        nestedScrollEnabled
+                      >
+                        {legacyEntries.length === 0 ? (
+                          <Text style={styles.themeMetaText}>Nenhuma chave fora da referencia.</Text>
+                        ) : (
+                          legacyEntries.map(colorItem => {
+                            const normalizedValue = normalizeHex(colorItem.value);
+
+                            return (
+                              <View
+                                key={`${themeItem.id}-legacy-${colorItem.key}`}
+                                style={[
+                                  styles.colorListItem,
+                                  colorItem.isUnexpected && styles.unexpectedColorListItem,
+                                ]}
+                              >
+                                <TouchableOpacity
+                                  style={styles.colorEditButton}
+                                  onPress={event => {
+                                    event.stopPropagation?.();
+                                    openSingleColorEditor(themeItem, colorItem.key);
+                                  }}
+                                >
+                                  <Icon name="edit-3" size={12} color="#334155" />
+                                </TouchableOpacity>
+                                <View
+                                  style={[
+                                    styles.colorSwatch,
+                                    normalizedValue
+                                      ? {
+                                        backgroundColor: normalizedValue,
+                                        borderColor: withOpacity(getReadableTextColor(normalizedValue), 0.2),
+                                      }
+                                      : styles.missingColorSwatch,
+                                  ]}
+                                />
+                                <View style={{ flex: 1 }}>
+                                  <Text numberOfLines={1} style={styles.colorListKey}>
+                                    {colorItem.key}
+                                  </Text>
+                                  <Text numberOfLines={1} style={styles.colorListValue}>
+                                    {colorItem.value || 'Sem valor no banco'}
+                                  </Text>
+                                </View>
+                              </View>
+                            );
+                          })
+                        )}
+                      </ScrollView>
+                    </View>
+
+                    <View style={[styles.themeColumn, styles.themeColumnQuarter]}>
+                      <View style={styles.columnHeader}>
+                        <Text style={styles.columnTitle}>Novo</Text>
+                        <Text style={styles.columnMeta}>{newCount}</Text>
+                      </View>
+
+                      <ScrollView
+                        ref={ref => {
+                          newColumnRefs.current[String(themeItem.id)] = ref;
+                        }}
+                        style={styles.columnScroll}
+                        contentContainerStyle={styles.columnBody}
+                        nestedScrollEnabled
+                      >
+                        {newEntries.length === 0 ? (
+                          <Text style={styles.themeMetaText}>Sem cores novas cadastradas no banco.</Text>
+                        ) : (
+                          newEntries.map(item => {
+                            const normalizedValue = normalizeHex(item.value);
+
+                            return (
+                              <Pressable
+                                key={`${themeItem.id}-new-${item.key}`}
+                                onLayout={event => registerNewEntryLayout(
+                                  String(themeItem.id),
+                                  item.key,
+                                  event.nativeEvent.layout.y,
+                                )}
+                                onPress={() => jumpToPreviewGroup(String(themeItem.id), item.groupLabel)}
+                                style={styles.colorListItem}
+                              >
+                                <TouchableOpacity
+                                  style={styles.colorEditButton}
+                                  onPress={event => {
+                                    event.stopPropagation?.();
+                                    openSingleColorEditor(themeItem, item.key);
+                                  }}
+                                >
+                                  <Icon name="edit-3" size={12} color="#334155" />
+                                </TouchableOpacity>
+                                <View
+                                  style={[
+                                    styles.colorSwatch,
+                                    normalizedValue
+                                      ? {
+                                        backgroundColor: normalizedValue,
+                                        borderColor: withOpacity(getReadableTextColor(normalizedValue), 0.2),
+                                      }
+                                      : styles.missingColorSwatch,
+                                  ]}
+                                />
+                                <View style={{ flex: 1 }}>
+                                  <Text numberOfLines={1} style={styles.colorListKey}>
+                                    {item.key}
+                                  </Text>
+                                  <Text numberOfLines={1} style={styles.colorListValue}>
+                                    {item.value || `Sem valor no banco · ${item.groupLabel}`}
+                                  </Text>
+                                </View>
+                              </Pressable>
+                            );
+                          })
+                        )}
+                      </ScrollView>
+                    </View>
+
+                    <View style={[styles.themeColumn, styles.themeColumnHalf]}>
+                      <View style={styles.columnHeader}>
+                        <Text style={styles.columnTitle}>Preview</Text>
+                        <Text style={styles.columnMeta}>{previewGroups.length}</Text>
+                      </View>
+
+                      <ScrollView
+                        ref={ref => {
+                          previewColumnRefs.current[String(themeItem.id)] = ref;
+                        }}
+                        style={styles.columnScroll}
+                        contentContainerStyle={styles.previewColumnBody}
+                        nestedScrollEnabled
+                      >
+                        {previewGroups.map(group => (
+                          <ThemeObjectPreviewCard
+                            key={`${themeItem.id}-preview-${group.label}`}
+                            group={group}
+                            themeColors={themeItem?.colors || {}}
+                            onLayout={event => registerPreviewGroupLayout(
+                              String(themeItem.id),
+                              group.label,
+                              event.nativeEvent.layout.y,
+                            )}
+                            onPress={() => jumpToFirstNewEntryOfGroup(
+                              String(themeItem.id),
+                              group.label,
+                              newEntriesByGroup,
+                            )}
+                          />
+                        ))}
+                      </ScrollView>
+                    </View>
                   </View>
                 </View>
               );
@@ -555,38 +1696,46 @@ export default function ThemeManagerPage() {
         )}
       </ScrollView>
 
-      <Modal visible={editorVisible} transparent animationType="slide" onRequestClose={() => setEditorVisible(false)}>
-        <TouchableWithoutFeedback onPress={() => setEditorVisible(false)}>
+      <Modal visible={editorVisible} transparent animationType="slide" onRequestClose={closeEditor}>
+        <TouchableWithoutFeedback onPress={closeEditor}>
           <View style={styles.backdrop}>
             <TouchableWithoutFeedback>
               <View style={styles.modalSheet}>
                 <View style={styles.modalHeader}>
                   <View style={{ flex: 1 }}>
                     <Text style={styles.modalTitle}>
-                      {editingTheme?.id ? 'Editar tema' : 'Novo tema'}
+                      {editingFieldKey
+                        ? `Editar cor: ${editingFieldKey}`
+                        : editingTheme?.id
+                          ? 'Editar tema'
+                          : 'Novo tema'}
                     </Text>
                     <Text style={styles.modalSubtitle}>
-                      Todas as cores reais do `theme.colors` aparecem aqui para edicao.
+                      {editingFieldKey
+                        ? 'Edicao rapida somente do campo selecionado.'
+                        : 'Todas as cores reais do `theme.colors` aparecem aqui para edicao.'}
                     </Text>
                   </View>
-                  <TouchableOpacity style={styles.iconButton} onPress={() => setEditorVisible(false)}>
+                  <TouchableOpacity style={styles.iconButton} onPress={closeEditor}>
                     <Icon name="x" size={16} color="#334155" />
                   </TouchableOpacity>
                 </View>
 
                 <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ gap: 14, paddingBottom: 8 }}>
-                  <View style={styles.formField}>
-                    <Text style={styles.formLabel}>Nome do tema</Text>
-                    <TextInput
-                      value={themeName}
-                      onChangeText={setThemeName}
-                      placeholder="Ex.: Verde institucional"
-                      placeholderTextColor="#94A3B8"
-                      style={styles.textInput}
-                    />
-                  </View>
+                  {!editingFieldKey ? (
+                    <View style={styles.formField}>
+                      <Text style={styles.formLabel}>Nome do tema</Text>
+                      <TextInput
+                        value={themeName}
+                        onChangeText={setThemeName}
+                        placeholder="Ex.: Verde institucional"
+                        placeholderTextColor="#94A3B8"
+                        style={styles.textInput}
+                      />
+                    </View>
+                  ) : null}
 
-                  {editorFields.map(field => (
+                  {visibleEditorFields.map(field => (
                     <ColorEditor
                       key={field.key}
                       field={field}
@@ -597,7 +1746,7 @@ export default function ThemeManagerPage() {
                 </ScrollView>
 
                 <View style={styles.modalActions}>
-                  <TouchableOpacity style={styles.secondaryButton} onPress={() => setEditorVisible(false)}>
+                  <TouchableOpacity style={styles.secondaryButton} onPress={closeEditor}>
                     <Text style={styles.secondaryButtonText}>Cancelar</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
