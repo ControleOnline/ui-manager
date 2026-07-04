@@ -316,7 +316,9 @@ const THEME_REFERENCE_GROUPS = [
       'listItemBackground',
       'listItemBorder',
       'listItemDisabledText',
+      'listItemEvenRow',
       'listItemIcon',
+      'listItemOddRow',
       'listItemSelectedBackground',
       'listItemSelectedBorder',
       'listItemSubtitleText',
@@ -522,6 +524,7 @@ const findTokenGroupLabel = tokenKey => {
 };
 
 const HEX_COLOR_REGEX = /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/;
+const RGB_COLOR_FUNCTION_REGEX = /^rgba?\((.*)\)$/i;
 const TRANSPARENT_COLOR_VALUE = 'transparent';
 
 const normalizeCollection = payload => {
@@ -562,6 +565,57 @@ const normalizeHex = value => {
   return raw.toUpperCase();
 };
 
+const parseAlphaPercent = value => {
+  if (typeof value !== 'string') return null;
+
+  const raw = value.trim().replace(/\s+/g, '');
+  if (!raw) return null;
+
+  if (raw.endsWith('%')) {
+    const percentage = Number.parseFloat(raw.slice(0, -1));
+    if (!Number.isFinite(percentage)) return null;
+    return clampNumber(percentage, 0, 100);
+  }
+
+  const numeric = Number.parseFloat(raw);
+  if (!Number.isFinite(numeric)) return null;
+
+  if (numeric <= 1) {
+    return clampNumber(numeric * 100, 0, 100);
+  }
+
+  return clampNumber(numeric, 0, 100);
+};
+
+const normalizeRgbColorInput = value => {
+  if (typeof value !== 'string') return '';
+
+  const raw = value.trim();
+  if (!raw) return '';
+
+  const functionMatch = raw.match(RGB_COLOR_FUNCTION_REGEX);
+  const innerValue = functionMatch?.[1] || raw;
+  const parts = innerValue
+    .split(',')
+    .map(part => part.trim())
+    .filter(Boolean);
+
+  if (parts.length < 3 || parts.length > 4) return '';
+
+  const channels = parts.slice(0, 3).map(part => Number.parseFloat(part));
+  if (channels.some(channel => !Number.isFinite(channel))) return '';
+
+  const [red, green, blue] = channels.map(channel => clampNumber(Math.round(channel), 0, 255));
+  const alphaPercent = parts.length === 4 ? parseAlphaPercent(parts[3]) : 100;
+  if (alphaPercent == null) return '';
+
+  const baseHex = `#${[red, green, blue]
+    .map(channel => channel.toString(16).padStart(2, '0'))
+    .join('')}`.toUpperCase();
+
+  return composeHexWithAlpha(baseHex, alphaPercent);
+};
+
 const isTransparentColor = value => {
   return typeof value === 'string' && value.trim().toLowerCase() === TRANSPARENT_COLOR_VALUE;
 };
@@ -570,6 +624,8 @@ const normalizeThemeColorValue = value => {
   const normalized = normalizeHex(value);
   if (normalized) return normalized;
   if (isTransparentColor(value)) return TRANSPARENT_COLOR_VALUE;
+  const normalizedRgb = normalizeRgbColorInput(value);
+  if (normalizedRgb) return normalizedRgb;
   return '';
 };
 
@@ -593,6 +649,31 @@ const getHexAlphaPercent = value => {
 
   const alpha = Number.parseInt(normalized.slice(7, 9), 16);
   return Math.round((alpha / 255) * 100);
+};
+
+const formatRgbaColor = value => {
+  if (isTransparentColor(value)) {
+    return 'rgba(0, 0, 0, 0)';
+  }
+
+  const normalized = normalizeHex(value);
+  if (!normalized) {
+    return '';
+  }
+
+  const baseColor = getHexBaseColor(normalized);
+  if (!baseColor || baseColor.length !== 7) {
+    return '';
+  }
+
+  const red = Number.parseInt(baseColor.slice(1, 3), 16);
+  const green = Number.parseInt(baseColor.slice(3, 5), 16);
+  const blue = Number.parseInt(baseColor.slice(5, 7), 16);
+  const alpha = normalized.length === 9
+    ? Number((Number.parseInt(normalized.slice(7, 9), 16) / 255).toFixed(2))
+    : 1;
+
+  return `rgba(${red}, ${green}, ${blue}, ${alpha})`;
 };
 
 const composeHexWithAlpha = (value, alphaPercent = 100) => {
@@ -739,6 +820,9 @@ const buildThemeColorsPayload = draft => {
 
         if (isTransparentColor(rawValue)) return [normalizedKey, TRANSPARENT_COLOR_VALUE];
 
+        const normalizedRgb = normalizeRgbColorInput(rawValue);
+        if (normalizedRgb) return [normalizedKey, normalizedRgb];
+
         return [normalizedKey, normalizeHex(rawValue) || ''];
       })
       .filter(([key]) => Boolean(key) && !AUTO_GENERATED_ALIAS_KEYS.has(key)),
@@ -821,7 +905,11 @@ const extractUniqueNormalizedColors = entries => {
     if (!normalized || seen.has(normalized)) return accumulator;
 
     seen.add(normalized);
-    accumulator.push({ value: normalized });
+    accumulator.push({
+      value: normalized,
+      key: entry?.key || '',
+      label: entry?.name || entry?.key || '',
+    });
     return accumulator;
   }, []);
 
@@ -844,10 +932,15 @@ const getPreviewColor = (themeColors, keys, fallbackValue) => {
 
 const getPreviewColorMode = (themeColors, keys, fallbackValue, useRnwPreview = false) => {
   if (useRnwPreview) {
-    return pickThemeColorExactFromKeys(themeColors, keys);
+    return getPreviewColor(themeColors, keys, fallbackValue);
   }
 
-  return getPreviewColor(themeColors, keys, fallbackValue);
+  return pickThemeColorExactFromKeys(themeColors, keys);
+};
+
+const resolvePreviewValue = (value, fallbackValue, useRnwPreview = false) => {
+  if (useRnwPreview) return value || fallbackValue;
+  return value || undefined;
 };
 
 const PreviewPressTarget = ({ tokenKeys = [], onSelectTokens, style, children }) => {
@@ -925,15 +1018,15 @@ const renderThemeObjectPreview = (group, themeColors, onSelectTokens, useRnwPrev
       const disabledBackground = getPreviewColorMode(themeColors, ['buttonDisabledBackground'], '', useRnwPreview);
       const disabledText = getPreviewColorMode(themeColors, ['buttonDisabledText'], '', useRnwPreview);
 
-      const primaryBaseBackground = useRnwPreview ? undefined : '#F3F4F6';
-      const primaryBaseBorder = useRnwPreview ? undefined : '#D1D5DB';
-      const primaryBaseText = useRnwPreview ? undefined : '#111827';
-      const primaryBaseIcon = useRnwPreview ? undefined : '#111827';
-      const secondaryBaseBackground = useRnwPreview ? undefined : '#FFFFFF';
-      const secondaryBaseBorder = useRnwPreview ? undefined : '#D1D5DB';
-      const secondaryBaseText = useRnwPreview ? undefined : '#111827';
-      const disabledBaseBackground = useRnwPreview ? undefined : '#E5E7EB';
-      const disabledBaseText = useRnwPreview ? undefined : '#9CA3AF';
+      const primaryBaseBackground = '#F3F4F6';
+      const primaryBaseBorder = '#D1D5DB';
+      const primaryBaseText = '#111827';
+      const primaryBaseIcon = '#111827';
+      const secondaryBaseBackground = '#FFFFFF';
+      const secondaryBaseBorder = '#D1D5DB';
+      const secondaryBaseText = '#111827';
+      const disabledBaseBackground = '#E5E7EB';
+      const disabledBaseText = '#9CA3AF';
 
       return (
         <View style={styles.previewStack}>
@@ -944,13 +1037,14 @@ const renderThemeObjectPreview = (group, themeColors, onSelectTokens, useRnwPrev
               style={[
                 styles.previewButton,
                 {
-                  backgroundColor: primaryBackground || primaryBaseBackground,
-                  borderColor: primaryBorder || primaryBaseBorder,
+                  backgroundColor: resolvePreviewValue(primaryBackground, primaryBaseBackground, useRnwPreview),
+                  borderColor: resolvePreviewValue(primaryBorder, primaryBaseBorder, useRnwPreview),
+                  borderWidth: useRnwPreview ? 1 : primaryBorder ? 1 : 0,
                 },
               ]}
             >
-              <Icon name="check" size={12} color={primaryIcon || primaryBaseIcon} />
-              <Text style={[styles.previewButtonText, { color: primaryText || primaryBaseText }]}>Primario</Text>
+              <Icon name="check" size={12} color={resolvePreviewValue(primaryIcon, primaryBaseIcon, useRnwPreview)} />
+              <Text style={[styles.previewButtonText, { color: resolvePreviewValue(primaryText, primaryBaseText, useRnwPreview) }]}>Primario</Text>
             </PreviewPressTarget>
             <PreviewPressTarget
               tokenKeys={['buttonBackgroundSecondary', 'buttonBorderSecondary', 'buttonTextSecondary', 'buttonIconSecondary']}
@@ -958,12 +1052,13 @@ const renderThemeObjectPreview = (group, themeColors, onSelectTokens, useRnwPrev
               style={[
                 styles.previewButton,
                 {
-                  backgroundColor: secondaryBackground || secondaryBaseBackground,
-                  borderColor: secondaryBorder || secondaryBaseBorder,
+                  backgroundColor: resolvePreviewValue(secondaryBackground, secondaryBaseBackground, useRnwPreview),
+                  borderColor: resolvePreviewValue(secondaryBorder, secondaryBaseBorder, useRnwPreview),
+                  borderWidth: useRnwPreview ? 1 : secondaryBorder ? 1 : 0,
                 },
               ]}
             >
-              <Text style={[styles.previewButtonText, { color: secondaryText || secondaryBaseText }]}>Secundario</Text>
+              <Text style={[styles.previewButtonText, { color: resolvePreviewValue(secondaryText, secondaryBaseText, useRnwPreview) }]}>Secundario</Text>
             </PreviewPressTarget>
           </View>
           <PreviewPressTarget
@@ -973,21 +1068,22 @@ const renderThemeObjectPreview = (group, themeColors, onSelectTokens, useRnwPrev
               styles.previewButton,
               styles.previewButtonDisabled,
               {
-                backgroundColor: disabledBackground || disabledBaseBackground,
-                borderColor: disabledBackground || disabledBaseBackground,
+                backgroundColor: resolvePreviewValue(disabledBackground, disabledBaseBackground, useRnwPreview),
+                borderColor: resolvePreviewValue(disabledBackground, disabledBaseBackground, useRnwPreview),
+                borderWidth: useRnwPreview ? 1 : disabledBackground ? 1 : 0,
               },
             ]}
           >
-            <Text style={[styles.previewButtonText, { color: disabledText || disabledBaseText }]}>Desabilitado</Text>
+            <Text style={[styles.previewButtonText, { color: resolvePreviewValue(disabledText, disabledBaseText, useRnwPreview) }]}>Desabilitado</Text>
           </PreviewPressTarget>
         </View>
       );
     }
     case 'icon': {
-      const iconColor = getPreviewColor(themeColors, ['iconColor', 'iconText'], '#2563EB');
-      const iconMuted = getPreviewColor(themeColors, ['iconMuted', 'textSecondary'], '#64748B');
-      const iconDanger = getPreviewColor(themeColors, ['iconDanger', 'textDanger'], '#DC2626');
-      const iconSuccess = getPreviewColor(themeColors, ['iconSuccess', 'textSuccess'], '#16A34A');
+      const iconColor = getPreviewColorMode(themeColors, ['iconColor', 'iconText'], '#2563EB', useRnwPreview);
+      const iconMuted = getPreviewColorMode(themeColors, ['iconMuted', 'textSecondary'], '#64748B', useRnwPreview);
+      const iconDanger = getPreviewColorMode(themeColors, ['iconDanger', 'textDanger'], '#DC2626', useRnwPreview);
+      const iconSuccess = getPreviewColorMode(themeColors, ['iconSuccess', 'textSuccess'], '#16A34A', useRnwPreview);
 
       return (
         <View style={styles.previewIconRow}>
@@ -1001,7 +1097,14 @@ const renderThemeObjectPreview = (group, themeColors, onSelectTokens, useRnwPrev
               key={`${group.label}-${item.name}`}
               tokenKeys={item.tokens}
               onSelectTokens={onSelectTokens}
-              style={[styles.previewIconBubble, { backgroundColor: withOpacity(item.color, 0.12) }]}
+              style={[
+                styles.previewIconBubble,
+                {
+                  backgroundColor: useRnwPreview
+                    ? withOpacity(item.color, 0.12)
+                    : undefined,
+                },
+              ]}
             >
               <Icon name={item.name} size={16} color={item.color} />
             </PreviewPressTarget>
@@ -1010,14 +1113,14 @@ const renderThemeObjectPreview = (group, themeColors, onSelectTokens, useRnwPrev
       );
     }
     case 'checkbox': {
-      const checkboxBackground = getPreviewColor(themeColors, ['checkboxBackground', 'surface', 'background'], '#FFFFFF');
-      const checkboxBorder = getPreviewColor(themeColors, ['checkboxBorder', 'border'], '#94A3B8');
-      const checkboxSelectedBackground = getPreviewColor(themeColors, ['checkboxSelectedBackground', 'primary'], '#2563EB');
-      const checkboxSelectedBorder = getPreviewColor(themeColors, ['checkboxSelectedBorder', 'primary'], checkboxSelectedBackground);
-      const checkboxSelectedMark = getPreviewColor(themeColors, ['checkboxSelectedMark', 'textInverse'], '#FFFFFF');
-      const checkboxDisabledBackground = getPreviewColor(themeColors, ['checkboxDisabledBackground'], '#E2E8F0');
-      const checkboxDisabledBorder = getPreviewColor(themeColors, ['checkboxDisabledBorder'], '#CBD5E1');
-      const checkboxText = getPreviewColor(themeColors, ['checkboxText', 'textPrimary', 'text'], '#0F172A');
+      const checkboxBackground = getPreviewColorMode(themeColors, ['checkboxBackground', 'surface', 'background'], '#FFFFFF', useRnwPreview);
+      const checkboxBorder = getPreviewColorMode(themeColors, ['checkboxBorder', 'border'], '#94A3B8', useRnwPreview);
+      const checkboxSelectedBackground = getPreviewColorMode(themeColors, ['checkboxSelectedBackground', 'primary'], '#2563EB', useRnwPreview);
+      const checkboxSelectedBorder = getPreviewColorMode(themeColors, ['checkboxSelectedBorder', 'primary'], checkboxSelectedBackground, useRnwPreview);
+      const checkboxSelectedMark = getPreviewColorMode(themeColors, ['checkboxSelectedMark', 'textInverse'], '#FFFFFF', useRnwPreview);
+      const checkboxDisabledBackground = getPreviewColorMode(themeColors, ['checkboxDisabledBackground'], '#E2E8F0', useRnwPreview);
+      const checkboxDisabledBorder = getPreviewColorMode(themeColors, ['checkboxDisabledBorder'], '#CBD5E1', useRnwPreview);
+      const checkboxText = getPreviewColorMode(themeColors, ['checkboxText', 'textPrimary', 'text'], '#0F172A', useRnwPreview);
 
       return (
         <View style={styles.previewStack}>
@@ -1027,14 +1130,23 @@ const renderThemeObjectPreview = (group, themeColors, onSelectTokens, useRnwPrev
               onSelectTokens={onSelectTokens}
               style={styles.previewChoiceTarget}
             >
-              <View style={[styles.previewCheckbox, { backgroundColor: checkboxBackground, borderColor: checkboxBorder }]} />
+              <View
+                style={[
+                styles.previewCheckbox,
+                {
+                    backgroundColor: resolvePreviewValue(checkboxBackground, '#FFFFFF', useRnwPreview),
+                    borderColor: resolvePreviewValue(checkboxBorder, '#94A3B8', useRnwPreview),
+                    borderWidth: useRnwPreview ? 1 : checkboxBorder ? 1 : 0,
+                  },
+                ]}
+              />
             </PreviewPressTarget>
             <PreviewPressTarget
               tokenKeys={['checkboxText']}
               onSelectTokens={onSelectTokens}
               style={styles.previewChoiceTextTarget}
             >
-              <Text style={[styles.previewChoiceText, { color: checkboxText }]}>Normal</Text>
+              <Text style={[styles.previewChoiceText, { color: resolvePreviewValue(checkboxText, '#0F172A', useRnwPreview) }]}>Normal</Text>
             </PreviewPressTarget>
           </View>
           <View style={styles.previewChoiceRow}>
@@ -1043,8 +1155,17 @@ const renderThemeObjectPreview = (group, themeColors, onSelectTokens, useRnwPrev
               onSelectTokens={onSelectTokens}
               style={styles.previewChoiceTarget}
             >
-              <View style={[styles.previewCheckbox, { backgroundColor: checkboxSelectedBackground, borderColor: checkboxSelectedBorder }]}>
-                <Icon name="check" size={12} color={checkboxSelectedMark} />
+              <View
+                style={[
+                  styles.previewCheckbox,
+                  {
+                    backgroundColor: resolvePreviewValue(checkboxSelectedBackground, '#2563EB', useRnwPreview),
+                    borderColor: resolvePreviewValue(checkboxSelectedBorder, '#2563EB', useRnwPreview),
+                    borderWidth: useRnwPreview ? 1 : checkboxSelectedBorder ? 1 : 0,
+                  },
+                ]}
+              >
+                <Icon name="check" size={12} color={checkboxSelectedMark || undefined} />
               </View>
             </PreviewPressTarget>
             <PreviewPressTarget
@@ -1052,7 +1173,7 @@ const renderThemeObjectPreview = (group, themeColors, onSelectTokens, useRnwPrev
               onSelectTokens={onSelectTokens}
               style={styles.previewChoiceTextTarget}
             >
-              <Text style={[styles.previewChoiceText, { color: checkboxText }]}>Selecionado</Text>
+              <Text style={[styles.previewChoiceText, { color: resolvePreviewValue(checkboxText, '#0F172A', useRnwPreview) }]}>Selecionado</Text>
             </PreviewPressTarget>
           </View>
           <View style={styles.previewChoiceRow}>
@@ -1061,14 +1182,23 @@ const renderThemeObjectPreview = (group, themeColors, onSelectTokens, useRnwPrev
               onSelectTokens={onSelectTokens}
               style={styles.previewChoiceTarget}
             >
-              <View style={[styles.previewCheckbox, { backgroundColor: checkboxDisabledBackground, borderColor: checkboxDisabledBorder }]} />
+              <View
+                style={[
+                  styles.previewCheckbox,
+                  {
+                    backgroundColor: resolvePreviewValue(checkboxDisabledBackground, '#E2E8F0', useRnwPreview),
+                    borderColor: resolvePreviewValue(checkboxDisabledBorder, '#CBD5E1', useRnwPreview),
+                    borderWidth: useRnwPreview ? 1 : checkboxDisabledBorder ? 1 : 0,
+                  },
+                ]}
+              />
             </PreviewPressTarget>
             <PreviewPressTarget
               tokenKeys={['checkboxText']}
               onSelectTokens={onSelectTokens}
               style={styles.previewChoiceTextTarget}
             >
-              <Text style={[styles.previewChoiceText, { color: textSecondary }]}>Desabilitado</Text>
+              <Text style={[styles.previewChoiceText, { color: resolvePreviewValue(textSecondary, '#64748B', useRnwPreview) }]}>Desabilitado</Text>
             </PreviewPressTarget>
           </View>
         </View>
@@ -1092,7 +1222,7 @@ const renderThemeObjectPreview = (group, themeColors, onSelectTokens, useRnwPrev
         : group.label === 'barra'
           ? containerTokenKeys
           : ['headerIcon', 'headerLink'];
-      const barBackground = getPreviewColor(
+      const barBackground = getPreviewColorMode(
         themeColors,
         group.label === 'footer'
           ? ['footerBackground', 'toolbarBackground', 'navbarBackground']
@@ -1100,8 +1230,9 @@ const renderThemeObjectPreview = (group, themeColors, onSelectTokens, useRnwPrev
             ? ['toolbarBackground', 'navbarBackground', 'tabBarBackground']
             : ['headerBackground', 'toolbarBackground', 'navbarBackground'],
         '#0F172A',
+        useRnwPreview,
       );
-      const barBorder = getPreviewColor(
+      const barBorder = getPreviewColorMode(
         themeColors,
         group.label === 'footer'
           ? ['footerBorder', 'toolbarBorder', 'navbarBorder']
@@ -1109,8 +1240,9 @@ const renderThemeObjectPreview = (group, themeColors, onSelectTokens, useRnwPrev
             ? ['toolbarBorder', 'navbarBorder', 'tabBarBorder']
             : ['headerBorder', 'toolbarBorder', 'navbarBorder'],
         withOpacity(barBackground, 0.24),
+        useRnwPreview,
       );
-      const barText = getPreviewColor(
+      const barText = getPreviewColorMode(
         themeColors,
         group.label === 'footer'
           ? ['footerText', 'footerLink', 'textInverse']
@@ -1118,17 +1250,27 @@ const renderThemeObjectPreview = (group, themeColors, onSelectTokens, useRnwPrev
             ? ['headerText', 'footerText', 'textInverse']
             : ['headerText', 'headerLink', 'textInverse'],
         getReadableTextColor(barBackground),
+        useRnwPreview,
       );
 
       return (
-        <View style={[styles.previewBar, { backgroundColor: barBackground, borderColor: barBorder }]}>
+        <View
+          style={[
+            styles.previewBar,
+            {
+              backgroundColor: resolvePreviewValue(barBackground, '#0F172A', useRnwPreview),
+              borderColor: resolvePreviewValue(barBorder, withOpacity(barBackground, 0.24), useRnwPreview),
+              borderWidth: useRnwPreview ? 1 : barBorder ? 1 : 0,
+            },
+          ]}
+        >
           <PreviewPressTarget
             tokenKeys={textTokenKeys}
             onSelectTokens={onSelectTokens}
             style={styles.previewBarSide}
           >
-            <Icon name="menu" size={15} color={barText} />
-            <Text style={[styles.previewBarTitle, { color: barText }]}>
+            <Icon name="menu" size={15} color={resolvePreviewValue(barText, getReadableTextColor(barBackground), useRnwPreview)} />
+            <Text style={[styles.previewBarTitle, { color: resolvePreviewValue(barText, getReadableTextColor(barBackground), useRnwPreview) }]}>
               {group.label === 'footer' ? 'Footer' : group.label === 'barra' ? 'Barra' : 'Header'}
             </Text>
           </PreviewPressTarget>
@@ -1137,35 +1279,47 @@ const renderThemeObjectPreview = (group, themeColors, onSelectTokens, useRnwPrev
             onSelectTokens={onSelectTokens}
             style={styles.previewBarSide}
           >
-            <Icon name="bell" size={14} color={barText} />
-            <Icon name="user" size={14} color={barText} />
+            <Icon name="bell" size={14} color={barText || undefined} />
+            <Icon name="user" size={14} color={barText || undefined} />
           </PreviewPressTarget>
         </View>
       );
     }
     case 'card': {
-      const cardBackground = getPreviewColor(themeColors, ['cardBackground', 'surface', 'background'], '#FFFFFF');
-      const cardBorder = getPreviewColor(themeColors, ['cardBorder', 'border'], '#E2E8F0');
-      const cardHeaderBackground = getPreviewColor(themeColors, ['cardHeaderBackground', 'sectionBackground'], '#F8FAFC');
-      const cardHeaderText = getPreviewColor(themeColors, ['cardHeaderText', 'textPrimary', 'text'], '#0F172A');
-      const cardText = getPreviewColor(themeColors, ['cardText', 'textPrimary', 'text'], '#0F172A');
+      const cardBackground = getPreviewColorMode(themeColors, ['cardBackground', 'surface', 'background'], '#FFFFFF', useRnwPreview);
+      const cardBorder = getPreviewColorMode(themeColors, ['cardBorder', 'border'], '#E2E8F0', useRnwPreview);
+      const cardHeaderBackground = getPreviewColorMode(themeColors, ['cardHeaderBackground', 'sectionBackground'], '#F8FAFC', useRnwPreview);
+      const cardHeaderText = getPreviewColorMode(themeColors, ['cardHeaderText', 'textPrimary', 'text'], '#0F172A', useRnwPreview);
+      const cardText = getPreviewColorMode(themeColors, ['cardText', 'textPrimary', 'text'], '#0F172A', useRnwPreview);
 
       return (
-        <View style={[styles.previewInnerCard, { backgroundColor: cardBackground, borderColor: cardBorder }]}>
+        <View
+          style={[
+            styles.previewInnerCard,
+            {
+              backgroundColor: resolvePreviewValue(cardBackground, '#FFFFFF', useRnwPreview),
+              borderColor: resolvePreviewValue(cardBorder, '#E2E8F0', useRnwPreview),
+              borderWidth: useRnwPreview ? 1 : cardBorder ? 1 : 0,
+            },
+          ]}
+        >
           <PreviewPressTarget
             tokenKeys={['cardHeaderBackground', 'cardHeaderText', 'cardIcon']}
             onSelectTokens={onSelectTokens}
-            style={[styles.previewInnerCardHeader, { backgroundColor: cardHeaderBackground }]}
+            style={[
+              styles.previewInnerCardHeader,
+              { backgroundColor: resolvePreviewValue(cardHeaderBackground, '#F8FAFC', useRnwPreview) },
+            ]}
           >
-            <Text style={[styles.previewInnerCardTitle, { color: cardHeaderText }]}>Resumo</Text>
-            <Icon name="more-horizontal" size={14} color={cardHeaderText} />
+            <Text style={[styles.previewInnerCardTitle, { color: resolvePreviewValue(cardHeaderText, '#0F172A', useRnwPreview) }]}>Resumo</Text>
+            <Icon name="more-horizontal" size={14} color={resolvePreviewValue(cardHeaderText, '#0F172A', useRnwPreview)} />
           </PreviewPressTarget>
           <PreviewPressTarget
             tokenKeys={['cardBackground', 'cardBorder', 'cardText']}
             onSelectTokens={onSelectTokens}
             style={styles.previewInnerCardContent}
           >
-            <Text style={[styles.previewParagraph, { color: cardText }]}>
+            <Text style={[styles.previewParagraph, { color: resolvePreviewValue(cardText, '#0F172A', useRnwPreview) }]}>
               Card com titulo, texto e estrutura visual do grupo.
             </Text>
           </PreviewPressTarget>
@@ -1174,30 +1328,35 @@ const renderThemeObjectPreview = (group, themeColors, onSelectTokens, useRnwPrev
     }
     case 'chip':
     case 'badge': {
-      const pillBackground = getPreviewColor(
+      const pillBackground = getPreviewColorMode(
         themeColors,
         group.label === 'chip' ? ['chipBackground', 'surface'] : ['badgeBackground', 'surface'],
         '#E2E8F0',
+        useRnwPreview,
       );
-      const pillBorder = getPreviewColor(
+      const pillBorder = getPreviewColorMode(
         themeColors,
         group.label === 'chip' ? ['chipBorder', 'border'] : ['badgeBorder', 'border'],
         pillBackground,
+        useRnwPreview,
       );
-      const pillText = getPreviewColor(
+      const pillText = getPreviewColorMode(
         themeColors,
         group.label === 'chip' ? ['chipText', 'textPrimary', 'text'] : ['badgeText', 'textPrimary', 'text'],
         '#0F172A',
+        useRnwPreview,
       );
-      const selectedBackground = getPreviewColor(
+      const selectedBackground = getPreviewColorMode(
         themeColors,
         group.label === 'chip' ? ['chipSelectedBackground', 'primary'] : ['badgeSelectedBackground', 'primary'],
         '#2563EB',
+        useRnwPreview,
       );
-      const selectedText = getPreviewColor(
+      const selectedText = getPreviewColorMode(
         themeColors,
         group.label === 'chip' ? ['chipSelectedText', 'textInverse'] : ['badgeSelectedText', 'textInverse'],
         '#FFFFFF',
+        useRnwPreview,
       );
 
       return (
@@ -1207,46 +1366,64 @@ const renderThemeObjectPreview = (group, themeColors, onSelectTokens, useRnwPrev
               ? ['chipBackground', 'chipBorder', 'chipText', 'chipIcon', 'chipShadow']
               : ['badgeBackground', 'badgeBorder', 'badgeText', 'badgeIcon', 'badgeShadow']}
             onSelectTokens={onSelectTokens}
-            style={[styles.previewPill, { backgroundColor: pillBackground, borderColor: pillBorder }]}
+            style={[
+              styles.previewPill,
+              {
+                backgroundColor: resolvePreviewValue(pillBackground, '#E2E8F0', useRnwPreview),
+                borderColor: resolvePreviewValue(pillBorder, pillBackground, useRnwPreview),
+                borderWidth: useRnwPreview ? 1 : pillBorder ? 1 : 0,
+              },
+            ]}
           >
-            <Text style={[styles.previewPillText, { color: pillText }]}>Base</Text>
+            <Text style={[styles.previewPillText, { color: resolvePreviewValue(pillText, '#0F172A', useRnwPreview) }]}>Base</Text>
           </PreviewPressTarget>
           <PreviewPressTarget
             tokenKeys={group.label === 'chip'
               ? ['chipSelectedBackground', 'chipSelectedBorder', 'chipSelectedText']
               : ['badgeSelectedBackground', 'badgeSelectedBorder', 'badgeSelectedText']}
             onSelectTokens={onSelectTokens}
-            style={[styles.previewPill, { backgroundColor: selectedBackground, borderColor: selectedBackground }]}
+            style={[
+              styles.previewPill,
+              {
+                backgroundColor: resolvePreviewValue(selectedBackground, '#2563EB', useRnwPreview),
+                borderColor: resolvePreviewValue(selectedBackground, '#2563EB', useRnwPreview),
+                borderWidth: useRnwPreview ? 1 : selectedBackground ? 1 : 0,
+              },
+            ]}
           >
-            <Text style={[styles.previewPillText, { color: selectedText }]}>Selecionado</Text>
+            <Text style={[styles.previewPillText, { color: resolvePreviewValue(selectedText, '#FFFFFF', useRnwPreview) }]}>Selecionado</Text>
           </PreviewPressTarget>
         </View>
       );
     }
     case 'input':
     case 'select': {
-      const fieldBackground = getPreviewColor(
+      const fieldBackground = getPreviewColorMode(
         themeColors,
         group.label === 'select' ? ['selectBackground', 'inputBackground', 'surface'] : ['inputBackground', 'surface', 'background'],
         '#FFFFFF',
+        useRnwPreview,
       );
-      const fieldBorder = getPreviewColor(
+      const fieldBorder = getPreviewColorMode(
         themeColors,
         group.label === 'select' ? ['selectBorder', 'inputBorder', 'border'] : ['inputBorder', 'border'],
         '#CBD5E1',
+        useRnwPreview,
       );
-      const fieldText = getPreviewColor(
+      const fieldText = getPreviewColorMode(
         themeColors,
         group.label === 'select' ? ['selectText', 'inputText', 'textPrimary', 'text'] : ['inputText', 'textPrimary', 'text'],
         '#0F172A',
+        useRnwPreview,
       );
-      const placeholderColor = getPreviewColor(
+      const placeholderColor = getPreviewColorMode(
         themeColors,
         group.label === 'select' ? ['selectPlaceholderText', 'inputPlaceholderText', 'textSecondary'] : ['inputPlaceholderText', 'textSecondary'],
         '#94A3B8',
+        useRnwPreview,
       );
-      const focusBorder = getPreviewColor(themeColors, ['inputFocusBorder', 'selectOptionSelectedBackground', 'primary'], '#2563EB');
-      const errorBorder = getPreviewColor(themeColors, ['inputErrorBorder', 'textDanger'], '#DC2626');
+      const focusBorder = getPreviewColorMode(themeColors, ['inputFocusBorder', 'selectOptionSelectedBackground', 'primary'], '#2563EB', useRnwPreview);
+      const errorBorder = getPreviewColorMode(themeColors, ['inputErrorBorder', 'textDanger'], '#DC2626', useRnwPreview);
 
       return (
         <View style={styles.previewStack}>
@@ -1255,21 +1432,35 @@ const renderThemeObjectPreview = (group, themeColors, onSelectTokens, useRnwPrev
               ? ['selectBackground', 'selectBorder', 'selectPlaceholderText', 'selectIcon', 'selectOptionBackground', 'selectOptionBorder']
               : ['inputBackground', 'inputBorder', 'inputPlaceholderText', 'inputIcon']}
             onSelectTokens={onSelectTokens}
-            style={[styles.previewField, { backgroundColor: fieldBackground, borderColor: fieldBorder }]}
+            style={[
+              styles.previewField,
+              {
+                backgroundColor: resolvePreviewValue(fieldBackground, '#FFFFFF', useRnwPreview),
+                borderColor: resolvePreviewValue(fieldBorder, '#CBD5E1', useRnwPreview),
+                borderWidth: useRnwPreview ? 1 : fieldBorder ? 1 : 0,
+              },
+            ]}
           >
-            <Text style={[styles.previewFieldText, { color: placeholderColor }]}>
+            <Text style={[styles.previewFieldText, { color: resolvePreviewValue(placeholderColor, '#94A3B8', useRnwPreview) }]}>
               {group.label === 'select' ? 'Selecione uma opcao' : 'Placeholder'}
             </Text>
-            {group.label === 'select' ? <Icon name="chevron-down" size={14} color={placeholderColor} /> : null}
+            {group.label === 'select' ? <Icon name="chevron-down" size={14} color={resolvePreviewValue(placeholderColor, '#94A3B8', useRnwPreview)} /> : null}
           </PreviewPressTarget>
           <PreviewPressTarget
             tokenKeys={group.label === 'select'
               ? ['selectText', 'selectOptionSelectedBackground', 'selectOptionSelectedText']
               : ['inputText', 'inputFilledBorder', 'inputFocusBorder']}
             onSelectTokens={onSelectTokens}
-            style={[styles.previewField, { backgroundColor: fieldBackground, borderColor: focusBorder }]}
+            style={[
+              styles.previewField,
+              {
+                backgroundColor: resolvePreviewValue(fieldBackground, '#FFFFFF', useRnwPreview),
+                borderColor: resolvePreviewValue(focusBorder, '#2563EB', useRnwPreview),
+                borderWidth: useRnwPreview ? 1 : focusBorder ? 1 : 0,
+              },
+            ]}
           >
-            <Text style={[styles.previewFieldText, { color: fieldText }]}>
+            <Text style={[styles.previewFieldText, { color: resolvePreviewValue(fieldText, '#0F172A', useRnwPreview) }]}>
               {group.label === 'select' ? 'Opcao ativa' : 'Valor preenchido'}
             </Text>
           </PreviewPressTarget>
@@ -1277,9 +1468,16 @@ const renderThemeObjectPreview = (group, themeColors, onSelectTokens, useRnwPrev
             <PreviewPressTarget
               tokenKeys={['inputErrorBackground', 'inputErrorBorder', 'inputErrorText']}
               onSelectTokens={onSelectTokens}
-              style={[styles.previewField, { backgroundColor: fieldBackground, borderColor: errorBorder }]}
+              style={[
+                styles.previewField,
+                {
+                  backgroundColor: resolvePreviewValue(fieldBackground, '#FFFFFF', useRnwPreview),
+                  borderColor: resolvePreviewValue(errorBorder, '#DC2626', useRnwPreview),
+                  borderWidth: useRnwPreview ? 1 : errorBorder ? 1 : 0,
+                },
+              ]}
             >
-              <Text style={[styles.previewFieldText, { color: textSecondary }]}>Estado com erro</Text>
+              <Text style={[styles.previewFieldText, { color: resolvePreviewValue(textSecondary, '#64748B', useRnwPreview) }]}>Estado com erro</Text>
             </PreviewPressTarget>
           ) : null}
         </View>
@@ -1287,29 +1485,29 @@ const renderThemeObjectPreview = (group, themeColors, onSelectTokens, useRnwPrev
     }
     case 'link':
     case 'text': {
-      const linkColor = getPreviewColor(themeColors, ['linkText', 'textLink', 'primary'], '#2563EB');
-      const dangerColor = getPreviewColor(themeColors, ['textDanger'], '#DC2626');
-      const successColor = getPreviewColor(themeColors, ['textSuccess'], '#16A34A');
+      const linkColor = getPreviewColorMode(themeColors, ['linkText', 'textLink', 'primary'], '#2563EB', useRnwPreview);
+      const dangerColor = getPreviewColorMode(themeColors, ['textDanger'], '#DC2626', useRnwPreview);
+      const successColor = getPreviewColorMode(themeColors, ['textSuccess'], '#16A34A', useRnwPreview);
 
       return (
         <View style={styles.previewStack}>
           <PreviewPressTarget tokenKeys={['textPrimary']} onSelectTokens={onSelectTokens}>
-            <Text style={[styles.previewHeadline, { color: textPrimary }]}>Titulo principal</Text>
+            <Text style={[styles.previewHeadline, { color: resolvePreviewValue(textPrimary, '#0F172A', useRnwPreview) }]}>Titulo principal</Text>
           </PreviewPressTarget>
           <PreviewPressTarget tokenKeys={['textSecondary']} onSelectTokens={onSelectTokens}>
-            <Text style={[styles.previewParagraph, { color: textSecondary }]}>
+            <Text style={[styles.previewParagraph, { color: resolvePreviewValue(textSecondary, '#64748B', useRnwPreview) }]}>
               Texto secundario para validar contraste e leitura.
             </Text>
           </PreviewPressTarget>
           <View style={styles.previewRowWrap}>
             <PreviewPressTarget tokenKeys={['linkText', 'textLink']} onSelectTokens={onSelectTokens}>
-              <Text style={[styles.previewInlineLink, { color: linkColor }]}>Link</Text>
+              <Text style={[styles.previewInlineLink, { color: resolvePreviewValue(linkColor, '#2563EB', useRnwPreview) }]}>Link</Text>
             </PreviewPressTarget>
             <PreviewPressTarget tokenKeys={['textSuccess']} onSelectTokens={onSelectTokens}>
-              <Text style={[styles.previewInlineLink, { color: successColor }]}>Sucesso</Text>
+              <Text style={[styles.previewInlineLink, { color: resolvePreviewValue(successColor, '#16A34A', useRnwPreview) }]}>Sucesso</Text>
             </PreviewPressTarget>
             <PreviewPressTarget tokenKeys={['textDanger']} onSelectTokens={onSelectTokens}>
-              <Text style={[styles.previewInlineLink, { color: dangerColor }]}>Erro</Text>
+              <Text style={[styles.previewInlineLink, { color: resolvePreviewValue(dangerColor, '#DC2626', useRnwPreview) }]}>Erro</Text>
             </PreviewPressTarget>
           </View>
         </View>
@@ -1319,39 +1517,50 @@ const renderThemeObjectPreview = (group, themeColors, onSelectTokens, useRnwPrev
     case 'menu':
     case 'navigation': {
       const baseTokenKeys = group.label === 'listItem'
-        ? ['listItemBackground', 'listItemBorder', 'listItemText', 'listItemIcon']
+        ? ['listItemBackground', 'listItemBorder', 'listItemText', 'listItemIcon', 'listItemOddRow', 'listItemEvenRow']
         : group.label === 'menu'
           ? ['menuBackground', 'menuBorder', 'menuText', 'menuIcon']
           : ['navigationBackground', 'navigationBorder', 'navigationText', 'navigationIcon'];
       const activeTokenKeys = group.label === 'listItem'
-        ? ['listItemActiveBackground', 'listItemActiveBorder', 'listItemSelectedBackground', 'listItemSelectedBorder', 'listItemText']
+        ? ['listItemActiveBackground', 'listItemActiveBorder', 'listItemSelectedBackground', 'listItemSelectedBorder', 'listItemText', 'listItemOddRow', 'listItemEvenRow']
         : group.label === 'menu'
           ? ['menuActiveBackground', 'menuActiveBorder', 'menuActiveText', 'menuActiveIcon']
           : ['navigationActiveBackground', 'navigationActiveBorder', 'navigationActiveText', 'navigationActiveIcon'];
-      const itemBackground = getPreviewColor(
+      const itemOddBackground = getPreviewColorMode(
         themeColors,
-        group.label === 'listItem' ? ['listItemBackground', 'surface', 'background'] : ['menuBackground', 'navigationBackground', 'surface'],
+        ['listItemOddRow', 'listItemBackground', 'surface', 'background'],
         '#FFFFFF',
+        useRnwPreview,
       );
-      const itemBorder = getPreviewColor(
+      const itemEvenBackground = getPreviewColorMode(
+        themeColors,
+        ['listItemEvenRow', 'listItemBackground', 'surface', 'background'],
+        '#F8FAFC',
+        useRnwPreview,
+      );
+      const itemBorder = getPreviewColorMode(
         themeColors,
         group.label === 'listItem' ? ['listItemBorder', 'border'] : ['menuBorder', 'navigationBorder', 'border'],
         '#E2E8F0',
+        useRnwPreview,
       );
-      const activeBackground = getPreviewColor(
+      const activeBackground = getPreviewColorMode(
         themeColors,
         group.label === 'listItem' ? ['listItemSelectedBackground', 'listItemActiveBackground', 'primary'] : ['menuActiveBackground', 'navigationActiveBackground', 'primary'],
         '#DBEAFE',
+        useRnwPreview,
       );
-      const itemText = getPreviewColor(
+      const itemText = getPreviewColorMode(
         themeColors,
         group.label === 'listItem' ? ['listItemText', 'textPrimary', 'text'] : ['menuText', 'navigationText', 'textPrimary', 'text'],
         '#0F172A',
+        useRnwPreview,
       );
-      const activeText = getPreviewColor(
+      const activeText = getPreviewColorMode(
         themeColors,
         group.label === 'listItem' ? ['listItemText', 'textPrimary'] : ['menuActiveText', 'navigationActiveText', 'textInverse'],
         group.label === 'listItem' ? itemText : getReadableTextColor(activeBackground),
+        useRnwPreview,
       );
 
       return (
@@ -1359,18 +1568,32 @@ const renderThemeObjectPreview = (group, themeColors, onSelectTokens, useRnwPrev
           <PreviewPressTarget
             tokenKeys={baseTokenKeys}
             onSelectTokens={onSelectTokens}
-            style={[styles.previewListItem, { backgroundColor: itemBackground, borderColor: itemBorder }]}
+            style={[
+              styles.previewListItem,
+              {
+                backgroundColor: resolvePreviewValue(itemOddBackground, '#FFFFFF', useRnwPreview),
+                borderColor: resolvePreviewValue(itemBorder, '#E2E8F0', useRnwPreview),
+                borderWidth: useRnwPreview ? 1 : itemBorder ? 1 : 0,
+              },
+            ]}
           >
-            <Icon name="circle" size={12} color={textSecondary} />
-            <Text style={[styles.previewListText, { color: itemText }]}>Item base</Text>
+            <Icon name="circle" size={12} color={resolvePreviewValue(textSecondary, '#64748B', useRnwPreview)} />
+            <Text style={[styles.previewListText, { color: resolvePreviewValue(itemText, '#0F172A', useRnwPreview) }]}>Item base</Text>
           </PreviewPressTarget>
           <PreviewPressTarget
             tokenKeys={activeTokenKeys}
             onSelectTokens={onSelectTokens}
-            style={[styles.previewListItem, { backgroundColor: activeBackground, borderColor: activeBackground }]}
+            style={[
+              styles.previewListItem,
+              {
+                backgroundColor: resolvePreviewValue(itemEvenBackground, '#F8FAFC', useRnwPreview),
+                borderColor: resolvePreviewValue(activeBackground, '#DBEAFE', useRnwPreview),
+                borderWidth: useRnwPreview ? 1 : activeBackground ? 1 : 0,
+              },
+            ]}
           >
-            <Icon name="check-circle" size={12} color={activeText} />
-            <Text style={[styles.previewListText, { color: activeText }]}>Item ativo</Text>
+            <Icon name="check-circle" size={12} color={resolvePreviewValue(activeText, '#0F172A', useRnwPreview)} />
+            <Text style={[styles.previewListText, { color: resolvePreviewValue(activeText, '#0F172A', useRnwPreview) }]}>Item ativo</Text>
           </PreviewPressTarget>
         </View>
       );
@@ -1391,44 +1614,60 @@ const renderThemeObjectPreview = (group, themeColors, onSelectTokens, useRnwPrev
       const spinnerTokenKeys = group.label === 'loading'
         ? ['loadingSpinner', 'loadingIcon']
         : [];
-      const shellBackground = getPreviewColor(
+      const shellBackground = getPreviewColorMode(
         themeColors,
         group.label === 'modal' ? ['modalBackground', 'surface', 'background'] : ['loadingBackground', 'surface', 'background'],
         '#FFFFFF',
+        useRnwPreview,
       );
-      const shellBorder = getPreviewColor(
+      const shellBorder = getPreviewColorMode(
         themeColors,
         group.label === 'modal' ? ['modalBorder', 'border'] : ['loadingBorder', 'border'],
         '#E2E8F0',
+        useRnwPreview,
       );
-      const overlayBackground = getPreviewColor(themeColors, ['modalOverlay', 'loadingOverlay', 'overlayBackground'], '#CBD5E1');
-      const spinnerColor = getPreviewColor(themeColors, ['loadingSpinner', 'loadingIcon', 'primary'], '#2563EB');
+      const overlayBackground = getPreviewColorMode(themeColors, ['modalOverlay', 'loadingOverlay', 'overlayBackground'], '#CBD5E1', useRnwPreview);
+      const spinnerColor = getPreviewColorMode(themeColors, ['loadingSpinner', 'loadingIcon', 'primary'], '#2563EB', useRnwPreview);
 
       return (
         <View style={styles.previewOverlayShell}>
           <PreviewPressTarget
             tokenKeys={backdropTokenKeys}
             onSelectTokens={onSelectTokens}
-            style={[styles.previewOverlayBackdrop, { backgroundColor: withOpacity(overlayBackground, 0.28) }]}
+            style={[
+              styles.previewOverlayBackdrop,
+              {
+                backgroundColor: useRnwPreview
+                  ? overlayBackground || undefined
+                  : withOpacity(overlayBackground, 0.28),
+              },
+            ]}
           />
           <PreviewPressTarget
             tokenKeys={shellTokenKeys}
             onSelectTokens={onSelectTokens}
-            style={[styles.previewOverlayCard, { backgroundColor: shellBackground, borderColor: shellBorder }]}
+            style={[
+              styles.previewOverlayCard,
+              {
+                backgroundColor: resolvePreviewValue(shellBackground, '#FFFFFF', useRnwPreview),
+                borderColor: resolvePreviewValue(shellBorder, '#E2E8F0', useRnwPreview),
+                borderWidth: useRnwPreview ? 1 : shellBorder ? 1 : 0,
+              },
+            ]}
           >
             {group.label === 'loading' ? (
               <>
                 <PreviewPressTarget tokenKeys={spinnerTokenKeys} onSelectTokens={onSelectTokens}>
-                  <ActivityIndicator size="small" color={spinnerColor} />
+                  <ActivityIndicator size="small" color={spinnerColor || undefined} />
                 </PreviewPressTarget>
-                <Text style={[styles.previewParagraph, { color: textPrimary }]}>Carregando...</Text>
+                <Text style={[styles.previewParagraph, { color: resolvePreviewValue(textPrimary, '#0F172A', useRnwPreview) }]}>Carregando...</Text>
               </>
             ) : (
               <>
-                <Text style={[styles.previewInnerCardTitle, { color: textPrimary }]}>
+                <Text style={[styles.previewInnerCardTitle, { color: resolvePreviewValue(textPrimary, '#0F172A', useRnwPreview) }]}>
                   {group.label === 'modal' ? 'Modal' : 'Overlay'}
                 </Text>
-                <Text style={[styles.previewParagraph, { color: textSecondary }]}>Bloco de visualizacao</Text>
+                <Text style={[styles.previewParagraph, { color: resolvePreviewValue(textSecondary, '#64748B', useRnwPreview) }]}>Bloco de visualizacao</Text>
               </>
             )}
           </PreviewPressTarget>
@@ -1436,126 +1675,126 @@ const renderThemeObjectPreview = (group, themeColors, onSelectTokens, useRnwPrev
       );
     }
     case 'radio': {
-      const radioBorder = getPreviewColor(themeColors, ['radioBorder', 'border'], '#94A3B8');
-      const radioSelectedBorder = getPreviewColor(themeColors, ['radioSelectedBorder', 'primary'], '#2563EB');
-      const radioSelectedDot = getPreviewColor(themeColors, ['radioSelectedDot', 'primary'], '#2563EB');
+      const radioBorder = getPreviewColorMode(themeColors, ['radioBorder', 'border'], '#94A3B8', useRnwPreview);
+      const radioSelectedBorder = getPreviewColorMode(themeColors, ['radioSelectedBorder', 'primary'], '#2563EB', useRnwPreview);
+      const radioSelectedDot = getPreviewColorMode(themeColors, ['radioSelectedDot', 'primary'], '#2563EB', useRnwPreview);
 
       return (
         <View style={styles.previewStack}>
           <View style={styles.previewChoiceRow}>
             <PreviewPressTarget tokenKeys={['radioBackground', 'radioBorder']} onSelectTokens={onSelectTokens} style={styles.previewChoiceTarget}>
-              <View style={[styles.previewRadio, { borderColor: radioBorder }]} />
+              <View style={[styles.previewRadio, { borderColor: resolvePreviewValue(radioBorder, '#94A3B8', useRnwPreview), borderWidth: useRnwPreview ? 1 : radioBorder ? 1 : 0 }]} />
             </PreviewPressTarget>
             <PreviewPressTarget tokenKeys={['radioText']} onSelectTokens={onSelectTokens} style={styles.previewChoiceTextTarget}>
-              <Text style={[styles.previewChoiceText, { color: textPrimary }]}>Opcao base</Text>
+              <Text style={[styles.previewChoiceText, { color: resolvePreviewValue(textPrimary, '#0F172A', useRnwPreview) }]}>Opcao base</Text>
             </PreviewPressTarget>
           </View>
           <View style={styles.previewChoiceRow}>
             <PreviewPressTarget tokenKeys={['radioSelectedBackground', 'radioSelectedBorder', 'radioSelectedDot']} onSelectTokens={onSelectTokens} style={styles.previewChoiceTarget}>
-              <View style={[styles.previewRadio, { borderColor: radioSelectedBorder }]}>
-                <View style={[styles.previewRadioDot, { backgroundColor: radioSelectedDot }]} />
+              <View style={[styles.previewRadio, { borderColor: resolvePreviewValue(radioSelectedBorder, '#2563EB', useRnwPreview), borderWidth: useRnwPreview ? 1 : radioSelectedBorder ? 1 : 0 }]}>
+                <View style={[styles.previewRadioDot, { backgroundColor: resolvePreviewValue(radioSelectedDot, '#2563EB', useRnwPreview) }]} />
               </View>
             </PreviewPressTarget>
             <PreviewPressTarget tokenKeys={['radioText']} onSelectTokens={onSelectTokens} style={styles.previewChoiceTextTarget}>
-              <Text style={[styles.previewChoiceText, { color: textPrimary }]}>Opcao ativa</Text>
+              <Text style={[styles.previewChoiceText, { color: resolvePreviewValue(textPrimary, '#0F172A', useRnwPreview) }]}>Opcao ativa</Text>
             </PreviewPressTarget>
           </View>
         </View>
       );
     }
     case 'switch': {
-      const offTrack = getPreviewColor(themeColors, ['switchOffTrack', 'border'], '#CBD5E1');
-      const offThumb = getPreviewColor(themeColors, ['switchOffThumb', 'surface'], '#FFFFFF');
-      const onTrack = getPreviewColor(themeColors, ['switchOnTrack', 'primary'], '#2563EB');
-      const onThumb = getPreviewColor(themeColors, ['switchOnThumb', 'textInverse'], '#FFFFFF');
+      const offTrack = getPreviewColorMode(themeColors, ['switchOffTrack', 'border'], '#CBD5E1', useRnwPreview);
+      const offThumb = getPreviewColorMode(themeColors, ['switchOffThumb', 'surface'], '#FFFFFF', useRnwPreview);
+      const onTrack = getPreviewColorMode(themeColors, ['switchOnTrack', 'primary'], '#2563EB', useRnwPreview);
+      const onThumb = getPreviewColorMode(themeColors, ['switchOnThumb', 'textInverse'], '#FFFFFF', useRnwPreview);
 
       return (
         <View style={styles.previewRowWrap}>
           <PreviewPressTarget
             tokenKeys={['switchOffTrack', 'switchOffThumb', 'switchBorder']}
             onSelectTokens={onSelectTokens}
-            style={[styles.previewSwitch, { backgroundColor: offTrack }]}
+            style={[styles.previewSwitch, { backgroundColor: resolvePreviewValue(offTrack, '#CBD5E1', useRnwPreview), borderWidth: useRnwPreview ? 1 : offTrack ? 0 : 0 }]}
           >
-            <View style={[styles.previewSwitchThumb, { backgroundColor: offThumb, alignSelf: 'flex-start' }]} />
+            <View style={[styles.previewSwitchThumb, { backgroundColor: resolvePreviewValue(offThumb, '#FFFFFF', useRnwPreview), alignSelf: 'flex-start' }]} />
           </PreviewPressTarget>
           <PreviewPressTarget
             tokenKeys={['switchOnTrack', 'switchOnThumb', 'switchBorder']}
             onSelectTokens={onSelectTokens}
-            style={[styles.previewSwitch, { backgroundColor: onTrack }]}
+            style={[styles.previewSwitch, { backgroundColor: resolvePreviewValue(onTrack, '#2563EB', useRnwPreview), borderWidth: useRnwPreview ? 1 : onTrack ? 0 : 0 }]}
           >
-            <View style={[styles.previewSwitchThumb, { backgroundColor: onThumb, alignSelf: 'flex-end' }]} />
+            <View style={[styles.previewSwitchThumb, { backgroundColor: resolvePreviewValue(onThumb, '#FFFFFF', useRnwPreview), alignSelf: 'flex-end' }]} />
           </PreviewPressTarget>
         </View>
       );
     }
     case 'toast': {
-      const toastBackground = getPreviewColor(themeColors, ['toastBackground', 'surface', 'background'], '#FFFFFF');
-      const toastBorder = getPreviewColor(themeColors, ['toastBorder', 'border'], '#E2E8F0');
-      const toastInfoBackground = getPreviewColor(themeColors, ['toastInfoBackground', 'info', 'primary'], '#DBEAFE');
-      const toastSuccessBackground = getPreviewColor(themeColors, ['toastSuccessBackground', 'positive'], '#DCFCE7');
-      const toastWarningBackground = getPreviewColor(themeColors, ['toastWarningBackground', 'warning'], '#FEF3C7');
-      const toastDangerBackground = getPreviewColor(themeColors, ['toastDangerBackground', 'negative'], '#FEE2E2');
+      const toastBackground = getPreviewColorMode(themeColors, ['toastBackground', 'surface', 'background'], '#FFFFFF', useRnwPreview);
+      const toastBorder = getPreviewColorMode(themeColors, ['toastBorder', 'border'], '#E2E8F0', useRnwPreview);
+      const toastInfoBackground = getPreviewColorMode(themeColors, ['toastInfoBackground', 'info', 'primary'], '#DBEAFE', useRnwPreview);
+      const toastSuccessBackground = getPreviewColorMode(themeColors, ['toastSuccessBackground', 'positive'], '#DCFCE7', useRnwPreview);
+      const toastWarningBackground = getPreviewColorMode(themeColors, ['toastWarningBackground', 'warning'], '#FEF3C7', useRnwPreview);
+      const toastDangerBackground = getPreviewColorMode(themeColors, ['toastDangerBackground', 'negative'], '#FEE2E2', useRnwPreview);
 
       return (
         <View style={styles.previewStack}>
           <PreviewPressTarget
             tokenKeys={['toastBackground', 'toastBorder', 'toastIcon', 'toastText', 'toastShadow']}
             onSelectTokens={onSelectTokens}
-            style={[styles.previewToast, { backgroundColor: toastBackground, borderColor: toastBorder }]}
+            style={[styles.previewToast, { backgroundColor: resolvePreviewValue(toastBackground, '#FFFFFF', useRnwPreview), borderColor: resolvePreviewValue(toastBorder, '#E2E8F0', useRnwPreview), borderWidth: useRnwPreview ? 1 : toastBorder ? 1 : 0 }]}
           >
-            <Icon name="info" size={13} color={textPrimary} />
-            <Text style={[styles.previewToastText, { color: textPrimary }]}>Toast base</Text>
+            <Icon name="info" size={13} color={resolvePreviewValue(textPrimary, '#0F172A', useRnwPreview)} />
+            <Text style={[styles.previewToastText, { color: resolvePreviewValue(textPrimary, '#0F172A', useRnwPreview) }]}>Toast base</Text>
           </PreviewPressTarget>
           <PreviewPressTarget
             tokenKeys={['toastInfoBackground', 'toastInfoBorder', 'toastInfoIcon', 'toastInfoText']}
             onSelectTokens={onSelectTokens}
-            style={[styles.previewToast, { backgroundColor: toastInfoBackground, borderColor: toastInfoBackground }]}
+            style={[styles.previewToast, { backgroundColor: resolvePreviewValue(toastInfoBackground, '#DBEAFE', useRnwPreview), borderColor: resolvePreviewValue(toastInfoBackground, '#DBEAFE', useRnwPreview), borderWidth: useRnwPreview ? 1 : toastInfoBackground ? 1 : 0 }]}
           >
-            <Icon name="bell" size={13} color={textPrimary} />
-            <Text style={[styles.previewToastText, { color: textPrimary }]}>Toast info</Text>
+            <Icon name="bell" size={13} color={resolvePreviewValue(textPrimary, '#0F172A', useRnwPreview)} />
+            <Text style={[styles.previewToastText, { color: resolvePreviewValue(textPrimary, '#0F172A', useRnwPreview) }]}>Toast info</Text>
           </PreviewPressTarget>
           <PreviewPressTarget
             tokenKeys={['toastSuccessBackground', 'toastSuccessBorder', 'toastSuccessIcon', 'toastSuccessText']}
             onSelectTokens={onSelectTokens}
-            style={[styles.previewToast, { backgroundColor: toastSuccessBackground, borderColor: toastSuccessBackground }]}
+            style={[styles.previewToast, { backgroundColor: resolvePreviewValue(toastSuccessBackground, '#DCFCE7', useRnwPreview), borderColor: resolvePreviewValue(toastSuccessBackground, '#DCFCE7', useRnwPreview), borderWidth: useRnwPreview ? 1 : toastSuccessBackground ? 1 : 0 }]}
           >
-            <Icon name="check-circle" size={13} color={textPrimary} />
-            <Text style={[styles.previewToastText, { color: textPrimary }]}>Toast sucesso</Text>
+            <Icon name="check-circle" size={13} color={resolvePreviewValue(textPrimary, '#0F172A', useRnwPreview)} />
+            <Text style={[styles.previewToastText, { color: resolvePreviewValue(textPrimary, '#0F172A', useRnwPreview) }]}>Toast sucesso</Text>
           </PreviewPressTarget>
           <PreviewPressTarget
             tokenKeys={['toastWarningBackground', 'toastWarningBorder', 'toastWarningIcon', 'toastWarningText']}
             onSelectTokens={onSelectTokens}
-            style={[styles.previewToast, { backgroundColor: toastWarningBackground, borderColor: toastWarningBackground }]}
+            style={[styles.previewToast, { backgroundColor: resolvePreviewValue(toastWarningBackground, '#FEF3C7', useRnwPreview), borderColor: resolvePreviewValue(toastWarningBackground, '#FEF3C7', useRnwPreview), borderWidth: useRnwPreview ? 1 : toastWarningBackground ? 1 : 0 }]}
           >
-            <Icon name="alert-triangle" size={13} color={textPrimary} />
-            <Text style={[styles.previewToastText, { color: textPrimary }]}>Toast aviso</Text>
+            <Icon name="alert-triangle" size={13} color={resolvePreviewValue(textPrimary, '#0F172A', useRnwPreview)} />
+            <Text style={[styles.previewToastText, { color: resolvePreviewValue(textPrimary, '#0F172A', useRnwPreview) }]}>Toast aviso</Text>
           </PreviewPressTarget>
           <PreviewPressTarget
             tokenKeys={['toastDangerBackground', 'toastDangerBorder', 'toastDangerIcon', 'toastDangerText']}
             onSelectTokens={onSelectTokens}
-            style={[styles.previewToast, { backgroundColor: toastDangerBackground, borderColor: toastDangerBackground }]}
+            style={[styles.previewToast, { backgroundColor: resolvePreviewValue(toastDangerBackground, '#FEE2E2', useRnwPreview), borderColor: resolvePreviewValue(toastDangerBackground, '#FEE2E2', useRnwPreview), borderWidth: useRnwPreview ? 1 : toastDangerBackground ? 1 : 0 }]}
           >
-            <Icon name="x-circle" size={13} color={textPrimary} />
-            <Text style={[styles.previewToastText, { color: textPrimary }]}>Toast erro</Text>
+            <Icon name="x-circle" size={13} color={resolvePreviewValue(textPrimary, '#0F172A', useRnwPreview)} />
+            <Text style={[styles.previewToastText, { color: resolvePreviewValue(textPrimary, '#0F172A', useRnwPreview) }]}>Toast erro</Text>
           </PreviewPressTarget>
         </View>
       );
     }
     case 'divider': {
-      const dividerColor = getPreviewColor(themeColors, ['dividerBackground', 'dividerBorder', 'border'], '#CBD5E1');
+      const dividerColor = getPreviewColorMode(themeColors, ['dividerBackground', 'dividerBorder', 'border'], '#CBD5E1', useRnwPreview);
 
       return (
         <View style={styles.previewStack}>
           <PreviewPressTarget tokenKeys={['dividerText']} onSelectTokens={onSelectTokens}>
-            <Text style={[styles.previewParagraph, { color: textSecondary }]}>Secao acima</Text>
+            <Text style={[styles.previewParagraph, { color: resolvePreviewValue(textSecondary, '#64748B', useRnwPreview) }]}>Secao acima</Text>
           </PreviewPressTarget>
           <PreviewPressTarget
             tokenKeys={['dividerBackground', 'dividerBorder']}
             onSelectTokens={onSelectTokens}
-            style={[styles.previewDivider, { backgroundColor: dividerColor }]}
+            style={[styles.previewDivider, { backgroundColor: resolvePreviewValue(dividerColor, '#CBD5E1', useRnwPreview) }]}
           />
           <PreviewPressTarget tokenKeys={['dividerText']} onSelectTokens={onSelectTokens}>
-            <Text style={[styles.previewParagraph, { color: textPrimary }]}>Secao abaixo</Text>
+            <Text style={[styles.previewParagraph, { color: resolvePreviewValue(textPrimary, '#0F172A', useRnwPreview) }]}>Secao abaixo</Text>
           </PreviewPressTarget>
         </View>
       );
@@ -1573,13 +1812,20 @@ const renderThemeObjectPreview = (group, themeColors, onSelectTokens, useRnwPrev
         <PreviewPressTarget
           tokenKeys={surfaceTokenKeys}
           onSelectTokens={onSelectTokens}
-          style={[styles.previewSurfaceCard, { backgroundColor: sectionBackground, borderColor: sectionBorder }]}
+            style={[
+              styles.previewSurfaceCard,
+              {
+                backgroundColor: resolvePreviewValue(sectionBackground, '#F8FAFC', useRnwPreview),
+                borderColor: resolvePreviewValue(sectionBorder, '#E2E8F0', useRnwPreview),
+                borderWidth: useRnwPreview ? 1 : sectionBorder ? 1 : 0,
+              },
+            ]}
         >
           <PreviewPressTarget tokenKeys={['textPrimary']} onSelectTokens={onSelectTokens}>
-            <Text style={[styles.previewHeadline, { color: textPrimary }]}>Base da tela</Text>
+            <Text style={[styles.previewHeadline, { color: resolvePreviewValue(textPrimary, '#0F172A', useRnwPreview) }]}>Base da tela</Text>
           </PreviewPressTarget>
           <PreviewPressTarget tokenKeys={['textSecondary']} onSelectTokens={onSelectTokens}>
-            <Text style={[styles.previewParagraph, { color: textSecondary }]}>
+            <Text style={[styles.previewParagraph, { color: resolvePreviewValue(textSecondary, '#64748B', useRnwPreview) }]}>
               Fundo, superficie, borda e contraste principal.
             </Text>
           </PreviewPressTarget>
@@ -1720,6 +1966,7 @@ const ColorEditor = ({
   const baseHexColor = currentBaseHexColor || lastBaseHexColor || '';
   const hasEditableBaseHex = Boolean(baseHexColor);
   const [hoveredSwatchKey, setHoveredSwatchKey] = useState('');
+  const [hoveredInputHelp, setHoveredInputHelp] = useState(false);
 
   useEffect(() => {
     if (currentBaseHexColor) {
@@ -1751,18 +1998,39 @@ const ColorEditor = ({
           ) : (
             <View style={styles.swatchPickerSection}>
               <View style={styles.swatchPicker}>
-                {row.colors.map(colorItem => {
+                {row.colors.map((colorItem, index) => {
                   const selected = normalizedValue === colorItem.value;
                   const swatchKey = `${field.key}-${row.id}-${colorItem.value}`;
-                  const tooltipText = colorItem.name
-                    ? `${colorItem.name} · ${colorItem.value}`
-                    : colorItem.value;
+                  const isFirstColor = index === 0;
+                  const isLastColor = index === row.colors.length - 1;
+                  const rgbaValue = formatRgbaColor(colorItem.value);
+                  const tooltipLines = [
+                    colorItem.label || '',
+                    colorItem.value || '',
+                    rgbaValue || '',
+                  ].filter(Boolean);
 
                   return (
                     <View key={swatchKey} style={styles.pickerButtonWrap}>
                       {hoveredSwatchKey === swatchKey ? (
-                        <View style={styles.pickerTooltip}>
-                          <Text style={styles.pickerTooltipText}>{tooltipText}</Text>
+                        <View
+                          style={[
+                            styles.pickerTooltip,
+                            isFirstColor && !isLastColor && styles.pickerTooltipFirst,
+                            isLastColor && !isFirstColor && styles.pickerTooltipLast,
+                          ]}
+                        >
+                          <Text style={[styles.pickerTooltipText, styles.pickerTooltipTitle]}>
+                            {tooltipLines[0]}
+                          </Text>
+                          {tooltipLines.length > 1 ? (
+                            <View style={styles.pickerTooltipSpacer} />
+                          ) : null}
+                          {tooltipLines.slice(1).map(line => (
+                            <Text key={line} style={styles.pickerTooltipText}>
+                              {line}
+                            </Text>
+                          ))}
                         </View>
                       ) : null}
 
@@ -1789,17 +2057,46 @@ const ColorEditor = ({
 
       <View style={styles.colorControlsRow}>
         <View style={styles.colorInputRow}>
-          <TextInput
-            value={normalizedValue}
-            onChangeText={text => onChange(text.startsWith('#') ? text.toUpperCase() : text.toLowerCase())}
-            autoCapitalize="characters"
-            autoCorrect={false}
-            maxLength={11}
-            placeholder="#000000"
-            placeholderTextColor="#94A3B8"
-            style={styles.colorInput}
-          />
-          <Text style={styles.colorHint}>HEX</Text>
+          <View style={styles.colorInputShell}>
+            <TextInput
+              value={normalizedValue}
+              onChangeText={text => {
+                const normalizedText = normalizeThemeColorValue(text);
+                if (normalizedText) {
+                  onChange(normalizedText);
+                  return;
+                }
+
+                onChange(text);
+              }}
+              autoCapitalize="none"
+              autoCorrect={false}
+              placeholder="#000000"
+              placeholderTextColor="#94A3B8"
+              style={styles.colorInput}
+            />
+            <Text style={styles.colorHint}>HEX</Text>
+            <Pressable
+              onHoverIn={() => setHoveredInputHelp(true)}
+              onHoverOut={() => setHoveredInputHelp(false)}
+              style={styles.colorInputInfoWrap}
+            >
+              <View style={styles.colorInputInfoButton}>
+                <Icon name="info" size={12} color="#64748B" />
+              </View>
+              {hoveredInputHelp ? (
+                <View style={styles.colorInputTooltip}>
+                  <View>
+                    <Text style={styles.pickerTooltipText}>HEX</Text>
+                    <Text style={styles.pickerTooltipText}>rgb(...)</Text>
+                    <Text style={styles.pickerTooltipText}>rgba(...)</Text>
+                    <Text style={styles.pickerTooltipText}>28, 143, 189, 0.1</Text>
+                    <Text style={styles.pickerTooltipText}>28, 143, 189, 10%</Text>
+                  </View>
+                </View>
+              ) : null}
+            </Pressable>
+          </View>
         </View>
 
         <OpacitySlider
@@ -1865,7 +2162,8 @@ export default function ThemeManagerPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [themes, setThemes] = useState([]);
-  const [editorVisible, setEditorVisible] = useState(false);
+  const [objectEditorVisible, setObjectEditorVisible] = useState(false);
+  const [themeEditorVisible, setThemeEditorVisible] = useState(false);
   const [editingTheme, setEditingTheme] = useState(null);
   const [editingFieldKey, setEditingFieldKey] = useState(null);
   const [selectedPreviewTokenKeysByTheme, setSelectedPreviewTokenKeysByTheme] = useState({});
@@ -1885,11 +2183,11 @@ export default function ThemeManagerPage() {
     () => buildEditorFields(themeDraft),
     [themeDraft],
   );
-  const visibleEditorFields = useMemo(() => {
+  const objectEditorFields = useMemo(() => {
     if (!editingFieldKey) return editorFields;
     return [buildEditorField(editingFieldKey)];
   }, [editingFieldKey, editorFields]);
-  const editorSwatchRows = useMemo(() => {
+  const objectEditorSwatchRows = useMemo(() => {
     const { legacyEntries, newEntries } = buildThemeColumns(themeDraft);
 
     return [
@@ -1907,6 +2205,21 @@ export default function ThemeManagerPage() {
         id: 'new',
         label: 'Novo',
         colors: extractUniqueNormalizedColors(newEntries),
+      },
+    ];
+  }, [themeDraft]);
+  const themeEditorSwatchRows = useMemo(() => {
+    const themeColorEntries = Object.entries(normalizeThemeColors(themeDraft || {}))
+      .map(([key, value]) => ({
+        key,
+        value,
+      }));
+
+    return [
+      {
+        id: 'theme-draft',
+        label: 'ThemeDraft',
+        colors: extractUniqueNormalizedColors(themeColorEntries),
       },
     ];
   }, [themeDraft]);
@@ -1960,40 +2273,45 @@ export default function ThemeManagerPage() {
   const openCreateTheme = useCallback(() => {
     setEditingTheme(null);
     setEditingFieldKey(null);
+    setObjectEditorVisible(false);
+    setThemeEditorVisible(true);
     setThemeName('');
     setThemeDraft(buildNewThemeDraft(palette));
-    setEditorVisible(true);
   }, [palette]);
 
   const openEditTheme = useCallback(themeItem => {
     setEditingTheme(themeItem);
     setEditingFieldKey(null);
+    setObjectEditorVisible(false);
+    setThemeEditorVisible(true);
     setThemeName(String(themeItem?.theme || '').trim());
     setThemeDraft(buildEditableDraft(themeItem?.colors || {}, palette));
-    setEditorVisible(true);
   }, [palette]);
 
   const openDuplicateTheme = useCallback(themeItem => {
     setEditingTheme(null);
     setEditingFieldKey(null);
+    setObjectEditorVisible(false);
+    setThemeEditorVisible(true);
     setThemeName(buildDuplicateName(themeItem?.theme, themes));
     setThemeDraft(buildEditableDraft(themeItem?.colors || {}, palette));
-    setEditorVisible(true);
   }, [palette, themes]);
 
   const openSingleColorEditor = useCallback((themeItem, fieldKey) => {
     setEditingTheme(themeItem);
     setEditingFieldKey(fieldKey);
+    setThemeEditorVisible(false);
+    setObjectEditorVisible(true);
     setThemeName(String(themeItem?.theme || '').trim());
     setThemeDraft({
       ...buildEditableDraft(themeItem?.colors || {}, palette),
       [fieldKey]: themeItem?.colors?.[fieldKey] || '',
     });
-    setEditorVisible(true);
   }, [palette]);
 
   const closeEditor = useCallback(() => {
-    setEditorVisible(false);
+    setObjectEditorVisible(false);
+    setThemeEditorVisible(false);
     setEditingFieldKey(null);
   }, []);
 
@@ -2387,6 +2705,7 @@ export default function ThemeManagerPage() {
                           legacyEntries.map(colorItem => {
                             const normalizedValue = normalizeHex(colorItem.value);
                             const isTransparentValue = isTransparentColor(colorItem.value);
+                            const rgbaValue = formatRgbaColor(colorItem.value);
 
                             return (
                               <View
@@ -2425,6 +2744,11 @@ export default function ThemeManagerPage() {
                                   <Text numberOfLines={1} style={styles.colorListValue}>
                                     {colorItem.value || 'Sem valor no banco'}
                                   </Text>
+                                  {colorItem.value ? (
+                                    <Text numberOfLines={1} style={styles.colorListValueSecondary}>
+                                      {rgbaValue}
+                                    </Text>
+                                  ) : null}
                                 </View>
                               </View>
                             );
@@ -2436,30 +2760,32 @@ export default function ThemeManagerPage() {
                     <View style={[styles.themeColumn, styles.themeColumnQuarter]}>
                       <View style={styles.columnHeader}>
                         <Text style={styles.columnTitle}>Novo</Text>
-                        <View style={[styles.columnHeaderSearchWrap, styles.columnHeaderSearchWrapCompact]}>
-                          <Icon name="search" size={14} color="#64748B" />
-                          <TextInput
-                            value={newSearchByTheme[themeId] || ''}
-                            onChangeText={value => setNewSearch(themeId, value)}
-                            placeholder=""
-                            style={styles.columnHeaderSearchInput}
-                          />
-                        </View>
-                        <View style={styles.columnMetaWrap}>
-                          <TouchableOpacity
-                            style={[
-                              styles.columnFilterButton,
-                              showOnlyFilledNew && styles.columnFilterButtonActive,
-                            ]}
-                            onPress={() => toggleShowOnlyFilledNew(themeId)}
-                          >
-                            <Icon
-                              name="filter"
-                              size={12}
-                              color={showOnlyFilledNew ? '#FFFFFF' : '#64748B'}
+                        <View style={styles.columnHeaderTools}>
+                          <View style={[styles.columnHeaderSearchWrap, styles.columnHeaderSearchWrapCompact]}>
+                            <Icon name="search" size={14} color="#64748B" />
+                            <TextInput
+                              value={newSearchByTheme[themeId] || ''}
+                              onChangeText={value => setNewSearch(themeId, value)}
+                              placeholder=""
+                              style={styles.columnHeaderSearchInput}
                             />
-                          </TouchableOpacity>
-                          <Text style={styles.columnMeta}>{`${newFilledCount}/${newCount}`}</Text>
+                          </View>
+                          <View style={styles.columnMetaWrap}>
+                            <TouchableOpacity
+                              style={[
+                                styles.columnFilterButton,
+                                showOnlyFilledNew && styles.columnFilterButtonActive,
+                              ]}
+                              onPress={() => toggleShowOnlyFilledNew(themeId)}
+                            >
+                              <Icon
+                                name="filter"
+                                size={12}
+                                color={showOnlyFilledNew ? '#FFFFFF' : '#64748B'}
+                              />
+                            </TouchableOpacity>
+                            <Text style={styles.columnMeta}>{`${newFilledCount}/${newCount}`}</Text>
+                          </View>
                         </View>
                       </View>
 
@@ -2590,30 +2916,32 @@ export default function ThemeManagerPage() {
                             </Text>
                           </TouchableOpacity>
                         </View>
-                        <View style={styles.columnHeaderSearchWrap}>
-                          <Icon name="search" size={14} color="#64748B" />
-                          <TextInput
-                            value={previewSearchByTheme[themeId] || ''}
-                            onChangeText={value => setPreviewSearch(themeId, value)}
-                            placeholder=""
-                            style={styles.columnHeaderSearchInput}
-                          />
-                        </View>
-                        <View style={styles.columnMetaWrap}>
-                          <TouchableOpacity
-                            style={[
-                              styles.columnFilterButton,
-                              showOnlyFilledPreview && styles.columnFilterButtonActive,
-                            ]}
-                            onPress={() => toggleShowOnlyFilledPreview(themeId)}
-                          >
-                            <Icon
-                              name="filter"
-                              size={12}
-                              color={showOnlyFilledPreview ? '#FFFFFF' : '#64748B'}
+                        <View style={styles.columnHeaderTools}>
+                          <View style={styles.columnHeaderSearchWrap}>
+                            <Icon name="search" size={14} color="#64748B" />
+                            <TextInput
+                              value={previewSearchByTheme[themeId] || ''}
+                              onChangeText={value => setPreviewSearch(themeId, value)}
+                              placeholder=""
+                              style={styles.columnHeaderSearchInput}
                             />
-                          </TouchableOpacity>
-                          <Text style={styles.columnMeta}>{`${previewFilledGroupCount}/${previewGroups.length}`}</Text>
+                          </View>
+                          <View style={styles.columnMetaWrap}>
+                            <TouchableOpacity
+                              style={[
+                                styles.columnFilterButton,
+                                showOnlyFilledPreview && styles.columnFilterButtonActive,
+                              ]}
+                              onPress={() => toggleShowOnlyFilledPreview(themeId)}
+                            >
+                              <Icon
+                                name="filter"
+                                size={12}
+                                color={showOnlyFilledPreview ? '#FFFFFF' : '#64748B'}
+                              />
+                            </TouchableOpacity>
+                            <Text style={styles.columnMeta}>{`${previewFilledGroupCount}/${previewGroups.length}`}</Text>
+                          </View>
                         </View>
                       </View>
 
@@ -2667,25 +2995,15 @@ export default function ThemeManagerPage() {
         )}
       </ScrollView>
 
-      <Modal visible={editorVisible} transparent animationType="slide" onRequestClose={closeEditor}>
+      <Modal visible={objectEditorVisible} transparent animationType="slide" onRequestClose={closeEditor}>
         <TouchableWithoutFeedback onPress={closeEditor}>
           <View style={styles.backdrop}>
             <TouchableWithoutFeedback>
               <View style={styles.modalSheet}>
                 <View style={styles.modalHeader}>
                   <View style={{ flex: 1 }}>
-                    <Text style={styles.modalTitle}>
-                      {editingFieldKey
-                        ? ''
-                        : editingTheme?.id
-                          ? 'Editar tema'
-                          : 'Novo tema'}
-                    </Text>
-                    <Text style={styles.modalSubtitle}>
-                      {editingFieldKey
-                        ? ''
-                        : 'Todas as cores reais do `theme.colors` aparecem aqui para edição.'}
-                    </Text>
+                    <Text style={styles.modalTitle}>Editor de objetos</Text>
+                    <Text style={styles.modalSubtitle}>Mostra as cores do objeto selecionado para edição.</Text>
                   </View>
                 </View>
 
@@ -2703,16 +3021,81 @@ export default function ThemeManagerPage() {
                     </View>
                   ) : null}
 
-                  {visibleEditorFields.map(field => (
+                  {objectEditorFields.map(field => (
                     <ColorEditor
                       key={field.key}
                       field={field}
                       value={themeDraft[field.key]}
                       onChange={value => setDraftColor(field.key, value)}
-                      swatchRows={editorSwatchRows}
+                      swatchRows={objectEditorSwatchRows}
                       showCloseButton={Boolean(editingFieldKey)}
                       onClose={editingFieldKey ? closeEditor : undefined}
                       emphasizeLabel={Boolean(editingFieldKey)}
+                    />
+                  ))}
+                </ScrollView>
+
+                <View style={styles.modalActions}>
+                  <TouchableOpacity style={styles.secondaryButton} onPress={closeEditor}>
+                    <Text style={styles.secondaryButtonText}>Cancelar</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[
+                      styles.primaryButton,
+                      { backgroundColor: palette.primary },
+                      isSaving && { opacity: 0.6 },
+                    ]}
+                    onPress={saveTheme}
+                    disabled={isSaving}
+                  >
+                    {isSaving ? (
+                      <ActivityIndicator size="small" color="#FFFFFF" />
+                    ) : (
+                      <Text style={styles.primaryButtonText}>
+                        {editingTheme?.id ? 'Salvar tema' : 'Criar tema'}
+                      </Text>
+                    )}
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </TouchableWithoutFeedback>
+          </View>
+        </TouchableWithoutFeedback>
+      </Modal>
+
+      <Modal visible={themeEditorVisible} transparent animationType="slide" onRequestClose={closeEditor}>
+        <TouchableWithoutFeedback onPress={closeEditor}>
+          <View style={styles.backdrop}>
+            <TouchableWithoutFeedback>
+              <View style={styles.modalSheet}>
+                <View style={styles.modalHeader}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.modalTitle}>Editor de tema</Text>
+                    <Text style={styles.modalSubtitle}>Mostra apenas as cores em uso naquele tema.</Text>
+                  </View>
+                </View>
+
+                <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ gap: 14, paddingBottom: 8 }}>
+                  <View style={styles.formField}>
+                    <Text style={styles.formLabel}>Nome do tema</Text>
+                    <TextInput
+                      value={themeName}
+                      onChangeText={setThemeName}
+                      placeholder="Ex.: Verde institucional"
+                      placeholderTextColor="#94A3B8"
+                      style={styles.textInput}
+                    />
+                  </View>
+
+                  {editorFields.map(field => (
+                    <ColorEditor
+                      key={field.key}
+                      field={field}
+                      value={themeDraft[field.key]}
+                      onChange={value => setDraftColor(field.key, value)}
+                      swatchRows={themeEditorSwatchRows}
+                      showCloseButton={false}
+                      emphasizeLabel={false}
                     />
                   ))}
                 </ScrollView>

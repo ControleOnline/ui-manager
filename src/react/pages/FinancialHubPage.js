@@ -4,8 +4,6 @@ import {SafeAreaView} from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/Feather';
 import {useStore} from '@store';
 import FinancialEntriesPage from '@controleonline/ui-financial/src/react/pages/FinancialEntriesPage';
-import {resolveThemePalette} from '@controleonline/../../src/styles/branding';
-import {colors} from '@controleonline/../../src/styles/colors';
 import {createStyles} from './FinancialHubPage.styles';
 
 const getFinancialTabs = () => [
@@ -39,27 +37,31 @@ export default function FinancialHubPage({navigation}) {
   const peopleStore = useStore('people');
   const themeStore = useStore('theme');
   const {currentCompany} = peopleStore.getters;
-  const {colors: themeColors} = themeStore.getters;
-  const themeTokens = useMemo(
-    () => ({...themeColors, ...(currentCompany?.theme?.colors || {})}),
-    [currentCompany?.theme?.colors, themeColors],
-  );
+  const themeColors = themeStore?.getters?.colors || {};
 
   const palette = useMemo(
-    () =>
-      resolveThemePalette(
-        themeTokens,
-        colors,
-      ),
-    [themeTokens],
+    () => ({
+      pageBackground: themeColors.pageBackground,
+      cardBackground: themeColors.cardBackground,
+      cardBorder: themeColors.cardBorder,
+      textPrimary: themeColors.textPrimary,
+      textSecondary: themeColors.textSecondary,
+      buttonBackground: themeColors.buttonBackground,
+      buttonBackgroundSecondary: themeColors.buttonBackgroundSecondary,
+      buttonBorder: themeColors.buttonBorder,
+      buttonBorderSecondary: themeColors.buttonBorderSecondary,
+      buttonText: themeColors.buttonText,
+      buttonTextSecondary: themeColors.buttonTextSecondary,
+    }),
+    [themeColors],
   );
   const styles = useMemo(() => createStyles(palette), [palette]);
 
   const FINANCIAL_TABS = getFinancialTabs();
-  const tabSurfaceColor = palette.secondary || palette.text;
-  const tabHighlightColor = palette.primary || palette.background;
-  const tabBorderColor = palette.border;
-  const tabBackgroundColor = palette.background || palette.white;
+  const tabSurfaceColor = palette.buttonBackground;
+  const tabHighlightColor = palette.buttonText;
+  const tabBorderColor = palette.cardBorder;
+  const tabBackgroundColor = palette.cardBackground;
 
   const [activeTab, setActiveTab] = useState('receivables');
 
@@ -72,10 +74,10 @@ export default function FinancialHubPage({navigation}) {
         key: 'wallets',
         label: global.t?.t('invoice', 'label', 'wallets') || 'Carteiras',
         icon: 'briefcase',
-        color: palette.textSecondary,
+        color: palette.buttonTextSecondary,
         style: {
-          backgroundColor: palette.background || '#FFFFFF',
-          borderColor: palette.border,
+          backgroundColor: palette.buttonBackgroundSecondary,
+          borderColor: palette.buttonBorderSecondary,
           paddingHorizontal: 10,
         },
         onPress: () => navigation.navigate('WalletsPage'),
@@ -104,9 +106,11 @@ export default function FinancialHubPage({navigation}) {
       activeSection.categoryContextLabel,
       activeSection.categoryTitle,
       navigation,
-      palette.background,
-      palette.border,
-      palette.textSecondary,
+      palette.buttonBackground,
+      palette.buttonBackgroundSecondary,
+      palette.buttonBorder,
+      palette.buttonBorderSecondary,
+      palette.buttonTextSecondary,
       tabHighlightColor,
       tabSurfaceColor,
     ],
@@ -115,7 +119,7 @@ export default function FinancialHubPage({navigation}) {
   if (!currentCompany?.id) {
     return (
       <SafeAreaView
-        style={[styles.container, {backgroundColor: palette.background}]}
+        style={[styles.container, {backgroundColor: palette.pageBackground}]}
         edges={['bottom']}>
         <View style={styles.centerState}>
           <Icon name="building" size={32} color={palette.textSecondary} />
@@ -132,7 +136,7 @@ export default function FinancialHubPage({navigation}) {
 
   return (
     <SafeAreaView
-      style={[styles.container, {backgroundColor: palette.background}]}
+      style={[styles.container, {backgroundColor: palette.pageBackground}]}
       edges={['bottom']}>
       <View style={styles.topBar}>
         <View style={styles.tabsRow}>
@@ -146,7 +150,7 @@ export default function FinancialHubPage({navigation}) {
                   styles.tabChip,
                   {
                     backgroundColor: isActive ? tabSurfaceColor : tabBackgroundColor,
-                    borderColor: isActive ? tabSurfaceColor : tabBorderColor,
+                    borderColor: isActive ? palette.buttonBorder : tabBorderColor,
                   },
                 ]}
                 activeOpacity={0.88}
