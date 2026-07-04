@@ -33,57 +33,27 @@ const THEME_ALIASES = {
   bgHeadersLight: ['bg-headers-light'],
 };
 
-const COLOR_USAGE_HINTS = {
-  primary: 'botoes principais, destaques e foco',
-  secondary: 'acoes de apoio e elementos secundarios',
-  background: 'plano principal das telas',
-  text: 'titulos e conteudo principal',
-  textSecondary: 'legendas, placeholders e apoio visual',
-  border: 'linhas, campos e divisores',
-  info: 'avisos informativos e destaques neutros',
-  accent: 'chamadas visuais e pontos de enfase',
-  warning: 'estados de atencao',
-  positive: 'sucesso e confirmacoes',
-  negative: 'erros e estados criticos',
-  bgDark: 'fundos escuros principais',
-  bgMenuDark: 'fundo de menu escuro',
-  bgMenuLight: 'fundo de menu claro',
-  bgOddLight: 'listras claras de listas/tabelas',
-  bgOddDark: 'listras escuras de listas/tabelas',
-  bgEvenDark: 'linhas pares em tema escuro',
-  bgHeadersLight: 'cabecalhos claros',
-};
-
-const AUTO_GENERATED_ALIAS_KEYS = new Set([
-  'q-primary',
-  'btn-primary',
-  'q-btn-primary',
-  'header-primary',
-  'q-header-primary',
-  'q-secondary',
-  'q-bg-light',
-  'q-bg-headers-light',
-  'text-primary',
-  'q-text-primary',
-  'text-headers-light',
-  'q-text-headers-light',
-  'text-secondary',
-  'q-text-secondary',
-  'bg-even-light',
-  'q-bg-even-light',
-]);
+const TRANSPARENT_COLOR_VALUE = 'transparent';
 
 const normalizeHex = value => {
   if (typeof value !== 'string') return null;
   const raw = value.trim();
-  if (!/^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(raw)) return null;
+  if (!/^#([0-9a-fA-F]{3}|[0-9a-fA-F]{4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/.test(raw)) return null;
   if (raw.length === 4) {
     return `#${raw[1]}${raw[1]}${raw[2]}${raw[2]}${raw[3]}${raw[3]}`.toUpperCase();
+  }
+  if (raw.length === 5) {
+    return `#${raw[1]}${raw[1]}${raw[2]}${raw[2]}${raw[3]}${raw[3]}${raw[4]}${raw[4]}`.toUpperCase();
   }
   return raw.toUpperCase();
 };
 
+const isTransparentColor = value =>
+  typeof value === 'string' && value.trim().toLowerCase() === TRANSPARENT_COLOR_VALUE;
+
 const getReadableTextColor = color => {
+  if (isTransparentColor(color)) return '#111111';
+
   const normalized = normalizeHex(color);
   if (!normalized) return '#111111';
 
@@ -97,9 +67,13 @@ const getReadableTextColor = color => {
 
 const pickThemeColor = (themeColors = {}, fallbackValue = '', keys = []) => {
   for (const key of keys) {
+    if (isTransparentColor(themeColors?.[key])) return TRANSPARENT_COLOR_VALUE;
+
     const normalized = normalizeHex(themeColors?.[key]);
     if (normalized) return normalized;
   }
+
+  if (isTransparentColor(fallbackValue)) return TRANSPARENT_COLOR_VALUE;
   return normalizeHex(fallbackValue) || '#000000';
 };
 
@@ -123,14 +97,6 @@ const buildPreviewPalette = themeColors => ({
   bgEvenDark: pickThemeColor(themeColors, '#111827', THEME_ALIASES.bgEvenDark),
   bgHeadersLight: pickThemeColor(themeColors, '#F8FAFC', THEME_ALIASES.bgHeadersLight),
 });
-
-const getThemeColorEntries = themeColors => {
-  return Object.entries(themeColors || {})
-    .map(([key, value]) => [key, normalizeHex(value)])
-    .filter(([key, value]) => Boolean(value) && !AUTO_GENERATED_ALIAS_KEYS.has(key))
-    .sort(([leftKey], [rightKey]) => leftKey.localeCompare(rightKey))
-    .map(([key, value]) => ({ key, value }));
-};
 
 const formatApiError = error =>
   error?.message || error?.description || 'Nao foi possivel carregar o preview do tema.';
@@ -171,35 +137,6 @@ export default function ThemePreviewPage() {
       colors,
     ),
     [themeItem?.colors],
-  );
-
-  const colorEntries = useMemo(
-    () => getThemeColorEntries(themeItem?.colors || {}),
-    [themeItem?.colors],
-  );
-
-  const tokenPreviewList = useMemo(
-    () => [
-      { key: 'primary', value: previewPalette.primary },
-      { key: 'secondary', value: previewPalette.secondary },
-      { key: 'background', value: previewPalette.background },
-      { key: 'text', value: previewPalette.text },
-      { key: 'textSecondary', value: previewPalette.textSecondary },
-      { key: 'border', value: previewPalette.border },
-      { key: 'info', value: previewPalette.info },
-      { key: 'accent', value: previewPalette.accent },
-      { key: 'warning', value: previewPalette.warning },
-      { key: 'positive', value: previewPalette.positive },
-      { key: 'negative', value: previewPalette.negative },
-      { key: 'bgDark', value: previewPalette.bgDark },
-      { key: 'bgMenuDark', value: previewPalette.bgMenuDark },
-      { key: 'bgMenuLight', value: previewPalette.bgMenuLight },
-      { key: 'bgOddLight', value: previewPalette.bgOddLight },
-      { key: 'bgOddDark', value: previewPalette.bgOddDark },
-      { key: 'bgEvenDark', value: previewPalette.bgEvenDark },
-      { key: 'bgHeadersLight', value: previewPalette.bgHeadersLight },
-    ],
-    [previewPalette],
   );
 
   const financialTabs = useMemo(
@@ -532,62 +469,6 @@ export default function ThemePreviewPage() {
               </View>
             </View>
 
-            <View style={[styles.sectionCard, { backgroundColor: sectionSurface, borderColor: sectionBorder }]}>
-              <View style={styles.sectionHeader}>
-                <Text style={styles.sectionTitle}>Mapa de cores do tema</Text>
-                <Text style={styles.sectionText}>
-                  Cada token abaixo mostra a cor final e a ideia de uso na interface.
-                </Text>
-              </View>
-              <View style={styles.tokenGrid}>
-                {tokenPreviewList.map(token => (
-                  <View
-                    key={token.key}
-                    style={[
-                      styles.tokenCard,
-                      {
-                        backgroundColor: token.value,
-                        borderColor: withOpacity(getReadableTextColor(token.value), 0.12),
-                      },
-                    ]}
-                  >
-                    <Text style={[styles.tokenName, { color: getReadableTextColor(token.value) }]}>
-                      {token.key}
-                    </Text>
-                    <Text style={[styles.tokenValue, { color: getReadableTextColor(token.value) }]}>
-                      {token.value}
-                    </Text>
-                    <Text style={[styles.tokenUsage, { color: getReadableTextColor(token.value) }]}>
-                      {COLOR_USAGE_HINTS[token.key] || 'uso customizado do tema'}
-                    </Text>
-                  </View>
-                ))}
-                {colorEntries
-                  .filter(entry => !tokenPreviewList.some(token => token.key === entry.key))
-                  .map(entry => (
-                    <View
-                      key={entry.key}
-                      style={[
-                        styles.tokenCard,
-                        {
-                          backgroundColor: entry.value,
-                          borderColor: withOpacity(getReadableTextColor(entry.value), 0.12),
-                        },
-                      ]}
-                    >
-                      <Text style={[styles.tokenName, { color: getReadableTextColor(entry.value) }]}>
-                        {entry.key}
-                      </Text>
-                      <Text style={[styles.tokenValue, { color: getReadableTextColor(entry.value) }]}>
-                        {entry.value}
-                      </Text>
-                      <Text style={[styles.tokenUsage, { color: getReadableTextColor(entry.value) }]}>
-                        chave adicional vinda do banco
-                      </Text>
-                    </View>
-                  ))}
-              </View>
-            </View>
           </>
         )}
       </ScrollView>

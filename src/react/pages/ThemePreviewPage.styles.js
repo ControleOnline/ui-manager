@@ -293,33 +293,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
   },
-  tokenGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 10,
-  },
-  tokenCard: {
-    minWidth: 160,
-    flexBasis: '23%',
-    flexGrow: 1,
-    borderRadius: 16,
-    padding: 12,
-    gap: 8,
-    borderWidth: 1,
-  },
-  tokenName: {
-    fontSize: 12,
-    fontWeight: '900',
-  },
-  tokenValue: {
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  tokenUsage: {
-    fontSize: 11,
-    lineHeight: 17,
-    fontWeight: '700',
-  },
   emptyCard: {
     backgroundColor: '#FFFFFF',
     borderRadius: 22,
