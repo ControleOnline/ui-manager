@@ -692,14 +692,24 @@ const composeHexWithAlpha = (value, alphaPercent = 100) => {
 };
 
 const getHexLightnessScore = value => {
-  const normalized = getHexBaseColor(value);
-  if (!normalized || normalized.length !== 7) return -1;
+  const normalized = normalizeHex(value);
+  if (!normalized) return -1;
 
-  const red = Number.parseInt(normalized.slice(1, 3), 16);
-  const green = Number.parseInt(normalized.slice(3, 5), 16);
-  const blue = Number.parseInt(normalized.slice(5, 7), 16);
+  const baseColor = getHexBaseColor(normalized);
+  if (!baseColor || baseColor.length !== 7) return -1;
 
-  return (red * 299 + green * 587 + blue * 114) / 1000;
+  const red = Number.parseInt(baseColor.slice(1, 3), 16);
+  const green = Number.parseInt(baseColor.slice(3, 5), 16);
+  const blue = Number.parseInt(baseColor.slice(5, 7), 16);
+  const alpha = normalized.length === 9
+    ? Number.parseInt(normalized.slice(7, 9), 16) / 255
+    : 1;
+
+  const mixedRed = Math.round((red * alpha) + (255 * (1 - alpha)));
+  const mixedGreen = Math.round((green * alpha) + (255 * (1 - alpha)));
+  const mixedBlue = Math.round((blue * alpha) + (255 * (1 - alpha)));
+
+  return (mixedRed * 299 + mixedGreen * 587 + mixedBlue * 114) / 1000;
 };
 
 const getId = value => {
@@ -925,6 +935,28 @@ const buildEditorField = key => ({
   label: DEFAULT_THEME_FIELD_MAP[key]?.label || key,
   helper: DEFAULT_THEME_FIELD_MAP[key]?.helper || formatColorHint(key),
 });
+
+const buildThemeEditorPaletteColors = themeColors => {
+  const { newEntries } = buildThemeColumns(themeColors);
+  return extractUniqueNormalizedColors(newEntries);
+};
+
+const buildOverwriteThemeColors = (sourceThemeColors = {}, targetThemeColors = {}) => {
+  const sourceColors = normalizeThemeColors(sourceThemeColors);
+  const targetColors = normalizeThemeColors(targetThemeColors);
+
+  const preservedLegacyEntries = Object.entries(targetColors)
+    .filter(([key]) => !THEME_REFERENCE_TOKEN_SET.has(key) && !AUTO_GENERATED_ALIAS_KEYS.has(key));
+  const nextNewEntries = THEME_REFERENCE_TOKENS.map(key => [
+    key,
+    normalizeThemeColorValue(sourceColors[key]) || '',
+  ]);
+
+  return Object.fromEntries([
+    ...preservedLegacyEntries,
+    ...nextNewEntries,
+  ]);
+};
 
 const getPreviewColor = (themeColors, keys, fallbackValue) => {
   return pickThemeColor(themeColors, fallbackValue, Array.isArray(keys) ? keys : [keys]);
@@ -1953,6 +1985,8 @@ const ColorEditor = ({
   value,
   onChange,
   swatchRows = [],
+  selectedSwatchValue,
+  onSelectSwatchValue,
   showCloseButton = false,
   onClose,
   emphasizeLabel = false,
@@ -1999,7 +2033,7 @@ const ColorEditor = ({
             <View style={styles.swatchPickerSection}>
               <View style={styles.swatchPicker}>
                 {row.colors.map((colorItem, index) => {
-                  const selected = normalizedValue === colorItem.value;
+                  const selected = (selectedSwatchValue || normalizedValue) === colorItem.value;
                   const swatchKey = `${field.key}-${row.id}-${colorItem.value}`;
                   const isFirstColor = index === 0;
                   const isLastColor = index === row.colors.length - 1;
@@ -2040,7 +2074,14 @@ const ColorEditor = ({
                           { backgroundColor: colorItem.value },
                           selected && styles.pickerButtonActive,
                         ]}
-                        onPress={() => onChange(colorItem.value)}
+                        onPress={() => {
+                          if (onSelectSwatchValue) {
+                            onSelectSwatchValue(colorItem.value);
+                            return;
+                          }
+
+                          onChange(colorItem.value);
+                        }}
                         onHoverIn={() => setHoveredSwatchKey(swatchKey)}
                         onHoverOut={() => setHoveredSwatchKey(current => (
                           current === swatchKey ? '' : current
@@ -2164,8 +2205,15 @@ export default function ThemeManagerPage() {
   const [themes, setThemes] = useState([]);
   const [objectEditorVisible, setObjectEditorVisible] = useState(false);
   const [themeEditorVisible, setThemeEditorVisible] = useState(false);
+  const [duplicateEditorVisible, setDuplicateEditorVisible] = useState(false);
   const [editingTheme, setEditingTheme] = useState(null);
   const [editingFieldKey, setEditingFieldKey] = useState(null);
+  const [duplicateSourceTheme, setDuplicateSourceTheme] = useState(null);
+  const [duplicateThemeName, setDuplicateThemeName] = useState('');
+  const [duplicateOverwriteExisting, setDuplicateOverwriteExisting] = useState(false);
+  const [duplicateTargetThemeId, setDuplicateTargetThemeId] = useState('');
+  const [duplicateTargetDropdownOpen, setDuplicateTargetDropdownOpen] = useState(false);
+  const [selectedThemeEditorColor, setSelectedThemeEditorColor] = useState('');
   const [selectedPreviewTokenKeysByTheme, setSelectedPreviewTokenKeysByTheme] = useState({});
   const [themeName, setThemeName] = useState('');
   const [themeDraft, setThemeDraft] = useState(buildNewThemeDraft(palette));
@@ -2209,20 +2257,44 @@ export default function ThemeManagerPage() {
     ];
   }, [themeDraft]);
   const themeEditorSwatchRows = useMemo(() => {
-    const themeColorEntries = Object.entries(normalizeThemeColors(themeDraft || {}))
-      .map(([key, value]) => ({
-        key,
-        value,
-      }));
-
     return [
       {
         id: 'theme-draft',
         label: 'ThemeDraft',
-        colors: extractUniqueNormalizedColors(themeColorEntries),
+        colors: buildThemeEditorPaletteColors(themeDraft),
       },
     ];
   }, [themeDraft]);
+  const themeEditorPaletteColors = themeEditorSwatchRows[0]?.colors || [];
+  const activeThemeEditorColor = useMemo(() => {
+    if (themeEditorPaletteColors.length === 0) return '';
+
+    return themeEditorPaletteColors.some(colorItem => colorItem.value === selectedThemeEditorColor)
+      ? selectedThemeEditorColor
+      : themeEditorPaletteColors[0].value;
+  }, [selectedThemeEditorColor, themeEditorPaletteColors]);
+  const themeEditorField = useMemo(() => ({
+    key: 'themeDraftPalette',
+    label: 'ThemeDraft',
+    helper: 'Mostra apenas as cores em uso naquele tema.',
+  }), []);
+  const duplicateTargetThemes = useMemo(() => {
+    const sourceThemeId = String(duplicateSourceTheme?.id || '');
+    return themes.filter(item => String(item?.id || '') !== sourceThemeId);
+  }, [duplicateSourceTheme?.id, themes]);
+
+  useEffect(() => {
+    if (!themeEditorVisible) return;
+
+    if (!activeThemeEditorColor && selectedThemeEditorColor) {
+      setSelectedThemeEditorColor('');
+      return;
+    }
+
+    if (activeThemeEditorColor && activeThemeEditorColor !== selectedThemeEditorColor) {
+      setSelectedThemeEditorColor(activeThemeEditorColor);
+    }
+  }, [activeThemeEditorColor, selectedThemeEditorColor, themeEditorVisible]);
 
   const refreshCurrentThemeIfNeeded = useCallback(async () => {
     if (!currentCompany?.id || String(currentCompany.id) !== String(defaultCompany?.id)) {
@@ -2271,35 +2343,46 @@ export default function ThemeManagerPage() {
   );
 
   const openCreateTheme = useCallback(() => {
+    const nextDraft = buildNewThemeDraft(palette);
     setEditingTheme(null);
     setEditingFieldKey(null);
     setObjectEditorVisible(false);
     setThemeEditorVisible(true);
+    setDuplicateEditorVisible(false);
     setThemeName('');
-    setThemeDraft(buildNewThemeDraft(palette));
+    setThemeDraft(nextDraft);
+    setSelectedThemeEditorColor(buildThemeEditorPaletteColors(nextDraft)[0]?.value || '');
   }, [palette]);
 
   const openEditTheme = useCallback(themeItem => {
+    const nextDraft = buildEditableDraft(themeItem?.colors || {}, palette);
     setEditingTheme(themeItem);
     setEditingFieldKey(null);
     setObjectEditorVisible(false);
     setThemeEditorVisible(true);
+    setDuplicateEditorVisible(false);
     setThemeName(String(themeItem?.theme || '').trim());
-    setThemeDraft(buildEditableDraft(themeItem?.colors || {}, palette));
+    setThemeDraft(nextDraft);
+    setSelectedThemeEditorColor(buildThemeEditorPaletteColors(nextDraft)[0]?.value || '');
   }, [palette]);
 
   const openDuplicateTheme = useCallback(themeItem => {
     setEditingTheme(null);
     setEditingFieldKey(null);
     setObjectEditorVisible(false);
-    setThemeEditorVisible(true);
-    setThemeName(buildDuplicateName(themeItem?.theme, themes));
-    setThemeDraft(buildEditableDraft(themeItem?.colors || {}, palette));
-  }, [palette, themes]);
+    setThemeEditorVisible(false);
+    setDuplicateSourceTheme(themeItem);
+    setDuplicateThemeName(buildDuplicateName(themeItem?.theme, themes));
+    setDuplicateOverwriteExisting(false);
+    setDuplicateTargetThemeId('');
+    setDuplicateTargetDropdownOpen(false);
+    setDuplicateEditorVisible(true);
+  }, [themes]);
 
   const openSingleColorEditor = useCallback((themeItem, fieldKey) => {
     setEditingTheme(themeItem);
     setEditingFieldKey(fieldKey);
+    setDuplicateEditorVisible(false);
     setThemeEditorVisible(false);
     setObjectEditorVisible(true);
     setThemeName(String(themeItem?.theme || '').trim());
@@ -2313,6 +2396,15 @@ export default function ThemeManagerPage() {
     setObjectEditorVisible(false);
     setThemeEditorVisible(false);
     setEditingFieldKey(null);
+    setSelectedThemeEditorColor('');
+  }, []);
+  const closeDuplicateEditor = useCallback(() => {
+    setDuplicateEditorVisible(false);
+    setDuplicateSourceTheme(null);
+    setDuplicateThemeName('');
+    setDuplicateOverwriteExisting(false);
+    setDuplicateTargetThemeId('');
+    setDuplicateTargetDropdownOpen(false);
   }, []);
 
   const registerNewEntryLayout = useCallback((themeId, itemKey, layoutY) => {
@@ -2385,6 +2477,25 @@ export default function ThemeManagerPage() {
       [fieldKey]: value,
     }));
   }, []);
+  const setThemeDraftPaletteColor = useCallback(value => {
+    const nextSelectedColor = normalizeThemeColorValue(value) || value;
+    const replacementValue = nextSelectedColor || value;
+
+    setThemeDraft(current => {
+      const activeColor = activeThemeEditorColor;
+      if (!activeColor) return current;
+
+      return Object.fromEntries(
+        Object.entries(current).map(([key, currentValue]) => {
+          const normalizedCurrentValue = normalizeThemeColorValue(currentValue);
+          if (normalizedCurrentValue !== activeColor) return [key, currentValue];
+          return [key, replacementValue];
+        }),
+      );
+    });
+
+    setSelectedThemeEditorColor(nextSelectedColor);
+  }, [activeThemeEditorColor]);
 
   const toggleShowOnlyFilledNew = useCallback(themeId => {
     setShowOnlyFilledNewByTheme(current => ({
@@ -2497,6 +2608,164 @@ export default function ThemeManagerPage() {
       ],
     );
   }, [updateSingleThemeColor]);
+
+  const requestDuplicateOverwriteConfirmation = useCallback((targetTheme, onConfirm) => {
+    const sourceThemeName = String(duplicateSourceTheme?.theme || '').trim() || 'tema de origem';
+    const targetThemeName = String(targetTheme?.theme || '').trim() || 'tema de destino';
+    const firstMessage = `Voce vai sobrescrever o tema "${targetThemeName}" com as cores novas de "${sourceThemeName}".`;
+    const secondMessage = `Tem certeza? Essa acao nao tem volta.\n\nSomente as cores novas serao sobrescritas. As cores antigas serao mantidas.`;
+
+    if (typeof window !== 'undefined' && typeof window.confirm === 'function') {
+      const firstConfirmation = window.confirm(`${firstMessage}\n\nAs cores antigas nao serao alteradas.`);
+      if (!firstConfirmation) return;
+
+      const secondConfirmation = window.confirm(secondMessage);
+      if (!secondConfirmation) return;
+
+      onConfirm();
+      return;
+    }
+
+    Alert.alert(
+      'Sobrescrever tema?',
+      `${firstMessage}\n\nAs cores antigas nao serao alteradas.`,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Continuar',
+          style: 'destructive',
+          onPress: () => {
+            Alert.alert(
+              'Sem volta',
+              secondMessage,
+              [
+                { text: 'Cancelar', style: 'cancel' },
+                { text: 'Sobrescrever', style: 'destructive', onPress: onConfirm },
+              ],
+            );
+          },
+        },
+      ],
+    );
+  }, [duplicateSourceTheme?.theme]);
+
+  const saveDuplicateTheme = useCallback(async () => {
+    const normalizedName = String(duplicateThemeName || '').trim();
+    if (!normalizedName) {
+      showError('Informe um nome para o tema.');
+      return;
+    }
+
+    if (!duplicateSourceTheme?.id) {
+      showError('Nao foi possivel identificar o tema de origem.');
+      return;
+    }
+
+    const sourceThemeColors = normalizeThemeColors(duplicateSourceTheme?.colors || {});
+    const persistDuplicate = async () => {
+      setIsSaving(true);
+
+      try {
+        if (duplicateOverwriteExisting) {
+          const targetTheme = themes.find(item => String(item?.id || '') === String(duplicateTargetThemeId || ''));
+          if (!targetTheme?.id) {
+            showError('Escolha qual tema existente sera sobrescrito.');
+            return;
+          }
+
+          const payload = {
+            theme: normalizedName,
+            background: getId(targetTheme?.background) ? Number(getId(targetTheme.background)) : null,
+            colors: buildThemeColorsPayload(
+              buildOverwriteThemeColors(sourceThemeColors, targetTheme?.colors || {}),
+            ),
+          };
+
+          const updatedThemeResponse = await api.fetch(getIri(targetTheme, 'themes'), {
+            method: 'PUT',
+            body: payload,
+          });
+
+          const nextTheme = updatedThemeResponse && typeof updatedThemeResponse === 'object'
+            ? {
+              ...targetTheme,
+              ...updatedThemeResponse,
+              colors: normalizeThemeColors(updatedThemeResponse?.colors ?? payload.colors),
+            }
+            : {
+              ...targetTheme,
+              theme: payload.theme,
+              background: payload.background,
+              colors: payload.colors,
+            };
+
+          setThemes(currentThemes => currentThemes.map(item => (
+            String(item?.id) === String(targetTheme.id)
+              ? { ...item, ...nextTheme }
+              : item
+          )));
+
+          showSuccess('Tema sobrescrito com as cores novas.');
+        } else {
+          const payload = {
+            theme: normalizedName,
+            background: getId(duplicateSourceTheme?.background) ? Number(getId(duplicateSourceTheme.background)) : null,
+            colors: buildThemeColorsPayload(sourceThemeColors),
+          };
+
+          const createdThemeResponse = await api.post('/themes', payload);
+
+          if (createdThemeResponse && typeof createdThemeResponse === 'object' && createdThemeResponse?.id) {
+            const nextTheme = {
+              ...createdThemeResponse,
+              colors: normalizeThemeColors(createdThemeResponse?.colors ?? payload.colors),
+            };
+
+            setThemes(currentThemes => sortThemesById([
+              ...currentThemes.filter(item => String(item?.id) !== String(nextTheme.id)),
+              nextTheme,
+            ]));
+          } else {
+            await loadData();
+          }
+
+          showSuccess('Tema duplicado.');
+        }
+
+        closeDuplicateEditor();
+        await refreshCurrentThemeIfNeeded();
+      } catch (error) {
+        showError(formatApiError(error));
+      } finally {
+        setIsSaving(false);
+      }
+    };
+
+    if (duplicateOverwriteExisting) {
+      const targetTheme = themes.find(item => String(item?.id || '') === String(duplicateTargetThemeId || ''));
+      if (!targetTheme?.id) {
+        showError('Escolha qual tema existente sera sobrescrito.');
+        return;
+      }
+
+      requestDuplicateOverwriteConfirmation(targetTheme, persistDuplicate);
+      return;
+    }
+
+    await persistDuplicate();
+  }, [
+    closeDuplicateEditor,
+    duplicateOverwriteExisting,
+    duplicateSourceTheme,
+    duplicateTargetThemeId,
+    duplicateThemeName,
+    loadData,
+    refreshCurrentThemeIfNeeded,
+    requestDuplicateOverwriteConfirmation,
+    showError,
+    showSuccess,
+    themes,
+  ]);
 
   const saveTheme = useCallback(async () => {
     const normalizedName = String(themeName || '').trim();
@@ -2995,6 +3264,159 @@ export default function ThemeManagerPage() {
         )}
       </ScrollView>
 
+      <Modal visible={duplicateEditorVisible} transparent animationType="slide" onRequestClose={closeDuplicateEditor}>
+        <TouchableWithoutFeedback onPress={closeDuplicateEditor}>
+          <View style={styles.backdrop}>
+            <TouchableWithoutFeedback>
+              <View style={styles.modalSheet}>
+                <View style={styles.modalHeader}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.modalTitle}>Duplicar tema</Text>
+                    <Text style={styles.modalSubtitle}>
+                      {`Origem: ${duplicateSourceTheme?.theme || 'Tema selecionado'}`}
+                    </Text>
+                  </View>
+                </View>
+
+                <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ gap: 14, paddingBottom: 8 }}>
+                  <View style={styles.formField}>
+                    <Text style={styles.formLabel}>Nome do tema</Text>
+                    <TextInput
+                      value={duplicateThemeName}
+                      onChangeText={setDuplicateThemeName}
+                      placeholder="Ex.: Copia do tema"
+                      placeholderTextColor="#94A3B8"
+                      style={styles.textInput}
+                    />
+                  </View>
+
+                  <Pressable
+                    style={[
+                      styles.duplicateOptionCard,
+                      duplicateOverwriteExisting && styles.duplicateOptionCardActive,
+                    ]}
+                    onPress={() => {
+                      const nextValue = !duplicateOverwriteExisting;
+                      setDuplicateOverwriteExisting(nextValue);
+
+                      if (!nextValue) {
+                        setDuplicateTargetThemeId('');
+                        setDuplicateTargetDropdownOpen(false);
+                        setDuplicateThemeName(buildDuplicateName(duplicateSourceTheme?.theme, themes));
+                      }
+                    }}
+                  >
+                    <View
+                      style={[
+                        styles.duplicateOptionCheckbox,
+                        duplicateOverwriteExisting && styles.duplicateOptionCheckboxActive,
+                      ]}
+                    >
+                      {duplicateOverwriteExisting ? <Icon name="check" size={12} color="#0F172A" /> : null}
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.duplicateOptionTitle}>Sobrescrever tema existente</Text>
+                      <Text style={styles.duplicateOptionText}>
+                        Substitui somente as cores novas do tema escolhido. As cores antigas permanecem.
+                      </Text>
+                    </View>
+                  </Pressable>
+
+                  {duplicateOverwriteExisting ? (
+                    <View style={styles.formField}>
+                      <Text style={styles.formLabel}>Tema de destino</Text>
+                      {duplicateTargetThemes.length === 0 ? (
+                        <Text style={styles.helperText}>Nao existe outro tema disponivel para sobrescrever.</Text>
+                      ) : (
+                        <View style={styles.duplicateDropdownWrap}>
+                          <Pressable
+                            style={[
+                              styles.duplicateDropdownButton,
+                              duplicateTargetDropdownOpen && styles.duplicateDropdownButtonActive,
+                            ]}
+                            onPress={() => setDuplicateTargetDropdownOpen(current => !current)}
+                          >
+                            <Text
+                              numberOfLines={1}
+                              style={[
+                                styles.duplicateDropdownButtonText,
+                                !duplicateTargetThemeId && styles.duplicateDropdownPlaceholder,
+                              ]}
+                            >
+                              {duplicateTargetThemes.find(item => String(item?.id || '') === String(duplicateTargetThemeId || ''))?.theme
+                                || 'Escolha um tema'}
+                            </Text>
+                            <Icon
+                              name={duplicateTargetDropdownOpen ? 'chevron-up' : 'chevron-down'}
+                              size={16}
+                              color="#64748B"
+                            />
+                          </Pressable>
+
+                          {duplicateTargetDropdownOpen ? (
+                            <View style={styles.duplicateDropdownList}>
+                              {duplicateTargetThemes.map(themeItem => {
+                                const isSelected = String(themeItem?.id || '') === String(duplicateTargetThemeId || '');
+
+                                return (
+                                  <Pressable
+                                    key={`duplicate-target-${themeItem?.id}`}
+                                    style={[
+                                      styles.duplicateDropdownItem,
+                                      isSelected && styles.duplicateDropdownItemActive,
+                                    ]}
+                                    onPress={() => {
+                                      setDuplicateTargetThemeId(String(themeItem?.id || ''));
+                                      setDuplicateThemeName(String(themeItem?.theme || '').trim());
+                                      setDuplicateTargetDropdownOpen(false);
+                                    }}
+                                  >
+                                    <Text style={styles.duplicateDropdownItemText}>
+                                      {themeItem?.theme || `Tema ${themeItem?.id}`}
+                                    </Text>
+                                    <Text style={styles.themeMetaText}>#{themeItem?.id}</Text>
+                                  </Pressable>
+                                );
+                              })}
+                            </View>
+                          ) : null}
+                        </View>
+                      )}
+                      <Text style={styles.duplicateWarningText}>
+                        A confirmacao sera pedida 2 vezes e a sobrescrita nao tem volta.
+                      </Text>
+                    </View>
+                  ) : null}
+                </ScrollView>
+
+                <View style={styles.modalActions}>
+                  <TouchableOpacity style={styles.secondaryButton} onPress={closeDuplicateEditor}>
+                    <Text style={styles.secondaryButtonText}>Cancelar</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[
+                      styles.primaryButton,
+                      { backgroundColor: palette.primary },
+                      isSaving && { opacity: 0.6 },
+                    ]}
+                    onPress={saveDuplicateTheme}
+                    disabled={isSaving}
+                  >
+                    {isSaving ? (
+                      <ActivityIndicator size="small" color="#FFFFFF" />
+                    ) : (
+                      <Text style={styles.primaryButtonText}>
+                        {duplicateOverwriteExisting ? 'Sobrescrever tema' : 'Duplicar tema'}
+                      </Text>
+                    )}
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </TouchableWithoutFeedback>
+          </View>
+        </TouchableWithoutFeedback>
+      </Modal>
+
       <Modal visible={objectEditorVisible} transparent animationType="slide" onRequestClose={closeEditor}>
         <TouchableWithoutFeedback onPress={closeEditor}>
           <View style={styles.backdrop}>
@@ -3087,17 +3509,16 @@ export default function ThemeManagerPage() {
                     />
                   </View>
 
-                  {editorFields.map(field => (
-                    <ColorEditor
-                      key={field.key}
-                      field={field}
-                      value={themeDraft[field.key]}
-                      onChange={value => setDraftColor(field.key, value)}
-                      swatchRows={themeEditorSwatchRows}
-                      showCloseButton={false}
-                      emphasizeLabel={false}
-                    />
-                  ))}
+                  <ColorEditor
+                    field={themeEditorField}
+                    value={activeThemeEditorColor}
+                    onChange={setThemeDraftPaletteColor}
+                    swatchRows={themeEditorSwatchRows}
+                    selectedSwatchValue={activeThemeEditorColor}
+                    onSelectSwatchValue={setSelectedThemeEditorColor}
+                    showCloseButton={false}
+                    emphasizeLabel={false}
+                  />
                 </ScrollView>
 
                 <View style={styles.modalActions}>
