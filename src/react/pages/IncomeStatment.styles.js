@@ -82,7 +82,7 @@ const styles = StyleSheet.create({
     color: '#4caf50',
   },
   textRed: {
-    color: '#f44336',
+    color: '#c10015',
   },
   bold: {
     fontWeight: 'bold',
