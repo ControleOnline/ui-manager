@@ -1419,15 +1419,15 @@ export default StyleSheet.create({
   },
   tableRowGood: {
     backgroundColor: '#F0FDF4',
-    borderLeftColor: '#22C55E',
+    borderLeftColor: '#10b981',
   },
   tableRowWarn: {
     backgroundColor: '#FFFBEB',
-    borderLeftColor: '#F59E0B',
+    borderLeftColor: '#e67e22',
   },
   tableRowBad: {
     backgroundColor: '#FEF2F2',
-    borderLeftColor: '#EF4444',
+    borderLeftColor: '#c10015',
   },
   tableRowActive: {
     backgroundColor: '#EAF4FF',
