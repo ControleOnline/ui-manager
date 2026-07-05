@@ -17,6 +17,7 @@ import packageJson from '@package';
 import {
   canDisplayChangePrinter,
   DEVICE_ANDROID_KIOSK_ENABLED_CONFIG_KEY,
+  DEVICE_ANDROID_LAUNCHER_ENABLED_CONFIG_KEY,
   DISPLAY_AUTO_PRINT_PRODUCT_CONFIG_KEY,
   DISPLAY_ALLOW_PRINTER_CHANGE_CONFIG_KEY,
   DEVICE_ALERT_SOUND_ENABLED_KEY,
@@ -48,6 +49,7 @@ import {
   POS_PRINT_MODE_ORDER,
   getPosOperationModeOption,
   isAndroidKioskEnabled,
+  isAndroidLauncherEnabled,
   isPosDeliveryEnabled,
   resolvePosCheckOrderManagementMode,
   resolvePosCheckOrderType,
@@ -218,6 +220,7 @@ const DeviceDetailPage = () => {
   const [savingPdvSettings, setSavingPdvSettings] = useState(false);
   const [savingPaymentTypes, setSavingPaymentTypes] = useState(false);
   const [savingPosOperationMode, setSavingPosOperationMode] = useState(false);
+  const [savingLauncherMode, setSavingLauncherMode] = useState(false);
   const [savingAlertSound, setSavingAlertSound] = useState(false);
   const [savingOrderVisibility, setSavingOrderVisibility] = useState(false);
   const [savingDeviceDeliverySettings, setSavingDeviceDeliverySettings] =
@@ -239,6 +242,9 @@ const DeviceDetailPage = () => {
   );
   const [androidKioskEnabled, setAndroidKioskEnabled] = useState(
     isAndroidKioskEnabled(normalizedInitialConfigs),
+  );
+  const [androidLauncherEnabled, setAndroidLauncherEnabled] = useState(
+    isAndroidLauncherEnabled(normalizedInitialConfigs),
   );
   const [counterAutoPrintEnabled, setCounterAutoPrintEnabled] = useState(
     isPosAutoPrintEnabled(normalizedInitialConfigs),
@@ -399,6 +405,7 @@ const DeviceDetailPage = () => {
       setPdvPrinterEnabled(isPdvPrinterEnabled(nextConfigs));
       setPosOperationMode(resolvePosOperationMode(nextConfigs));
       setAndroidKioskEnabled(isAndroidKioskEnabled(nextConfigs));
+      setAndroidLauncherEnabled(isAndroidLauncherEnabled(nextConfigs));
       setCounterAutoPrintEnabled(isPosAutoPrintEnabled(nextConfigs));
       setCounterPrintMode(resolvePosPrintMode(nextConfigs));
       setCounterCashManagementMode(resolvePosCashManagementMode(nextConfigs));
@@ -445,6 +452,8 @@ const DeviceDetailPage = () => {
     setPdvGateway('');
     setPdvPrinterEnabled(true);
     setPosOperationMode(resolvePosOperationMode({}));
+    setAndroidKioskEnabled(false);
+    setAndroidLauncherEnabled(false);
     setCounterAutoPrintEnabled(isPosAutoPrintEnabled({}));
     setCounterPrintMode(resolvePosPrintMode({}));
     setCounterCashManagementMode(resolvePosCashManagementMode({}));
@@ -867,6 +876,46 @@ const DeviceDetailPage = () => {
     posOperationMode,
     refreshCurrentConfig,
     savingPosOperationMode,
+  ]);
+
+  const saveLauncherMode = useCallback(async () => {
+    if (
+      !isPdvDevice ||
+      !currentCompany?.id ||
+      !deviceString ||
+      savingLauncherMode
+    ) {
+      return;
+    }
+
+    setSavingLauncherMode(true);
+    try {
+      await actionsRef.current.deviceConfigActions.addDeviceConfigs({
+        device: deviceString,
+        configs: JSON.stringify({
+          [DEVICE_ANDROID_LAUNCHER_ENABLED_CONFIG_KEY]: androidLauncherEnabled
+            ? '1'
+            : '0',
+          'config-version': appVersion,
+        }),
+        people: '/people/' + currentCompany.id,
+        type: deviceType,
+      });
+      await refreshCurrentConfig();
+    } catch {
+      // silencioso
+    } finally {
+      setSavingLauncherMode(false);
+    }
+  }, [
+    androidLauncherEnabled,
+    appVersion,
+    currentCompany?.id,
+    deviceString,
+    deviceType,
+    isPdvDevice,
+    refreshCurrentConfig,
+    savingLauncherMode,
   ]);
 
   const saveDeviceAlertSoundConfig = useCallback(async () => {
@@ -1558,6 +1607,86 @@ const DeviceDetailPage = () => {
                     <Icon name="save" size={14} color="#fff" />
                     <Text style={styles.configButtonText}>
                       {tt('button', 'savePosOperationMode')}
+                    </Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.configCard}>
+              <Text style={[styles.configTitle, {color: brandColors.text}]}>
+                {tt('title', 'androidLauncherMode') || 'Launcher / home app'}
+              </Text>
+              <Text
+                style={[
+                  styles.configDescription,
+                  {color: brandColors.textSecondary},
+                ]}>
+                {tt('description', 'androidLauncherDescription') ||
+                  'Quando ativado, este device pode voltar para a própria app ao usar home ou apps recentes. O botão voltar continua seguindo a navegação normal da tela.'}
+              </Text>
+
+              <TouchableOpacity
+                style={[
+                  styles.toggleRow,
+                  androidLauncherEnabled && {
+                    borderColor: withOpacity(brandColors.success, 0.35),
+                    backgroundColor: withOpacity(brandColors.success, 0.08),
+                  },
+                ]}
+                activeOpacity={0.85}
+                onPress={() =>
+                  setAndroidLauncherEnabled(currentValue => !currentValue)
+                }>
+                <View>
+                  <Text style={[styles.toggleRowLabel, {color: brandColors.text}]}>
+                    Modo launcher?
+                  </Text>
+                  <Text
+                    style={[
+                      styles.toggleRowValue,
+                      {color: brandColors.textSecondary},
+                    ]}>
+                    {androidLauncherEnabled ? 'Ativo' : 'Inativo'}
+                  </Text>
+                </View>
+                <Icon
+                  name={androidLauncherEnabled ? 'toggle-right' : 'toggle-left'}
+                  size={28}
+                  color={
+                    androidLauncherEnabled
+                      ? brandColors.success
+                      : brandColors.textSecondary
+                  }
+                />
+              </TouchableOpacity>
+
+              <Text style={[styles.configHint, {color: brandColors.textSecondary}]}>
+                Esse modo é separado do totem/kiosk. Use quando o Android
+                precisa tratar a app como destino de home sem herdar a trava do
+                totem.
+              </Text>
+
+              <TouchableOpacity
+                style={[
+                  styles.configButton,
+                  {backgroundColor: brandColors.primary},
+                  savingLauncherMode && {opacity: 0.6},
+                ]}
+                activeOpacity={0.85}
+                disabled={savingLauncherMode}
+                onPress={saveLauncherMode}>
+                {savingLauncherMode ? (
+                  <ActivityIndicator size="small" color={brandColors.white} />
+                ) : (
+                  <>
+                    <Icon name="save" size={14} color={brandColors.white} />
+                    <Text
+                      style={[
+                        styles.configButtonText,
+                        {color: brandColors.white},
+                      ]}>
+                      Salvar modo launcher
                     </Text>
                   </>
                 )}
