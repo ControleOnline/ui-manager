@@ -163,20 +163,12 @@ const DeviceDetailPage = () => {
   const route      = useRoute();
   const navigation = useNavigation();
   const {
-    dcId,
-    deviceId,
-    deviceString,
-    deviceType: initialDeviceType,
-    alias: initialAlias,
-    configs: initialConfigs,
+    deviceId: routeDeviceId,
   } = route.params || {};
-  const normalizedInitialConfigs = useMemo(
-    () => parseConfigsObject(initialConfigs),
-    [initialConfigs],
+  const deviceId = useMemo(
+    () => normalizeEntityId(routeDeviceId),
+    [routeDeviceId],
   );
-  const deviceType = String(initialDeviceType || '').trim().toUpperCase();
-  const isDisplayDevice = deviceType === DISPLAY_DEVICE_TYPE;
-  const isPdvDevice = deviceType === PDV_DEVICE_TYPE;
 
   const invoiceStore      = useStore('invoice');
   const deviceConfigStore = useStore('device_config');
@@ -189,10 +181,48 @@ const DeviceDetailPage = () => {
 
   const { currentCompany }      = peopleStore.getters;
   const { item: runtimeDevice } = deviceStore.getters;
+  const { item: runtimeDeviceConfig } = deviceConfigStore.getters;
   const { items: displays = [], isLoading: isLoadingDisplays } = displayStore.getters;
   const { items: printers = [], isLoading: isLoadingPrinters } = printerStore.getters;
   const { colors: themeColors } = themeStore.getters;
   const websocketActions = websocketStore.actions;
+
+  const currentDevice =
+    deviceId &&
+    normalizeEntityId(runtimeDevice?.id || runtimeDevice?.['@id']) === deviceId
+      ? runtimeDevice
+      : {};
+  const currentDeviceConfig =
+    deviceId &&
+    normalizeEntityId(
+      runtimeDeviceConfig?.device?.id ||
+        runtimeDeviceConfig?.device?.['@id'] ||
+        runtimeDeviceConfig?.deviceId ||
+        runtimeDeviceConfig?.device?.deviceId,
+    ) === deviceId
+      ? runtimeDeviceConfig
+      : {};
+  const deviceString = String(
+    currentDevice?.device || currentDeviceConfig?.device?.device || '',
+  ).trim();
+  const deviceType = String(
+    currentDevice?.type ||
+      currentDevice?.deviceType ||
+      currentDeviceConfig?.type ||
+      currentDeviceConfig?.device?.type ||
+      '',
+  )
+    .trim()
+    .toUpperCase();
+  const normalizedInitialConfigs = useMemo(
+    () => parseConfigsObject(currentDeviceConfig?.configs),
+    [currentDeviceConfig?.configs],
+  );
+  const initialAlias = String(
+    currentDevice?.alias || currentDeviceConfig?.device?.alias || currentDevice?.device || '',
+  ).trim();
+  const isDisplayDevice = deviceType === DISPLAY_DEVICE_TYPE;
+  const isPdvDevice = deviceType === PDV_DEVICE_TYPE;
 
   const actionsRef = useRef({});
   actionsRef.current = {
@@ -306,6 +336,15 @@ const DeviceDetailPage = () => {
   const [savingAlias,  setSavingAlias]  = useState(false);
   const aliasInputRef = useRef(null);
 
+  useEffect(() => {
+    if (editingAlias) {
+      return;
+    }
+
+    setAlias(initialAlias || '');
+    setAliasInput(initialAlias || '');
+  }, [editingAlias, initialAlias]);
+
   const isOpen = useMemo(() => getIsOpen(configs), [configs]);
   const hasLocalPaymentGateway = useMemo(
     () =>
@@ -373,30 +412,88 @@ const DeviceDetailPage = () => {
     [deviceString, deviceType, runtimeDeviceId, runtimeDeviceType],
   );
 
-  const applyCurrentDeviceConfig = useCallback(scopedItems => {
+  const resolveDeviceContext = useCallback(async () => {
+    const resolvedDeviceString = String(
+      currentDevice?.device || currentDeviceConfig?.device?.device || '',
+    ).trim();
+    const resolvedDeviceType = String(
+      currentDevice?.type ||
+        currentDevice?.deviceType ||
+        currentDeviceConfig?.type ||
+        currentDeviceConfig?.device?.type ||
+        '',
+    )
+      .trim()
+      .toUpperCase();
+
+    if (resolvedDeviceString && resolvedDeviceType) {
+      return {
+        deviceData: currentDevice?.id ? currentDevice : currentDeviceConfig?.device || null,
+        deviceString: resolvedDeviceString,
+        deviceType: resolvedDeviceType,
+      };
+    }
+
+    if (!deviceId) {
+      return {
+        deviceData: null,
+        deviceString: '',
+        deviceType: '',
+      };
+    }
+
+    const fetchedDevice = await actionsRef.current.deviceActions
+      .get(deviceId)
+      .catch(() => null);
+
+    return {
+      deviceData: fetchedDevice,
+      deviceString: String(fetchedDevice?.device || '').trim(),
+      deviceType: String(fetchedDevice?.type || fetchedDevice?.deviceType || '')
+        .trim()
+        .toUpperCase(),
+    };
+  }, [currentDevice, currentDeviceConfig, deviceId]);
+
+  const applyCurrentDeviceConfig = useCallback((scopedItems, context = {}) => {
+    const currentDeviceString = String(
+      context.deviceString || deviceString || '',
+    ).trim();
+    const currentDeviceType = String(
+      context.deviceType || deviceType || '',
+    )
+      .trim()
+      .toUpperCase();
+    const currentDeviceConfigId = normalizeEntityId(
+      context.deviceId || deviceId,
+    );
     const dc = (scopedItems || []).find(d => {
       const currentConfigType = String(d?.type || d?.device?.type || '')
         .trim()
         .toUpperCase();
+      const nextDeviceId = normalizeEntityId(
+        d?.device?.id ||
+          d?.device?.['@id'] ||
+          d?.deviceId ||
+          d?.device?.deviceId,
+      );
 
-      if (String(d?.id || '') === String(dcId || '')) {
+      if (currentDeviceConfigId && nextDeviceId === currentDeviceConfigId) {
         return true;
       }
 
       return (
-        d?.device?.device === deviceString &&
-        currentConfigType === deviceType
+        d?.device?.device === currentDeviceString &&
+        currentConfigType === currentDeviceType
       );
     });
 
     if (dc) {
       const nextConfigs = parseConfigsObject(dc.configs);
-      if (isEditingRuntimeDevice) {
-        actionsRef.current.deviceConfigActions.setItem({
-          ...dc,
-          configs: nextConfigs,
-        });
-      }
+      actionsRef.current.deviceConfigActions.setItem({
+        ...dc,
+        configs: nextConfigs,
+      });
       setConfigs(nextConfigs);
       setDevicePaymentTarget(
         normalizeDeviceId(nextConfigs[ORDER_PAYMENT_DEVICE_CONFIG_KEY]),
@@ -443,9 +540,7 @@ const DeviceDetailPage = () => {
       return;
     }
 
-    if (isEditingRuntimeDevice) {
-      actionsRef.current.deviceConfigActions.setItem({});
-    }
+    actionsRef.current.deviceConfigActions.setItem({});
 
     setConfigs({});
     setDevicePaymentTarget('');
@@ -468,7 +563,7 @@ const DeviceDetailPage = () => {
     setDisplayPrinterId('');
     setDisplayAllowPrinterChange(false);
     setDisplayAutoPrintProductEnabled(false);
-  }, [dcId, deviceString, deviceType, isEditingRuntimeDevice]);
+  }, [deviceId, deviceString, deviceType]);
 
   const loadMovementData = useCallback(async () => {
     if (!isPdvDevice) {
@@ -478,16 +573,19 @@ const DeviceDetailPage = () => {
       return;
     }
 
-    if (!currentCompany?.id || !deviceString) return;
+    if (!currentCompany?.id) return;
+    const resolvedContext = await resolveDeviceContext();
+    const nextDeviceString = resolvedContext?.deviceString || deviceString;
+    if (!nextDeviceString) return;
     setLoadingMovementData(true);
     try {
       const [cashData, inflowRaw] = await Promise.all([
         actionsRef.current.invoiceActions.getCashRegister({
-          device:   deviceString,
+          device:   nextDeviceString,
           provider: currentCompany.id,
         }),
         actionsRef.current.invoiceActions.getInflow({
-          'device.device': deviceString,
+          'device.device': nextDeviceString,
           receiver:        currentCompany.id,
         }),
       ]);
@@ -504,31 +602,76 @@ const DeviceDetailPage = () => {
       setLoadingMovementData(false);
       setHasLoadedMovementData(true);
     }
-  }, [currentCompany?.id, deviceString, isPdvDevice]);
+  }, [currentCompany?.id, deviceString, isPdvDevice, resolveDeviceContext]);
 
   const refreshCurrentConfig = useCallback(async () => {
     if (!currentCompany?.id) return;
     setLoadingConfigData(true);
     try {
+      const resolvedContext = await resolveDeviceContext();
+      const nextDeviceString = resolvedContext?.deviceString || deviceString;
+      const nextDeviceType = resolvedContext?.deviceType || deviceType;
+      if (!nextDeviceString || !nextDeviceType) {
+        applyCurrentDeviceConfig([], {
+          deviceId,
+          deviceString: nextDeviceString,
+          deviceType: nextDeviceType,
+        });
+        return;
+      }
+
       const items = await actionsRef.current.deviceConfigActions.getItems({
-        'device.device': deviceString,
+        'device.device': nextDeviceString,
         people: `/people/${currentCompany.id}`,
-        type: deviceType,
+        type: nextDeviceType,
       });
       const scopedItems = filterDeviceConfigsByCompany(items, currentCompany?.id);
-      applyCurrentDeviceConfig(scopedItems);
+      const selectedDeviceConfig = scopedItems.find(d => {
+        const currentConfigType = String(d?.type || d?.device?.type || '')
+          .trim()
+          .toUpperCase();
+        const nextDeviceId = normalizeEntityId(
+          d?.device?.id ||
+            d?.device?.['@id'] ||
+            d?.deviceId ||
+            d?.device?.deviceId,
+        );
+
+        return (
+          (deviceId && nextDeviceId === deviceId) ||
+          (d?.device?.device === nextDeviceString &&
+            currentConfigType === nextDeviceType)
+        );
+      });
+
+      if (selectedDeviceConfig) {
+        actionsRef.current.deviceConfigActions.setItem({
+          ...selectedDeviceConfig,
+          configs: parseConfigsObject(selectedDeviceConfig.configs),
+        });
+      }
+
+      applyCurrentDeviceConfig(
+        selectedDeviceConfig ? [selectedDeviceConfig] : scopedItems,
+        {
+          deviceId,
+          deviceString: nextDeviceString,
+          deviceType: nextDeviceType,
+        },
+      );
     } catch {
-      applyCurrentDeviceConfig([]);
+      applyCurrentDeviceConfig([], {deviceId});
     } finally {
       setLoadingConfigData(false);
       setHasLoadedCurrentConfig(true);
     }
   }, [
-    actionsRef,
     applyCurrentDeviceConfig,
     currentCompany?.id,
     deviceString,
     deviceType,
+    deviceId,
+    resolveDeviceContext,
   ]);
 
   const loadCompanyConfigs = useCallback(async () => {
@@ -705,7 +848,6 @@ const DeviceDetailPage = () => {
       const nextAlias = String(savedDevice?.alias || trimmed).trim();
       setAlias(nextAlias);
       setAliasInput(nextAlias);
-      navigation.setParams({alias: nextAlias});
       setEditingAlias(false);
     } catch {
       // silencioso — mantém o valor anterior
@@ -713,9 +855,12 @@ const DeviceDetailPage = () => {
     } finally {
       setSavingAlias(false);
     }
-  }, [aliasInput, alias, deviceId, cancelEditAlias, navigation]);
+  }, [aliasInput, alias, deviceId, cancelEditAlias]);
 
-  const saveDevicePaymentTarget = useCallback(async () => {
+  const saveDevicePaymentTarget = useCallback(async (override = {}) => {
+    const nextDevicePaymentTarget =
+      override.devicePaymentTarget ?? devicePaymentTarget;
+
     if (!currentCompany?.id || !deviceString) {
       return;
     }
@@ -725,7 +870,7 @@ const DeviceDetailPage = () => {
       await actionsRef.current.deviceConfigActions.addDeviceConfigs({
         device: deviceString,
         configs: JSON.stringify({
-          [ORDER_PAYMENT_DEVICE_CONFIG_KEY]: devicePaymentTarget || '',
+          [ORDER_PAYMENT_DEVICE_CONFIG_KEY]: nextDevicePaymentTarget || '',
         }),
         people: '/people/' + currentCompany.id,
         type: deviceType,
@@ -738,7 +883,11 @@ const DeviceDetailPage = () => {
     }
   }, [currentCompany?.id, devicePaymentTarget, deviceString, deviceType, refreshCurrentConfig]);
 
-  const savePdvSettings = useCallback(async () => {
+  const savePdvSettings = useCallback(async (override = {}) => {
+    const nextPdvGateway = override.pdvGateway ?? pdvGateway;
+    const nextPdvPrinterEnabled =
+      override.pdvPrinterEnabled ?? pdvPrinterEnabled;
+
     if (
       !isPdvDevice ||
       !currentCompany?.id ||
@@ -753,8 +902,8 @@ const DeviceDetailPage = () => {
       await actionsRef.current.deviceConfigActions.addDeviceConfigs({
         device: deviceString,
         configs: JSON.stringify({
-          [POS_GATEWAY_CONFIG_KEY]: pdvGateway || '',
-          [PDV_PRINTER_ENABLED_CONFIG_KEY]: pdvPrinterEnabled ? '1' : '0',
+          [POS_GATEWAY_CONFIG_KEY]: nextPdvGateway || '',
+          [PDV_PRINTER_ENABLED_CONFIG_KEY]: nextPdvPrinterEnabled ? '1' : '0',
         }),
         people: '/people/' + currentCompany.id,
         type: deviceType,
@@ -818,7 +967,22 @@ const DeviceDetailPage = () => {
     ],
   );
 
-  const savePosOperationMode = useCallback(async () => {
+  const savePosOperationMode = useCallback(async (override = {}) => {
+    const nextPosOperationMode =
+      override.posOperationMode ?? posOperationMode;
+    const nextAndroidKioskEnabled =
+      override.androidKioskEnabled ?? androidKioskEnabled;
+    const nextCheckOrderType =
+      override.checkOrderType ?? checkOrderType;
+    const nextCheckOrderManagementMode =
+      override.checkOrderManagementMode ?? checkOrderManagementMode;
+    const nextCounterAutoPrintEnabled =
+      override.counterAutoPrintEnabled ?? counterAutoPrintEnabled;
+    const nextCounterPrintMode =
+      override.counterPrintMode ?? counterPrintMode;
+    const nextCounterCashManagementMode =
+      override.counterCashManagementMode ?? counterCashManagementMode;
+
     if (
       !isPdvDevice ||
       !currentCompany?.id ||
@@ -831,23 +995,23 @@ const DeviceDetailPage = () => {
     setSavingPosOperationMode(true);
     try {
       const nextOperationConfigs = {
-        [POS_OPERATION_MODE_CONFIG_KEY]: posOperationMode,
-        [DEVICE_ANDROID_KIOSK_ENABLED_CONFIG_KEY]: androidKioskEnabled
+        [POS_OPERATION_MODE_CONFIG_KEY]: nextPosOperationMode,
+        [DEVICE_ANDROID_KIOSK_ENABLED_CONFIG_KEY]: nextAndroidKioskEnabled
           ? '1'
           : '0',
-        [POS_CHECK_ORDER_TYPE_CONFIG_KEY]: checkOrderType,
+        [POS_CHECK_ORDER_TYPE_CONFIG_KEY]: nextCheckOrderType,
         [POS_CHECK_ORDER_MANAGEMENT_MODE_CONFIG_KEY]:
-          checkOrderType === POS_CHECK_ORDER_TYPE_NONE
+          nextCheckOrderType === POS_CHECK_ORDER_TYPE_NONE
             ? POS_CHECK_ORDER_MANAGEMENT_MODE_MANAGE
-            : checkOrderManagementMode,
+            : nextCheckOrderManagementMode,
       };
 
-      if (posOperationMode === POS_OPERATION_MODE_COUNTER) {
+      if (nextPosOperationMode === POS_OPERATION_MODE_COUNTER) {
         nextOperationConfigs[POS_AUTO_PRINT_ENABLED_CONFIG_KEY] =
-          counterAutoPrintEnabled ? '1' : '0';
-        nextOperationConfigs['print-mode'] = counterPrintMode;
+          nextCounterAutoPrintEnabled ? '1' : '0';
+        nextOperationConfigs['print-mode'] = nextCounterPrintMode;
         nextOperationConfigs[POS_CASH_MANAGEMENT_MODE_CONFIG_KEY] =
-          counterCashManagementMode;
+          nextCounterCashManagementMode;
       }
 
       await actionsRef.current.deviceConfigActions.addDeviceConfigs({
@@ -878,7 +1042,10 @@ const DeviceDetailPage = () => {
     savingPosOperationMode,
   ]);
 
-  const saveLauncherMode = useCallback(async () => {
+  const saveLauncherMode = useCallback(async (override = {}) => {
+    const nextAndroidLauncherEnabled =
+      override.androidLauncherEnabled ?? androidLauncherEnabled;
+
     if (
       !isPdvDevice ||
       !currentCompany?.id ||
@@ -893,7 +1060,7 @@ const DeviceDetailPage = () => {
       await actionsRef.current.deviceConfigActions.addDeviceConfigs({
         device: deviceString,
         configs: JSON.stringify({
-          [DEVICE_ANDROID_LAUNCHER_ENABLED_CONFIG_KEY]: androidLauncherEnabled
+          [DEVICE_ANDROID_LAUNCHER_ENABLED_CONFIG_KEY]: nextAndroidLauncherEnabled
             ? '1'
             : '0',
           'config-version': appVersion,
@@ -918,7 +1085,12 @@ const DeviceDetailPage = () => {
     savingLauncherMode,
   ]);
 
-  const saveDeviceAlertSoundConfig = useCallback(async () => {
+  const saveDeviceAlertSoundConfig = useCallback(async (override = {}) => {
+    const nextDeviceAlertSoundEnabled =
+      override.deviceAlertSoundEnabled ?? deviceAlertSoundEnabled;
+    const nextDeviceAlertSoundUrl =
+      override.deviceAlertSoundUrl ?? deviceAlertSoundUrl;
+
     if (!currentCompany?.id || !deviceString || savingAlertSound) {
       return;
     }
@@ -928,8 +1100,8 @@ const DeviceDetailPage = () => {
       await actionsRef.current.deviceConfigActions.addDeviceConfigs({
         device: deviceString,
         configs: JSON.stringify({
-          [DEVICE_ALERT_SOUND_ENABLED_KEY]: deviceAlertSoundEnabled ? '1' : '0',
-          [DEVICE_ALERT_SOUND_URL_KEY]: deviceAlertSoundUrl.trim(),
+          [DEVICE_ALERT_SOUND_ENABLED_KEY]: nextDeviceAlertSoundEnabled ? '1' : '0',
+          [DEVICE_ALERT_SOUND_URL_KEY]: String(nextDeviceAlertSoundUrl || '').trim(),
         }),
         people: '/people/' + currentCompany.id,
         type: deviceType,
@@ -950,7 +1122,10 @@ const DeviceDetailPage = () => {
     savingAlertSound,
   ]);
 
-  const saveDeviceOrderVisibility = useCallback(async () => {
+  const saveDeviceOrderVisibility = useCallback(async (override = {}) => {
+    const nextDeviceOrderVisibility =
+      override.deviceOrderVisibility ?? deviceOrderVisibility;
+
     if (!currentCompany?.id || !deviceString || savingOrderVisibility) {
       return;
     }
@@ -960,7 +1135,7 @@ const DeviceDetailPage = () => {
       await actionsRef.current.deviceConfigActions.addDeviceConfigs({
         device: deviceString,
         configs: JSON.stringify({
-          [DEVICE_ORDER_VISIBILITY_KEY]: deviceOrderVisibility || DEVICE_ORDER_VISIBILITY_DEVICE,
+          [DEVICE_ORDER_VISIBILITY_KEY]: nextDeviceOrderVisibility || DEVICE_ORDER_VISIBILITY_DEVICE,
         }),
         people: '/people/' + currentCompany.id,
         type: deviceType,
@@ -980,7 +1155,10 @@ const DeviceDetailPage = () => {
     savingOrderVisibility,
   ]);
 
-  const saveDeviceDeliverySettings = useCallback(async () => {
+  const saveDeviceDeliverySettings = useCallback(async (override = {}) => {
+    const nextDeviceDeliveryEnabled =
+      override.deviceDeliveryEnabled ?? deviceDeliveryEnabled;
+
     if (
       !currentCompany?.id ||
       !deviceString ||
@@ -994,7 +1172,7 @@ const DeviceDetailPage = () => {
       await actionsRef.current.deviceConfigActions.addDeviceConfigs({
         device: deviceString,
         configs: JSON.stringify({
-          [POS_DELIVERY_ENABLED_CONFIG_KEY]: deviceDeliveryEnabled ? '1' : '0',
+          [POS_DELIVERY_ENABLED_CONFIG_KEY]: nextDeviceDeliveryEnabled ? '1' : '0',
         }),
         people: '/people/' + currentCompany.id,
         type: deviceType,
@@ -1014,7 +1192,10 @@ const DeviceDetailPage = () => {
     savingDeviceDeliverySettings,
   ]);
 
-  const saveDeviceRuntimeDebugInfo = useCallback(async () => {
+  const saveDeviceRuntimeDebugInfo = useCallback(async (override = {}) => {
+    const nextDeviceRuntimeDebugInfoEnabled =
+      override.deviceRuntimeDebugInfoEnabled ?? deviceRuntimeDebugInfoEnabled;
+
     if (!currentCompany?.id || !deviceString || savingRuntimeDebugInfo) {
       return;
     }
@@ -1025,7 +1206,7 @@ const DeviceDetailPage = () => {
         device: deviceString,
         configs: JSON.stringify({
           [DEVICE_RUNTIME_DEBUG_INFO_ENABLED_KEY]:
-            deviceRuntimeDebugInfoEnabled ? '1' : '0',
+            nextDeviceRuntimeDebugInfoEnabled ? '1' : '0',
         }),
         people: '/people/' + currentCompany.id,
         type: deviceType,
@@ -1045,7 +1226,14 @@ const DeviceDetailPage = () => {
     savingRuntimeDebugInfo,
   ]);
 
-  const saveDisplayPrintingConfig = useCallback(async () => {
+  const saveDisplayPrintingConfig = useCallback(async (override = {}) => {
+    const nextLinkedDisplayId = override.linkedDisplayId ?? linkedDisplayId;
+    const nextDisplayPrinterId = override.displayPrinterId ?? displayPrinterId;
+    const nextDisplayAllowPrinterChange =
+      override.displayAllowPrinterChange ?? displayAllowPrinterChange;
+    const nextDisplayAutoPrintProductEnabled =
+      override.displayAutoPrintProductEnabled ?? displayAutoPrintProductEnabled;
+
     if (
       !isDisplayDevice ||
       !currentCompany?.id ||
@@ -1055,28 +1243,20 @@ const DeviceDetailPage = () => {
       return;
     }
 
-    const normalizedDisplayId = String(linkedDisplayId || '').trim();
-    const normalizedPrinterId = normalizeDeviceId(displayPrinterId);
+    const normalizedDisplayId = String(nextLinkedDisplayId || '').trim();
+    const normalizedPrinterId = normalizeDeviceId(nextDisplayPrinterId);
 
     if (
       (normalizedDisplayId && !normalizedPrinterId) ||
       (!normalizedDisplayId && normalizedPrinterId)
     ) {
-      Alert.alert(
-        'Impressao de preparo',
-        'Selecione juntos o display vinculado e a impressora da fila, ou limpe os dois campos.',
-      );
       return;
     }
 
     if (
-      displayAutoPrintProductEnabled &&
+      nextDisplayAutoPrintProductEnabled &&
       (!normalizedDisplayId || !normalizedPrinterId)
     ) {
-      Alert.alert(
-        'Impressao automatica',
-        'Para imprimir produtos automaticamente, selecione o display vinculado e a impressora deste KDS.',
-      );
       return;
     }
 
@@ -1088,9 +1268,9 @@ const DeviceDetailPage = () => {
           [DISPLAY_DEVICE_LINK_CONFIG_KEY]: normalizedDisplayId,
           [DISPLAY_DEVICE_PRINTER_CONFIG_KEY]: normalizedPrinterId,
           [DISPLAY_ALLOW_PRINTER_CHANGE_CONFIG_KEY]:
-            displayAllowPrinterChange ? '1' : '0',
+            nextDisplayAllowPrinterChange ? '1' : '0',
           [DISPLAY_AUTO_PRINT_PRODUCT_CONFIG_KEY]:
-            displayAutoPrintProductEnabled ? '1' : '0',
+            nextDisplayAutoPrintProductEnabled ? '1' : '0',
         }),
         people: '/people/' + currentCompany.id,
         type: deviceType,
@@ -1202,6 +1382,56 @@ const DeviceDetailPage = () => {
       <Text style={[styles.productCell, { flex: 1.3, textAlign: 'right', fontWeight: '700' }]}>
         {Formatter.formatMoney(item.order_product_total)}
       </Text>
+    </View>
+  );
+
+  const renderHelpButton = (title, message) => (
+    <TouchableOpacity
+      style={[
+        styles.helpButton,
+        {
+          borderColor: withOpacity(brandColors.primary, 0.35),
+          backgroundColor: withOpacity(brandColors.primary, 0.08),
+        },
+      ]}
+      activeOpacity={0.85}
+      onPress={() => Alert.alert(title, message)}>
+      <Text style={[styles.helpButtonText, { color: brandColors.primary }]}>?</Text>
+    </TouchableOpacity>
+  );
+
+  const renderOptionButtons = ({ options, value, onChange, disabled = false }) => (
+    <View style={styles.optionRow}>
+      {options.map(option => {
+        const selected = String(option.value) === String(value);
+
+        return (
+          <TouchableOpacity
+            key={String(option.value)}
+            style={[
+              styles.optionButton,
+              selected && styles.optionButtonActive,
+              disabled && {opacity: 0.55},
+            ]}
+            activeOpacity={disabled ? 1 : 0.85}
+            disabled={disabled}
+            onPress={() => {
+              if (disabled) {
+                return;
+              }
+
+              onChange(option.value);
+            }}>
+            <Text
+              style={[
+                styles.optionButtonText,
+                selected && styles.optionButtonTextActive,
+              ]}>
+              {option.label}
+            </Text>
+          </TouchableOpacity>
+        );
+      })}
     </View>
   );
 
@@ -1342,45 +1572,31 @@ const DeviceDetailPage = () => {
             </Text>
 
             <View style={styles.configCard}>
-              <Text style={styles.configTitle}>
-                {tt('title', 'posOperationMode')}
-              </Text>
-              <Text style={styles.configDescription}>
-                {tt('description', 'posOperationModeDescription')}
-              </Text>
-
-              <View style={styles.textInputWrap}>
-                <Text style={styles.textInputLabel}>
-                  {tt('label', 'operationMode')}
+              <View style={styles.sectionTitleRow}>
+                <Text style={styles.configTitle}>
+                  {tt('title', 'posOperationMode')}
                 </Text>
-                <View style={styles.pickerWrap}>
-                  <Picker
-                    selectedValue={posOperationMode}
-                    mode={pickerMode}
-                    style={styles.picker}
-                    dropdownIconColor="#64748B"
-                    onValueChange={value =>
-                      setPosOperationMode(resolvePosOperationMode({
-                        [POS_OPERATION_MODE_CONFIG_KEY]: value,
-                      }))
-                    }>
-                    {POS_OPERATION_MODE_OPTIONS.map(option => (
-                      <Picker.Item
-                        key={option.value}
-                        label={tt('option', option.translationKey)}
-                        value={option.value}
-                      />
-                    ))}
-                  </Picker>
-                </View>
+                {renderHelpButton(
+                  tt('title', 'posOperationMode') || 'Modo de operacao',
+                  tt('description', 'posOperationModeDescription') ||
+                    'Escolha o modo, a trava kiosk e a politica de ordem/caixa deste device.',
+                )}
               </View>
 
-              <Text style={styles.configHint}>
-                {tt(
-                  'description',
-                  selectedPosOperationModeOption?.descriptionKey,
-                )}
-              </Text>
+              {renderOptionButtons({
+                options: POS_OPERATION_MODE_OPTIONS.map(option => ({
+                  label: tt('option', option.translationKey),
+                  value: option.value,
+                })),
+                value: posOperationMode,
+                onChange: value => {
+                  const nextValue = resolvePosOperationMode({
+                    [POS_OPERATION_MODE_CONFIG_KEY]: value,
+                  });
+                  setPosOperationMode(nextValue);
+                  savePosOperationMode({posOperationMode: nextValue});
+                },
+              })}
 
               <TouchableOpacity
                 style={[
@@ -1388,12 +1604,15 @@ const DeviceDetailPage = () => {
                   androidKioskEnabled && styles.toggleRowActive,
                 ]}
                 activeOpacity={0.85}
-                onPress={() =>
-                  setAndroidKioskEnabled(currentValue => !currentValue)
-                }>
+                onPress={() => {
+                  const nextValue = !androidKioskEnabled;
+                  setAndroidKioskEnabled(nextValue);
+                  savePosOperationMode({androidKioskEnabled: nextValue});
+                }}>
                 <View>
-                  <Text style={styles.toggleRowLabel}>
-                    Modo Kiosk?
+                  <Text style={styles.toggleRowLabel}>Modo Kiosk</Text>
+                  <Text style={styles.toggleRowValue}>
+                    {androidKioskEnabled ? 'Ativo' : 'Inativo'}
                   </Text>
                 </View>
                 <Icon
@@ -1403,104 +1622,89 @@ const DeviceDetailPage = () => {
                 />
               </TouchableOpacity>
 
-              <Text style={styles.configHint}>
-                {tt('description', 'androidKioskDescription')}
-              </Text>
+              {renderOptionButtons({
+                options: [
+                  {
+                    label: global.t?.t('configs', 'option', 'none') || 'None',
+                    value: POS_CHECK_ORDER_TYPE_NONE,
+                  },
+                  {
+                    label: global.t?.t('orders', 'title', 'tab') || 'Tab',
+                    value: POS_CHECK_ORDER_TYPE_TAB,
+                  },
+                  {
+                    label: global.t?.t('orders', 'title', 'table') || 'Table',
+                    value: POS_CHECK_ORDER_TYPE_TABLE,
+                  },
+                ],
+                value: checkOrderType,
+                onChange: value => {
+                  const nextCheckOrderType =
+                    value === POS_CHECK_ORDER_TYPE_TAB
+                      ? POS_CHECK_ORDER_TYPE_TAB
+                      : value === POS_CHECK_ORDER_TYPE_TABLE
+                        ? POS_CHECK_ORDER_TYPE_TABLE
+                        : POS_CHECK_ORDER_TYPE_NONE;
+                  const nextCheckOrderManagementMode =
+                    nextCheckOrderType === POS_CHECK_ORDER_TYPE_NONE
+                      ? POS_CHECK_ORDER_MANAGEMENT_MODE_MANAGE
+                      : checkOrderManagementMode;
+                  setCheckOrderType(nextCheckOrderType);
+                  if (nextCheckOrderType === POS_CHECK_ORDER_TYPE_NONE) {
+                    setCheckOrderManagementMode(
+                      POS_CHECK_ORDER_MANAGEMENT_MODE_MANAGE,
+                    );
+                  }
+                  savePosOperationMode({
+                    checkOrderType: nextCheckOrderType,
+                    checkOrderManagementMode: nextCheckOrderManagementMode,
+                  });
+                },
+              })}
 
-              <View style={styles.textInputWrap}>
-                <Text style={styles.textInputLabel}>
-                  {global.t?.t('configs', 'label', 'linkedOrderType') ||
-                    'Service base order'}
-                </Text>
-                <View style={styles.pickerWrap}>
-                  <Picker
-                    selectedValue={checkOrderType}
-                    mode={pickerMode}
-                    style={styles.picker}
-                    dropdownIconColor="#64748B"
-                    onValueChange={value =>
-                      setCheckOrderType(
-                        value === POS_CHECK_ORDER_TYPE_TAB
-                          ? POS_CHECK_ORDER_TYPE_TAB
-                          : value === POS_CHECK_ORDER_TYPE_TABLE
-                            ? POS_CHECK_ORDER_TYPE_TABLE
-                            : POS_CHECK_ORDER_TYPE_NONE,
-                      )
-                    }>
-                    <Picker.Item
-                      label={global.t?.t('configs', 'option', 'none') || 'None'}
-                      value={POS_CHECK_ORDER_TYPE_NONE}
-                    />
-                    <Picker.Item
-                      label={global.t?.t('orders', 'title', 'tab') || 'Tab'}
-                      value={POS_CHECK_ORDER_TYPE_TAB}
-                    />
-                    <Picker.Item
-                      label={global.t?.t('orders', 'title', 'table') || 'Table'}
-                      value={POS_CHECK_ORDER_TYPE_TABLE}
-                    />
-                  </Picker>
-                </View>
-              </View>
-
-              {checkOrderType !== POS_CHECK_ORDER_TYPE_NONE && (
-                <View style={styles.textInputWrap}>
-                  <Text style={styles.textInputLabel}>
-                    {global.t?.t(
-                      'configs',
-                      'label',
-                      'linkedOrderManagementMode',
-                    ) || 'Tab and table access'}
-                  </Text>
-                  <View style={styles.pickerWrap}>
-                    <Picker
-                      selectedValue={checkOrderManagementMode}
-                      mode={pickerMode}
-                      style={styles.picker}
-                      dropdownIconColor="#64748B"
-                      onValueChange={value =>
-                        setCheckOrderManagementMode(
-                          value ===
-                            POS_CHECK_ORDER_MANAGEMENT_MODE_EXISTING_ONLY
-                            ? POS_CHECK_ORDER_MANAGEMENT_MODE_EXISTING_ONLY
-                            : POS_CHECK_ORDER_MANAGEMENT_MODE_MANAGE,
-                        )
-                      }>
-                      <Picker.Item
-                        label={
-                          global.t?.t(
-                            'configs',
-                            'option',
-                            'manageLinkedOrders',
-                          ) || 'Open and close tabs/tables'
-                        }
-                        value={POS_CHECK_ORDER_MANAGEMENT_MODE_MANAGE}
-                      />
-                      <Picker.Item
-                        label={
-                          global.t?.t(
-                            'configs',
-                            'option',
-                            'existingLinkedOrdersOnly',
-                          ) || 'Use open tabs/tables only'
-                        }
-                        value={
-                          POS_CHECK_ORDER_MANAGEMENT_MODE_EXISTING_ONLY
-                        }
-                      />
-                    </Picker>
-                  </View>
-                </View>
-              )}
+              {checkOrderType !== POS_CHECK_ORDER_TYPE_NONE &&
+                renderOptionButtons({
+                  options: [
+                    {
+                      label:
+                        global.t?.t(
+                          'configs',
+                          'option',
+                          'manageLinkedOrders',
+                        ) || 'Open and close tabs/tables',
+                      value: POS_CHECK_ORDER_MANAGEMENT_MODE_MANAGE,
+                    },
+                    {
+                      label:
+                        global.t?.t(
+                          'configs',
+                          'option',
+                          'existingLinkedOrdersOnly',
+                        ) || 'Use open tabs/tables only',
+                      value: POS_CHECK_ORDER_MANAGEMENT_MODE_EXISTING_ONLY,
+                    },
+                  ],
+                  value: checkOrderManagementMode,
+                  onChange: value => {
+                    const nextValue =
+                      value === POS_CHECK_ORDER_MANAGEMENT_MODE_EXISTING_ONLY
+                        ? POS_CHECK_ORDER_MANAGEMENT_MODE_EXISTING_ONLY
+                        : POS_CHECK_ORDER_MANAGEMENT_MODE_MANAGE;
+                    setCheckOrderManagementMode(nextValue);
+                    savePosOperationMode({checkOrderManagementMode: nextValue});
+                  },
+                })}
 
               {posOperationMode === POS_OPERATION_MODE_COUNTER && (
                 <>
                   <TouchableOpacity
                     style={styles.toggleRow}
                     activeOpacity={0.85}
-                    onPress={() =>
-                      setCounterAutoPrintEnabled(currentValue => !currentValue)
-                    }>
+                    onPress={() => {
+                      const nextValue = !counterAutoPrintEnabled;
+                      setCounterAutoPrintEnabled(nextValue);
+                      savePosOperationMode({counterAutoPrintEnabled: nextValue});
+                    }}>
                     <View>
                       <Text style={styles.toggleRowLabel}>
                         Impressao automatica
@@ -1524,107 +1728,59 @@ const DeviceDetailPage = () => {
                     />
                   </TouchableOpacity>
 
-                  {counterAutoPrintEnabled && (
-                    <View style={styles.textInputWrap}>
-                      <Text style={styles.textInputLabel}>
-                        Tipo de impressao automatica
-                      </Text>
-                      <View style={styles.pickerWrap}>
-                        <Picker
-                          selectedValue={counterPrintMode}
-                          mode={pickerMode}
-                          style={styles.picker}
-                          dropdownIconColor="#64748B"
-                          onValueChange={value =>
-                            setCounterPrintMode(
-                              value === POS_PRINT_MODE_FORM
-                                ? POS_PRINT_MODE_FORM
-                                : POS_PRINT_MODE_ORDER,
-                            )
-                          }>
-                          <Picker.Item
-                            label="Pedido"
-                            value={POS_PRINT_MODE_ORDER}
-                          />
-                          <Picker.Item
-                            label="Fichas"
-                            value={POS_PRINT_MODE_FORM}
-                          />
-                        </Picker>
-                      </View>
-                    </View>
-                  )}
+                  {counterAutoPrintEnabled &&
+                    renderOptionButtons({
+                      options: [
+                        {label: 'Pedido', value: POS_PRINT_MODE_ORDER},
+                        {label: 'Fichas', value: POS_PRINT_MODE_FORM},
+                      ],
+                      value: counterPrintMode,
+                      onChange: value => {
+                        const nextValue =
+                          value === POS_PRINT_MODE_FORM
+                            ? POS_PRINT_MODE_FORM
+                            : POS_PRINT_MODE_ORDER;
+                        setCounterPrintMode(nextValue);
+                        savePosOperationMode({counterPrintMode: nextValue});
+                      },
+                    })}
 
-                  <View style={styles.textInputWrap}>
-                    <Text style={styles.textInputLabel}>
-                      Politica de caixa
-                    </Text>
-                    <View style={styles.pickerWrap}>
-                      <Picker
-                        selectedValue={counterCashManagementMode}
-                        mode={pickerMode}
-                        style={styles.picker}
-                        dropdownIconColor="#64748B"
-                        onValueChange={value =>
-                          setCounterCashManagementMode(
-                            value === POS_CASH_MANAGEMENT_MODE_DAILY
-                              ? POS_CASH_MANAGEMENT_MODE_DAILY
-                              : POS_CASH_MANAGEMENT_MODE_CASH_REGISTER,
-                          )
-                        }>
-                        <Picker.Item
-                          label="Abertura e fechamento de caixa"
-                          value={POS_CASH_MANAGEMENT_MODE_CASH_REGISTER}
-                        />
-                        <Picker.Item
-                          label="Fechamento diario"
-                          value={POS_CASH_MANAGEMENT_MODE_DAILY}
-                        />
-                      </Picker>
-                    </View>
-                  </View>
-
-                  <Text style={styles.configHint}>
-                    Quando o balcão usar abertura e fechamento de caixa, o
-                    fechamento pode disparar o relatório de vendas do device
-                    para os números configurados em Operação e PDV da empresa.
-                  </Text>
+                  {renderOptionButtons({
+                    options: [
+                      {
+                        label: 'Abertura e fechamento de caixa',
+                        value: POS_CASH_MANAGEMENT_MODE_CASH_REGISTER,
+                      },
+                      {
+                        label: 'Fechamento diario',
+                        value: POS_CASH_MANAGEMENT_MODE_DAILY,
+                      },
+                    ],
+                    value: counterCashManagementMode,
+                    onChange: value => {
+                      const nextValue =
+                        value === POS_CASH_MANAGEMENT_MODE_DAILY
+                          ? POS_CASH_MANAGEMENT_MODE_DAILY
+                          : POS_CASH_MANAGEMENT_MODE_CASH_REGISTER;
+                      setCounterCashManagementMode(nextValue);
+                      savePosOperationMode({counterCashManagementMode: nextValue});
+                    },
+                  })}
                 </>
               )}
-
-              <TouchableOpacity
-                style={[
-                  styles.configButton,
-                  savingPosOperationMode && {opacity: 0.6},
-                ]}
-                activeOpacity={0.85}
-                disabled={savingPosOperationMode}
-                onPress={savePosOperationMode}>
-                {savingPosOperationMode ? (
-                  <ActivityIndicator size="small" color="#fff" />
-                ) : (
-                  <>
-                    <Icon name="save" size={14} color="#fff" />
-                    <Text style={styles.configButtonText}>
-                      {tt('button', 'savePosOperationMode')}
-                    </Text>
-                  </>
-                )}
-              </TouchableOpacity>
             </View>
 
             <View style={styles.configCard}>
-              <Text style={[styles.configTitle, {color: brandColors.text}]}>
-                {tt('title', 'androidLauncherMode') || 'Launcher / home app'}
-              </Text>
-              <Text
-                style={[
-                  styles.configDescription,
-                  {color: brandColors.textSecondary},
-                ]}>
-                {tt('description', 'androidLauncherDescription') ||
-                  'Quando ativado, este device pode voltar para a própria app ao usar home ou apps recentes. O botão voltar continua seguindo a navegação normal da tela.'}
-              </Text>
+              <View style={styles.sectionTitleRow}>
+                <Text style={[styles.configTitle, {color: brandColors.text}]}>
+                  {tt('title', 'androidLauncherMode') || 'Launcher / home app'}
+                </Text>
+                {renderHelpButton(
+                  tt('title', 'androidLauncherMode') || 'Launcher / home app',
+                  tt('description', 'androidLauncherDescription') ||
+                    'Quando ativado, o device volta para a app ao usar home ou apps recentes. O voltar continua seguindo a tela.',
+                )}
+              </View>
 
               <TouchableOpacity
                 style={[
@@ -1635,9 +1791,11 @@ const DeviceDetailPage = () => {
                   },
                 ]}
                 activeOpacity={0.85}
-                onPress={() =>
-                  setAndroidLauncherEnabled(currentValue => !currentValue)
-                }>
+                onPress={() => {
+                  const nextValue = !androidLauncherEnabled;
+                  setAndroidLauncherEnabled(nextValue);
+                  saveLauncherMode({androidLauncherEnabled: nextValue});
+                }}>
                 <View>
                   <Text style={[styles.toggleRowLabel, {color: brandColors.text}]}>
                     Modo launcher?
@@ -1657,68 +1815,36 @@ const DeviceDetailPage = () => {
                     androidLauncherEnabled
                       ? brandColors.success
                       : brandColors.textSecondary
-                  }
+                    }
                 />
               </TouchableOpacity>
-
-              <Text style={[styles.configHint, {color: brandColors.textSecondary}]}>
-                Esse modo é separado do totem/kiosk. Use quando o Android
-                precisa tratar a app como destino de home sem herdar a trava do
-                totem.
+              <Text style={[styles.deviceString, {color: brandColors.textSecondary}]}>
+                Salva automaticamente
               </Text>
-
-              <TouchableOpacity
-                style={[
-                  styles.configButton,
-                  {backgroundColor: brandColors.primary},
-                  savingLauncherMode && {opacity: 0.6},
-                ]}
-                activeOpacity={0.85}
-                disabled={savingLauncherMode}
-                onPress={saveLauncherMode}>
-                {savingLauncherMode ? (
-                  <ActivityIndicator size="small" color={brandColors.white} />
-                ) : (
-                  <>
-                    <Icon name="save" size={14} color={brandColors.white} />
-                    <Text
-                      style={[
-                        styles.configButtonText,
-                        {color: brandColors.white},
-                      ]}>
-                      Salvar modo launcher
-                    </Text>
-                  </>
-                )}
-              </TouchableOpacity>
             </View>
 
             <View style={styles.configCard}>
-              <Text style={styles.configTitle}>Gateway e impressora</Text>
-              <Text style={styles.configDescription}>
-                O tipo do PDV define qual carteira da empresa será usada no
-                caixa e no pagamento remoto. Ative a opção de impressora apenas
-                quando este PDV puder receber impressões.
-              </Text>
-
-              <View style={styles.textInputWrap}>
-                <Text style={styles.textInputLabel}>Tipo do PDV</Text>
-                <View style={styles.pickerWrap}>
-                  <Picker
-                    selectedValue={pdvGateway || ''}
-                    mode={pickerMode}
-                    style={styles.picker}
-                    dropdownIconColor="#64748B"
-                    onValueChange={value => setPdvGateway(String(value || ''))}>
-                    <Picker.Item
-                      label="Selecione o tipo do PDV"
-                      value=""
-                    />
-                    <Picker.Item label="Infinite Pay" value="infinite-pay" />
-                    <Picker.Item label="Cielo" value="cielo" />
-                  </Picker>
-                </View>
+              <View style={styles.sectionTitleRow}>
+                <Text style={styles.configTitle}>Gateway e impressora</Text>
+                {renderHelpButton(
+                  'Gateway e impressora',
+                  'Escolha o gateway usado pelo PDV e se ele pode aparecer como destino de impressao.',
+                )}
               </View>
+
+              {renderOptionButtons({
+                options: [
+                  {label: 'Nenhum', value: ''},
+                  {label: 'Infinite Pay', value: 'infinite-pay'},
+                  {label: 'Cielo', value: 'cielo'},
+                ],
+                value: pdvGateway || '',
+                onChange: value => {
+                  const nextValue = String(value || '');
+                  setPdvGateway(nextValue);
+                  savePdvSettings({pdvGateway: nextValue});
+                },
+              })}
 
               <TouchableOpacity
                 style={[
@@ -1726,9 +1852,11 @@ const DeviceDetailPage = () => {
                   pdvPrinterEnabled && styles.toggleRowActive,
                 ]}
                 activeOpacity={0.85}
-                onPress={() =>
-                  setPdvPrinterEnabled(currentValue => !currentValue)
-                }>
+                onPress={() => {
+                  const nextValue = !pdvPrinterEnabled;
+                  setPdvPrinterEnabled(nextValue);
+                  savePdvSettings({pdvPrinterEnabled: nextValue});
+                }}>
                 <View>
                   <Text style={styles.toggleRowLabel}>Impressora</Text>
                   <Text style={styles.toggleRowValue}>
@@ -1741,32 +1869,7 @@ const DeviceDetailPage = () => {
                   color={pdvPrinterEnabled ? hex.success : '#94A3B8'}
                 />
               </TouchableOpacity>
-
-              <Text style={styles.configHint}>
-                {pdvGateway
-                  ? `Gateway atual: ${getPaymentGatewayLabel(pdvGateway)}.`
-                  : 'Escolha Cielo ou Infinite Pay para que o PDV use a carteira correta da empresa.'}{' '}
-                Quando a impressora estiver desativada, este PDV deixa de ser
-                oferecido como destino padrão de impressão.
-              </Text>
-
-              <TouchableOpacity
-                style={[
-                  styles.configButton,
-                  savingPdvSettings && {opacity: 0.6},
-                ]}
-                activeOpacity={0.85}
-                disabled={savingPdvSettings}
-                onPress={savePdvSettings}>
-                {savingPdvSettings ? (
-                  <ActivityIndicator size="small" color="#fff" />
-                ) : (
-                  <>
-                    <Icon name="save" size={14} color="#fff" />
-                    <Text style={styles.configButtonText}>Salvar configuração do PDV</Text>
-                  </>
-                )}
-              </TouchableOpacity>
+              <Text style={styles.deviceString}>Salva automaticamente</Text>
             </View>
           </View>
         )}
@@ -1778,49 +1881,33 @@ const DeviceDetailPage = () => {
           </Text>
 
             <View style={styles.configCard}>
-              <Text style={styles.configTitle}>Escopo da listagem no PDV</Text>
-              <Text style={styles.configDescription}>
-                Define se este device enxerga apenas os pedidos criados nele ou
-                todos os pedidos da empresa no histórico do PDV.
-              </Text>
-
-              <View style={styles.pickerWrap}>
-                <Picker
-                  selectedValue={deviceOrderVisibility}
-                  mode={pickerMode}
-                  style={styles.picker}
-                  dropdownIconColor="#64748B"
-                  onValueChange={value =>
-                    setDeviceOrderVisibility(value || DEVICE_ORDER_VISIBILITY_DEVICE)
-                  }>
-                  <Picker.Item
-                    label="Somente pedidos deste device"
-                    value={DEVICE_ORDER_VISIBILITY_DEVICE}
-                  />
-                  <Picker.Item
-                    label="Todos os pedidos da empresa"
-                    value={DEVICE_ORDER_VISIBILITY_COMPANY}
-                  />
-                </Picker>
+              <View style={styles.sectionTitleRow}>
+                <Text style={styles.configTitle}>Escopo da listagem no PDV</Text>
+                {renderHelpButton(
+                  'Escopo da listagem',
+                  'Define se este device mostra apenas os pedidos criados nele ou todos os pedidos da empresa.',
+                )}
               </View>
 
-              <TouchableOpacity
-                style={[
-                  styles.configButton,
-                  savingOrderVisibility && {opacity: 0.6},
-                ]}
-                activeOpacity={0.85}
-                disabled={savingOrderVisibility}
-                onPress={saveDeviceOrderVisibility}>
-                {savingOrderVisibility ? (
-                  <ActivityIndicator size="small" color="#fff" />
-                ) : (
-                  <>
-                    <Icon name="save" size={14} color="#fff" />
-                    <Text style={styles.configButtonText}>Salvar visibilidade dos pedidos</Text>
-                  </>
-                )}
-              </TouchableOpacity>
+              {renderOptionButtons({
+                options: [
+                  {
+                    label: 'Somente deste device',
+                    value: DEVICE_ORDER_VISIBILITY_DEVICE,
+                  },
+                  {
+                    label: 'Todos da empresa',
+                    value: DEVICE_ORDER_VISIBILITY_COMPANY,
+                  },
+                ],
+                value: deviceOrderVisibility,
+                onChange: value => {
+                  const nextValue =
+                    value || DEVICE_ORDER_VISIBILITY_DEVICE;
+                  setDeviceOrderVisibility(nextValue);
+                  saveDeviceOrderVisibility({deviceOrderVisibility: nextValue});
+                },
+              })}
             </View>
 
             <View style={styles.configCard}>

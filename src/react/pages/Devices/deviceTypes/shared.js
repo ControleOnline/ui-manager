@@ -234,6 +234,8 @@ export const createDeviceTypeTab = ({
   const DeviceTypeTab = () => {
     const navigation = useNavigation();
     const peopleStore = useStore('people');
+    const deviceStore = useStore('device');
+    const deviceConfigStore = useStore('device_config');
     const themeStore = useStore('theme');
 
     const {currentCompany} = peopleStore.getters;
@@ -481,21 +483,21 @@ export const createDeviceTypeTab = ({
     const goToDetail = useCallback(
       deviceConfig => {
         const deviceType = getDeviceConfigType(deviceConfig);
+        const nextDevice = deviceConfig?.device || {};
+        const nextDeviceId = normalizeEntityId(nextDevice?.id || nextDevice?.['@id']);
+        const nextConfigs = parseConfigsObject(deviceConfig?.configs);
+
+        deviceStore.actions.setItem(nextDevice);
+        deviceConfigStore.actions.setItem({
+          ...deviceConfig,
+          configs: nextConfigs,
+        });
 
         navigation.navigate(getDeviceDetailRoute(deviceType), {
-          dcId: deviceConfig.id,
-          deviceId: deviceConfig.device?.id,
-          deviceString: deviceConfig.device?.device,
-          deviceType,
-          alias:
-            deviceConfig.device?.alias ||
-            deviceConfig.device?.device ||
-            `Dispositivo #${deviceConfig.id}`,
-          configs: deviceConfig.configs || {},
-          metadata: deviceConfig.device?.metadata || {},
+          deviceId: nextDeviceId,
         });
       },
-      [navigation],
+      [deviceConfigStore.actions, deviceStore.actions, navigation],
     );
 
     const handleRefresh = useCallback(() => {

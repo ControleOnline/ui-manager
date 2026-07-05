@@ -124,6 +124,12 @@ const styles = StyleSheet.create({
     gap: 12,
     ...cardShadow,
   },
+  sectionTitleRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 8,
+    justifyContent: 'space-between',
+  },
   configTitle: {
     fontSize: 14,
     fontWeight: '700',
@@ -139,6 +145,21 @@ const styles = StyleSheet.create({
     lineHeight: 18,
     color: '#475569',
   },
+  helpButton: {
+    alignItems: 'center',
+    borderColor: '#CBD5E1',
+    borderRadius: 999,
+    borderWidth: 1,
+    height: 22,
+    justifyContent: 'center',
+    width: 22,
+  },
+  helpButtonText: {
+    color: '#64748B',
+    fontSize: 12,
+    fontWeight: '800',
+    lineHeight: 12,
+  },
   pickerWrap: {
     borderWidth: 1,
     borderColor: '#E2E8F0',
@@ -151,6 +172,34 @@ const styles = StyleSheet.create({
     color: '#0F172A',
     backgroundColor: '#F8FAFC',
     fontSize: 14,
+  },
+  optionRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  optionButton: {
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    backgroundColor: '#F8FAFC',
+    borderColor: '#E2E8F0',
+    borderRadius: 999,
+    borderWidth: 1,
+    minHeight: 34,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  optionButtonActive: {
+    borderColor: '#0EA5E9',
+    backgroundColor: '#E0F2FE',
+  },
+  optionButtonText: {
+    color: '#475569',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  optionButtonTextActive: {
+    color: '#0369A1',
   },
   configButton: {
     alignSelf: 'flex-start',
