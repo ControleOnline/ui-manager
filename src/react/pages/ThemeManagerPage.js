@@ -1113,7 +1113,9 @@ const renderThemeObjectPreview = (group, themeColors, onSelectTokens, useRnwPrev
     }
     case 'icon': {
       const iconColor = getPreviewColorMode(themeColors, ['iconColor', 'iconText'], '#2563EB', useRnwPreview);
+      const iconInfo = getPreviewColorMode(themeColors, ['iconInfo', 'textSecondary'], '#64748B', useRnwPreview);
       const iconMuted = getPreviewColorMode(themeColors, ['iconMuted', 'textSecondary'], '#64748B', useRnwPreview);
+      const iconWarning = getPreviewColorMode(themeColors, ['iconWarning', 'textWarning'], '#FEBC1D', useRnwPreview);
       const iconDanger = getPreviewColorMode(themeColors, ['iconDanger', 'textDanger'], '#DC2626', useRnwPreview);
       const iconSuccess = getPreviewColorMode(themeColors, ['iconSuccess', 'textSuccess'], '#16A34A', useRnwPreview);
 
@@ -1121,12 +1123,16 @@ const renderThemeObjectPreview = (group, themeColors, onSelectTokens, useRnwPrev
         <View style={styles.previewIconRow}>
           {[
             { name: 'star', color: iconColor, tokens: ['iconColor'] },
+            { name: 'info', color: iconInfo, tokens: ['iconInfo'] },
             { name: 'settings', color: iconMuted, tokens: ['iconMuted'] },
+            { name: 'alert-triangle', color: iconWarning, tokens: ['iconWarning'] },
             { name: 'alert-triangle', color: iconDanger, tokens: ['iconDanger'] },
             { name: 'check-circle', color: iconSuccess, tokens: ['iconSuccess'] },
+
+            
           ].map(item => (
             <PreviewPressTarget
-              key={`${group.label}-${item.name}`}
+              key={`${group.label}-${item.tokens[0]}`}
               tokenKeys={item.tokens}
               onSelectTokens={onSelectTokens}
               style={[
