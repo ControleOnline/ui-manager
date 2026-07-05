@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, FlatList, Platform, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Alert, FlatList, Platform, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useNavigation, useRoute } from '@react-navigation/native';
 import {Picker} from '@react-native-picker/picker';
@@ -1471,10 +1471,11 @@ const DeviceDetailPage = () => {
                     activeOpacity={0.8}
                     disabled={savingAlias}
                   >
-                    {savingAlias
-                      ? <ActivityIndicator size="small" color={brandColors.primary} />
-                      : <Icon name={editingAlias ? 'check' : 'edit'} size={14} color={editingAlias ? hex.success : '#64748B'} />
-                    }
+                    <Icon
+                      name={savingAlias ? 'save' : editingAlias ? 'check' : 'edit'}
+                      size={14}
+                      color={savingAlias ? brandColors.primary : editingAlias ? hex.success : '#64748B'}
+                    />
                   </TouchableOpacity>
                 )}
               </View>
@@ -1488,10 +1489,10 @@ const DeviceDetailPage = () => {
         </View>
 
         {loadingActiveTabData && (
-          <View style={styles.loadingBox}>
-            <ActivityIndicator size="small" color={brandColors.primary} />
-            <Text style={styles.loadingText}>Carregando dados do device...</Text>
-          </View>
+          <StateStore
+            compact
+            loading="Carregando dados do device..."
+          />
         )}
 
         {isPdvDevice && (
@@ -1968,10 +1969,10 @@ const DeviceDetailPage = () => {
               </View>
 
               {(isLoadingDisplays || isLoadingPrinters) ? (
-                <View style={styles.loadingBox}>
-                  <ActivityIndicator size="small" color={brandColors.primary} />
-                  <Text style={styles.loadingText}>Carregando displays e impressoras...</Text>
-                </View>
+                <StateStore
+                  compact
+                  loading="Carregando displays e impressoras..."
+                />
               ) : (
                 <>
                   <View style={styles.pickerWrap}>
@@ -2292,14 +2293,10 @@ const DeviceDetailPage = () => {
                 activeOpacity={0.85}
                 disabled={sendingCatalogRefresh}
                 onPress={sendCatalogRefreshCommand}>
-                {sendingCatalogRefresh ? (
-                  <ActivityIndicator size="small" color="#fff" />
-                ) : (
-                  <>
-                    <Icon name="trash-2" size={14} color="#fff" />
-                    <Text style={styles.configButtonText}>Limpar cache de produtos</Text>
-                  </>
-                )}
+                <Icon name="trash-2" size={14} color="#fff" />
+                <Text style={styles.configButtonText}>
+                  {sendingCatalogRefresh ? 'Limpando cache...' : 'Limpar cache de produtos'}
+                </Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -2342,22 +2339,20 @@ const DeviceDetailPage = () => {
                 onPress={handleToggle}
                 disabled={actionLoading || loadingConfigData}
                 activeOpacity={0.85}>
-                {actionLoading ? (
-                  <ActivityIndicator color="#fff" size="small" />
-                ) : (
-                  <>
-                    <Icon
-                      name={isOpen ? 'lock' : 'unlock'}
-                      size={13}
-                      color="#fff"
-                    />
-                    <Text style={styles.toggleBtnText}>
-                      {isOpen
-                        ? global.t?.t('orders', 'button', 'closeCashRegister') || 'Close'
-                        : global.t?.t('orders', 'button', 'openCashRegister') || 'Open'}
-                    </Text>
-                  </>
-                )}
+                <Icon
+                  name={isOpen ? 'lock' : 'unlock'}
+                  size={13}
+                  color="#fff"
+                />
+                <Text style={styles.toggleBtnText}>
+                  {actionLoading
+                    ? isOpen
+                      ? 'Fechando...'
+                      : 'Abrindo...'
+                    : isOpen
+                      ? global.t?.t('orders', 'button', 'closeCashRegister') || 'Close'
+                      : global.t?.t('orders', 'button', 'openCashRegister') || 'Open'}
+                </Text>
               </TouchableOpacity>
             </View>
           </View>
