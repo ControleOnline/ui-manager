@@ -38,6 +38,7 @@ import {
   getPaymentGatewayLabel,
   isPdvPrinterEnabled,
   normalizeDeviceId,
+  normalizeEntityId,
 } from '@controleonline/ui-common/src/react/utils/paymentDevices';
 import {getRuntimeFooterDebugInfo} from '@controleonline/ui-common/src/react/utils/runtimeFooter';
 import {resolveThemePalette, withOpacity} from '@controleonline/../../src/styles/branding';

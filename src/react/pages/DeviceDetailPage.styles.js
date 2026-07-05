@@ -111,12 +111,6 @@ const styles = StyleSheet.create({
     gap: 10,
     justifyContent: 'space-between',
   },
-  sectionHelperText: {
-    color: '#64748B',
-    fontSize: 12,
-    fontWeight: '500',
-    lineHeight: 18,
-  },
   configCard: {
     backgroundColor: '#fff',
     borderRadius: 14,
@@ -134,31 +128,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
     color: '#0F172A',
-  },
-  configDescription: {
-    fontSize: 12,
-    lineHeight: 18,
-    color: '#64748B',
-  },
-  configHint: {
-    fontSize: 12,
-    lineHeight: 18,
-    color: '#475569',
-  },
-  helpButton: {
-    alignItems: 'center',
-    borderColor: '#CBD5E1',
-    borderRadius: 999,
-    borderWidth: 1,
-    height: 22,
-    justifyContent: 'center',
-    width: 22,
-  },
-  helpButtonText: {
-    color: '#64748B',
-    fontSize: 12,
-    fontWeight: '800',
-    lineHeight: 12,
   },
   pickerWrap: {
     borderWidth: 1,

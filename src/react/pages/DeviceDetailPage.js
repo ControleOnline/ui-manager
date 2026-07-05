@@ -13,6 +13,7 @@ import { colors } from '@controleonline/../../src/styles/colors';
 import Icon from 'react-native-vector-icons/Feather';
 import styles from './DeviceDetailPage.styles';
 import packageJson from '@package';
+import DefaultTooltip from '@controleonline/ui-default/src/react/components/help/DefaultTooltip';
 
 import {
   canDisplayChangePrinter,
@@ -328,6 +329,10 @@ const DeviceDetailPage = () => {
   const [hasLoadedCurrentConfig, setHasLoadedCurrentConfig] = useState(false);
   const [hasLoadedCompanyConfigs, setHasLoadedCompanyConfigs] = useState(false);
   const [hasLoadedMovementData, setHasLoadedMovementData] = useState(false);
+  const hasLoadedCurrentConfigRef = useRef(false);
+  const hasLoadedCompanyConfigsRef = useRef(false);
+  const hasLoadedMovementDataRef = useRef(false);
+  const hasInitializedPdvTabRef = useRef(false);
 
   // Edição inline do alias
   const [alias,        setAlias]        = useState(initialAlias || '');
@@ -344,6 +349,18 @@ const DeviceDetailPage = () => {
     setAlias(initialAlias || '');
     setAliasInput(initialAlias || '');
   }, [editingAlias, initialAlias]);
+
+  useEffect(() => {
+    hasLoadedCurrentConfigRef.current = hasLoadedCurrentConfig;
+  }, [hasLoadedCurrentConfig]);
+
+  useEffect(() => {
+    hasLoadedCompanyConfigsRef.current = hasLoadedCompanyConfigs;
+  }, [hasLoadedCompanyConfigs]);
+
+  useEffect(() => {
+    hasLoadedMovementDataRef.current = hasLoadedMovementData;
+  }, [hasLoadedMovementData]);
 
   const isOpen = useMemo(() => getIsOpen(configs), [configs]);
   const hasLocalPaymentGateway = useMemo(
@@ -413,24 +430,11 @@ const DeviceDetailPage = () => {
   );
 
   const resolveDeviceContext = useCallback(async () => {
-    const resolvedDeviceString = String(
-      currentDevice?.device || currentDeviceConfig?.device?.device || '',
-    ).trim();
-    const resolvedDeviceType = String(
-      currentDevice?.type ||
-        currentDevice?.deviceType ||
-        currentDeviceConfig?.type ||
-        currentDeviceConfig?.device?.type ||
-        '',
-    )
-      .trim()
-      .toUpperCase();
-
-    if (resolvedDeviceString && resolvedDeviceType) {
+    if (deviceString && deviceType) {
       return {
-        deviceData: currentDevice?.id ? currentDevice : currentDeviceConfig?.device || null,
-        deviceString: resolvedDeviceString,
-        deviceType: resolvedDeviceType,
+        deviceData: null,
+        deviceString,
+        deviceType,
       };
     }
 
@@ -453,7 +457,7 @@ const DeviceDetailPage = () => {
         .trim()
         .toUpperCase(),
     };
-  }, [currentDevice, currentDeviceConfig, deviceId]);
+  }, [deviceId, deviceString, deviceType]);
 
   const applyCurrentDeviceConfig = useCallback((scopedItems, context = {}) => {
     const currentDeviceString = String(
@@ -706,7 +710,7 @@ const DeviceDetailPage = () => {
     }
 
     if (activePdvTab === PDV_TAB_MOVEMENT) {
-      if (!force && hasLoadedMovementData) {
+      if (!force && hasLoadedMovementDataRef.current) {
         return;
       }
       await loadMovementData();
@@ -715,10 +719,10 @@ const DeviceDetailPage = () => {
 
     if (activePdvTab === PDV_TAB_ORDERS) {
       const pendingLoads = [];
-      if (force || !hasLoadedCurrentConfig) {
+      if (force || !hasLoadedCurrentConfigRef.current) {
         pendingLoads.push(refreshCurrentConfig());
       }
-      if (force || !hasLoadedCompanyConfigs) {
+      if (force || !hasLoadedCompanyConfigsRef.current) {
         pendingLoads.push(loadCompanyConfigs());
       }
 
@@ -734,9 +738,6 @@ const DeviceDetailPage = () => {
   }, [
     activePdvTab,
     currentCompany?.id,
-    hasLoadedCompanyConfigs,
-    hasLoadedCurrentConfig,
-    hasLoadedMovementData,
     isPdvDevice,
     loadCompanyConfigs,
     loadMovementData,
@@ -747,15 +748,21 @@ const DeviceDetailPage = () => {
     setHasLoadedCurrentConfig(false);
     setHasLoadedCompanyConfigs(false);
     setHasLoadedMovementData(false);
+    hasInitializedPdvTabRef.current = false;
     setProducts([]);
     setInflowData(null);
     setCompanyDeviceConfigs([]);
   }, [currentCompany?.id, deviceString, deviceType]);
 
+  const ensureActiveTabDataRef = useRef(ensureActiveTabData);
+  useEffect(() => {
+    ensureActiveTabDataRef.current = ensureActiveTabData;
+  }, [ensureActiveTabData]);
+
   useFocusEffect(
     useCallback(() => {
-      ensureActiveTabData({ force: true });
-    }, [ensureActiveTabData]),
+      ensureActiveTabDataRef.current({ force: true });
+    }, []),
   );
 
   useEffect(() => {
@@ -763,8 +770,13 @@ const DeviceDetailPage = () => {
       return;
     }
 
-    ensureActiveTabData();
-  }, [activePdvTab, ensureActiveTabData, isPdvDevice]);
+    if (!hasInitializedPdvTabRef.current) {
+      hasInitializedPdvTabRef.current = true;
+      return;
+    }
+
+    ensureActiveTabDataRef.current();
+  }, [activePdvTab, isPdvDevice]);
 
   useFocusEffect(
     useCallback(() => {
@@ -1247,13 +1259,6 @@ const DeviceDetailPage = () => {
     const normalizedPrinterId = normalizeDeviceId(nextDisplayPrinterId);
 
     if (
-      (normalizedDisplayId && !normalizedPrinterId) ||
-      (!normalizedDisplayId && normalizedPrinterId)
-    ) {
-      return;
-    }
-
-    if (
       nextDisplayAutoPrintProductEnabled &&
       (!normalizedDisplayId || !normalizedPrinterId)
     ) {
@@ -1386,18 +1391,11 @@ const DeviceDetailPage = () => {
   );
 
   const renderHelpButton = (title, message) => (
-    <TouchableOpacity
-      style={[
-        styles.helpButton,
-        {
-          borderColor: withOpacity(brandColors.primary, 0.35),
-          backgroundColor: withOpacity(brandColors.primary, 0.08),
-        },
-      ]}
-      activeOpacity={0.85}
-      onPress={() => Alert.alert(title, message)}>
-      <Text style={[styles.helpButtonText, { color: brandColors.primary }]}>?</Text>
-    </TouchableOpacity>
+    <DefaultTooltip
+      accentColor={brandColors.primary}
+      title={title}
+      message={message}
+    />
   );
 
   const renderOptionButtons = ({ options, value, onChange, disabled = false }) => (
@@ -1911,13 +1909,16 @@ const DeviceDetailPage = () => {
             </View>
 
             <View style={styles.configCard}>
-              <Text style={styles.configTitle}>
-                {tt('title', 'deliveryOnDevice') || 'Delivery neste equipamento'}
-              </Text>
-              <Text style={styles.configDescription}>
-                {tt('description', 'deliveryOnDeviceDescription') ||
-                  'Ative quando este equipamento precisa operar pedidos com cliente, endereço e observações de entrega. Desative para simplificar a conferência em equipamentos que não trabalham com delivery.'}
-              </Text>
+              <View style={styles.sectionTitleRow}>
+                <Text style={styles.configTitle}>
+                  {tt('title', 'deliveryOnDevice') || 'Delivery neste equipamento'}
+                </Text>
+                {renderHelpButton(
+                  tt('title', 'deliveryOnDevice') || 'Delivery neste equipamento',
+                  tt('description', 'deliveryOnDeviceDescription') ||
+                    'Ative quando este equipamento precisa operar pedidos com cliente, endereço e observações de entrega.',
+                )}
+              </View>
 
               <TouchableOpacity
                 style={[
@@ -1925,9 +1926,13 @@ const DeviceDetailPage = () => {
                   deviceDeliveryEnabled && styles.toggleRowActive,
                 ]}
                 activeOpacity={0.85}
-                onPress={() =>
-                  setDeviceDeliveryEnabled(currentValue => !currentValue)
-                }>
+                onPress={() => {
+                  const nextValue = !deviceDeliveryEnabled;
+                  setDeviceDeliveryEnabled(nextValue);
+                  saveDeviceDeliverySettings({
+                    deviceDeliveryEnabled: nextValue,
+                  });
+                }}>
                 <View>
                   <Text style={styles.toggleRowLabel}>
                     {tt('label', 'deliveryEnabled') ||
@@ -1943,32 +1948,6 @@ const DeviceDetailPage = () => {
                   color={deviceDeliveryEnabled ? hex.success : '#94A3B8'}
                 />
               </TouchableOpacity>
-
-              <Text style={styles.configHint}>
-                {tt('description', 'deliveryEnabledHint') ||
-                  'Quando desligado, o detalhe do pedido deste device deixa de mostrar o bloco de cliente, endereco e observacoes de entrega.'}
-              </Text>
-
-              <TouchableOpacity
-                style={[
-                  styles.configButton,
-                  savingDeviceDeliverySettings && {opacity: 0.6},
-                ]}
-                activeOpacity={0.85}
-                disabled={savingDeviceDeliverySettings}
-                onPress={saveDeviceDeliverySettings}>
-                {savingDeviceDeliverySettings ? (
-                  <ActivityIndicator size="small" color="#fff" />
-                ) : (
-                  <>
-                    <Icon name="save" size={14} color="#fff" />
-                    <Text style={styles.configButtonText}>
-                      {tt('button', 'saveDeviceDelivery') ||
-                        'Salvar configuração de delivery'}
-                    </Text>
-                  </>
-                )}
-              </TouchableOpacity>
             </View>
           </View>
         )}
@@ -1980,13 +1959,13 @@ const DeviceDetailPage = () => {
             </Text>
 
             <View style={styles.configCard}>
-              <Text style={styles.configTitle}>Display vinculado e impressora da fila</Text>
-              <Text style={styles.configDescription}>
-                Este bloco é usado na impressão automática disparada pelo app
-                DISPLAY. O device DISPLAY precisa apontar qual display/fila
-                representa e qual impressora deve receber a cópia separada por
-                fila.
-              </Text>
+              <View style={styles.sectionTitleRow}>
+                <Text style={styles.configTitle}>Display vinculado e impressora da fila</Text>
+                {renderHelpButton(
+                  'Display vinculado e impressora da fila',
+                  'Este bloco é usado na impressão automática disparada pelo app DISPLAY. O device DISPLAY precisa apontar qual display representa e qual impressora deve receber a cópia separada por fila.',
+                )}
+              </View>
 
               {(isLoadingDisplays || isLoadingPrinters) ? (
                 <View style={styles.loadingBox}>
@@ -2001,7 +1980,11 @@ const DeviceDetailPage = () => {
                       mode={pickerMode}
                       style={styles.picker}
                       dropdownIconColor="#64748B"
-                      onValueChange={value => setLinkedDisplayId(String(value || '').trim())}>
+                      onValueChange={value => {
+                        const nextValue = String(value || '').trim();
+                        setLinkedDisplayId(nextValue);
+                        saveDisplayPrintingConfig({linkedDisplayId: nextValue});
+                      }}>
                       <Picker.Item
                         label="Nenhum display vinculado"
                         value=""
@@ -2025,9 +2008,13 @@ const DeviceDetailPage = () => {
                       mode={pickerMode}
                       style={styles.picker}
                       dropdownIconColor="#64748B"
-                      onValueChange={value =>
-                        setDisplayPrinterId(normalizeDeviceId(value))
-                      }>
+                      onValueChange={value => {
+                        const nextValue = normalizeDeviceId(value);
+                        setDisplayPrinterId(nextValue);
+                        saveDisplayPrintingConfig({
+                          displayPrinterId: nextValue,
+                        });
+                      }}>
                       <Picker.Item
                         label="Nenhuma impressora configurada"
                         value=""
@@ -2049,15 +2036,19 @@ const DeviceDetailPage = () => {
                     </Picker>
                   </View>
 
-                  <TouchableOpacity
-                    style={[
-                      styles.toggleRow,
-                      displayAllowPrinterChange && styles.toggleRowActive,
-                    ]}
-                    activeOpacity={0.85}
-                    onPress={() =>
-                      setDisplayAllowPrinterChange(currentValue => !currentValue)
-                    }>
+                    <TouchableOpacity
+                      style={[
+                        styles.toggleRow,
+                        displayAllowPrinterChange && styles.toggleRowActive,
+                      ]}
+                      activeOpacity={0.85}
+                      onPress={() => {
+                        const nextValue = !displayAllowPrinterChange;
+                        setDisplayAllowPrinterChange(nextValue);
+                        saveDisplayPrintingConfig({
+                          displayAllowPrinterChange: nextValue,
+                        });
+                      }}>
                     <View>
                       <Text style={styles.toggleRowLabel}>
                         Pode trocar de impressora?
@@ -2081,15 +2072,19 @@ const DeviceDetailPage = () => {
                     />
                   </TouchableOpacity>
 
-                  <TouchableOpacity
-                    style={[
-                      styles.toggleRow,
-                      displayAutoPrintProductEnabled && styles.toggleRowActive,
-                    ]}
-                    activeOpacity={0.85}
-                    onPress={() =>
-                      setDisplayAutoPrintProductEnabled(currentValue => !currentValue)
-                    }>
+                    <TouchableOpacity
+                      style={[
+                        styles.toggleRow,
+                        displayAutoPrintProductEnabled && styles.toggleRowActive,
+                      ]}
+                      activeOpacity={0.85}
+                      onPress={() => {
+                        const nextValue = !displayAutoPrintProductEnabled;
+                        setDisplayAutoPrintProductEnabled(nextValue);
+                        saveDisplayPrintingConfig({
+                          displayAutoPrintProductEnabled: nextValue,
+                        });
+                      }}>
                     <View>
                       <Text style={styles.toggleRowLabel}>
                         Imprimir produtos automaticamente
@@ -2114,32 +2109,6 @@ const DeviceDetailPage = () => {
                   </TouchableOpacity>
                 </>
               )}
-
-              <Text style={styles.configHint}>
-                Para esta rotina funcionar, os dois campos precisam estar
-                preenchidos. Quando a opcao automatica estiver ativa, cada
-                produto enviado para a fila deste display gera sua propria
-                impressao na impressora vinculada. Quando a troca estiver
-                desativada, o app usa sempre a impressora padrao acima.
-              </Text>
-
-              <TouchableOpacity
-                style={[
-                  styles.configButton,
-                  savingDisplayPrintingConfig && {opacity: 0.6},
-                ]}
-                activeOpacity={0.85}
-                disabled={savingDisplayPrintingConfig}
-                onPress={saveDisplayPrintingConfig}>
-                {savingDisplayPrintingConfig ? (
-                  <ActivityIndicator size="small" color="#fff" />
-                ) : (
-                  <>
-                    <Icon name="save" size={14} color="#fff" />
-                    <Text style={styles.configButtonText}>Salvar configuracoes do KDS</Text>
-                  </>
-                )}
-              </TouchableOpacity>
             </View>
           </View>
         )}
@@ -2151,11 +2120,13 @@ const DeviceDetailPage = () => {
           </Text>
 
           <View style={styles.configCard}>
-            <Text style={styles.configTitle}>Alerta via websocket</Text>
-            <Text style={styles.configDescription}>
-              Quando habilitado, este device toca o audio configurado ao receber
-              o evento `order.created` de um novo pedido em preparo.
-            </Text>
+            <View style={styles.sectionTitleRow}>
+              <Text style={styles.configTitle}>Alerta via websocket</Text>
+              {renderHelpButton(
+                'Alerta via websocket',
+                'Quando habilitado, este device toca o audio configurado ao receber o evento order.created de um novo pedido em preparo.',
+              )}
+            </View>
 
             <TouchableOpacity
               style={[
@@ -2163,9 +2134,13 @@ const DeviceDetailPage = () => {
                 deviceAlertSoundEnabled && styles.toggleRowActive,
               ]}
               activeOpacity={0.85}
-              onPress={() =>
-                setDeviceAlertSoundEnabled(currentValue => !currentValue)
-              }>
+              onPress={() => {
+                const nextValue = !deviceAlertSoundEnabled;
+                setDeviceAlertSoundEnabled(nextValue);
+                saveDeviceAlertSoundConfig({
+                  deviceAlertSoundEnabled: nextValue,
+                });
+              }}>
               <View>
                 <Text style={styles.toggleRowLabel}>Aviso sonoro habilitado</Text>
                 <Text style={styles.toggleRowValue}>
@@ -2195,24 +2170,6 @@ const DeviceDetailPage = () => {
                 onBlur={saveDeviceAlertSoundConfig}
               />
             </View>
-
-            <TouchableOpacity
-              style={[
-                styles.configButton,
-                savingAlertSound && {opacity: 0.6},
-              ]}
-              activeOpacity={0.85}
-              disabled={savingAlertSound}
-              onPress={saveDeviceAlertSoundConfig}>
-              {savingAlertSound ? (
-                <ActivityIndicator size="small" color="#fff" />
-              ) : (
-                <>
-                  <Icon name="save" size={14} color="#fff" />
-                  <Text style={styles.configButtonText}>Salvar aviso sonoro</Text>
-                </>
-              )}
-            </TouchableOpacity>
           </View>
         </View>
         )}
@@ -2224,12 +2181,13 @@ const DeviceDetailPage = () => {
           </Text>
 
           <View style={styles.configCard}>
-            <Text style={styles.configTitle}>Debug do socket no rodapé</Text>
-            <Text style={styles.configDescription}>
-              Quando habilitado, este device troca a bolinha discreta do socket
-              pelos detalhes de debug publicados pelos serviços do runtime no
-              rodapé global do sistema.
-            </Text>
+            <View style={styles.sectionTitleRow}>
+              <Text style={styles.configTitle}>Debug do socket no rodapé</Text>
+              {renderHelpButton(
+                'Debug do socket no rodapé',
+                'Quando habilitado, este device troca a bolinha discreta do socket pelos detalhes de debug publicados pelos serviços do runtime no rodapé global do sistema.',
+              )}
+            </View>
 
             <TouchableOpacity
               style={[
@@ -2237,9 +2195,13 @@ const DeviceDetailPage = () => {
                 deviceRuntimeDebugInfoEnabled && styles.toggleRowActive,
               ]}
               activeOpacity={0.85}
-              onPress={() =>
-                setDeviceRuntimeDebugInfoEnabled(currentValue => !currentValue)
-              }>
+              onPress={() => {
+                const nextValue = !deviceRuntimeDebugInfoEnabled;
+                setDeviceRuntimeDebugInfoEnabled(nextValue);
+                saveDeviceRuntimeDebugInfo({
+                  deviceRuntimeDebugInfoEnabled: nextValue,
+                });
+              }}>
               <View>
                 <Text style={styles.toggleRowLabel}>Exibir debug detalhado</Text>
                 <Text style={styles.toggleRowValue}>
@@ -2258,24 +2220,6 @@ const DeviceDetailPage = () => {
                 }
               />
             </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[
-                styles.configButton,
-                savingRuntimeDebugInfo && {opacity: 0.6},
-              ]}
-              activeOpacity={0.85}
-              disabled={savingRuntimeDebugInfo}
-              onPress={saveDeviceRuntimeDebugInfo}>
-              {savingRuntimeDebugInfo ? (
-                <ActivityIndicator size="small" color="#fff" />
-              ) : (
-                <>
-                  <Icon name="save" size={14} color="#fff" />
-                  <Text style={styles.configButtonText}>Salvar debug do rodapé</Text>
-                </>
-              )}
-            </TouchableOpacity>
           </View>
         </View>
         )}
@@ -2287,14 +2231,13 @@ const DeviceDetailPage = () => {
             </Text>
 
             <View style={styles.configCard}>
-              <Text style={styles.configTitle}>Device preferencial para pagamento</Text>
-              <Text style={styles.configDescription}>
-                Esse destino funciona como fallback desta origem quando a
-                empresa não definiu uma ordem padrão no configurador geral.
-                Quando a empresa tiver devices padrão para pagamento remoto,
-                essa ordem global tem prioridade. Quando vazio, o sistema usa a
-                regra da empresa ou cai para os PDVs remotos disponíveis.
-              </Text>
+              <View style={styles.sectionTitleRow}>
+                <Text style={styles.configTitle}>Device preferencial para pagamento</Text>
+                {renderHelpButton(
+                  'Device preferencial para pagamento',
+                  'Esse destino funciona como fallback desta origem quando a empresa não definiu uma ordem padrão no configurador geral. Quando a empresa tiver devices padrão para pagamento remoto, essa ordem global tem prioridade.',
+                )}
+              </View>
 
               <View style={styles.pickerWrap}>
                 <Picker
@@ -2302,7 +2245,13 @@ const DeviceDetailPage = () => {
                   mode={pickerMode}
                   style={styles.picker}
                   dropdownIconColor="#64748B"
-                  onValueChange={value => setDevicePaymentTarget(value || '')}>
+                  onValueChange={value => {
+                    const nextValue = value || '';
+                    setDevicePaymentTarget(nextValue);
+                    saveDevicePaymentTarget({
+                      devicePaymentTarget: nextValue,
+                    });
+                  }}>
                   <Picker.Item
                     label="Usar devices padrão da empresa"
                     value=""
@@ -2316,24 +2265,6 @@ const DeviceDetailPage = () => {
                   ))}
                 </Picker>
               </View>
-
-              <TouchableOpacity
-                style={[
-                  styles.configButton,
-                  savingPaymentTarget && {opacity: 0.6},
-                ]}
-                activeOpacity={0.85}
-                disabled={savingPaymentTarget}
-                onPress={saveDevicePaymentTarget}>
-                {savingPaymentTarget ? (
-                  <ActivityIndicator size="small" color="#fff" />
-                ) : (
-                  <>
-                    <Icon name="save" size={14} color="#fff" />
-                    <Text style={styles.configButtonText}>Salvar destino de pagamento</Text>
-                  </>
-                )}
-              </TouchableOpacity>
             </View>
           </View>
         )}
@@ -2345,11 +2276,13 @@ const DeviceDetailPage = () => {
             </Text>
 
             <View style={styles.configCard}>
-              <Text style={styles.configTitle}>Catálogo do PDV</Text>
-              <Text style={styles.configDescription}>
-                Limpa o cache local de produtos e categorias deste device.
-                O recarregamento acontece no próximo uso do PDV.
-              </Text>
+              <View style={styles.sectionTitleRow}>
+                <Text style={styles.configTitle}>Catálogo do PDV</Text>
+                {renderHelpButton(
+                  'Catálogo do PDV',
+                  'Limpa o cache local de produtos e categorias deste device. O recarregamento acontece no próximo uso do PDV.',
+                )}
+              </View>
 
               <TouchableOpacity
                 style={[
@@ -2374,14 +2307,15 @@ const DeviceDetailPage = () => {
 
         {showPdvPaymentTypesTab && (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>
-              <Icon name="credit-card" size={13} /> {'  '}Pagamentos do device
-            </Text>
-            <Text style={styles.sectionHelperText}>
-              Selecione os meios de pagamento que este device pode exibir e
-              usar nas opções de pagamento. Os wallets entram só para
-              organizar a lista.
-            </Text>
+            <View style={styles.sectionHeaderRow}>
+              <Text style={styles.sectionTitle}>
+                <Icon name="credit-card" size={13} /> {'  '}Pagamentos do device
+              </Text>
+              {renderHelpButton(
+                'Pagamentos do device',
+                'Selecione os meios de pagamento que este device pode exibir e usar nas opções de pagamento. Os wallets entram só para organizar a lista.',
+              )}
+            </View>
             <PaymentTypesByWalletTab
               currentCompanyId={currentCompany?.id}
               configs={configs}
@@ -2426,11 +2360,6 @@ const DeviceDetailPage = () => {
                 )}
               </TouchableOpacity>
             </View>
-            <Text style={styles.sectionHelperText}>
-              {isOpen
-                ? global.t?.t('orders', 'message', 'cashRegisterOpen') || 'The register is currently open for this device.'
-                : global.t?.t('orders', 'message', 'cashRegisterClosed') || 'The register is currently closed for this device.'}
-            </Text>
           </View>
         )}
 
