@@ -41,12 +41,17 @@ import { api } from '@controleonline/ui-common/src/api';
 import AppMenuGrid from '@controleonline/ui-layout/src/react/components/AppMenuGrid';
 import { createStyles } from './index.styles';
 
+const translate = (store, type, key) => global.t?.t(store, type, key);
+
 export default function HomePage({ navigation }) {
   const themeStore = useStore('theme');
   const peopleStore = useStore('people');
+  const translateStore = useStore('translate');
 
   const { colors: themeColors, menus } = themeStore.getters;
   const { currentCompany } = peopleStore.getters;
+  const translateMessages = translateStore?.getters?.messages || {};
+  const pendingTranslateMessages = translateStore?.getters?.pendingMessages || {};
 
   const brandColors = useMemo(
     () =>
@@ -65,11 +70,35 @@ export default function HomePage({ navigation }) {
     [brandColors.info, brandColors.success],
   );
 
-  const [stats, setStats] = useState([
-    { label: global.t?.t('configs', 'stat_label', 'orders'), value: '...', icon: 'shopping-bag', tone: tones.info, route: 'OrderHistoryPage' },
-    { label: global.t?.t('configs', 'stat_label', 'customers'), value: '...', icon: 'users', tone: tones.success, route: 'ClientsIndex' },
+  const [statValues, setStatValues] = useState([
+    { key: 'orders', value: '...' },
+    { key: 'customers', value: '...' },
   ]);
   const [loadingStats, setLoadingStats] = useState(true);
+  const stats = useMemo(() => {
+    const valuesByKey = Object.fromEntries(
+      statValues.map(item => [item.key, item.value]),
+    );
+
+    return [
+      {
+        key: 'orders',
+        label: translate('configs', 'stat_label', 'orders'),
+        value: valuesByKey.orders || '...',
+        icon: 'shopping-bag',
+        tone: tones.info,
+        route: 'OrderHistoryPage',
+      },
+      {
+        key: 'customers',
+        label: translate('configs', 'stat_label', 'customers'),
+        value: valuesByKey.customers || '...',
+        icon: 'users',
+        tone: tones.success,
+        route: 'ClientsIndex',
+      },
+    ];
+  }, [statValues, tones.info, tones.success, translateMessages, pendingTranslateMessages]);
 
   useEffect(() => {
     if (!currentCompany?.id) return;
@@ -83,9 +112,9 @@ export default function HomePage({ navigation }) {
             api.fetch('/people', { params: { 'link.company': `/people/${currentCompany.id}`, 'link.linkType': 'client'} }).catch(() => null),
           ]);
 
-        setStats([
-          { label: global.t?.t('configs', 'stat_label', 'orders'), value: String(ordersRes?.totalItems ?? '—'), icon: 'shopping-bag', tone: tones.info, route: 'OrderHistoryPage' },
-          { label: global.t?.t('configs', 'stat_label', 'customers'), value: String(clientsRes?.totalItems ?? '—'), icon: 'users', tone: tones.success, route: 'ClientsIndex' },
+        setStatValues([
+          { key: 'orders', value: String(ordersRes?.totalItems ?? '-') },
+          { key: 'customers', value: String(clientsRes?.totalItems ?? '-') },
         ]);
       } catch {
         // mantém os valores padrão
@@ -95,7 +124,7 @@ export default function HomePage({ navigation }) {
     };
 
     fetchStats();
-  }, [currentCompany?.id, tones.info, tones.success]);
+  }, [currentCompany?.id]);
 
   const go = (route, params = undefined) => navigation.navigate(route, params);
 
@@ -112,7 +141,9 @@ export default function HomePage({ navigation }) {
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
 
         {/* Stats */}
-        <Text style={styles.overviewLabel}>{global.t?.t('configs', 'section_title', 'overview')}</Text>
+        <Text style={styles.overviewLabel}>
+          {translate('configs', 'section_title', 'overview')}
+        </Text>
         <View style={styles.statsRow}>
           {stats.map((stat, idx) => (
             <TouchableOpacity
@@ -146,8 +177,12 @@ export default function HomePage({ navigation }) {
         >
           <View style={styles.actionContent}>
             <View>
-              <Text style={styles.actionTitle}>{global.t?.t('configs', 'button_title', 'results')}</Text>
-              <Text style={styles.actionSub}>{global.t?.t('configs', 'section_title', 'resultsDescription')}</Text>
+              <Text style={styles.actionTitle}>
+                {translate('configs', 'button_title', 'results')}
+              </Text>
+              <Text style={styles.actionSub}>
+                {translate('configs', 'section_title', 'resultsDescription')}
+              </Text>
             </View>
             <View style={styles.actionArrow}>
               <Icon name="arrow-right" size={20} color={brandColors.primary} />

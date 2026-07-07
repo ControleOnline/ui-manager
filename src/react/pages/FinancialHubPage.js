@@ -6,38 +6,43 @@ import {useStore} from '@store';
 import FinancialEntriesPage from '@controleonline/ui-financial/src/react/pages/FinancialEntriesPage';
 import {createStyles} from './FinancialHubPage.styles';
 
+const translate = (store, type, key) => global.t?.t(store, type, key);
+
 const getFinancialTabs = () => [
   {
     key: 'receivables',
-    label: global.t?.t('invoice', 'label', 'accountsReceivable'),
+    label: translate('invoice', 'label', 'accountsReceivable'),
     icon: 'arrow-up-circle',
     categoryContext: 'receiver',
-    categoryTitle: global.t?.t('invoice', 'label', 'revenueCategories'),
-    categoryContextLabel: global.t?.t('invoice', 'label', 'revenue'),
+    categoryTitle: translate('invoice', 'label', 'revenueCategories'),
+    categoryContextLabel: translate('invoice', 'label', 'revenue'),
   },
   {
     key: 'payables',
-    label: global.t?.t('invoice', 'label', 'accountsPayable'),
+    label: translate('invoice', 'label', 'accountsPayable'),
     icon: 'arrow-down-circle',
     categoryContext: 'payer',
-    categoryTitle: global.t?.t('invoice', 'label', 'expenseCategories'),
-    categoryContextLabel: global.t?.t('invoice', 'label', 'expense'),
+    categoryTitle: translate('invoice', 'label', 'expenseCategories'),
+    categoryContextLabel: translate('invoice', 'label', 'expense'),
   },
   {
     key: 'ownTransfers',
-    label: global.t?.t('invoice', 'label', 'transfers'),
+    label: translate('invoice', 'label', 'transfers'),
     icon: 'repeat',
     categoryContext: 'payer',
-    categoryTitle: global.t?.t('invoice', 'label', 'transferCategories'),
-    categoryContextLabel: global.t?.t('invoice', 'label', 'transfers'),
+    categoryTitle: translate('invoice', 'label', 'transferCategories'),
+    categoryContextLabel: translate('invoice', 'label', 'transfers'),
   },
 ];
 
 export default function FinancialHubPage({navigation}) {
   const peopleStore = useStore('people');
   const themeStore = useStore('theme');
+  const translateStore = useStore('translate');
   const {currentCompany} = peopleStore.getters;
   const themeColors = themeStore?.getters?.colors || {};
+  const translateMessages = translateStore?.getters?.messages || {};
+  const pendingTranslateMessages = translateStore?.getters?.pendingMessages || {};
 
   const palette = useMemo(
     () => ({
@@ -57,7 +62,10 @@ export default function FinancialHubPage({navigation}) {
   );
   const styles = useMemo(() => createStyles(palette), [palette]);
 
-  const FINANCIAL_TABS = getFinancialTabs();
+  const FINANCIAL_TABS = useMemo(
+    () => getFinancialTabs(),
+    [translateMessages, pendingTranslateMessages],
+  );
   const tabSurfaceColor = palette.buttonBackground;
   const tabHighlightColor = palette.buttonText;
   const tabBorderColor = palette.cardBorder;
@@ -72,7 +80,7 @@ export default function FinancialHubPage({navigation}) {
     () => [
       {
         key: 'wallets',
-        label: global.t?.t('invoice', 'label', 'wallets') || 'Carteiras',
+        label: translate('invoice', 'label', 'wallets'),
         icon: 'briefcase',
         color: palette.buttonTextSecondary,
         style: {
@@ -84,7 +92,7 @@ export default function FinancialHubPage({navigation}) {
       },
       {
         key: 'categories',
-        label: global.t?.t('invoice', 'label', 'categories') || 'Categorias',
+        label: translate('invoice', 'label', 'categories'),
         icon: 'tag',
         color: tabHighlightColor,
         style: {
@@ -111,6 +119,8 @@ export default function FinancialHubPage({navigation}) {
       palette.buttonBorder,
       palette.buttonBorderSecondary,
       palette.buttonTextSecondary,
+      translateMessages,
+      pendingTranslateMessages,
       tabHighlightColor,
       tabSurfaceColor,
     ],
@@ -124,10 +134,14 @@ export default function FinancialHubPage({navigation}) {
         <View style={styles.centerState}>
           <Icon name="building" size={32} color={palette.textSecondary} />
           <Text style={styles.centerStateTitle}>
-            {global.t?.t('invoice', 'message', 'selectCompany')}
+            {translate('invoice', 'message', 'selectCompany')}
           </Text>
           <Text style={styles.centerStateText}>
-            {global.t?.t('invoice', 'message', 'financialModuleRequiresCompany')}
+            {translate(
+              'invoice',
+              'message',
+              'financialModuleRequiresCompany',
+            )}
           </Text>
         </View>
       </SafeAreaView>
