@@ -6,7 +6,19 @@ import {useStore} from '@store';
 import FinancialEntriesPage from '@controleonline/ui-financial/src/react/pages/FinancialEntriesPage';
 import {createStyles} from './FinancialHubPage.styles';
 
-const translate = (store, type, key) => global.t?.t(store, type, key);
+const normalizeText = value => String(value || '').trim();
+
+const humanizeTranslationKey = key =>
+  normalizeText(key)
+    .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+    .replace(/[_-]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .replace(/^./, char => char.toUpperCase());
+
+const translate = (store, type, key) => {
+  const translated = global.t?.t(store, type, key);
+  return normalizeText(translated) || humanizeTranslationKey(key);
+};
 
 const getFinancialTabs = () => [
   {
