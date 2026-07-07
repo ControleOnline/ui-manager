@@ -386,6 +386,32 @@ const THEME_REFERENCE_GROUPS = [
       'selectText',
     ],
   },
+	{
+	  label: 'table',
+	  tokens: [
+		'tableActionBackground',
+		'tableActionBorder',
+		'tableActionIcon',
+		'tableFilterBackground',
+		'tableFilterBorder',
+		'tableFilterText',
+		'tableFooterBackground',
+		'tableFooterBorder',
+		'tableFooterText',
+		'tableHeaderBackground',
+		'tableHeaderBorder',
+		'tableHeaderIcon',
+		'tableHeaderText',
+		'tableRowBackground',
+		'tableRowBorder',
+		'tableRowEvenBackground',
+		'tableRowMutedText',
+		'tableRowOddBackground',
+		'tableRowSelectedBackground',
+		'tableRowSelectedBorder',
+		'tableRowText',
+	  ],
+	},
   {
     label: 'navigation',
     tokens: [
@@ -637,6 +663,11 @@ const clampNumber = (value, min, max) => {
   return Math.min(Math.max(value, min), max);
 };
 
+const snapToStep = (value, step = 10) => {
+  if (!Number.isFinite(value) || step <= 0) return value;
+  return Math.round(value / step) * step;
+};
+
 const getHexBaseColor = value => {
   const normalized = normalizeHex(value);
   if (!normalized) return '';
@@ -644,6 +675,8 @@ const getHexBaseColor = value => {
 };
 
 const getHexAlphaPercent = value => {
+  if (isTransparentColor(value)) return 0;
+
   const normalized = normalizeHex(value);
   if (!normalized || normalized.length !== 9) return 100;
 
@@ -1551,6 +1584,245 @@ const renderThemeObjectPreview = (group, themeColors, onSelectTokens, useRnwPrev
         </View>
       );
     }
+
+
+case 'table': {
+      const tableHeaderBackground = getPreviewColorMode(
+        themeColors,
+        ['tableHeaderBackground', 'headerBackground', 'surface', 'background'],
+        '#F8FAFC',
+        useRnwPreview,
+      );
+      const tableHeaderBorder = getPreviewColorMode(
+        themeColors,
+        ['tableHeaderBorder', 'headerBorder', 'border'],
+        '#E2E8F0',
+        useRnwPreview,
+      );
+      const tableHeaderText = getPreviewColorMode(
+        themeColors,
+        ['tableHeaderText', 'headerText', 'textPrimary', 'text'],
+        '#0F172A',
+        useRnwPreview,
+      );
+      const tableHeaderIcon = getPreviewColorMode(
+        themeColors,
+        ['tableHeaderIcon', 'headerIcon', 'iconMuted', 'textSecondary'],
+        '#64748B',
+        useRnwPreview,
+      );
+
+      const tableFilterBackground = getPreviewColorMode(
+        themeColors,
+        ['tableFilterBackground', 'inputBackground', 'surface', 'background'],
+        '#FFFFFF',
+        useRnwPreview,
+      );
+      const tableFilterBorder = getPreviewColorMode(
+        themeColors,
+        ['tableFilterBorder', 'inputBorder', 'border'],
+        '#CBD5E1',
+        useRnwPreview,
+      );
+      const tableFilterText = getPreviewColorMode(
+        themeColors,
+        ['tableFilterText', 'inputText', 'textPrimary', 'text'],
+        '#0F172A',
+        useRnwPreview,
+      );
+
+      const tableRowOddBackground = getPreviewColorMode(
+        themeColors,
+        ['tableRowOddBackground', 'tableRowBackground', 'listItemOddRow', 'listItemBackground', 'surface', 'background'],
+        '#FFFFFF',
+        useRnwPreview,
+      );
+      const tableRowEvenBackground = getPreviewColorMode(
+        themeColors,
+        ['tableRowEvenBackground', 'tableRowBackground', 'listItemEvenRow', 'listItemBackground', 'surface', 'background'],
+        '#F8FAFC',
+        useRnwPreview,
+      );
+      const tableRowBorder = getPreviewColorMode(
+        themeColors,
+        ['tableRowBorder', 'listItemBorder', 'border'],
+        '#E2E8F0',
+        useRnwPreview,
+      );
+      const tableRowText = getPreviewColorMode(
+        themeColors,
+        ['tableRowText', 'listItemText', 'textPrimary', 'text'],
+        '#0F172A',
+        useRnwPreview,
+      );
+      const tableRowMutedText = getPreviewColorMode(
+        themeColors,
+        ['tableRowMutedText', 'textSecondary', 'listItemSubtitleText'],
+        '#64748B',
+        useRnwPreview,
+      );
+
+      const tableActionBackground = getPreviewColorMode(
+        themeColors,
+        ['tableActionBackground', 'surface', 'background'],
+        '#FFFFFF',
+        useRnwPreview,
+      );
+      const tableActionBorder = getPreviewColorMode(
+        themeColors,
+        ['tableActionBorder', 'border'],
+        '#E2E8F0',
+        useRnwPreview,
+      );
+      const tableActionIcon = getPreviewColorMode(
+        themeColors,
+        ['tableActionIcon', 'iconMuted', 'textSecondary'],
+        '#64748B',
+        useRnwPreview,
+      );
+
+      const tableFooterBackground = getPreviewColorMode(
+        themeColors,
+        ['tableFooterBackground', 'surface', 'background'],
+        '#FFFFFF',
+        useRnwPreview,
+      );
+      const tableFooterBorder = getPreviewColorMode(
+        themeColors,
+        ['tableFooterBorder', 'border'],
+        '#E2E8F0',
+        useRnwPreview,
+      );
+      const tableFooterText = getPreviewColorMode(
+        themeColors,
+        ['tableFooterText', 'textPrimary', 'text'],
+        '#0F172A',
+        useRnwPreview,
+      );
+
+      return (
+        <View style={styles.previewStack}>
+          <PreviewPressTarget
+            tokenKeys={['tableHeaderBackground', 'tableHeaderBorder', 'tableHeaderText', 'tableHeaderIcon']}
+            onSelectTokens={onSelectTokens}
+            style={[
+              styles.previewListItem,
+              {
+                backgroundColor: resolvePreviewValue(tableHeaderBackground, '#F8FAFC', useRnwPreview),
+                borderColor: resolvePreviewValue(tableHeaderBorder, '#E2E8F0', useRnwPreview),
+                borderWidth: useRnwPreview ? 1 : tableHeaderBorder ? 1 : 0,
+              },
+            ]}
+          >
+            <Text style={[styles.previewListText, { color: resolvePreviewValue(tableHeaderText, '#0F172A', useRnwPreview) }]}>
+              ID
+            </Text>
+            <Text style={[styles.previewListText, { flex: 1, color: resolvePreviewValue(tableHeaderText, '#0F172A', useRnwPreview) }]}>
+              STATUS
+            </Text>
+            <Icon name="chevron-down" size={13} color={resolvePreviewValue(tableHeaderIcon, '#64748B', useRnwPreview)} />
+          </PreviewPressTarget>
+
+          <PreviewPressTarget
+            tokenKeys={['tableFilterBackground', 'tableFilterBorder', 'tableFilterText']}
+            onSelectTokens={onSelectTokens}
+            style={[
+              styles.previewField,
+              {
+                minHeight: 34,
+                backgroundColor: resolvePreviewValue(tableFilterBackground, '#FFFFFF', useRnwPreview),
+                borderColor: resolvePreviewValue(tableFilterBorder, '#CBD5E1', useRnwPreview),
+                borderWidth: useRnwPreview ? 1 : tableFilterBorder ? 1 : 0,
+              },
+            ]}
+          >
+            <Text style={[styles.previewFieldText, { color: resolvePreviewValue(tableFilterText, '#0F172A', useRnwPreview) }]}>
+              Filtro de coluna
+            </Text>
+            <Icon name="search" size={13} color={resolvePreviewValue(tableFilterText, '#0F172A', useRnwPreview)} />
+          </PreviewPressTarget>
+
+          <PreviewPressTarget
+            tokenKeys={['tableRowOddBackground', 'tableRowBorder', 'tableRowText', 'tableRowMutedText']}
+            onSelectTokens={onSelectTokens}
+            style={[
+              styles.previewListItem,
+              {
+                backgroundColor: resolvePreviewValue(tableRowOddBackground, '#FFFFFF', useRnwPreview),
+                borderColor: resolvePreviewValue(tableRowBorder, '#E2E8F0', useRnwPreview),
+                borderWidth: useRnwPreview ? 1 : tableRowBorder ? 1 : 0,
+              },
+            ]}
+          >
+            <Text style={[styles.previewListText, { color: resolvePreviewValue(tableRowText, '#0F172A', useRnwPreview) }]}>
+              #242557
+            </Text>
+            <Text style={[styles.previewListText, { flex: 1, color: resolvePreviewValue(tableRowMutedText, '#64748B', useRnwPreview) }]}>
+              paid
+            </Text>
+          </PreviewPressTarget>
+
+          <PreviewPressTarget
+            tokenKeys={['tableRowEvenBackground', 'tableRowBorder', 'tableRowText', 'tableActionBackground', 'tableActionBorder', 'tableActionIcon']}
+            onSelectTokens={onSelectTokens}
+            style={[
+              styles.previewListItem,
+              {
+                backgroundColor: resolvePreviewValue(tableRowEvenBackground, '#F8FAFC', useRnwPreview),
+                borderColor: resolvePreviewValue(tableRowBorder, '#E2E8F0', useRnwPreview),
+                borderWidth: useRnwPreview ? 1 : tableRowBorder ? 1 : 0,
+              },
+            ]}
+          >
+            <Text style={[styles.previewListText, { color: resolvePreviewValue(tableRowText, '#0F172A', useRnwPreview) }]}>
+              #242558
+            </Text>
+            <Text style={[styles.previewListText, { flex: 1, color: resolvePreviewValue(tableRowText, '#0F172A', useRnwPreview) }]}>
+              paid
+            </Text>
+            <View
+              style={[
+                styles.previewIconBubble,
+                {
+                  width: 28,
+                  height: 28,
+                  borderRadius: 8,
+                  backgroundColor: resolvePreviewValue(tableActionBackground, '#FFFFFF', useRnwPreview),
+                  borderColor: resolvePreviewValue(tableActionBorder, '#E2E8F0', useRnwPreview),
+                  borderWidth: useRnwPreview ? 1 : tableActionBorder ? 1 : 0,
+                },
+              ]}
+            >
+              <Icon name="edit-3" size={12} color={resolvePreviewValue(tableActionIcon, '#64748B', useRnwPreview)} />
+            </View>
+          </PreviewPressTarget>
+
+          <PreviewPressTarget
+            tokenKeys={['tableFooterBackground', 'tableFooterBorder', 'tableFooterText']}
+            onSelectTokens={onSelectTokens}
+            style={[
+              styles.previewBar,
+              {
+                minHeight: 36,
+                backgroundColor: resolvePreviewValue(tableFooterBackground, '#FFFFFF', useRnwPreview),
+                borderColor: resolvePreviewValue(tableFooterBorder, '#E2E8F0', useRnwPreview),
+                borderWidth: useRnwPreview ? 1 : tableFooterBorder ? 1 : 0,
+              },
+            ]}
+          >
+            <Text style={[styles.previewBarTitle, { color: resolvePreviewValue(tableFooterText, '#0F172A', useRnwPreview) }]}>
+              Total
+            </Text>
+            <Text style={[styles.previewBarTitle, { color: resolvePreviewValue(tableFooterText, '#0F172A', useRnwPreview) }]}>
+              24 registros
+            </Text>
+          </PreviewPressTarget>
+        </View>
+      );
+    }
+
+
+
     case 'listItem':
     case 'menu':
     case 'navigation': {
@@ -1908,14 +2180,23 @@ const buildEditorFields = draft => {
     .map(buildEditorField);
 };
 
-const OpacitySlider = ({ value = 100, onChange, disabled = false, compact = false }) => {
+const OpacitySlider = ({
+  value = 100,
+  onChange,
+  disabled = false,
+  compact = false,
+  previewColor = '',
+  onApplyPreview,
+}) => {
   const [trackWidth, setTrackWidth] = useState(0);
+
+  const resolvedPreviewColor = normalizeHex(previewColor) || '';
 
   const handlePointer = useCallback(locationX => {
     if (disabled || trackWidth <= 0) return;
 
     const ratio = clampNumber(locationX / trackWidth, 0, 1);
-    onChange(Math.max(1, Math.round(ratio * 100)));
+    onChange(clampNumber(Math.round(ratio * 100), 0, 100));
   }, [disabled, onChange, trackWidth]);
 
   const panResponder = useMemo(() => PanResponder.create({
@@ -1925,7 +2206,7 @@ const OpacitySlider = ({ value = 100, onChange, disabled = false, compact = fals
     onPanResponderMove: event => handlePointer(event.nativeEvent.locationX),
   }), [disabled, handlePointer]);
 
-  const normalizedValue = clampNumber(value, 1, 100);
+  const normalizedValue = clampNumber(value, 0, 100);
 
   if (compact) {
     return (
@@ -1950,7 +2231,23 @@ const OpacitySlider = ({ value = 100, onChange, disabled = false, compact = fals
             ]}
           />
         </View>
-        <Text style={styles.opacityEditorInlineValue}>{normalizedValue}%</Text>
+
+        <Pressable
+          disabled={disabled || !resolvedPreviewColor}
+          onPress={() => {
+            if (disabled || !resolvedPreviewColor || !onApplyPreview) return;
+            onApplyPreview(resolvedPreviewColor);
+          }}
+          style={[
+            styles.toneEditorPreviewButton,
+            resolvedPreviewColor
+              ? {
+                  backgroundColor: resolvedPreviewColor,
+                  borderColor: '#000000',
+                }
+              : null,
+          ]}
+        />
       </View>
     );
   }
@@ -1958,7 +2255,7 @@ const OpacitySlider = ({ value = 100, onChange, disabled = false, compact = fals
   return (
     <View style={[styles.opacityEditor, disabled && styles.opacityEditorDisabled]}>
       <View style={styles.opacityEditorHeader}>
-        <Text style={styles.opacityEditorLabel}>Transparência</Text>
+        <Text style={styles.opacityEditorLabel}>Opacidade</Text>
         <Text style={styles.opacityEditorValue}>{normalizedValue}%</Text>
       </View>
 
@@ -1985,7 +2282,118 @@ const OpacitySlider = ({ value = 100, onChange, disabled = false, compact = fals
     </View>
   );
 };
+const mixHexColors = (firstColor, secondColor, ratio = 0.5) => {
+  const left = getHexBaseColor(firstColor);
+  const right = getHexBaseColor(secondColor);
+  if (!left || !right) return left || right || '';
 
+  const normalizedRatio = clampNumber(ratio, 0, 1);
+  const leftWeight = 1 - normalizedRatio;
+  const rightWeight = normalizedRatio;
+
+  const red = Math.round(
+    (Number.parseInt(left.slice(1, 3), 16) * leftWeight)
+    + (Number.parseInt(right.slice(1, 3), 16) * rightWeight),
+  );
+  const green = Math.round(
+    (Number.parseInt(left.slice(3, 5), 16) * leftWeight)
+    + (Number.parseInt(right.slice(3, 5), 16) * rightWeight),
+  );
+  const blue = Math.round(
+    (Number.parseInt(left.slice(5, 7), 16) * leftWeight)
+    + (Number.parseInt(right.slice(5, 7), 16) * rightWeight),
+  );
+
+  return `#${[red, green, blue]
+    .map(channel => channel.toString(16).padStart(2, '0'))
+    .join('')}`.toUpperCase();
+};
+
+const adjustHexTone = (value, tonePercent = 0) => {
+  const baseColor = getHexBaseColor(value);
+  if (!baseColor) return '';
+
+  const normalizedTone = clampNumber(tonePercent, -100, 100);
+
+  if (normalizedTone === 0) return baseColor;
+
+  if (normalizedTone < 0) {
+    return mixHexColors(baseColor, '#000000', Math.abs(normalizedTone) / 100);
+  }
+
+  return mixHexColors(baseColor, '#FFFFFF', normalizedTone / 100);
+};
+
+const ToneSlider = ({
+  value = 0,
+  onChange,
+  disabled = false,
+  previewColor = '',
+  onApplyPreview,
+}) => {
+  const [trackWidth, setTrackWidth] = useState(0);
+
+  const resolvedPreviewColor = getHexBaseColor(previewColor) || '';
+
+  const handlePointer = useCallback(locationX => {
+    if (disabled || trackWidth <= 0) return;
+
+    const ratio = clampNumber(locationX / trackWidth, 0, 1);
+    const rawValue = (ratio * 200) - 100;
+    const snappedValue = snapToStep(rawValue, 10);
+
+    onChange(clampNumber(snappedValue, -100, 100));
+  }, [disabled, onChange, trackWidth]);
+    
+  const panResponder = useMemo(() => PanResponder.create({
+    onStartShouldSetPanResponder: () => !disabled,
+    onMoveShouldSetPanResponder: () => !disabled,
+    onPanResponderGrant: event => handlePointer(event.nativeEvent.locationX),
+    onPanResponderMove: event => handlePointer(event.nativeEvent.locationX),
+  }), [disabled, handlePointer]);
+
+  const normalizedValue = clampNumber(value, -100, 100);
+  const thumbLeft = trackWidth > 0
+    ? ((normalizedValue + 100) / 200) * trackWidth - 10
+    : -10;
+
+  return (
+    <View style={[styles.toneEditorInline, disabled && styles.toneEditorInlineDisabled]}>
+      <View
+        style={styles.toneEditorTrackWrap}
+        onLayout={event => setTrackWidth(event.nativeEvent.layout.width)}
+        {...(disabled ? {} : panResponder.panHandlers)}
+      >
+        <View style={styles.toneEditorTrack} />
+        <View style={styles.toneEditorCenterMark} />
+        <View
+          style={[
+            styles.toneEditorThumb,
+            { left: thumbLeft },
+            disabled && styles.toneEditorThumbDisabled,
+          ]}
+        />
+      </View>
+
+      <Pressable
+        disabled={disabled || !resolvedPreviewColor}
+        onPress={() => {
+          if (disabled || !resolvedPreviewColor || !onApplyPreview) return;
+          onApplyPreview(resolvedPreviewColor);
+        }}
+        style={[
+          styles.toneEditorPreviewButton,
+          resolvedPreviewColor
+            ? {
+                backgroundColor: resolvedPreviewColor,
+                borderColor: '#000000',
+              }
+            : null,
+        ]}
+      />
+    </View>
+  );
+};
 const ColorEditor = ({
   field,
   value,
@@ -2007,12 +2415,23 @@ const ColorEditor = ({
   const hasEditableBaseHex = Boolean(baseHexColor);
   const [hoveredSwatchKey, setHoveredSwatchKey] = useState('');
   const [hoveredInputHelp, setHoveredInputHelp] = useState(false);
-
+  const [toneValue, setToneValue] = useState(0);
+  const [tonePreviewColor, setTonePreviewColor] = useState(baseHexColor);
+  const [opacityPreviewPercent, setOpacityPreviewPercent] = useState(alphaPercent);
+    
   useEffect(() => {
     if (currentBaseHexColor) {
       setLastBaseHexColor(currentBaseHexColor);
     }
   }, [currentBaseHexColor]);
+  useEffect(() => {
+    setToneValue(0);
+    setTonePreviewColor(baseHexColor);
+  }, [baseHexColor]);
+
+  useEffect(() => {
+    setOpacityPreviewPercent(alphaPercent);
+  }, [alphaPercent, baseHexColor]);
 
   return (
     <View style={styles.colorEditor}>
@@ -2077,18 +2496,26 @@ const ColorEditor = ({
                       <Pressable
                         style={[
                           styles.pickerButton,
-                          { backgroundColor: colorItem.value },
+                          {
+                            backgroundColor: colorItem.value,
+                            borderColor: '#000000',
+                          },
                           selected && styles.pickerButtonActive,
                         ]}
-                        onPress={() => {
+						onPress={() => {
+                          const nextColor = colorItem.value;
+                          const normalizedNextBase = getHexBaseColor(nextColor) || '';
+
+                          setToneValue(0);
+                          setTonePreviewColor(normalizedNextBase);
+
                           if (onSelectSwatchValue) {
-                            onSelectSwatchValue(colorItem.value);
+                            onSelectSwatchValue(nextColor);
                             return;
                           }
 
-                          onChange(colorItem.value);
-                        }}
-                        onHoverIn={() => setHoveredSwatchKey(swatchKey)}
+                          onChange(nextColor);
+                        }}                        onHoverIn={() => setHoveredSwatchKey(swatchKey)}
                         onHoverOut={() => setHoveredSwatchKey(current => (
                           current === swatchKey ? '' : current
                         ))}
@@ -2102,81 +2529,124 @@ const ColorEditor = ({
         </View>
       ))}
 
-      <View style={styles.colorControlsRow}>
-        <View style={styles.colorInputRow}>
-          <View style={styles.colorInputShell}>
-            <TextInput
-              value={normalizedValue}
-              onChangeText={text => {
-                const normalizedText = normalizeThemeColorValue(text);
-                if (normalizedText) {
-                  onChange(normalizedText);
-                  return;
-                }
+<View style={styles.colorControlsRow}>
+        <View style={[styles.editorControlCard, styles.editorControlCardFixed]}>
+          <View style={styles.editorControlCardHeader}>
+            <Text style={styles.editorControlCardTitle}>Cor</Text>
+          </View>
 
-                onChange(text);
-              }}
-              autoCapitalize="none"
-              autoCorrect={false}
-              placeholder="#000000"
-              placeholderTextColor="#94A3B8"
-              style={styles.colorInput}
-            />
-            <Text style={styles.colorHint}>HEX</Text>
-            <Pressable
-              onHoverIn={() => setHoveredInputHelp(true)}
-              onHoverOut={() => setHoveredInputHelp(false)}
-              style={styles.colorInputInfoWrap}
-            >
-              <View style={styles.colorInputInfoButton}>
-                <Icon name="info" size={12} color="#64748B" />
-              </View>
-              {hoveredInputHelp ? (
-                <View style={styles.colorInputTooltip}>
-                  <View>
-                    <Text style={styles.pickerTooltipText}>HEX</Text>
-                    <Text style={styles.pickerTooltipText}>rgb(...)</Text>
-                    <Text style={styles.pickerTooltipText}>rgba(...)</Text>
-                    <Text style={styles.pickerTooltipText}>28, 143, 189, 0.1</Text>
-                    <Text style={styles.pickerTooltipText}>28, 143, 189, 10%</Text>
-                  </View>
+          <View style={styles.colorInputRow}>
+            <View style={styles.colorInputShell}>
+              <TextInput
+                value={normalizedValue}
+                onChangeText={text => {
+                  const normalizedText = normalizeThemeColorValue(text);
+                  if (normalizedText) {
+                    setToneValue(0);
+                    setTonePreviewColor(getHexBaseColor(normalizedText) || '');
+                    setOpacityPreviewPercent(getHexAlphaPercent(normalizedText));
+                    onChange(normalizedText);
+                    return;
+                  }
+
+                  onChange(text);
+                }}
+                autoCapitalize="none"
+                autoCorrect={false}
+                placeholder="#000000"
+                placeholderTextColor="#94A3B8"
+                style={styles.colorInput}
+              />
+              <Text style={styles.colorHint}>HEX</Text>
+              <Pressable
+                onHoverIn={() => setHoveredInputHelp(true)}
+                onHoverOut={() => setHoveredInputHelp(false)}
+                style={styles.colorInputInfoWrap}
+              >
+                <View style={styles.colorInputInfoButton}>
+                  <Icon name="info" size={12} color="#64748B" />
                 </View>
-              ) : null}
-            </Pressable>
+                {hoveredInputHelp ? (
+                  <View style={styles.colorInputTooltip}>
+                    <View>
+                      <Text style={styles.pickerTooltipText}>HEX</Text>
+                      <Text style={styles.pickerTooltipText}>rgb(...)</Text>
+                      <Text style={styles.pickerTooltipText}>rgba(...)</Text>
+                      <Text style={styles.pickerTooltipText}>28, 143, 189, 0.1</Text>
+                      <Text style={styles.pickerTooltipText}>28, 143, 189, 10%</Text>
+                    </View>
+                  </View>
+                ) : null}
+              </Pressable>
+            </View>
+          </View>
+
+          <View style={styles.editorControlCardFooter}>
+            <Text style={[styles.editorControlCardFooterText, { opacity: 0 }]}>
+              000%
+            </Text>
           </View>
         </View>
 
-        <OpacitySlider
-          compact
-          value={alphaPercent}
-          disabled={!hasEditableBaseHex}
-          onChange={nextValue => onChange(composeHexWithAlpha(baseHexColor, nextValue))}
-        />
-
-        <Pressable
-          style={[
-            styles.transparentToggle,
-            isExplicitTransparent && styles.transparentToggleActive,
-          ]}
-          onPress={() => {
-            if (isExplicitTransparent) {
-              onChange(baseHexColor || '');
-              return;
-            }
-
-            onChange(TRANSPARENT_COLOR_VALUE);
-          }}
-        >
-          <View
-            style={[
-              styles.transparentToggleBox,
-              isExplicitTransparent && styles.transparentToggleBoxActive,
-            ]}
-          >
-            {isExplicitTransparent ? <Icon name="check" size={12} color="#0F172A" /> : null}
+        <View style={[styles.editorControlCard, styles.editorControlCardFlexible]}>
+          <View style={[styles.editorControlCardHeader, styles.editorControlCardHeaderSliderAligned]}>
+            <Text style={styles.editorControlCardTitle}>Brilho</Text>
           </View>
-          <Text style={styles.transparentToggleLabel}>Transparente</Text>
-        </Pressable>
+
+          <ToneSlider
+            value={toneValue}
+            previewColor={tonePreviewColor}
+            disabled={!hasEditableBaseHex || isExplicitTransparent}
+            onChange={nextToneValue => {
+              setToneValue(nextToneValue);
+              const adjustedBaseColor = adjustHexTone(baseHexColor, nextToneValue);
+              setTonePreviewColor(adjustedBaseColor || baseHexColor);
+            }}
+            onApplyPreview={appliedColor => {
+              onChange(composeHexWithAlpha(appliedColor, alphaPercent));
+            }}
+          />
+
+          <View style={[styles.editorControlCardFooter, styles.editorControlCardFooterSliderAligned]}>
+            <Text style={styles.editorControlCardFooterText}>
+              {toneValue > 0 ? `+${toneValue}%` : `${toneValue}%`}
+            </Text>
+          </View>
+        </View>
+
+        <View style={[styles.editorControlCard, styles.editorControlCardFlexible]}>
+          <View style={[styles.editorControlCardHeader, styles.editorControlCardHeaderSliderAligned]}>
+            <Text style={styles.editorControlCardTitle}>Opacidade</Text>
+          </View>
+
+          <OpacitySlider
+            compact
+            value={opacityPreviewPercent}
+            previewColor={composeHexWithAlpha(baseHexColor, opacityPreviewPercent)}
+            disabled={!hasEditableBaseHex}
+            onChange={nextValue => {
+              setOpacityPreviewPercent(nextValue);
+
+              if (nextValue === 0) {
+                onChange(TRANSPARENT_COLOR_VALUE);
+              }
+            }}
+            onApplyPreview={appliedColor => {
+              if (opacityPreviewPercent === 0) {
+                onChange(TRANSPARENT_COLOR_VALUE);
+                return;
+              }
+
+              onChange(appliedColor);
+            }}
+          />
+
+          <View style={[styles.editorControlCardFooter, styles.editorControlCardFooterSliderAligned]}>
+            <Text style={styles.editorControlCardFooterText}>
+              {opacityPreviewPercent}%
+            </Text>
+          </View>
+        </View>
       </View>
     </View>
   );
@@ -2252,7 +2722,7 @@ export default function ThemeManagerPage() {
       },
       {
         id: 'legacy',
-        label: 'Antigo',
+        label: 'Legado',
         colors: extractUniqueNormalizedColors(legacyEntries),
       },
       {
@@ -3005,7 +3475,7 @@ export default function ThemeManagerPage() {
                                     normalizedValue
                                       ? {
                                         backgroundColor: normalizedValue,
-                                        borderColor: withOpacity(getReadableTextColor(normalizedValue), 0.2),
+                                        borderColor: '#000000',
                                       }
                                       : isTransparentValue
                                         ? styles.transparentColorSwatch
@@ -3138,7 +3608,7 @@ export default function ThemeManagerPage() {
                                     normalizedValue
                                       ? {
                                         backgroundColor: normalizedValue,
-                                        borderColor: withOpacity(getReadableTextColor(normalizedValue), 0.2),
+                                        borderColor: '#000000',
                                       }
                                       : isTransparentValue
                                         ? styles.transparentColorSwatch
