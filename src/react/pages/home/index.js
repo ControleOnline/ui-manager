@@ -178,10 +178,10 @@ export default function HomePage({ navigation }) {
           <View style={styles.actionContent}>
             <View>
               <Text style={styles.actionTitle}>
-                {translate('configs', 'button_title', 'results')}
+                {translate('configs', 'button_title', 'results') || 'Resultados'}
               </Text>
               <Text style={styles.actionSub}>
-                {translate('configs', 'section_title', 'resultsDescription')}
+                {translate('configs', 'section_title', 'resultsDescription') || 'Resumo dos resultados'}
               </Text>
             </View>
             <View style={styles.actionArrow}>
