@@ -11,7 +11,7 @@ const translate = (store, type, key) => global.t?.t(store, type, key);
 const getFinancialTabs = () => [
   {
     key: 'receivables',
-    label: translate('invoice', 'label', 'accountsReceivable'),
+    label: translate('invoice', 'label', 'accountsReceivable') || 'Contas a receber',
     icon: 'arrow-up-circle',
     categoryContext: 'receiver',
     categoryTitle: translate('invoice', 'label', 'revenueCategories'),
@@ -19,7 +19,7 @@ const getFinancialTabs = () => [
   },
   {
     key: 'payables',
-    label: translate('invoice', 'label', 'accountsPayable'),
+    label: translate('invoice', 'label', 'accountsPayable') || 'Contas a pagar',
     icon: 'arrow-down-circle',
     categoryContext: 'payer',
     categoryTitle: translate('invoice', 'label', 'expenseCategories'),
@@ -27,7 +27,7 @@ const getFinancialTabs = () => [
   },
   {
     key: 'ownTransfers',
-    label: translate('invoice', 'label', 'transfers'),
+    label: translate('invoice', 'label', 'transfers') || 'Transferências',
     icon: 'repeat',
     categoryContext: 'payer',
     categoryTitle: translate('invoice', 'label', 'transferCategories'),
