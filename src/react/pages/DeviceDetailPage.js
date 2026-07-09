@@ -961,7 +961,22 @@ const DeviceDetailPage = () => {
           people: '/people/' + currentCompany.id,
           type: deviceType,
         });
-        await refreshCurrentConfig();
+
+        actionsRef.current.deviceConfigActions.setItem({
+          ...(currentDeviceConfig || {}),
+          configs: nextConfigs,
+          device:
+            currentDeviceConfig?.device ||
+            currentDevice ||
+            {device: deviceString, type: deviceType},
+          people:
+            currentDeviceConfig?.people ||
+            `/people/${currentCompany.id}`,
+          type:
+            currentDeviceConfig?.type ||
+            deviceType,
+        });
+        setConfigs(nextConfigs);
       } catch {
         // silencioso
       } finally {
@@ -972,9 +987,10 @@ const DeviceDetailPage = () => {
       currentCompany?.id,
       appVersion,
       configs,
+      currentDevice,
+      currentDeviceConfig,
       deviceString,
       deviceType,
-      refreshCurrentConfig,
       savingPaymentTypes,
     ],
   );
