@@ -3,6 +3,7 @@
  * ## Escopo
  * - `ui-manager` e o modulo administrativo do app para configuracoes operacionais, devices, integracoes e visoes amplas da empresa.
  * - As telas React em `src/react/pages` sao a referencia ativa deste modulo.
+ * - Na visao `ADMIN`, a home começa pelo atalho de `MenuAccessConfigPage` para montar os menus da nova entrada web.
  *
  * ## Devices
  * - `DeviceDetailPage` e `PrinterDeviceDetailPage` sao os donos das configuracoes por device no `MANAGER`.
@@ -37,21 +38,29 @@ import { resolveThemePalette, withOpacity } from '@controleonline/../../src/styl
 import { colors } from '@controleonline/../../src/styles/colors';
 import Icon from 'react-native-vector-icons/Feather';
 import { useStore } from '@store';
+import { env as APP_ENV } from '@env';
 import { api } from '@controleonline/ui-common/src/api';
+import { userHasRole } from '@controleonline/ui-common/src/react/utils/runtimeMenu';
 import AppMenuGrid from '@controleonline/ui-layout/src/react/components/AppMenuGrid';
 import { createStyles } from './index.styles';
 
 const translate = (store, type, key) => global.t?.t(store, type, key);
 
 export default function HomePage({ navigation }) {
+  const appType = String(APP_ENV.APP_TYPE || '').toUpperCase();
+  const isAdminApp = appType === 'ADMIN';
+
   const themeStore = useStore('theme');
   const peopleStore = useStore('people');
+  const authStore = useStore('auth');
   const translateStore = useStore('translate');
 
   const { colors: themeColors, menus } = themeStore.getters;
   const { currentCompany } = peopleStore.getters;
+  const { user } = authStore.getters;
   const translateMessages = translateStore?.getters?.messages || {};
   const pendingTranslateMessages = translateStore?.getters?.pendingMessages || {};
+  const canManageAdminMenus = userHasRole(user, 'ROLE_SUPER');
 
   const brandColors = useMemo(
     () =>
@@ -169,26 +178,45 @@ export default function HomePage({ navigation }) {
           ))}
         </View>
 
-        {/* Banner — Resultado */}
-        <TouchableOpacity
-          style={[styles.actionBanner, { backgroundColor: brandColors.primary }]}
-          activeOpacity={0.9}
-          onPress={() => go('IncomeStatement')}
-        >
-          <View style={styles.actionContent}>
-            <View>
-              <Text style={styles.actionTitle}>
-                {translate('configs', 'button_title', 'results') || 'Resultados'}
-              </Text>
-              <Text style={styles.actionSub}>
-                {translate('configs', 'section_title', 'resultsDescription') || 'Resumo dos resultados'}
-              </Text>
+        {isAdminApp && canManageAdminMenus ? (
+          <TouchableOpacity
+            style={[styles.actionBanner, { backgroundColor: brandColors.primary }]}
+            activeOpacity={0.9}
+            onPress={() => go('MenuAccessConfigPage')}
+          >
+            <View style={styles.actionContent}>
+              <View>
+                <Text style={styles.actionTitle}>Cadastro de menus</Text>
+                <Text style={styles.actionSub}>
+                  Comece por aqui para montar os atalhos da nova visao admin.
+                </Text>
+              </View>
+              <View style={styles.actionArrow}>
+                <Icon name="list" size={20} color={brandColors.primary} />
+              </View>
             </View>
-            <View style={styles.actionArrow}>
-              <Icon name="arrow-right" size={20} color={brandColors.primary} />
+          </TouchableOpacity>
+        ) : (
+          <TouchableOpacity
+            style={[styles.actionBanner, { backgroundColor: brandColors.primary }]}
+            activeOpacity={0.9}
+            onPress={() => go('IncomeStatement')}
+          >
+            <View style={styles.actionContent}>
+              <View>
+                <Text style={styles.actionTitle}>
+                  {translate('configs', 'button_title', 'results') || 'Resultados'}
+                </Text>
+                <Text style={styles.actionSub}>
+                  {translate('configs', 'section_title', 'resultsDescription') || 'Resumo dos resultados'}
+                </Text>
+              </View>
+              <View style={styles.actionArrow}>
+                <Icon name="arrow-right" size={20} color={brandColors.primary} />
+              </View>
             </View>
-          </View>
-        </TouchableOpacity>
+          </TouchableOpacity>
+        )}
 
         <AppMenuGrid menus={menus} navigation={navigation} />
 

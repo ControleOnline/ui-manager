@@ -10,14 +10,14 @@ import {
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Feather';
 import {useStore} from '@store';
+import {env as APP_ENV} from '@env';
 import {api} from '@controleonline/ui-common/src/api';
 import {userHasRole} from '@controleonline/ui-common/src/react/utils/runtimeMenu';
 import useToastMessage from '@controleonline/ui-crm/src/react/hooks/useToastMessage';
 import styles from './MenuAccessConfigPage.styles';
 
-const APP_TYPES = ['MANAGER', 'CRM', 'POS', 'DELIVERY', 'PPC', 'SHOP'];
+const APP_TYPES = ['ADMIN', 'MANAGER', 'CRM', 'POS', 'DELIVERY', 'PPC', 'SHOP', 'SERVICE'];
 const LINK_TYPES = ['owner', 'director', 'manager', 'employee', 'salesman', 'after-sales'];
-const ITEMS_PER_PAGE = 200;
 
 const formatApiError = error => {
   if (typeof error === 'string') return error;
@@ -114,11 +114,13 @@ function SelectionModal({picker, onClose}) {
 }
 
 export default function MenuAccessConfigPage() {
+  const appType = String(APP_ENV.APP_TYPE || '').trim().toUpperCase();
+  const isAdminApp = appType === 'ADMIN';
   const authStore = useStore('auth');
   const {user} = authStore.getters;
   const {showError, showSuccess} = useToastMessage();
 
-  const [activeAppType, setActiveAppType] = useState('MANAGER');
+  const [activeAppType, setActiveAppType] = useState(isAdminApp ? 'ADMIN' : 'MANAGER');
   const [items, setItems] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [savingKey, setSavingKey] = useState(null);
@@ -132,7 +134,7 @@ export default function MenuAccessConfigPage() {
   const [picker, setPicker] = useState(null);
   const [addDraft, setAddDraft] = useState(null);
 
-  const canManageMenus = userHasRole(user, 'ROLE_SUPER');
+  const canManageMenus = isAdminApp && userHasRole(user, 'ROLE_SUPER');
   const categoryById = useMemo(() => indexById(availableCategories), [availableCategories]);
   const routeById = useMemo(() => indexById(availableRoutes), [availableRoutes]);
 
@@ -346,6 +348,16 @@ export default function MenuAccessConfigPage() {
       setSavingKey(null);
     }
   };
+
+  if (!isAdminApp) {
+    return (
+      <View style={styles.centerState}>
+        <Icon name="shield" size={28} color="#64748B" />
+        <Text style={styles.centerTitle}>Abra no app admin</Text>
+        <Text style={styles.centerText}>A configuracao de menus foi movida para a nova visao ADMIN.</Text>
+      </View>
+    );
+  }
 
   if (!canManageMenus) {
     return (
