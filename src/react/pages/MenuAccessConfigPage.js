@@ -10,8 +10,8 @@ import {
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Feather';
 import {useStore} from '@store';
-import {env as APP_ENV} from '@env';
 import {api} from '@controleonline/ui-common/src/api';
+import {app_type_base} from '@appType';
 import {userHasRole} from '@controleonline/ui-common/src/react/utils/runtimeMenu';
 import useToastMessage from '@controleonline/ui-crm/src/react/hooks/useToastMessage';
 import styles from './MenuAccessConfigPage.styles';
@@ -114,8 +114,7 @@ function SelectionModal({picker, onClose}) {
 }
 
 export default function MenuAccessConfigPage() {
-  const appType = String(APP_ENV.APP_TYPE || '').trim().toUpperCase();
-  const isAdminApp = appType === 'ADMIN';
+  const isAdminApp = app_type_base === 'ADMIN';
   const authStore = useStore('auth');
   const {user} = authStore.getters;
   const {showError, showSuccess} = useToastMessage();

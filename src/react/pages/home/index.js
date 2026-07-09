@@ -38,8 +38,8 @@ import { resolveThemePalette, withOpacity } from '@controleonline/../../src/styl
 import { colors } from '@controleonline/../../src/styles/colors';
 import Icon from 'react-native-vector-icons/Feather';
 import { useStore } from '@store';
-import { env as APP_ENV } from '@env';
 import { api } from '@controleonline/ui-common/src/api';
+import {app_type_base} from '@appType';
 import { userHasRole } from '@controleonline/ui-common/src/react/utils/runtimeMenu';
 import AppMenuGrid from '@controleonline/ui-layout/src/react/components/AppMenuGrid';
 import { createStyles } from './index.styles';
@@ -47,8 +47,7 @@ import { createStyles } from './index.styles';
 const translate = (store, type, key) => global.t?.t(store, type, key);
 
 export default function HomePage({ navigation }) {
-  const appType = String(APP_ENV.APP_TYPE || '').toUpperCase();
-  const isAdminApp = appType === 'ADMIN';
+  const isAdminApp = app_type_base === 'ADMIN';
 
   const themeStore = useStore('theme');
   const peopleStore = useStore('people');
