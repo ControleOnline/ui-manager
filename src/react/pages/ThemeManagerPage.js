@@ -656,7 +656,7 @@ const normalizeThemeColorValue = value => {
 };
 
 const hasThemeColorValue = value => {
-  return Boolean(normalizeHex(value)) || isTransparentColor(value);
+  return Boolean(normalizeThemeColorValue(value));
 };
 
 const clampNumber = (value, min, max) => {
@@ -907,6 +907,7 @@ const buildThemeColumns = themeColors => {
       value,
       isUnexpected: !LEGACY_THEME_KEY_SET.has(key),
     }));
+  const legacyFilledCount = legacyEntries.filter(item => hasThemeColorValue(item.value)).length;
 
   const newEntries = THEME_REFERENCE_TOKENS.map(key => ({
       key,
@@ -931,6 +932,7 @@ const buildThemeColumns = themeColors => {
 
   return {
     legacyEntries,
+    legacyFilledCount,
     newEntries,
     newEntriesByGroup,
     newCount: newEntries.length,
@@ -2693,6 +2695,7 @@ export default function ThemeManagerPage() {
   const [selectedPreviewTokenKeysByTheme, setSelectedPreviewTokenKeysByTheme] = useState({});
   const [themeName, setThemeName] = useState('');
   const [themeDraft, setThemeDraft] = useState(buildNewThemeDraft(palette));
+  const [showOnlyFilledLegacyByTheme, setShowOnlyFilledLegacyByTheme] = useState({});
   const [showOnlyFilledNewByTheme, setShowOnlyFilledNewByTheme] = useState({});
   const [showOnlyFilledPreviewByTheme, setShowOnlyFilledPreviewByTheme] = useState({});
   const [showRnwPreviewByTheme, setShowRnwPreviewByTheme] = useState({});
@@ -2972,6 +2975,13 @@ export default function ThemeManagerPage() {
 
     setSelectedThemeEditorColor(nextSelectedColor);
   }, [activeThemeEditorColor]);
+
+  const toggleShowOnlyFilledLegacy = useCallback(themeId => {
+    setShowOnlyFilledLegacyByTheme(current => ({
+      ...current,
+      [themeId]: !current[themeId],
+    }));
+  }, []);
 
   const toggleShowOnlyFilledNew = useCallback(themeId => {
     setShowOnlyFilledNewByTheme(current => ({
@@ -3363,6 +3373,7 @@ export default function ThemeManagerPage() {
             {themes.map(themeItem => {
               const {
                 legacyEntries,
+                legacyFilledCount,
                 newEntries,
                 newEntriesByGroup,
                 newCount,
@@ -3373,11 +3384,15 @@ export default function ThemeManagerPage() {
                 themeItem?.colors || {},
               );
               const themeId = String(themeItem.id);
+              const showOnlyFilledLegacy = Boolean(showOnlyFilledLegacyByTheme[themeId]);
               const showOnlyFilledNew = Boolean(showOnlyFilledNewByTheme[themeId]);
               const showOnlyFilledPreview = Boolean(showOnlyFilledPreviewByTheme[themeId]);
               const showRnwPreview = Boolean(showRnwPreviewByTheme[themeId]);
               const newSearch = String(newSearchByTheme[themeId] || '').trim().toLowerCase();
               const previewSearch = String(previewSearchByTheme[themeId] || '').trim().toLowerCase();
+              const visibleLegacyEntries = showOnlyFilledLegacy
+                ? legacyEntries.filter(item => hasThemeColorValue(item.value))
+                : legacyEntries;
               const visibleNewEntries = showOnlyFilledNew
                 ? newEntries.filter(item => hasThemeColorValue(item.value))
                 : newEntries;
@@ -3436,7 +3451,22 @@ export default function ThemeManagerPage() {
                     <View style={[styles.themeColumn, styles.themeColumnQuarter]}>
                       <View style={styles.columnHeader}>
                         <Text style={styles.columnTitle}>Atual</Text>
-                        <Text style={styles.columnMeta}>{legacyEntries.length}</Text>
+                        <View style={styles.columnMetaWrap}>
+                          <TouchableOpacity
+                            style={[
+                              styles.columnFilterButton,
+                              showOnlyFilledLegacy && styles.columnFilterButtonActive,
+                            ]}
+                            onPress={() => toggleShowOnlyFilledLegacy(themeId)}
+                          >
+                            <Icon
+                              name="filter"
+                              size={12}
+                              color={showOnlyFilledLegacy ? '#FFFFFF' : '#64748B'}
+                            />
+                          </TouchableOpacity>
+                          <Text style={styles.columnMeta}>{`${legacyFilledCount}/${legacyEntries.length}`}</Text>
+                        </View>
                       </View>
 
                       <ScrollView
@@ -3444,10 +3474,14 @@ export default function ThemeManagerPage() {
                         contentContainerStyle={styles.columnBody}
                         nestedScrollEnabled
                       >
-                        {legacyEntries.length === 0 ? (
-                          <Text style={styles.themeMetaText}>Nenhuma chave fora da referência.</Text>
+                        {visibleLegacyEntries.length === 0 ? (
+                          <Text style={styles.themeMetaText}>
+                            {showOnlyFilledLegacy
+                              ? 'Nenhum item com cor nesta coluna.'
+                              : 'Nenhuma chave fora da referência.'}
+                          </Text>
                         ) : (
-                          legacyEntries.map(colorItem => {
+                          visibleLegacyEntries.map(colorItem => {
                             const normalizedValue = normalizeHex(colorItem.value);
                             const isTransparentValue = isTransparentColor(colorItem.value);
                             const rgbaValue = formatRgbaColor(colorItem.value);
