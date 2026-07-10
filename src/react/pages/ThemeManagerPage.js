@@ -137,6 +137,10 @@ const COLOR_HINTS = {
 
 const THEME_REFERENCE_GROUPS = [
   {
+    label: 'tokens base',
+    tokens: ['googleLoading'],
+  },
+  {
     label: 'estrutura da tela',
     tokens: [
       'appBackground',
@@ -410,6 +414,9 @@ const THEME_REFERENCE_GROUPS = [
 		'tableRowSelectedBackground',
 		'tableRowSelectedBorder',
 		'tableRowText',
+		'tableToolbarBackground',
+		'tableToolbarBorder',
+		'tableToolbarText',
 	  ],
 	},
   {
@@ -504,22 +511,7 @@ const THEME_REFERENCE_GROUPS = [
   },
 ];
 
-const THEME_PREVIEW_GROUPS = [
-  {
-    label: 'tokens base',
-    tokens: [
-      'background',
-      'border',
-      'googleLoading',
-      'placeholderText',
-      'shadow',
-      'surface',
-      'textPrimary',
-      'textSecondary',
-    ],
-  },
-  ...THEME_REFERENCE_GROUPS,
-];
+const THEME_PREVIEW_GROUPS = THEME_REFERENCE_GROUPS;
 
 const UNIQUE_THEME_PREVIEW_GROUPS = (() => {
   const seenTokens = new Set();
@@ -1701,9 +1693,48 @@ case 'table': {
         '#0F172A',
         useRnwPreview,
       );
+      const tableToolbarBackground = getPreviewColorMode(
+        themeColors,
+        ['tableToolbarBackground', 'tableHeaderBackground', 'surface', 'background'],
+        '#FFFFFF',
+        useRnwPreview,
+      );
+      const tableToolbarBorder = getPreviewColorMode(
+        themeColors,
+        ['tableToolbarBorder', 'tableHeaderBorder', 'border'],
+        '#E2E8F0',
+        useRnwPreview,
+      );
+      const tableToolbarText = getPreviewColorMode(
+        themeColors,
+        ['tableToolbarText', 'tableHeaderText', 'textPrimary', 'text'],
+        '#0F172A',
+        useRnwPreview,
+      );
 
       return (
         <View style={styles.previewStack}>
+          <PreviewPressTarget
+            tokenKeys={['tableToolbarBackground', 'tableToolbarBorder', 'tableToolbarText']}
+            onSelectTokens={onSelectTokens}
+            style={[
+              styles.previewBar,
+              {
+                minHeight: 36,
+                backgroundColor: resolvePreviewValue(tableToolbarBackground, '#FFFFFF', useRnwPreview),
+                borderColor: resolvePreviewValue(tableToolbarBorder, '#E2E8F0', useRnwPreview),
+                borderWidth: useRnwPreview ? 1 : tableToolbarBorder ? 1 : 0,
+              },
+            ]}
+          >
+            <Text style={[styles.previewBarTitle, { color: resolvePreviewValue(tableToolbarText, '#0F172A', useRnwPreview) }]}>
+              Acoes
+            </Text>
+            <Text style={[styles.previewBarTitle, { color: resolvePreviewValue(tableToolbarText, '#0F172A', useRnwPreview) }]}>
+              Exportar
+            </Text>
+          </PreviewPressTarget>
+
           <PreviewPressTarget
             tokenKeys={['tableHeaderBackground', 'tableHeaderBorder', 'tableHeaderText', 'tableHeaderIcon']}
             onSelectTokens={onSelectTokens}
@@ -2112,10 +2143,48 @@ case 'table': {
       );
     }
     case 'tokens base':
+      return (
+        <View style={styles.previewOverlayShell}>
+          <PreviewPressTarget
+            tokenKeys={['googleLoading']}
+            onSelectTokens={onSelectTokens}
+            style={[
+              styles.previewOverlayBackdrop,
+              {
+                backgroundColor: useRnwPreview
+                  ? withOpacity(getPreviewColorMode(themeColors, ['googleLoading', 'loadingSpinner', 'primary'], '#2563EB', true), 0.12)
+                  : undefined,
+              },
+            ]}
+          />
+          <PreviewPressTarget
+            tokenKeys={['googleLoading']}
+            onSelectTokens={onSelectTokens}
+            style={[
+              styles.previewOverlayCard,
+              {
+                backgroundColor: resolvePreviewValue(sectionBackground, '#FFFFFF', useRnwPreview),
+                borderColor: resolvePreviewValue(sectionBorder, '#E2E8F0', useRnwPreview),
+                borderWidth: useRnwPreview ? 1 : sectionBorder ? 1 : 0,
+              },
+            ]}
+          >
+            <ActivityIndicator
+              size="small"
+              color={resolvePreviewValue(
+                getPreviewColorMode(themeColors, ['googleLoading', 'loadingSpinner', 'primary'], '#2563EB', useRnwPreview),
+                '#2563EB',
+                useRnwPreview,
+              )}
+            />
+            <Text style={[styles.previewParagraph, { color: resolvePreviewValue(textPrimary, '#0F172A', useRnwPreview) }]}>
+              Google loading
+            </Text>
+          </PreviewPressTarget>
+        </View>
+      );
     case 'estrutura da tela': {
-      const surfaceTokenKeys = group.label === 'tokens base'
-        ? ['background', 'border', 'surface', 'shadow']
-        : group.tokens.filter(token => (
+      const surfaceTokenKeys = group.tokens.filter(token => (
           token.toLowerCase().includes('background') ||
           token.toLowerCase().includes('border') ||
           token === 'surface'
