@@ -1,7 +1,7 @@
 /* global describe, expect, it, jest */
 
 import React from 'react';
-import { create } from 'react-test-renderer';
+import { act, create } from 'react-test-renderer';
 
 const mockFetch = jest.fn();
 const mockMenus = [
@@ -121,12 +121,22 @@ jest.mock('@appType', () => ({
 
 const HomePage = require('../../../react/pages/home').default;
 
+const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+
+afterAll(() => {
+  consoleErrorSpy.mockRestore();
+});
+
 function renderHomePage() {
   const navigation = {
     navigate: jest.fn(),
   };
 
-  const renderer = create(<HomePage navigation={navigation} />);
+  let renderer;
+
+  act(() => {
+    renderer = create(<HomePage navigation={navigation} />);
+  });
 
   return {navigation, renderer};
 }
@@ -137,8 +147,11 @@ describe('HomePage', () => {
 
     const tree = renderer.toJSON();
     const serializedTree = JSON.stringify(tree);
+    const appMenuGrid = renderer.root.findAllByType('AppMenuGrid');
 
     expect(mockFetch).not.toHaveBeenCalled();
+    expect(appMenuGrid).toHaveLength(1);
+    expect(appMenuGrid[0].props.menus).toBe(mockMenus);
     expect(serializedTree).toContain('AppMenuGrid');
     expect(serializedTree).not.toContain('Cadastro de menus');
     expect(serializedTree).not.toContain('Olá,');
