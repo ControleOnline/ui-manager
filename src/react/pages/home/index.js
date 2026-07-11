@@ -3,7 +3,7 @@
  * ## Escopo
  * - `ui-manager` e o modulo administrativo do app para configuracoes operacionais, devices, integracoes e visoes amplas da empresa.
  * - As telas React em `src/react/pages` sao a referencia ativa deste modulo.
- * - Na visao `ADMIN`, a home começa pelo atalho de `MenuAccessConfigPage` para montar os menus da nova entrada web.
+ * - Na visao `ADMIN`, a home e enxuta: mostra apenas a grade de menus e deixa o atalho de `MenuAccessConfigPage` dentro do grid.
  *
  * ## Devices
  * - `DeviceDetailPage` e `PrinterDeviceDetailPage` sao os donos das configuracoes por device no `MANAGER`.
@@ -109,7 +109,7 @@ export default function HomePage({ navigation }) {
   }, [statValues, tones.info, tones.success, translateMessages, pendingTranslateMessages]);
 
   useEffect(() => {
-    if (!currentCompany?.id) return;
+    if (isAdminApp || !currentCompany?.id) return;
 
     const fetchStats = async () => {
       setLoadingStats(true);
@@ -140,6 +140,16 @@ export default function HomePage({ navigation }) {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color={brandColors.info} />
+      </View>
+    );
+  }
+
+  if (isAdminApp) {
+    return (
+      <View style={[styles.container, { backgroundColor: brandColors.background }]}>
+        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
+          <AppMenuGrid menus={menus} navigation={navigation} />
+        </ScrollView>
       </View>
     );
   }
