@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, FlatList, Platform, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Alert, FlatList, Platform, Pressable, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useNavigation, useRoute } from '@react-navigation/native';
 import {Picker} from '@react-native-picker/picker';
@@ -42,6 +42,7 @@ import {
   POS_CHECK_ORDER_TYPE_NONE,
   POS_CHECK_ORDER_TYPE_TAB,
   POS_CHECK_ORDER_TYPE_TABLE,
+  POS_CHECK_ORDER_TYPE_STAMP,
   POS_DELIVERY_ENABLED_CONFIG_KEY,
   POS_OPERATION_MODE_COUNTER,
   POS_OPERATION_MODE_CONFIG_KEY,
@@ -54,6 +55,7 @@ import {
   isPosDeliveryEnabled,
   resolvePosCheckOrderManagementMode,
   resolvePosCheckOrderType,
+  resolvePosCheckOrderTypeForShop,
   resolveDeviceOrderVisibility,
   resolvePosCashManagementMode,
   resolvePosOperationMode,
@@ -75,6 +77,10 @@ import {
   ORDER_PAYMENT_DEVICE_CONFIG_KEY,
   POS_GATEWAY_CONFIG_KEY,
 } from '@controleonline/ui-common/src/react/utils/paymentDevices';
+import {
+  normalizeBooleanConfig,
+  SHOP_LOYALTY_COUPONS_ENABLED_CONFIG_KEY,
+} from '@controleonline/ui-common/src/react/utils/shopConfig';
 
 import {
   getPrinterOptionValue,
@@ -160,6 +166,52 @@ const confirm = (msg, cb) => {
   }
 };
 
+const OptionButtonChip = ({
+  label,
+  selected,
+  disabled,
+  tooltip,
+  onPress,
+}) => {
+  const [hovered, setHovered] = useState(false);
+  const showTooltip = Platform.OS === 'web' && disabled && Boolean(tooltip) && hovered;
+
+  return (
+    <Pressable
+      onHoverIn={() => setHovered(true)}
+      onHoverOut={() => setHovered(false)}
+      style={[styles.optionButtonHoverWrap, hovered && styles.optionButtonHoverWrapActive]}
+    >
+      <TouchableOpacity
+        style={[
+          styles.optionButton,
+          selected && styles.optionButtonActive,
+          disabled && {opacity: 0.55},
+        ]}
+        accessibilityHint={tooltip || undefined}
+        activeOpacity={disabled ? 1 : 0.85}
+        disabled={disabled}
+        onPress={disabled ? undefined : onPress}
+      >
+        <Text
+          style={[
+            styles.optionButtonText,
+            selected && styles.optionButtonTextActive,
+          ]}
+        >
+          {label}
+        </Text>
+      </TouchableOpacity>
+
+      {showTooltip ? (
+        <View pointerEvents="none" style={styles.optionButtonTooltip}>
+          <Text style={styles.optionButtonTooltipText}>{tooltip}</Text>
+        </View>
+      ) : null}
+    </Pressable>
+  );
+};
+
 const DeviceDetailPage = () => {
   const route      = useRoute();
   const navigation = useNavigation();
@@ -187,6 +239,25 @@ const DeviceDetailPage = () => {
   const { items: printers = [], isLoading: isLoadingPrinters } = printerStore.getters;
   const { colors: themeColors } = themeStore.getters;
   const websocketActions = websocketStore.actions;
+  const runtimeCompanyConfigs = useMemo(
+    () => parseConfigsObject(currentCompany?.configs),
+    [currentCompany?.configs],
+  );
+  const loyaltyCouponsEnabled = useMemo(
+    () => {
+      const hasLoyaltyCouponsEnabledKey = Object.prototype.hasOwnProperty.call(
+        runtimeCompanyConfigs || {},
+        SHOP_LOYALTY_COUPONS_ENABLED_CONFIG_KEY,
+      );
+
+      return hasLoyaltyCouponsEnabledKey
+        ? normalizeBooleanConfig(
+            runtimeCompanyConfigs?.[SHOP_LOYALTY_COUPONS_ENABLED_CONFIG_KEY],
+          )
+        : true;
+    },
+    [runtimeCompanyConfigs],
+  );
 
   const currentDevice =
     deviceId &&
@@ -226,6 +297,7 @@ const DeviceDetailPage = () => {
   const isPdvDevice = deviceType === PDV_DEVICE_TYPE;
 
   const actionsRef = useRef({});
+  const stampAutoDisableSignatureRef = useRef('');
   actionsRef.current = {
     invoiceActions:      invoiceStore.actions,
     deviceConfigActions: deviceConfigStore.actions,
@@ -287,7 +359,10 @@ const DeviceDetailPage = () => {
     resolvePosCashManagementMode(normalizedInitialConfigs),
   );
   const [checkOrderType, setCheckOrderType] = useState(
-    resolvePosCheckOrderType(normalizedInitialConfigs),
+    resolvePosCheckOrderTypeForShop(
+      normalizedInitialConfigs,
+      runtimeCompanyConfigs,
+    ),
   );
   const [checkOrderManagementMode, setCheckOrderManagementMode] = useState(
     resolvePosCheckOrderManagementMode(normalizedInitialConfigs),
@@ -510,7 +585,9 @@ const DeviceDetailPage = () => {
       setCounterAutoPrintEnabled(isPosAutoPrintEnabled(nextConfigs));
       setCounterPrintMode(resolvePosPrintMode(nextConfigs));
       setCounterCashManagementMode(resolvePosCashManagementMode(nextConfigs));
-      setCheckOrderType(resolvePosCheckOrderType(nextConfigs));
+      setCheckOrderType(
+        resolvePosCheckOrderTypeForShop(nextConfigs, runtimeCompanyConfigs),
+      );
       setCheckOrderManagementMode(
         resolvePosCheckOrderManagementMode(nextConfigs),
       );
@@ -556,7 +633,9 @@ const DeviceDetailPage = () => {
     setCounterAutoPrintEnabled(isPosAutoPrintEnabled({}));
     setCounterPrintMode(resolvePosPrintMode({}));
     setCounterCashManagementMode(resolvePosCashManagementMode({}));
-    setCheckOrderType(resolvePosCheckOrderType({}));
+    setCheckOrderType(
+      resolvePosCheckOrderTypeForShop({}, runtimeCompanyConfigs),
+    );
     setCheckOrderManagementMode(resolvePosCheckOrderManagementMode({}));
     setDeviceOrderVisibility(DEVICE_ORDER_VISIBILITY_DEVICE);
     setDeviceDeliveryEnabled(isPosDeliveryEnabled({}));
@@ -1070,6 +1149,57 @@ const DeviceDetailPage = () => {
     savingPosOperationMode,
   ]);
 
+  useEffect(() => {
+    if (!isPdvDevice || !currentCompany?.id || !deviceString) {
+      return;
+    }
+
+    const rawCheckOrderType = resolvePosCheckOrderType(configs);
+    const nextCheckOrderType = resolvePosCheckOrderTypeForShop(
+      configs,
+      runtimeCompanyConfigs,
+    );
+
+    if (
+      rawCheckOrderType !== POS_CHECK_ORDER_TYPE_STAMP ||
+      nextCheckOrderType !== POS_CHECK_ORDER_TYPE_NONE ||
+      savingPosOperationMode
+    ) {
+      stampAutoDisableSignatureRef.current = '';
+      return;
+    }
+
+    const signature = [
+      currentCompany?.id,
+      deviceString,
+      rawCheckOrderType,
+      loyaltyCouponsEnabled ? '1' : '0',
+      String(configs?.['config-version'] || ''),
+    ].join(':');
+
+    if (stampAutoDisableSignatureRef.current === signature) {
+      return;
+    }
+
+    stampAutoDisableSignatureRef.current = signature;
+
+    setCheckOrderType(POS_CHECK_ORDER_TYPE_NONE);
+    setCheckOrderManagementMode(POS_CHECK_ORDER_MANAGEMENT_MODE_MANAGE);
+    savePosOperationMode({
+      checkOrderType: POS_CHECK_ORDER_TYPE_NONE,
+      checkOrderManagementMode: POS_CHECK_ORDER_MANAGEMENT_MODE_MANAGE,
+    });
+  }, [
+    configs,
+    currentCompany?.id,
+    deviceString,
+    isPdvDevice,
+    loyaltyCouponsEnabled,
+    savePosOperationMode,
+    savingPosOperationMode,
+    runtimeCompanyConfigs,
+  ]);
+
   const saveLauncherMode = useCallback(async (override = {}) => {
     const nextAndroidLauncherEnabled =
       override.androidLauncherEnabled ?? androidLauncherEnabled;
@@ -1418,32 +1548,30 @@ const DeviceDetailPage = () => {
     <View style={styles.optionRow}>
       {options.map(option => {
         const selected = String(option.value) === String(value);
+        const optionDisabled = disabled || option.disabled === true;
+        const optionTitle = String(option.title || '').trim();
+        if (optionDisabled && optionTitle) {
+          return (
+            <OptionButtonChip
+              key={String(option.value)}
+              label={option.label}
+              selected={selected}
+              disabled
+              tooltip={optionTitle}
+              onPress={() => onChange(option.value)}
+            />
+          );
+        }
 
         return (
-          <TouchableOpacity
+          <OptionButtonChip
             key={String(option.value)}
-            style={[
-              styles.optionButton,
-              selected && styles.optionButtonActive,
-              disabled && {opacity: 0.55},
-            ]}
-            activeOpacity={disabled ? 1 : 0.85}
-            disabled={disabled}
-            onPress={() => {
-              if (disabled) {
-                return;
-              }
-
-              onChange(option.value);
-            }}>
-            <Text
-              style={[
-                styles.optionButtonText,
-                selected && styles.optionButtonTextActive,
-              ]}>
-              {option.label}
-            </Text>
-          </TouchableOpacity>
+            label={option.label}
+            selected={selected}
+            disabled={optionDisabled}
+            tooltip={optionTitle}
+            onPress={() => onChange(option.value)}
+          />
         );
       })}
     </View>
@@ -1651,6 +1779,14 @@ const DeviceDetailPage = () => {
                     label: global.t?.t('orders', 'title', 'table') || 'Table',
                     value: POS_CHECK_ORDER_TYPE_TABLE,
                   },
+                  {
+                    label: global.t?.t('orders', 'title', 'stamp') || 'Stamp',
+                    value: POS_CHECK_ORDER_TYPE_STAMP,
+                    disabled: !loyaltyCouponsEnabled,
+                    title: !loyaltyCouponsEnabled
+                      ? 'Ative em Shop -> Cupom fidelidade\npara liberar Stamp'
+                      : '',
+                  },
                 ],
                 value: checkOrderType,
                 onChange: value => {
@@ -1659,6 +1795,10 @@ const DeviceDetailPage = () => {
                       ? POS_CHECK_ORDER_TYPE_TAB
                       : value === POS_CHECK_ORDER_TYPE_TABLE
                         ? POS_CHECK_ORDER_TYPE_TABLE
+                        : value === POS_CHECK_ORDER_TYPE_STAMP
+                          ? loyaltyCouponsEnabled
+                            ? POS_CHECK_ORDER_TYPE_STAMP
+                            : POS_CHECK_ORDER_TYPE_NONE
                         : POS_CHECK_ORDER_TYPE_NONE;
                   const nextCheckOrderManagementMode =
                     nextCheckOrderType === POS_CHECK_ORDER_TYPE_NONE
@@ -1686,7 +1826,7 @@ const DeviceDetailPage = () => {
                           'configs',
                           'option',
                           'manageLinkedOrders',
-                        ) || 'Open and close tabs/tables',
+                        ) || 'Open and close tabs/tables/stamps',
                       value: POS_CHECK_ORDER_MANAGEMENT_MODE_MANAGE,
                     },
                     {
@@ -1695,7 +1835,7 @@ const DeviceDetailPage = () => {
                           'configs',
                           'option',
                           'existingLinkedOrdersOnly',
-                        ) || 'Use open tabs/tables only',
+                        ) || 'Use open tabs/tables/stamps only',
                       value: POS_CHECK_ORDER_MANAGEMENT_MODE_EXISTING_ONLY,
                     },
                   ],

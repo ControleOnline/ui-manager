@@ -6,15 +6,21 @@ import {useStore} from '@store';
 import AddProductScreen from '@controleonline/ui-orders/src/react/pages/checkout/AddProductScreen';
 import {
   POS_CHECK_ORDER_TYPE_NONE,
-  resolvePosCheckOrderType,
+  resolvePosCheckOrderTypeForShop,
 } from '@controleonline/ui-common/src/react/config/deviceConfigBootstrap';
 
 export default function PdvPage({navigation, route}) {
+  const peopleStore = useStore('people');
   const deviceConfigStore = useStore('device_config');
+  const {currentCompany} = peopleStore.getters;
   const {item: runtimeDeviceConfig} = deviceConfigStore.getters;
   const linkedOrderType = useMemo(
-    () => resolvePosCheckOrderType(runtimeDeviceConfig?.configs),
-    [runtimeDeviceConfig?.configs],
+    () =>
+      resolvePosCheckOrderTypeForShop(
+        runtimeDeviceConfig?.configs,
+        currentCompany?.configs,
+      ),
+    [currentCompany?.configs, runtimeDeviceConfig?.configs],
   );
   const settlementLabel =
     global.t?.t('orders', 'title', 'linkedOrderSettlement') || 'Liquidação';

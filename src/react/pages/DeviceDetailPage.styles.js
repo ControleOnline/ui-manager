@@ -147,6 +147,12 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: 8,
   },
+  optionButtonHoverWrap: {
+    position: 'relative',
+  },
+  optionButtonHoverWrapActive: {
+    zIndex: 20,
+  },
   optionButton: {
     alignItems: 'center',
     alignSelf: 'flex-start',
@@ -169,6 +175,28 @@ const styles = StyleSheet.create({
   },
   optionButtonTextActive: {
     color: '#0369A1',
+  },
+  optionButtonTooltip: {
+    position: 'absolute',
+    bottom: '100%',
+    left: '50%',
+    marginLeft: -130,
+    alignItems: 'center',
+    paddingBottom: 10,
+    zIndex: 30,
+    width: 260,
+  },
+  optionButtonTooltipText: {
+    backgroundColor: '#0F172A',
+    borderRadius: 12,
+    color: '#FFFFFF',
+    fontSize: 11,
+    fontWeight: '700',
+    lineHeight: 15,
+    maxWidth: 260,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    textAlign: 'center',
   },
   configButton: {
     alignSelf: 'flex-start',
