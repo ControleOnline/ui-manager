@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   Platform,
   ScrollView,
   StyleSheet,
@@ -77,6 +78,7 @@ export default function MyCompaniesPage() {
   const [mediaTypesLoading, setMediaTypesLoading] = useState(false);
   const [peopleMediaLoading, setPeopleMediaLoading] = useState(false);
   const [uploadingByTypeId, setUploadingByTypeId] = useState({});
+  const [deletingByTypeId, setDeletingByTypeId] = useState({});
   const [dragOverByTypeId, setDragOverByTypeId] = useState({});
 
   const palette = useMemo(
@@ -154,6 +156,26 @@ export default function MyCompaniesPage() {
     loadPeopleMedia();
   }, [loadPeopleMedia]);
 
+  const confirmMediaDeletion = useCallback(mediaTypeLabel => {
+    const normalizedLabel = String(mediaTypeLabel || 'esta midia').trim();
+    const message = `Deseja apagar a vinculacao da midia "${normalizedLabel}"?`;
+
+    if (Platform.OS === 'web' && typeof window !== 'undefined' && typeof window.confirm === 'function') {
+      return Promise.resolve(window.confirm(message));
+    }
+
+    return new Promise(resolve => {
+      Alert.alert(
+        'Confirmacao',
+        message,
+        [
+          { text: 'Cancelar', style: 'cancel', onPress: () => resolve(false) },
+          { text: 'Apagar', style: 'destructive', onPress: () => resolve(true) },
+        ],
+      );
+    });
+  }, []);
+
   const uploadMediaFile = useCallback(
     async (mediaType, providedFile = null) => {
       const mediaTypeId = getId(mediaType);
@@ -204,6 +226,45 @@ export default function MyCompaniesPage() {
       }
     },
     [companyIri, loadPeopleMedia, showError, showSuccess],
+  );
+
+  const deleteMediaLink = useCallback(
+    async mediaType => {
+      const mediaTypeId = getId(mediaType);
+      const currentMedia = mediaByTypeId[String(mediaTypeId)] || null;
+      const peopleMediaId = getId(currentMedia);
+
+      if (!mediaTypeId || !peopleMediaId) {
+        showError('Nao foi possivel identificar a midia para apagar.');
+        return;
+      }
+
+      const shouldDelete = await confirmMediaDeletion(mediaType?.type || 'Midia');
+      if (!shouldDelete) {
+        return;
+      }
+
+      setDeletingByTypeId(current => ({
+        ...current,
+        [mediaTypeId]: true,
+      }));
+
+      try {
+        await api.fetch(`/people_media/${peopleMediaId}`, {
+          method: 'DELETE',
+        });
+        await loadPeopleMedia();
+        showSuccess(`${mediaType?.type || 'Midia'} removida com sucesso.`);
+      } catch (error) {
+        showError(error?.response?.data?.['hydra:description'] || error?.message || 'Nao foi possivel apagar a midia.');
+      } finally {
+        setDeletingByTypeId(current => ({
+          ...current,
+          [mediaTypeId]: false,
+        }));
+      }
+    },
+    [confirmMediaDeletion, loadPeopleMedia, mediaByTypeId, showError, showSuccess],
   );
 
   const handleDrop = useCallback(
@@ -393,6 +454,7 @@ export default function MyCompaniesPage() {
                 const mediaTypeId = getId(mediaType);
                 const currentMedia = mediaByTypeId[String(mediaTypeId)] || null;
                 const isUploading = Boolean(uploadingByTypeId[mediaTypeId]);
+                const isDeleting = Boolean(deletingByTypeId[mediaTypeId]);
                 const isDragOver = Boolean(dragOverByTypeId[mediaTypeId]);
 
                 return (
@@ -413,22 +475,50 @@ export default function MyCompaniesPage() {
                       <Text style={[styles.mediaCardTitle, { color: palette.text || colors.text }]}>
                         {String(mediaType?.type || '').trim() || 'Midia'}
                       </Text>
-                      <View
-                        style={[
-                          styles.mediaBadge,
-                          { backgroundColor: withOpacity(palette.primary || '#2563EB', 0.12) },
-                        ]}
-                      >
-                        <Text style={[styles.mediaBadgeText, { color: palette.primary || '#2563EB' }]}>
-                          PNG
-                        </Text>
+                      <View style={styles.mediaHeaderActions}>
+                        {currentMedia ? (
+                          <TouchableOpacity
+                            activeOpacity={0.8}
+                            onPress={() => deleteMediaLink(mediaType)}
+                            disabled={isDeleting || isUploading}
+                            style={[
+                              styles.mediaDeleteButton,
+                              {
+                                backgroundColor: withOpacity(palette.error || '#DC2626', 0.1),
+                              },
+                            ]}
+                          >
+                            {isDeleting ? (
+                              <ActivityIndicator
+                                size="small"
+                                color={palette.error || '#DC2626'}
+                              />
+                            ) : (
+                              <Icon
+                                name="trash-2"
+                                size={16}
+                                color={palette.error || '#DC2626'}
+                              />
+                            )}
+                          </TouchableOpacity>
+                        ) : null}
+                        <View
+                          style={[
+                            styles.mediaBadge,
+                            { backgroundColor: withOpacity(palette.primary || '#2563EB', 0.12) },
+                          ]}
+                        >
+                          <Text style={[styles.mediaBadgeText, { color: palette.primary || '#2563EB' }]}>
+                            PNG
+                          </Text>
+                        </View>
                       </View>
                     </View>
 
                     {renderMediaDropZone({
                       currentMedia,
                       isDragOver,
-                      isUploading,
+                      isUploading: isUploading || isDeleting,
                       mediaType,
                       mediaTypeId,
                       paletteColors: palette,
@@ -491,10 +581,22 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: 10,
   },
+  mediaHeaderActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
   mediaCardTitle: {
     fontSize: 16,
     fontWeight: '800',
     textTransform: 'capitalize',
+  },
+  mediaDeleteButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 999,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   mediaBadge: {
     borderRadius: 999,
