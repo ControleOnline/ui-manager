@@ -221,12 +221,129 @@ export default function MyCompaniesPage() {
         }));
       }
 
-      const droppedFile = event?.dataTransfer?.files?.[0] || null;
+      const droppedFile =
+        event?.nativeEvent?.dataTransfer?.files?.[0]
+        || event?.dataTransfer?.files?.[0]
+        || null;
       if (!droppedFile) return;
 
       await uploadMediaFile(mediaType, droppedFile);
     },
     [uploadMediaFile],
+  );
+
+  const renderMediaDropZone = useCallback(
+    ({ currentMedia, isDragOver, isUploading, mediaType, mediaTypeId, paletteColors }) => {
+      const sharedContent = (
+        <>
+          <View
+            style={[
+              styles.mediaPreviewFrame,
+              {
+                backgroundColor: paletteColors.panelBackground || colors.white,
+                borderColor: withOpacity(paletteColors.text || colors.text, 0.08),
+              },
+            ]}
+          >
+            {currentMedia?.file ? (
+              <DefaultFile
+                source={currentMedia.file}
+                company={currentCompany}
+                resizeMode="contain"
+                style={styles.mediaPreviewImage}
+              />
+            ) : (
+              <View style={styles.mediaEmptyState}>
+                <Icon
+                  name="image"
+                  size={24}
+                  color={withOpacity(paletteColors.textSecondary || '#64748B', 0.9)}
+                />
+                <Text
+                  style={[
+                    styles.mediaEmptyText,
+                    { color: paletteColors.textSecondary || '#64748B' },
+                  ]}
+                >
+                  Sem imagem salva
+                </Text>
+              </View>
+            )}
+          </View>
+
+          <Text style={[styles.mediaHelpText, { color: paletteColors.textSecondary || '#64748B' }]}>
+            {isUploading
+              ? 'Enviando arquivo...'
+              : Platform.OS === 'web'
+                ? 'Clique para enviar ou arraste um PNG até aqui.'
+                : 'Toque para enviar um arquivo PNG.'}
+          </Text>
+        </>
+      );
+
+      if (Platform.OS !== 'web') {
+        return (
+          <TouchableOpacity
+            activeOpacity={0.9}
+            onPress={() => uploadMediaFile(mediaType)}
+            disabled={isUploading}
+          >
+            {sharedContent}
+          </TouchableOpacity>
+        );
+      }
+
+      return React.createElement(
+        'div',
+        {
+          onClick: () => {
+            if (!isUploading) {
+              uploadMediaFile(mediaType);
+            }
+          },
+          onDragOver: event => {
+            event.preventDefault();
+            if (event.dataTransfer) {
+              event.dataTransfer.dropEffect = 'copy';
+            }
+          },
+          onDragEnter: event => {
+            event.preventDefault();
+            setDragOverByTypeId(current => ({
+              ...current,
+              [mediaTypeId]: true,
+            }));
+          },
+          onDragLeave: event => {
+            event.preventDefault();
+            const relatedTarget = event.relatedTarget;
+            if (relatedTarget && event.currentTarget?.contains?.(relatedTarget)) {
+              return;
+            }
+            setDragOverByTypeId(current => ({
+              ...current,
+              [mediaTypeId]: false,
+            }));
+          },
+          onDrop: async event => {
+            event.preventDefault();
+            setDragOverByTypeId(current => ({
+              ...current,
+              [mediaTypeId]: false,
+            }));
+            const droppedFile = event.dataTransfer?.files?.[0] || null;
+            if (!droppedFile) return;
+            await uploadMediaFile(mediaType, droppedFile);
+          },
+          style: {
+            cursor: isUploading ? 'progress' : 'pointer',
+            display: 'block',
+          },
+        },
+        sharedContent,
+      );
+    },
+    [currentCompany, setDragOverByTypeId, uploadMediaFile],
   );
 
   return (
@@ -279,31 +396,8 @@ export default function MyCompaniesPage() {
                 const isDragOver = Boolean(dragOverByTypeId[mediaTypeId]);
 
                 return (
-                  <TouchableOpacity
+                  <View
                     key={mediaTypeId || mediaType?.type}
-                    activeOpacity={0.9}
-                    onPress={() => uploadMediaFile(mediaType)}
-                    onDragOver={
-                      Platform.OS === 'web'
-                        ? event => {
-                            event.preventDefault?.();
-                            setDragOverByTypeId(current => ({
-                              ...current,
-                              [mediaTypeId]: true,
-                            }));
-                          }
-                        : undefined
-                    }
-                    onDragLeave={
-                      Platform.OS === 'web'
-                        ? () =>
-                            setDragOverByTypeId(current => ({
-                              ...current,
-                              [mediaTypeId]: false,
-                            }))
-                        : undefined
-                    }
-                    onDrop={Platform.OS === 'web' ? event => handleDrop(mediaType, event) : undefined}
                     style={[
                       styles.mediaCard,
                       {
@@ -331,49 +425,15 @@ export default function MyCompaniesPage() {
                       </View>
                     </View>
 
-                    <View
-                      style={[
-                        styles.mediaPreviewFrame,
-                        {
-                          backgroundColor: palette.panelBackground || colors.white,
-                          borderColor: withOpacity(palette.text || colors.text, 0.08),
-                        },
-                      ]}
-                    >
-                      {currentMedia?.file ? (
-                        <DefaultFile
-                          source={currentMedia.file}
-                          company={currentCompany}
-                          resizeMode="contain"
-                          style={styles.mediaPreviewImage}
-                        />
-                      ) : (
-                        <View style={styles.mediaEmptyState}>
-                          <Icon
-                            name="image"
-                            size={24}
-                            color={withOpacity(palette.textSecondary || '#64748B', 0.9)}
-                          />
-                          <Text
-                            style={[
-                              styles.mediaEmptyText,
-                              { color: palette.textSecondary || '#64748B' },
-                            ]}
-                          >
-                            Sem imagem salva
-                          </Text>
-                        </View>
-                      )}
-                    </View>
-
-                    <Text style={[styles.mediaHelpText, { color: palette.textSecondary || '#64748B' }]}>
-                      {isUploading
-                        ? 'Enviando arquivo...'
-                        : Platform.OS === 'web'
-                          ? 'Clique para enviar ou arraste um PNG até aqui.'
-                          : 'Toque para enviar um arquivo PNG.'}
-                    </Text>
-                  </TouchableOpacity>
+                    {renderMediaDropZone({
+                      currentMedia,
+                      isDragOver,
+                      isUploading,
+                      mediaType,
+                      mediaTypeId,
+                      paletteColors: palette,
+                    })}
+                  </View>
                 );
               })}
             </View>
