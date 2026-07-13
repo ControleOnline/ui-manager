@@ -3,7 +3,8 @@ import { View, Text, TouchableOpacity, Modal, ScrollView, Animated, Image } from
 import Icon from 'react-native-vector-icons/Feather';
 import { useStore } from '@store';
 import md5 from 'md5';
-import { env } from '@env';
+import { api } from '@controleonline/ui-common/src/api';
+import { resolveDefaultFileUrl } from '@controleonline/ui-common/src/react/utils/fileUrl';
 import { colors } from '@controleonline/../../src/styles/colors';
 import createStyles from './CompanyFilter.styles';
 
@@ -12,6 +13,17 @@ import {
 } from '@controleonline/../../src/styles/branding';
 
 import { inlineStyle_275_20 } from './CompanyFilter.styles';
+
+const normalizeCollection = payload => {
+  if (Array.isArray(payload)) return payload;
+  if (!payload || typeof payload !== 'object') return [];
+  if (Array.isArray(payload.member)) return payload.member;
+  if (Array.isArray(payload['hydra:member'])) return payload['hydra:member'];
+  if (Array.isArray(payload.items)) return payload.items;
+  return [];
+};
+
+const normalizeId = value => String(value || '').replace(/\D+/g, '');
 
 const CompanyFilter = ({ navigation, mode }) => {
   const peopleStore = useStore('people');
@@ -29,6 +41,7 @@ const CompanyFilter = ({ navigation, mode }) => {
 
   const [selectedCompany, setSelectedCompany] = useState(currentCompany);
   const [modalVisible, setModalVisible] = useState(false);
+  const [selectedCompanyIconMedia, setSelectedCompanyIconMedia] = useState(null);
 
   const [fadeAnim] = useState(new Animated.Value(0));
   const [slideAnim] = useState(new Animated.Value(-50));
@@ -43,14 +56,6 @@ const CompanyFilter = ({ navigation, mode }) => {
       authUser?.realname || authUser?.name || authUser?.username || '',
     ).trim(),
   };
-  const host =
-    env.DOMAIN ||
-    (
-      typeof globalThis !== 'undefined' &&
-      globalThis?.location?.host
-        ? globalThis.location.host
-        : ''
-    );
   const firstName = currentUser?.name?.split(' ')[0] || 'Usuário';
   const canSwitchCompany = Array.isArray(companies) && companies.length > 1;
   const headerCompanyLabel = selectedCompany?.alias ||
@@ -70,17 +75,53 @@ const CompanyFilter = ({ navigation, mode }) => {
   );
   const styles = useMemo(() => createStyles(brandColors), [brandColors]);
 
+  const selectedCompanyId = normalizeId(selectedCompany?.id);
 
+  useEffect(() => {
+    let cancelled = false;
 
-  const companyLogoUrl = useMemo(() => {
-    if (!selectedCompany?.logo) return null;
-
-    if (selectedCompany.logo.domain && selectedCompany.logo.url) {
-      return `https://${selectedCompany.logo.domain}${selectedCompany.logo.url}?app-domain=${host}`;
+    if (!selectedCompanyId) {
+      setSelectedCompanyIconMedia(null);
+      return undefined;
     }
 
-    return null;
-  }, [selectedCompany]);
+    api
+      .fetch('/people_media', {
+        params: {
+          people: `/people/${selectedCompanyId}`,
+          'mediaType.type': 'icon',
+          'mediaType.peopleType': 'J',
+          itemsPerPage: 1,
+        },
+      })
+      .then(response => {
+        if (cancelled) {
+          return;
+        }
+
+        const [media] = normalizeCollection(response);
+        setSelectedCompanyIconMedia(media || null);
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setSelectedCompanyIconMedia(null);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedCompanyId]);
+
+  const companyLogoUrl = useMemo(() => {
+    if (!selectedCompanyIconMedia?.file) {
+      return null;
+    }
+
+    return resolveDefaultFileUrl(selectedCompanyIconMedia.file, {
+      company: selectedCompany,
+    });
+  }, [selectedCompany, selectedCompanyIconMedia]);
 
 
 
@@ -157,14 +198,7 @@ const CompanyFilter = ({ navigation, mode }) => {
           onPress={() => handleSelectCompany(company)}
           activeOpacity={0.8}>
           <View style={styles.companyItemLeft}>
-            {company?.logo?.domain && company?.logo?.url ? (
-              <Image
-                source={{ uri: `https://${company.logo.domain}${company.logo.url}?app-domain=${host}` }}
-                style={styles.companyLogo}
-              />
-            ) : (
-              <Icon name="briefcase" size={18} color={brandColors.textSecondary} />
-            )}
+            <Icon name="briefcase" size={18} color={brandColors.textSecondary} />
             <Text
               style={[
                 styles.companyItemName,
