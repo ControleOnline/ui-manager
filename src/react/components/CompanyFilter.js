@@ -5,12 +5,7 @@ import { useStore } from '@store';
 import md5 from 'md5';
 import { api } from '@controleonline/ui-common/src/api';
 import { resolveDefaultFileUrl } from '@controleonline/ui-common/src/react/utils/fileUrl';
-import { colors } from '@controleonline/../../src/styles/colors';
 import createStyles from './CompanyFilter.styles';
-
-import {
-  resolveThemePalette,
-} from '@controleonline/../../src/styles/branding';
 
 import { inlineStyle_275_20 } from './CompanyFilter.styles';
 
@@ -62,18 +57,26 @@ const CompanyFilter = ({ navigation, mode }) => {
     selectedCompany?.name ||
     'Selecionar empresa';
 
-  const brandColors = useMemo(
-    () =>
-      resolveThemePalette(
-        {
-          ...themeColors,
-          ...(currentCompany?.theme?.colors || {}),
-        },
-        colors,
-      ),
-    [themeColors, currentCompany?.id],
+  const palette = useMemo(
+    () => ({
+      pageBackground: themeColors.pageBackground,
+      headerText: themeColors.headerText,
+      headerIcon: themeColors.headerIcon,
+      listItemBackground: themeColors.listItemBackground,
+      listItemBorder: themeColors.listItemBorder,
+      listItemIcon: themeColors.listItemIcon,
+      listItemSelectedBackground: themeColors.listItemSelectedBackground,
+      listItemSelectedBorder: themeColors.listItemSelectedBorder,
+      listItemText: themeColors.listItemText,
+      modalBackground: themeColors.modalBackground,
+      modalBorder: themeColors.modalBorder,
+      modalCloseIcon: themeColors.modalCloseIcon,
+      modalHeaderText: themeColors.modalHeaderText,
+      modalOverlay: themeColors.modalOverlay,
+    }),
+    [themeColors],
   );
-  const styles = useMemo(() => createStyles(brandColors), [brandColors]);
+  const styles = useMemo(() => createStyles(palette), [palette]);
 
   const selectedCompanyId = normalizeId(selectedCompany?.id);
 
@@ -234,24 +237,21 @@ const CompanyFilter = ({ navigation, mode }) => {
                 style={styles.companyLogo}
               />
             ) : (
-              <Icon name="briefcase" size={18} color={brandColors.textSecondary} />
+              <Icon name="briefcase" size={18} color={palette.listItemIcon} />
             )}
             <Text
-              style={[
-                styles.companyItemName,
-                isSelected && { color: brandColors.primary },
-              ]}>
+              style={styles.companyItemName}>
               {company.alias || company.name}
             </Text>
           </View>
 
           {isSelected && (
-            <Icon name="check-circle" size={20} color={brandColors.primary} />
+            <Icon name="check-circle" size={20} color={palette.listItemIcon} />
           )}
         </TouchableOpacity>
       );
     },
-    [selectedCompany, handleSelectCompany, brandColors.primary, brandColors.textSecondary, companyIconFilesById, styles.companyItem, styles.companyItemLeft, styles.companyItemName, styles.companyItemSelected, styles.companyLogo],
+    [selectedCompany, handleSelectCompany, companyIconFilesById, palette.listItemIcon, styles.companyItem, styles.companyItemLeft, styles.companyItemName, styles.companyItemSelected, styles.companyLogo],
   );
 
   if (mode === 'icon') {
@@ -267,13 +267,13 @@ const CompanyFilter = ({ navigation, mode }) => {
             style={styles.iconCompanyLogo}
           />
         ) : (
-          <Icon name="briefcase" size={18} color={brandColors.primary} />
+          <Icon name="briefcase" size={18} color={palette.headerIcon} />
         )}
 
         <Text
           numberOfLines={1}
           ellipsizeMode="tail"
-          style={[styles.iconCompanyName, { color: brandColors.textSecondary }]}
+          style={styles.iconCompanyName}
         >
           {headerCompanyLabel}
         </Text>
@@ -282,7 +282,7 @@ const CompanyFilter = ({ navigation, mode }) => {
           <Icon
             name="chevron-down"
             size={14}
-            color={brandColors.textSecondary}
+            color={palette.headerIcon}
             style={styles.iconChevron}
           />
         ) : null}
@@ -341,7 +341,7 @@ const CompanyFilter = ({ navigation, mode }) => {
                 <Text style={styles.modalTitle}>Selecionar Empresa</Text>
 
                 <TouchableOpacity onPress={closeModal}>
-                  <Icon name="x" size={22} color={brandColors.textSecondary} />
+                  <Icon name="x" size={22} color={palette.modalCloseIcon} />
                 </TouchableOpacity>
               </View>
 
@@ -357,13 +357,13 @@ const CompanyFilter = ({ navigation, mode }) => {
 
   return (
     <>
-      <View style={[styles.container, { backgroundColor: brandColors.background }]}>
+      <View style={styles.container}>
         {mode === 'icon' ? (
           <TouchableOpacity
             onPress={openModal}
             style={styles.iconButton}
             activeOpacity={0.8}>
-            <Icon name="briefcase" size={22} color={brandColors.primary} />
+            <Icon name="briefcase" size={22} color={palette.headerIcon} />
           </TouchableOpacity>
         ) : (
           <View style={styles.header}>
@@ -383,10 +383,7 @@ const CompanyFilter = ({ navigation, mode }) => {
                 ) : null}
 
                 <Text
-                  style={[
-                    styles.companyName,
-                    { color: brandColors.textSecondary },
-                  ]}>
+                  style={styles.companyName}>
                   {selectedCompany?.alias ||
                     selectedCompany?.name ||
                     'Selecionar empresa'}
@@ -396,7 +393,7 @@ const CompanyFilter = ({ navigation, mode }) => {
                   <Icon
                     name="chevron-down"
                     size={14}
-                    color={brandColors.textSecondary}
+                    color={palette.headerIcon}
                     style={inlineStyle_275_20}
                   />
                 )}
@@ -437,7 +434,7 @@ const CompanyFilter = ({ navigation, mode }) => {
               <Text style={styles.modalTitle}>Selecionar Empresa</Text>
 
               <TouchableOpacity onPress={closeModal}>
-                <Icon name="x" size={22} color={brandColors.textSecondary} />
+                <Icon name="x" size={22} color={palette.modalCloseIcon} />
               </TouchableOpacity>
             </View>
 

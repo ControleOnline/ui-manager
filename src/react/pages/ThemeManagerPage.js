@@ -210,6 +210,8 @@ const THEME_REFERENCE_GROUPS = [
       'buttonIcon',
       'buttonIconSecondary',
       'buttonPressedBackground',
+      'buttonPressedBorder',
+      'buttonPressedIcon',
       'buttonShadow',
       'buttonText',
       'buttonTextSecondary',
@@ -1216,6 +1218,9 @@ const renderThemeObjectPreview = (group, themeColors, onSelectTokens, useRnwPrev
       const primaryBorder = getPreviewColorMode(themeColors, ['buttonBorder'], '', useRnwPreview);
       const primaryText = getPreviewColorMode(themeColors, ['buttonText'], '', useRnwPreview);
       const primaryIcon = getPreviewColorMode(themeColors, ['buttonIcon'], '', useRnwPreview);
+      const pressedBackground = getPreviewColorMode(themeColors, ['buttonPressedBackground'], '', useRnwPreview);
+      const pressedBorder = getPreviewColorMode(themeColors, ['buttonPressedBorder'], '', useRnwPreview);
+      const pressedIcon = getPreviewColorMode(themeColors, ['buttonPressedIcon'], '', useRnwPreview);
       const secondaryBackground = getPreviewColorMode(themeColors, ['buttonBackgroundSecondary'], '', useRnwPreview);
       const secondaryBorder = getPreviewColorMode(themeColors, ['buttonBorderSecondary'], '', useRnwPreview);
       const secondaryText = getPreviewColorMode(themeColors, ['buttonTextSecondary'], '', useRnwPreview);
@@ -1226,6 +1231,9 @@ const renderThemeObjectPreview = (group, themeColors, onSelectTokens, useRnwPrev
       const primaryBaseBorder = '#D1D5DB';
       const primaryBaseText = '#111827';
       const primaryBaseIcon = '#111827';
+      const pressedBaseBackground = '#1E40AF';
+      const pressedBaseBorder = '#1E3A8A';
+      const pressedBaseIcon = '#FFFFFF';
       const secondaryBaseBackground = '#FFFFFF';
       const secondaryBaseBorder = '#D1D5DB';
       const secondaryBaseText = '#111827';
@@ -1263,6 +1271,44 @@ const renderThemeObjectPreview = (group, themeColors, onSelectTokens, useRnwPrev
               ]}
             >
               <Text style={[styles.previewButtonText, { color: resolvePreviewValue(secondaryText, secondaryBaseText, useRnwPreview) }]}>Secundario</Text>
+            </PreviewPressTarget>
+          </View>
+          <View style={styles.previewRow}>
+            <PreviewPressTarget
+              tokenKeys={['buttonBackground', 'buttonBorder', 'buttonIcon']}
+              onSelectTokens={onSelectTokens}
+              style={[
+                styles.previewButton,
+                {
+                  flex: 0,
+                  minWidth: 40,
+                  width: 40,
+                  paddingHorizontal: 0,
+                  backgroundColor: resolvePreviewValue(primaryBackground, primaryBaseBackground, useRnwPreview),
+                  borderColor: resolvePreviewValue(primaryBorder, primaryBaseBorder, useRnwPreview),
+                  borderWidth: useRnwPreview ? 1 : primaryBorder ? 1 : 0,
+                },
+              ]}
+            >
+              <Icon name="filter" size={13} color={resolvePreviewValue(primaryIcon, primaryBaseIcon, useRnwPreview)} />
+            </PreviewPressTarget>
+            <PreviewPressTarget
+              tokenKeys={['buttonPressedBackground', 'buttonPressedBorder', 'buttonPressedIcon']}
+              onSelectTokens={onSelectTokens}
+              style={[
+                styles.previewButton,
+                {
+                  flex: 0,
+                  minWidth: 40,
+                  width: 40,
+                  paddingHorizontal: 0,
+                  backgroundColor: resolvePreviewValue(pressedBackground, pressedBaseBackground, useRnwPreview),
+                  borderColor: resolvePreviewValue(pressedBorder, pressedBaseBorder, useRnwPreview),
+                  borderWidth: useRnwPreview ? 1 : pressedBorder ? 1 : 0,
+                },
+              ]}
+            >
+              <Icon name="grid" size={13} color={resolvePreviewValue(pressedIcon, pressedBaseIcon, useRnwPreview)} />
             </PreviewPressTarget>
           </View>
           <PreviewPressTarget

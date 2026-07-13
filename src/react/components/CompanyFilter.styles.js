@@ -1,10 +1,9 @@
 import { StyleSheet } from 'react-native';
-import {colors} from '@controleonline/../../src/styles/colors';
-import {withOpacity} from '@controleonline/../../src/styles/branding';
 
-const createStyles = (brandColors = colors) =>
+const createStyles = (palette = {}) =>
   StyleSheet.create({
   container: {
+    backgroundColor: palette.pageBackground,
     paddingHorizontal: 20,
     paddingTop: 16,
     paddingBottom: 16,
@@ -32,7 +31,7 @@ const createStyles = (brandColors = colors) =>
   },
 
   iconButtonStatic: {
-    backgroundColor: brandColors.background,
+    backgroundColor: palette.pageBackground,
   },
 
   iconHeaderWrap: {
@@ -52,6 +51,7 @@ const createStyles = (brandColors = colors) =>
   },
 
   iconCompanyName: {
+    color: palette.headerText,
     flexShrink: 1,
     minWidth: 0,
     fontSize: 13,
@@ -71,7 +71,7 @@ const createStyles = (brandColors = colors) =>
   greeting: {
     fontSize: 26,
     fontWeight: '700',
-    color: brandColors.text,
+    color: palette.headerText,
   },
 
   companyRow: {
@@ -88,6 +88,7 @@ const createStyles = (brandColors = colors) =>
   },
 
   companyName: {
+    color: palette.headerText,
     fontSize: 14,
     fontWeight: '500',
   },
@@ -110,11 +111,11 @@ const createStyles = (brandColors = colors) =>
 
   modalBackground: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: withOpacity(brandColors.text, 0.5),
+    backgroundColor: palette.modalOverlay,
   },
 
   modalContent: {
-    backgroundColor: brandColors.white,
+    backgroundColor: palette.modalBackground,
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     maxHeight: '70%',
@@ -125,24 +126,27 @@ const createStyles = (brandColors = colors) =>
     justifyContent: 'space-between',
     padding: 20,
     borderBottomWidth: 1,
-    borderBottomColor: brandColors.border,
+    borderBottomColor: palette.modalBorder,
   },
 
   modalTitle: {
+    color: palette.modalHeaderText,
     fontSize: 18,
     fontWeight: '600',
   },
 
   companyItem: {
+    backgroundColor: palette.listItemBackground,
     padding: 18,
     borderBottomWidth: 1,
-    borderBottomColor: brandColors.border,
+    borderBottomColor: palette.listItemBorder,
     flexDirection: 'row',
     justifyContent: 'space-between',
   },
 
   companyItemSelected: {
-    backgroundColor: brandColors.background,
+    backgroundColor: palette.listItemSelectedBackground,
+    borderBottomColor: palette.listItemSelectedBorder,
   },
 
   companyItemLeft: {
@@ -151,6 +155,7 @@ const createStyles = (brandColors = colors) =>
   },
 
   companyItemName: {
+    color: palette.listItemText,
     marginLeft: 10,
     fontSize: 15,
   },
