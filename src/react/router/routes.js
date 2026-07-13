@@ -18,6 +18,7 @@ import ConfiguratorPage from '@controleonline/ui-manager/src/react/pages/Configu
 import ThemeManagerPage from '@controleonline/ui-manager/src/react/pages/ThemeManagerPage';
 import ThemePreviewPage from '@controleonline/ui-manager/src/react/pages/ThemePreviewPage';
 import ManagerOrderNotificationsPage from '@controleonline/ui-manager/src/react/pages/ManagerOrderNotificationsPage';
+import MyCompaniesPage from '@controleonline/ui-manager/src/react/pages/MyCompaniesPage';
 import TranslationsReviewPage from '@controleonline/ui-manager/src/react/pages/TranslationsReviewPage';
 import DeliveryRatesInboxPage from '@controleonline/ui-manager/src/react/pages/delivery-rates/DeliveryRatesInboxPage';
 import DeliveryRateVersionPage from '@controleonline/ui-manager/src/react/pages/delivery-rates/DeliveryRateVersionPage';
@@ -157,6 +158,17 @@ const managerRoutes = [
       headerShown: true,
       headerBackVisible: true,
       title: 'Menus por perfil',
+      showCompanyFilter: true,
+      companyFilterMode: 'icon',
+    },
+  },
+  {
+    name: 'MyCompaniesPage',
+    component: MyCompaniesPage,
+    options: {
+      headerShown: true,
+      headerBackVisible: true,
+      title: 'Minhas empresas',
       showCompanyFilter: true,
       companyFilterMode: 'icon',
     },
