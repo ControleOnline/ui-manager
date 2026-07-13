@@ -41,7 +41,7 @@ const CompanyFilter = ({ navigation, mode }) => {
 
   const [selectedCompany, setSelectedCompany] = useState(currentCompany);
   const [modalVisible, setModalVisible] = useState(false);
-  const [selectedCompanyIconMedia, setSelectedCompanyIconMedia] = useState(null);
+  const [companyIconFilesById, setCompanyIconFilesById] = useState({});
 
   const [fadeAnim] = useState(new Animated.Value(0));
   const [slideAnim] = useState(new Animated.Value(-50));
@@ -79,49 +79,75 @@ const CompanyFilter = ({ navigation, mode }) => {
 
   useEffect(() => {
     let cancelled = false;
+    const companyCandidates = [selectedCompany, ...(Array.isArray(companies) ? companies : [])]
+      .filter(Boolean)
+      .reduce((accumulator, company) => {
+        const companyId = normalizeId(company?.id);
 
-    if (!selectedCompanyId) {
-      setSelectedCompanyIconMedia(null);
+        if (!companyId || accumulator.some(item => item.id === companyId)) {
+          return accumulator;
+        }
+
+        accumulator.push({id: companyId, company});
+        return accumulator;
+      }, []);
+
+    if (companyCandidates.length === 0) {
+      setCompanyIconFilesById({});
       return undefined;
     }
 
-    api
-      .fetch('/people_media', {
-        params: {
-          people: `/people/${selectedCompanyId}`,
-          'mediaType.type': 'icon',
-          'mediaType.peopleType': 'J',
-          itemsPerPage: 1,
-        },
-      })
-      .then(response => {
+    Promise.all(
+      companyCandidates.map(({id}) =>
+        api
+          .fetch('/people_media', {
+            params: {
+              people: `/people/${id}`,
+              'mediaType.type': 'icon',
+              'mediaType.peopleType': 'J',
+              itemsPerPage: 1,
+            },
+          })
+          .then(response => {
+            const [media] = normalizeCollection(response);
+            return [id, media?.file || null];
+          })
+          .catch(() => [id, null]),
+      ),
+    )
+      .then(entries => {
         if (cancelled) {
           return;
         }
 
-        const [media] = normalizeCollection(response);
-        setSelectedCompanyIconMedia(media || null);
+        setCompanyIconFilesById(
+          entries.reduce((accumulator, [id, file]) => {
+            accumulator[id] = file;
+            return accumulator;
+          }, {}),
+        );
       })
       .catch(() => {
         if (!cancelled) {
-          setSelectedCompanyIconMedia(null);
+          setCompanyIconFilesById({});
         }
       });
 
     return () => {
       cancelled = true;
     };
-  }, [selectedCompanyId]);
+  }, [companies, selectedCompany]);
 
   const companyLogoUrl = useMemo(() => {
-    if (!selectedCompanyIconMedia?.file) {
+    const selectedCompanyIconFile = companyIconFilesById[selectedCompanyId];
+    if (!selectedCompanyIconFile) {
       return null;
     }
 
-    return resolveDefaultFileUrl(selectedCompanyIconMedia.file, {
+    return resolveDefaultFileUrl(selectedCompanyIconFile, {
       company: selectedCompany,
     });
-  }, [selectedCompany, selectedCompanyIconMedia]);
+  }, [companyIconFilesById, selectedCompany, selectedCompanyId]);
 
 
 
@@ -187,6 +213,10 @@ const CompanyFilter = ({ navigation, mode }) => {
   const renderCompanyItem = useCallback(
     company => {
       const isSelected = selectedCompany?.id === company.id;
+      const companyId = normalizeId(company?.id);
+      const companyLogo = companyIconFilesById[companyId]
+        ? resolveDefaultFileUrl(companyIconFilesById[companyId], {company})
+        : '';
 
       return (
         <TouchableOpacity
@@ -198,7 +228,14 @@ const CompanyFilter = ({ navigation, mode }) => {
           onPress={() => handleSelectCompany(company)}
           activeOpacity={0.8}>
           <View style={styles.companyItemLeft}>
-            <Icon name="briefcase" size={18} color={brandColors.textSecondary} />
+            {companyLogo ? (
+              <Image
+                source={{uri: companyLogo}}
+                style={styles.companyLogo}
+              />
+            ) : (
+              <Icon name="briefcase" size={18} color={brandColors.textSecondary} />
+            )}
             <Text
               style={[
                 styles.companyItemName,
@@ -214,7 +251,7 @@ const CompanyFilter = ({ navigation, mode }) => {
         </TouchableOpacity>
       );
     },
-    [selectedCompany, handleSelectCompany, brandColors.primary],
+    [selectedCompany, handleSelectCompany, brandColors.primary, brandColors.textSecondary, companyIconFilesById, styles.companyItem, styles.companyItemLeft, styles.companyItemName, styles.companyItemSelected, styles.companyLogo],
   );
 
   if (mode === 'icon') {
