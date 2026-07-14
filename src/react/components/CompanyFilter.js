@@ -4,65 +4,10 @@ import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/Feather';
 import { useStore } from '@store';
 import md5 from 'md5';
-import { api } from '@controleonline/ui-common/src/api';
 import { resolveDefaultFileUrl } from '@controleonline/ui-common/src/react/utils/fileUrl';
 import createStyles from './CompanyFilter.styles';
 
 import { inlineStyle_275_20 } from './CompanyFilter.styles';
-
-const normalizeCollection = payload => {
-  if (Array.isArray(payload)) return payload;
-  if (!payload || typeof payload !== 'object') return [];
-  if (Array.isArray(payload.member)) return payload.member;
-  if (Array.isArray(payload['hydra:member'])) return payload['hydra:member'];
-  if (Array.isArray(payload.items)) return payload.items;
-  return [];
-};
-
-const normalizeId = value => String(value || '').replace(/\D+/g, '');
-
-const companyIconFileCache = new Map();
-const companyIconRequestCache = new Map();
-
-const loadCompanyIconFile = companyId => {
-  const normalizedCompanyId = normalizeId(companyId);
-  if (!normalizedCompanyId) {
-    return Promise.resolve(null);
-  }
-
-  if (companyIconFileCache.has(normalizedCompanyId)) {
-    return Promise.resolve(companyIconFileCache.get(normalizedCompanyId));
-  }
-
-  if (companyIconRequestCache.has(normalizedCompanyId)) {
-    return companyIconRequestCache.get(normalizedCompanyId);
-  }
-
-  const request = api
-    .fetch('/people_media', {
-      params: {
-        people: `/people/${normalizedCompanyId}`,
-        'mediaType.type': 'icon',
-        'mediaType.peopleType': 'J',
-        itemsPerPage: 1,
-      },
-    })
-    .then(response => {
-      const [media] = normalizeCollection(response);
-      const file = media?.file || null;
-      companyIconFileCache.set(normalizedCompanyId, file);
-      companyIconRequestCache.delete(normalizedCompanyId);
-      return file;
-    })
-    .catch(() => {
-      companyIconFileCache.set(normalizedCompanyId, null);
-      companyIconRequestCache.delete(normalizedCompanyId);
-      return null;
-    });
-
-  companyIconRequestCache.set(normalizedCompanyId, request);
-  return request;
-};
 
 const CompanyFilter = ({ navigation, mode }) => {
   const insets = useSafeAreaInsets();
@@ -81,7 +26,6 @@ const CompanyFilter = ({ navigation, mode }) => {
 
   const [selectedCompany, setSelectedCompany] = useState(currentCompany);
   const [modalVisible, setModalVisible] = useState(false);
-  const [companyIconFilesById, setCompanyIconFilesById] = useState({});
 
   const [fadeAnim] = useState(new Animated.Value(0));
   const [slideAnim] = useState(new Animated.Value(-50));
@@ -123,78 +67,22 @@ const CompanyFilter = ({ navigation, mode }) => {
   );
   const styles = useMemo(() => createStyles(palette), [palette]);
 
-  const selectedCompanyId = normalizeId(selectedCompany?.id);
-  const shouldLoadCompanyIcons = modalVisible && canSwitchCompany;
-  const companyIconIdsSignature = useMemo(() => {
-    if (!shouldLoadCompanyIcons) {
-      return '';
-    }
+  const resolveCompanyLogoUrl = useCallback(
+    company => {
+      const logoSource = company?.logo || null;
+      if (!logoSource) {
+        return '';
+      }
 
-    const ids = [
-      selectedCompanyId,
-      ...(Array.isArray(companies) ? companies : []).map(company => normalizeId(company?.id)),
-    ].filter(Boolean);
+      return resolveDefaultFileUrl(logoSource, {company});
+    },
+    [],
+  );
 
-    return Array.from(new Set(ids))
-      .sort((left, right) => Number(left) - Number(right))
-      .join(',');
-  }, [companies, selectedCompanyId, shouldLoadCompanyIcons]);
-
-  useEffect(() => {
-    let cancelled = false;
-    const companyIds = companyIconIdsSignature
-      ? companyIconIdsSignature.split(',').filter(Boolean)
-      : [];
-
-    if (companyIds.length === 0) {
-      setCompanyIconFilesById({});
-      return undefined;
-    }
-
-    Promise.all(
-      companyIds.map(id =>
-        loadCompanyIconFile(id)
-          .then(file => [id, file])
-          .catch(() => [id, null]),
-      ),
-    )
-      .then(entries => {
-        if (cancelled) {
-          return;
-        }
-
-        setCompanyIconFilesById(
-          entries.reduce((accumulator, [id, file]) => {
-            accumulator[id] = file;
-            return accumulator;
-          }, {}),
-        );
-      })
-      .catch(() => {
-        if (!cancelled) {
-          setCompanyIconFilesById({});
-        }
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [companyIconIdsSignature]);
-
-  const companyLogoUrl = useMemo(() => {
-    if (!shouldLoadCompanyIcons) {
-      return null;
-    }
-
-    const selectedCompanyIconFile = companyIconFilesById[selectedCompanyId];
-    if (!selectedCompanyIconFile) {
-      return null;
-    }
-
-    return resolveDefaultFileUrl(selectedCompanyIconFile, {
-      company: selectedCompany,
-    });
-  }, [companyIconFilesById, selectedCompany, selectedCompanyId, shouldLoadCompanyIcons]);
+  const companyLogoUrl = useMemo(
+    () => resolveCompanyLogoUrl(selectedCompany),
+    [resolveCompanyLogoUrl, selectedCompany],
+  );
 
 
 
@@ -260,10 +148,7 @@ const CompanyFilter = ({ navigation, mode }) => {
   const renderCompanyItem = useCallback(
     company => {
       const isSelected = selectedCompany?.id === company.id;
-      const companyId = normalizeId(company?.id);
-      const companyLogo = companyIconFilesById[companyId]
-        ? resolveDefaultFileUrl(companyIconFilesById[companyId], {company})
-        : '';
+      const companyLogo = resolveCompanyLogoUrl(company);
 
       return (
         <TouchableOpacity
@@ -295,7 +180,7 @@ const CompanyFilter = ({ navigation, mode }) => {
         </TouchableOpacity>
       );
     },
-    [selectedCompany, handleSelectCompany, companyIconFilesById, palette.listItemIcon, styles.companyItem, styles.companyItemLeft, styles.companyItemName, styles.companyItemSelected, styles.companyLogo],
+    [handleSelectCompany, palette.listItemIcon, resolveCompanyLogoUrl, selectedCompany, styles.companyItem, styles.companyItemLeft, styles.companyItemName, styles.companyItemSelected, styles.companyLogo],
   );
 
   const renderCompanyModal = () => (
