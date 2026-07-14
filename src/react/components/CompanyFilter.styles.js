@@ -104,9 +104,13 @@ const createStyles = (palette = {}) =>
     borderRadius: 20,
   },
 
-  modalOverlay: {
-    flex: 1,
+  modalRoot: {
+    ...StyleSheet.absoluteFillObject,
     justifyContent: 'flex-end',
+  },
+
+  modalOverlay: {
+    ...StyleSheet.absoluteFillObject,
   },
 
   modalBackground: {
@@ -115,10 +119,15 @@ const createStyles = (palette = {}) =>
   },
 
   modalContent: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    height: 400,
+    maxHeight: 400,
     backgroundColor: palette.modalBackground,
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
-    maxHeight: '70%',
   },
 
   modalHeader: {

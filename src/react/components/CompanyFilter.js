@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { View, Text, TouchableOpacity, Modal, ScrollView, Animated, Image } from 'react-native';
+import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/Feather';
 import { useStore } from '@store';
 import md5 from 'md5';
@@ -21,6 +22,7 @@ const normalizeCollection = payload => {
 const normalizeId = value => String(value || '').replace(/\D+/g, '');
 
 const CompanyFilter = ({ navigation, mode }) => {
+  const insets = useSafeAreaInsets();
   const peopleStore = useStore('people');
   const authStore = useStore('auth');
   const themeStore = useStore('theme');
@@ -254,6 +256,53 @@ const CompanyFilter = ({ navigation, mode }) => {
     [selectedCompany, handleSelectCompany, companyIconFilesById, palette.listItemIcon, styles.companyItem, styles.companyItemLeft, styles.companyItemName, styles.companyItemSelected, styles.companyLogo],
   );
 
+  const renderCompanyModal = () => (
+    <Modal
+      visible={modalVisible}
+      transparent
+      animationType="none"
+      onRequestClose={closeModal}>
+      <View style={styles.modalRoot}>
+        <TouchableOpacity
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={closeModal}>
+          <Animated.View
+            style={[
+              styles.modalBackground,
+              {opacity: fadeAnim},
+            ]}
+          />
+        </TouchableOpacity>
+
+        <Animated.View
+          testID="company-selector-modal"
+          style={[
+            styles.modalContent,
+            {
+              paddingBottom: insets.bottom,
+              opacity: fadeAnim,
+              transform: [{translateY: slideAnim}],
+            },
+          ]}>
+          <View style={styles.modalHeader}>
+            <Text style={styles.modalTitle}>Selecionar Empresa</Text>
+
+            <TouchableOpacity onPress={closeModal}>
+              <Icon name="x" size={22} color={palette.modalCloseIcon} />
+            </TouchableOpacity>
+          </View>
+
+          <ScrollView
+            testID="company-selector-list"
+            showsVerticalScrollIndicator={false}>
+            {companies.map(renderCompanyItem)}
+          </ScrollView>
+        </Animated.View>
+      </View>
+    </Modal>
+  );
+
   if (mode === 'icon') {
     if (!canSwitchCompany && !headerCompanyLabel) {
       return null;
@@ -315,42 +364,7 @@ const CompanyFilter = ({ navigation, mode }) => {
           )}
         </View>
 
-        {canSwitchCompany && (
-          <Modal visible={modalVisible} transparent animationType="none">
-            <TouchableOpacity
-              style={styles.modalOverlay}
-              activeOpacity={1}
-              onPress={closeModal}>
-              <Animated.View
-                style={[
-                  styles.modalBackground,
-                  { opacity: fadeAnim },
-                ]}
-              />
-            </TouchableOpacity>
-
-            <Animated.View
-              style={[
-                styles.modalContent,
-                {
-                  opacity: fadeAnim,
-                  transform: [{ translateY: slideAnim }],
-                },
-              ]}>
-              <View style={styles.modalHeader}>
-                <Text style={styles.modalTitle}>Selecionar Empresa</Text>
-
-                <TouchableOpacity onPress={closeModal}>
-                  <Icon name="x" size={22} color={palette.modalCloseIcon} />
-                </TouchableOpacity>
-              </View>
-
-              <ScrollView showsVerticalScrollIndicator={false}>
-                {companies.map(renderCompanyItem)}
-              </ScrollView>
-            </Animated.View>
-          </Modal>
-        )}
+        {canSwitchCompany && renderCompanyModal()}
       </>
     );
   }
@@ -408,42 +422,7 @@ const CompanyFilter = ({ navigation, mode }) => {
           </View>
         )}
       </View>
-      {canSwitchCompany && (
-        <Modal visible={modalVisible} transparent animationType="none">
-          <TouchableOpacity
-            style={styles.modalOverlay}
-            activeOpacity={1}
-            onPress={closeModal}>
-            <Animated.View
-              style={[
-                styles.modalBackground,
-                { opacity: fadeAnim },
-              ]}
-            />
-          </TouchableOpacity>
-
-          <Animated.View
-            style={[
-              styles.modalContent,
-              {
-                opacity: fadeAnim,
-                transform: [{ translateY: slideAnim }],
-              },
-            ]}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Selecionar Empresa</Text>
-
-              <TouchableOpacity onPress={closeModal}>
-                <Icon name="x" size={22} color={palette.modalCloseIcon} />
-              </TouchableOpacity>
-            </View>
-
-            <ScrollView showsVerticalScrollIndicator={false}>
-              {companies.map(renderCompanyItem)}
-            </ScrollView>
-          </Animated.View>
-        </Modal>
-      )}
+      {canSwitchCompany && renderCompanyModal()}
     </>
   );
 };
