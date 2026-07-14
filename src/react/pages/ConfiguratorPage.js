@@ -69,10 +69,12 @@ const getConfigActions = () => [
 function ActionCard({ label, description, icon, color, onPress }) {
   return (
     <TouchableOpacity style={styles.actionCard} activeOpacity={0.9} onPress={onPress}>
-      <View style={[styles.actionIconWrap, { backgroundColor: withOpacity(color, 0.12) }]}>
-        <Icon name={icon} size={18} color={color} />
+      <View style={styles.actionHeader}>
+        <View style={[styles.actionIconWrap, { backgroundColor: withOpacity(color, 0.12) }]}>
+          <Icon name={icon} size={18} color={color} />
+        </View>
+        <Text style={styles.actionLabel}>{label}</Text>
       </View>
-      <Text style={styles.actionLabel}>{label}</Text>
       <Text style={styles.actionDescription}>{description}</Text>
     </TouchableOpacity>
   );

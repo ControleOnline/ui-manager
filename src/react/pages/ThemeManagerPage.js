@@ -2,7 +2,6 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   ActivityIndicator,
   Alert,
-  Image,
   Modal,
   PanResponder,
   Pressable,
@@ -13,15 +12,12 @@ import {
   TouchableWithoutFeedback,
   View,
 } from 'react-native';
-import * as DocumentPicker from 'expo-document-picker';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/Feather';
 import { useStore } from '@store';
 import { api } from '@controleonline/ui-common/src/api';
-import { resolveFileImageUrl } from '@controleonline/ui-common/src/react/utils/fileUrl';
 import useToastMessage from '@controleonline/ui-crm/src/react/hooks/useToastMessage';
-import { uploadFileToApi } from '@controleonline/ui-products/src/react/services/fileUpload';
 import { resolveThemePalette, withOpacity } from '@controleonline/../../src/styles/branding';
 import { colors } from '@controleonline/../../src/styles/colors';
 import styles from './ThemeManagerPage.styles';
@@ -918,18 +914,6 @@ const normalizeThemeEntity = themeItem => {
   return nextTheme;
 };
 
-const unwrapUploadFile = payload => {
-  const data = payload?.response?.data ?? payload?.data ?? payload;
-
-  if (!data) return null;
-  if (data?.file) return data.file;
-  if (Array.isArray(data)) return data[0] || null;
-  if (Array.isArray(data?.member)) return data.member[0] || null;
-  if (Array.isArray(data?.['hydra:member'])) return data['hydra:member'][0] || null;
-  if (Array.isArray(data?.files)) return data.files[0] || null;
-  return data;
-};
-
 const buildThemeMediaPayload = (themeItem = {}, mediaOverrides = {}) => {
   return THEME_MEDIA_FIELDS.reduce((accumulator, field) => {
     const nextValue = Object.prototype.hasOwnProperty.call(mediaOverrides, field.key)
@@ -953,83 +937,6 @@ const buildThemePayload = ({
   colors: buildThemeColorsPayload(draftColors),
   ...buildThemeMediaPayload(themeItem, mediaOverrides),
 });
-
-const getFileDisplayName = file => {
-  const fileId = getId(file);
-  return file?.fileName || file?.name || file?.originalName || (fileId ? `Arquivo ${fileId}` : 'Nenhum arquivo');
-};
-
-const getFileDisplayFormat = file => {
-  const extension = String(file?.extension || '').trim().replace(/^\./, '');
-  if (extension) return extension.toUpperCase();
-
-  const mimeType = String(file?.mimeType || file?.type || '').trim().toLowerCase();
-  if (mimeType.includes('/')) {
-    return mimeType.split('/').pop().toUpperCase();
-  }
-
-  const name = String(file?.fileName || file?.name || file?.originalName || '').trim();
-  const match = name.match(/\.([a-z0-9]+)$/i);
-  return match ? match[1].toUpperCase() : 'PNG';
-};
-
-const isPngFile = file => {
-  const mimeType = String(file?.type || file?.mimeType || '').trim().toLowerCase();
-  if (mimeType === 'image/png') return true;
-
-  const name = String(file?.name || file?.fileName || '').trim().toLowerCase();
-  return name.endsWith('.png');
-};
-
-const pickSinglePngFile = () => {
-  if (typeof document !== 'undefined') {
-    return new Promise(resolve => {
-      const input = document.createElement('input');
-      input.type = 'file';
-      input.accept = 'image/png,.png';
-      input.onchange = event => resolve(event?.target?.files?.[0] || null);
-      input.click();
-    });
-  }
-
-  return DocumentPicker.getDocumentAsync({
-    type: ['image/png'],
-    copyToCacheDirectory: true,
-    multiple: false,
-  }).then(result => {
-    if (result?.canceled) return null;
-    return result?.assets?.[0] || null;
-  });
-};
-
-const hydrateThemeMediaDetails = async themeItem => {
-  const normalizedTheme = normalizeThemeEntity(themeItem);
-  if (!normalizedTheme?.id) return normalizedTheme;
-
-  const mediaEntries = await Promise.all(THEME_MEDIA_FIELDS.map(async field => {
-    const currentValue = getThemeMediaValue(normalizedTheme, field.key);
-
-    if (!currentValue) return [field.key, null];
-    if (currentValue?.fileName || currentValue?.name || currentValue?.originalName || currentValue?.extension) {
-      return [field.key, currentValue];
-    }
-
-    const fileId = getId(currentValue);
-    if (!fileId) return [field.key, currentValue];
-
-    try {
-      const fileResponse = await api.fetch(`/files/${fileId}`);
-      return [field.key, fileResponse || currentValue];
-    } catch {
-      return [field.key, currentValue];
-    }
-  }));
-
-  return mediaEntries.reduce((accumulator, [fieldKey, fieldValue]) => {
-    accumulator[fieldKey] = fieldValue;
-    return accumulator;
-  }, { ...normalizedTheme });
-};
 
 const buildThemeColumns = themeColors => {
   const rawEntries = Object.entries(normalizeThemeColors(themeColors))
@@ -2944,7 +2851,6 @@ export default function ThemeManagerPage() {
   const [objectEditorVisible, setObjectEditorVisible] = useState(false);
   const [themeEditorVisible, setThemeEditorVisible] = useState(false);
   const [duplicateEditorVisible, setDuplicateEditorVisible] = useState(false);
-  const [mediaEditorVisible, setMediaEditorVisible] = useState(false);
   const [editingTheme, setEditingTheme] = useState(null);
   const [editingFieldKey, setEditingFieldKey] = useState(null);
   const [duplicateSourceTheme, setDuplicateSourceTheme] = useState(null);
@@ -2952,10 +2858,6 @@ export default function ThemeManagerPage() {
   const [duplicateOverwriteExisting, setDuplicateOverwriteExisting] = useState(false);
   const [duplicateTargetThemeId, setDuplicateTargetThemeId] = useState('');
   const [duplicateTargetDropdownOpen, setDuplicateTargetDropdownOpen] = useState(false);
-  const [mediaTheme, setMediaTheme] = useState(null);
-  const [mediaLoading, setMediaLoading] = useState(false);
-  const [mediaDragOverByField, setMediaDragOverByField] = useState({});
-  const [mediaUploadingByField, setMediaUploadingByField] = useState({});
   const [selectedThemeEditorColor, setSelectedThemeEditorColor] = useState('');
   const [selectedPreviewTokenKeysByTheme, setSelectedPreviewTokenKeysByTheme] = useState({});
   const [themeName, setThemeName] = useState('');
@@ -3026,11 +2928,36 @@ export default function ThemeManagerPage() {
     const sourceThemeId = String(duplicateSourceTheme?.id || '');
     return themes.filter(item => String(item?.id || '') !== sourceThemeId);
   }, [duplicateSourceTheme?.id, themes]);
-  const themeMediaCompanyId = useMemo(() => {
-    const resolvedId = getId(currentCompany?.id || defaultCompany?.id);
-    return resolvedId ? Number(resolvedId) : null;
-  }, [currentCompany?.id, defaultCompany?.id]);
+  const visibleThemes = useMemo(() => {
+    const currentCompanyThemeId = getId(currentCompany?.theme);
+    const embeddedCurrentCompanyTheme = normalizeThemeEntity(currentCompany?.theme);
+    const embeddedThemeId = getId(embeddedCurrentCompanyTheme);
+    const hasEmbeddedThemeData = Boolean(
+      String(embeddedCurrentCompanyTheme?.theme || '').trim()
+      || Object.keys(embeddedCurrentCompanyTheme?.colors || {}).length > 0,
+    );
 
+    if (currentCompanyThemeId) {
+      const matchedTheme = themes.find(
+        item => String(item?.id || '') === String(currentCompanyThemeId),
+      );
+
+      if (matchedTheme) {
+        return [matchedTheme];
+      }
+
+      if (
+        hasEmbeddedThemeData
+        && String(embeddedThemeId || '') === String(currentCompanyThemeId)
+      ) {
+        return [embeddedCurrentCompanyTheme];
+      }
+
+      return [];
+    }
+
+    return hasEmbeddedThemeData ? [embeddedCurrentCompanyTheme] : [];
+  }, [currentCompany?.theme, themes]);
   useEffect(() => {
     if (!themeEditorVisible) return;
 
@@ -3094,7 +3021,6 @@ export default function ThemeManagerPage() {
     setObjectEditorVisible(false);
     setThemeEditorVisible(true);
     setDuplicateEditorVisible(false);
-    setMediaEditorVisible(false);
     setThemeName('');
     setThemeDraft(nextDraft);
     setSelectedThemeEditorColor(buildThemeEditorPaletteColors(nextDraft)[0]?.value || '');
@@ -3107,7 +3033,6 @@ export default function ThemeManagerPage() {
     setObjectEditorVisible(false);
     setThemeEditorVisible(true);
     setDuplicateEditorVisible(false);
-    setMediaEditorVisible(false);
     setThemeName(String(themeItem?.theme || '').trim());
     setThemeDraft(nextDraft);
     setSelectedThemeEditorColor(buildThemeEditorPaletteColors(nextDraft)[0]?.value || '');
@@ -3118,7 +3043,6 @@ export default function ThemeManagerPage() {
     setEditingFieldKey(null);
     setObjectEditorVisible(false);
     setThemeEditorVisible(false);
-    setMediaEditorVisible(false);
     setDuplicateSourceTheme(normalizeThemeEntity(themeItem));
     setDuplicateThemeName(buildDuplicateName(themeItem?.theme, themes));
     setDuplicateOverwriteExisting(false);
@@ -3132,7 +3056,6 @@ export default function ThemeManagerPage() {
     setEditingFieldKey(fieldKey);
     setDuplicateEditorVisible(false);
     setThemeEditorVisible(false);
-    setMediaEditorVisible(false);
     setObjectEditorVisible(true);
     setThemeName(String(themeItem?.theme || '').trim());
     setThemeDraft({
@@ -3140,34 +3063,6 @@ export default function ThemeManagerPage() {
       [fieldKey]: themeItem?.colors?.[fieldKey] || '',
     });
   }, [palette]);
-
-  const openMediaEditor = useCallback(async themeItem => {
-    const normalizedTheme = normalizeThemeEntity(themeItem);
-    setEditingTheme(null);
-    setEditingFieldKey(null);
-    setObjectEditorVisible(false);
-    setThemeEditorVisible(false);
-    setDuplicateEditorVisible(false);
-    setMediaTheme(normalizedTheme);
-    setMediaEditorVisible(true);
-    setMediaLoading(true);
-
-    try {
-      const themeResponse = await api.fetch(`/themes/${normalizedTheme.id}`);
-      const nextTheme = await hydrateThemeMediaDetails(themeResponse || normalizedTheme);
-      setMediaTheme(nextTheme);
-      setThemes(currentThemes => currentThemes.map(item => (
-        String(item?.id) === String(nextTheme?.id)
-          ? { ...item, ...normalizeThemeEntity(nextTheme) }
-          : item
-      )));
-    } catch (error) {
-      setMediaTheme(normalizedTheme);
-      showError(formatApiError(error));
-    } finally {
-      setMediaLoading(false);
-    }
-  }, [showError]);
 
   const closeEditor = useCallback(() => {
     setObjectEditorVisible(false);
@@ -3182,98 +3077,6 @@ export default function ThemeManagerPage() {
     setDuplicateOverwriteExisting(false);
     setDuplicateTargetThemeId('');
     setDuplicateTargetDropdownOpen(false);
-  }, []);
-  const closeMediaEditor = useCallback(() => {
-    setMediaEditorVisible(false);
-    setMediaTheme(null);
-    setMediaLoading(false);
-    setMediaDragOverByField({});
-    setMediaUploadingByField({});
-  }, []);
-
-  const uploadThemeMediaFile = useCallback(async (mediaKey, providedFile = null) => {
-    const currentTheme = mediaTheme ? normalizeThemeEntity(mediaTheme) : null;
-    const mediaField = THEME_MEDIA_FIELDS.find(field => field.key === mediaKey);
-
-    if (!currentTheme?.id) {
-      showError('Nao foi possivel identificar o tema para o upload.');
-      return;
-    }
-
-    const selectedFile = providedFile || await pickSinglePngFile();
-    if (!selectedFile) return;
-
-    if (!isPngFile(selectedFile)) {
-      showError('Envie apenas arquivos PNG para preservar a transparencia.');
-      return;
-    }
-
-    setMediaUploadingByField(current => ({
-      ...current,
-      [mediaKey]: true,
-    }));
-
-    try {
-      const uploadResponse = await uploadFileToApi({
-        file: selectedFile,
-        context: mediaKey,
-        peopleId: themeMediaCompanyId,
-        entityId: currentTheme.id,
-      });
-      const uploadedFile = unwrapUploadFile(uploadResponse) || uploadResponse;
-      const uploadedFileId = getId(uploadedFile?.id || uploadedFile?.['@id'] || uploadedFile);
-
-      if (!uploadedFileId) {
-        throw new Error('Upload concluido, mas o arquivo nao foi retornado.');
-      }
-
-      const payload = buildThemePayload({
-        themeItem: currentTheme,
-        themeName: currentTheme?.theme,
-        background: currentTheme?.background,
-        colors: currentTheme?.colors || {},
-        mediaOverrides: {
-          [mediaKey]: uploadedFileId,
-        },
-      });
-
-      const updatedThemeResponse = await api.fetch(getIri(currentTheme, 'themes'), {
-        method: 'PUT',
-        body: payload,
-      });
-
-      const nextTheme = normalizeThemeEntity({
-        ...currentTheme,
-        ...(updatedThemeResponse && typeof updatedThemeResponse === 'object' ? updatedThemeResponse : {}),
-        colors: normalizeThemeColors(updatedThemeResponse?.colors ?? payload.colors),
-        [mediaKey]: uploadedFile,
-      });
-
-      setMediaTheme(nextTheme);
-      setThemes(currentThemes => currentThemes.map(item => (
-        String(item?.id) === String(nextTheme?.id)
-          ? { ...item, ...nextTheme }
-          : item
-      )));
-
-      showSuccess(`${mediaField?.label || mediaKey} atualizada com sucesso.`);
-      await refreshCurrentThemeIfNeeded();
-    } catch (error) {
-      showError(formatApiError(error));
-    } finally {
-      setMediaUploadingByField(current => {
-        const nextState = { ...current };
-        delete nextState[mediaKey];
-        return nextState;
-      });
-    }
-  }, [mediaTheme, refreshCurrentThemeIfNeeded, showError, showSuccess, themeMediaCompanyId]);
-
-  const setMediaDragOver = useCallback((mediaKey, isActive) => {
-    setMediaDragOverByField(current => ({
-      ...current,
-      [mediaKey]: isActive,
-    }));
   }, []);
 
   const registerNewEntryLayout = useCallback((themeId, itemKey, layoutY) => {
@@ -3767,17 +3570,17 @@ export default function ThemeManagerPage() {
           <View style={styles.loadingWrap}>
             <ActivityIndicator size="large" color={palette.primary} />
           </View>
-        ) : themes.length === 0 ? (
+        ) : visibleThemes.length === 0 ? (
           <View style={styles.emptyCard}>
             <Icon name="droplet" size={20} color={palette.primary} />
-            <Text style={styles.emptyTitle}>Nenhum tema cadastrado.</Text>
+            <Text style={styles.emptyTitle}>Nenhum tema vinculado a esta empresa.</Text>
             <Text style={styles.emptyText}>
-              Crie o primeiro tema para começar a configurar a identidade visual da empresa.
+              A empresa selecionada ainda nao possui um tema associado para exibir aqui.
             </Text>
           </View>
         ) : (
           <View style={styles.themeList}>
-            {themes.map(themeItem => {
+            {visibleThemes.map(themeItem => {
               const {
                 legacyEntries,
                 legacyFilledCount,
@@ -3790,7 +3593,12 @@ export default function ThemeManagerPage() {
               } = buildThemeColumns(
                 themeItem?.colors || {},
               );
-              const themeId = String(themeItem.id);
+              const themeId = String(
+                themeItem?.id
+                || getId(currentCompany?.id)
+                || themeItem?.theme
+                || 'current-company-theme',
+              );
               const showOnlyFilledLegacy = Boolean(showOnlyFilledLegacyByTheme[themeId]);
               const showOnlyFilledNew = Boolean(showOnlyFilledNewByTheme[themeId]);
               const showOnlyFilledPreview = Boolean(showOnlyFilledPreviewByTheme[themeId]);
@@ -3850,13 +3658,6 @@ export default function ThemeManagerPage() {
                       >
                         <Icon name="copy" size={14} color="#334155" />
                         <Text style={styles.actionButtonText}>Duplicar</Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity
-                        style={styles.actionButton}
-                        onPress={() => openMediaEditor(themeItem)}
-                      >
-                        <Icon name="image" size={14} color="#334155" />
-                        <Text style={styles.actionButtonText}>media</Text>
                       </TouchableOpacity>
                     </View>
                   </View>
@@ -4333,124 +4134,6 @@ export default function ThemeManagerPage() {
                         {duplicateOverwriteExisting ? 'Sobrescrever tema' : 'Duplicar tema'}
                       </Text>
                     )}
-                  </TouchableOpacity>
-                </View>
-              </View>
-            </TouchableWithoutFeedback>
-          </View>
-        </TouchableWithoutFeedback>
-      </Modal>
-
-      <Modal visible={mediaEditorVisible} transparent animationType="slide" onRequestClose={closeMediaEditor}>
-        <TouchableWithoutFeedback onPress={closeMediaEditor}>
-          <View style={styles.backdrop}>
-            <TouchableWithoutFeedback>
-              <View style={styles.modalSheet}>
-                <View style={styles.modalHeader}>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.modalTitle}>Media do tema</Text>
-                    <Text style={styles.modalSubtitle}>
-                      {`Tema: ${mediaTheme?.theme || 'Tema selecionado'} · PNG obrigatorio para preservar transparencia.`}
-                    </Text>
-                  </View>
-                </View>
-
-                {mediaLoading ? (
-                  <View style={styles.mediaLoadingWrap}>
-                    <ActivityIndicator size="small" color="#0F172A" />
-                    <Text style={styles.helperText}>Carregando arquivos atuais...</Text>
-                  </View>
-                ) : (
-                  <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.mediaList}>
-                    <View style={styles.mediaGrid}>
-                      {THEME_MEDIA_FIELDS.map(field => {
-                        const file = getThemeMediaValue(mediaTheme, field.key);
-                        const imageUrl = resolveFileImageUrl(file, {
-                          company: currentCompany || defaultCompany || null,
-                        });
-                        const isUploading = Boolean(mediaUploadingByField[field.key]);
-                        const isDragOver = Boolean(mediaDragOverByField[field.key]);
-
-                        return (
-                          <View key={field.key} style={styles.mediaCard}>
-                            <View style={styles.mediaCardHeader}>
-                              <View>
-                                <Text style={styles.mediaCardTitle}>{field.label}</Text>
-                                <Text style={styles.mediaCardSubtitle}>{field.key}</Text>
-                              </View>
-                            </View>
-
-                            <TouchableOpacity
-                              style={[
-                                styles.mediaPreviewBox,
-                                isDragOver && styles.mediaPreviewBoxDragOver,
-                                isUploading && styles.mediaPreviewBoxDisabled,
-                              ]}
-                              onPress={() => uploadThemeMediaFile(field.key)}
-                              disabled={isUploading}
-                              onDragOver={event => {
-                                event.preventDefault?.();
-                              }}
-                              onDragEnter={event => {
-                                event.preventDefault?.();
-                                setMediaDragOver(field.key, true);
-                              }}
-                              onDragLeave={event => {
-                                event.preventDefault?.();
-                                setMediaDragOver(field.key, false);
-                              }}
-                              onDrop={async event => {
-                                event.preventDefault?.();
-                                setMediaDragOver(field.key, false);
-                                const droppedFile = event?.nativeEvent?.dataTransfer?.files?.[0]
-                                  || event?.dataTransfer?.files?.[0]
-                                  || null;
-                                if (!droppedFile) return;
-                                await uploadThemeMediaFile(field.key, droppedFile);
-                              }}
-                            >
-                              {imageUrl ? (
-                                <Image
-                                  source={{ uri: imageUrl }}
-                                  style={styles.mediaPreviewImage}
-                                  resizeMode="center"
-                                />
-                              ) : (
-                                <View style={styles.mediaPreviewEmpty}>
-                                  <Icon name="image" size={28} color="#94A3B8" />
-                                  <Text style={styles.mediaPreviewEmptyText}>Nenhum PNG enviado</Text>
-                                </View>
-                              )}
-                              <View style={styles.mediaDropHint}>
-                                {isUploading ? (
-                                  <ActivityIndicator size="small" color="#FFFFFF" />
-                                ) : (
-                                  <Icon name="upload" size={14} color="#FFFFFF" />
-                                )}
-                                <Text style={styles.mediaDropHintText}>
-                                  {isUploading
-                                    ? 'Enviando arquivo...'
-                                    : 'clique ou arraste um arquivo para importar'}
-                                </Text>
-                              </View>
-                            </TouchableOpacity>
-
-                            <View style={styles.mediaInfo}>
-                              <Text style={styles.mediaInfoLabel}>Arquivo</Text>
-                              <Text style={styles.mediaInfoValue}>{getFileDisplayName(file)}</Text>
-                              <Text style={styles.mediaInfoLabel}>Formato</Text>
-                              <Text style={styles.mediaInfoValue}>{file ? getFileDisplayFormat(file) : 'PNG'}</Text>
-                            </View>
-                          </View>
-                        );
-                      })}
-                    </View>
-                  </ScrollView>
-                )}
-
-                <View style={styles.modalActions}>
-                  <TouchableOpacity style={styles.secondaryButton} onPress={closeMediaEditor}>
-                    <Text style={styles.secondaryButtonText}>Fechar</Text>
                   </TouchableOpacity>
                 </View>
               </View>

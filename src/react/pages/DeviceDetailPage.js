@@ -8,6 +8,7 @@ import Formatter from '@controleonline/ui-common/src/utils/formatter';
 import StateStore from '@controleonline/ui-layout/src/react/components/StateStore';
 import PaymentTypesByWalletTab from '@controleonline/ui-common/src/react/pages/SettingsPage/PaymentTypesByWalletTab';
 import { appendScreenMetrics } from '@controleonline/ui-common/src/react/utils/screenMetrics';
+import { useMessage } from '@controleonline/ui-common/src/react/components/MessageService';
 import { resolveThemePalette, withOpacity } from '@controleonline/../../src/styles/branding';
 import { colors } from '@controleonline/../../src/styles/colors';
 import Icon from 'react-native-vector-icons/Feather';
@@ -136,6 +137,23 @@ const PDV_DETAIL_TABS = [
   {key: PDV_TAB_MOVEMENT, icon: 'bar-chart-2', labelKey: 'pdvMovement'},
 ];
 
+const formatApiError = (error, fallback) => {
+  if (typeof error === 'string') {
+    return error.trim() || fallback;
+  }
+
+  if (Array.isArray(error?.message)) {
+    return (
+      error.message
+        .map(item => item?.message || item?.title || String(item || '').trim())
+        .filter(Boolean)
+        .join('\n') || fallback
+    );
+  }
+
+  return error?.message || error?.description || fallback;
+};
+
 const getDisplayLabel = display => {
   const name = String(display?.display || '').trim();
   const type = String(display?.displayType || '').trim().toUpperCase();
@@ -231,6 +249,7 @@ const DeviceDetailPage = () => {
   const printerStore      = useStore('printer');
   const themeStore        = useStore('theme');
   const websocketStore    = useStore('websocket');
+  const messageApi = useMessage() || {};
 
   const { currentCompany }      = peopleStore.getters;
   const { item: runtimeDevice } = deviceStore.getters;
@@ -242,6 +261,12 @@ const DeviceDetailPage = () => {
   const runtimeCompanyConfigs = useMemo(
     () => parseConfigsObject(currentCompany?.configs),
     [currentCompany?.configs],
+  );
+  const showSystemError = useCallback(
+    (error, fallback) => {
+      messageApi.showError?.(formatApiError(error, fallback));
+    },
+    [messageApi],
   );
   const loyaltyCouponsEnabled = useMemo(
     () => {
@@ -896,8 +921,11 @@ const DeviceDetailPage = () => {
         if (activePdvTab === PDV_TAB_MOVEMENT || hasLoadedMovementData) {
           await loadMovementData();
         }
-      } catch {
-        // silencioso
+      } catch (error) {
+        showSystemError(
+          error,
+          'Nao foi possivel atualizar o caixa deste device.',
+        );
       } finally {
         setActionLoading(false);
       }
@@ -911,6 +939,7 @@ const DeviceDetailPage = () => {
     isPdvDevice,
     loadMovementData,
     refreshCurrentConfig,
+    showSystemError,
   ]);
 
   const startEditAlias = useCallback(() => {
@@ -940,13 +969,13 @@ const DeviceDetailPage = () => {
       setAlias(nextAlias);
       setAliasInput(nextAlias);
       setEditingAlias(false);
-    } catch {
-      // silencioso — mantém o valor anterior
+    } catch (error) {
+      showSystemError(error, 'Nao foi possivel salvar o nome do device.');
       cancelEditAlias();
     } finally {
       setSavingAlias(false);
     }
-  }, [aliasInput, alias, deviceId, cancelEditAlias]);
+  }, [aliasInput, alias, deviceId, cancelEditAlias, showSystemError]);
 
   const saveDevicePaymentTarget = useCallback(async (override = {}) => {
     const nextDevicePaymentTarget =
@@ -967,12 +996,15 @@ const DeviceDetailPage = () => {
         type: deviceType,
       });
       await refreshCurrentConfig();
-    } catch {
-      // silencioso
+    } catch (error) {
+      showSystemError(
+        error,
+        'Nao foi possivel salvar o device de pagamento.',
+      );
     } finally {
       setSavingPaymentTarget(false);
     }
-  }, [currentCompany?.id, devicePaymentTarget, deviceString, deviceType, refreshCurrentConfig]);
+  }, [currentCompany?.id, devicePaymentTarget, deviceString, deviceType, refreshCurrentConfig, showSystemError]);
 
   const savePdvSettings = useCallback(async (override = {}) => {
     const nextPdvGateway = override.pdvGateway ?? pdvGateway;
@@ -1000,8 +1032,11 @@ const DeviceDetailPage = () => {
         type: deviceType,
       });
       await refreshCurrentConfig();
-    } catch {
-      // silencioso
+    } catch (error) {
+      showSystemError(
+        error,
+        'Nao foi possivel salvar as configuracoes de pagamento do PDV.',
+      );
     } finally {
       setSavingPdvSettings(false);
     }
@@ -1014,6 +1049,7 @@ const DeviceDetailPage = () => {
     pdvPrinterEnabled,
     refreshCurrentConfig,
     savingPdvSettings,
+    showSystemError,
   ]);
 
   const savePaymentTypeConfigs = useCallback(
@@ -1056,8 +1092,11 @@ const DeviceDetailPage = () => {
             deviceType,
         });
         setConfigs(nextConfigs);
-      } catch {
-        // silencioso
+      } catch (error) {
+        showSystemError(
+          error,
+          'Nao foi possivel salvar os tipos de pagamento do device.',
+        );
       } finally {
         setSavingPaymentTypes(false);
       }
@@ -1071,6 +1110,7 @@ const DeviceDetailPage = () => {
       deviceString,
       deviceType,
       savingPaymentTypes,
+      showSystemError,
     ],
   );
 
@@ -1128,8 +1168,11 @@ const DeviceDetailPage = () => {
         type: deviceType,
       });
       await refreshCurrentConfig();
-    } catch {
-      // silencioso
+    } catch (error) {
+      showSystemError(
+        error,
+        'Nao foi possivel salvar a operacao do PDV.',
+      );
     } finally {
       setSavingPosOperationMode(false);
     }
@@ -1147,6 +1190,7 @@ const DeviceDetailPage = () => {
     posOperationMode,
     refreshCurrentConfig,
     savingPosOperationMode,
+    showSystemError,
   ]);
 
   useEffect(() => {
@@ -1227,8 +1271,11 @@ const DeviceDetailPage = () => {
         type: deviceType,
       });
       await refreshCurrentConfig();
-    } catch {
-      // silencioso
+    } catch (error) {
+      showSystemError(
+        error,
+        'Nao foi possivel salvar o launcher do device.',
+      );
     } finally {
       setSavingLauncherMode(false);
     }
@@ -1241,6 +1288,7 @@ const DeviceDetailPage = () => {
     isPdvDevice,
     refreshCurrentConfig,
     savingLauncherMode,
+    showSystemError,
   ]);
 
   const saveDeviceAlertSoundConfig = useCallback(async (override = {}) => {
@@ -1265,8 +1313,11 @@ const DeviceDetailPage = () => {
         type: deviceType,
       });
       await refreshCurrentConfig();
-    } catch {
-      // silencioso
+    } catch (error) {
+      showSystemError(
+        error,
+        'Nao foi possivel salvar o som de alerta do device.',
+      );
     } finally {
       setSavingAlertSound(false);
     }
@@ -1278,6 +1329,7 @@ const DeviceDetailPage = () => {
     deviceType,
     refreshCurrentConfig,
     savingAlertSound,
+    showSystemError,
   ]);
 
   const saveDeviceOrderVisibility = useCallback(async (override = {}) => {
@@ -1299,8 +1351,11 @@ const DeviceDetailPage = () => {
         type: deviceType,
       });
       await refreshCurrentConfig();
-    } catch {
-      // silencioso
+    } catch (error) {
+      showSystemError(
+        error,
+        'Nao foi possivel salvar a visibilidade dos pedidos.',
+      );
     } finally {
       setSavingOrderVisibility(false);
     }
@@ -1311,6 +1366,7 @@ const DeviceDetailPage = () => {
     deviceType,
     refreshCurrentConfig,
     savingOrderVisibility,
+    showSystemError,
   ]);
 
   const saveDeviceDeliverySettings = useCallback(async (override = {}) => {
@@ -1336,8 +1392,11 @@ const DeviceDetailPage = () => {
         type: deviceType,
       });
       await refreshCurrentConfig();
-    } catch {
-      // silencioso
+    } catch (error) {
+      showSystemError(
+        error,
+        'Nao foi possivel salvar a configuracao de entregas.',
+      );
     } finally {
       setSavingDeviceDeliverySettings(false);
     }
@@ -1348,6 +1407,7 @@ const DeviceDetailPage = () => {
     deviceType,
     refreshCurrentConfig,
     savingDeviceDeliverySettings,
+    showSystemError,
   ]);
 
   const saveDeviceRuntimeDebugInfo = useCallback(async (override = {}) => {
@@ -1370,8 +1430,11 @@ const DeviceDetailPage = () => {
         type: deviceType,
       });
       await refreshCurrentConfig();
-    } catch {
-      // silencioso
+    } catch (error) {
+      showSystemError(
+        error,
+        'Nao foi possivel salvar a exibicao das informacoes tecnicas.',
+      );
     } finally {
       setSavingRuntimeDebugInfo(false);
     }
@@ -1382,6 +1445,7 @@ const DeviceDetailPage = () => {
     deviceType,
     refreshCurrentConfig,
     savingRuntimeDebugInfo,
+    showSystemError,
   ]);
 
   const saveDisplayPrintingConfig = useCallback(async (override = {}) => {
@@ -1427,8 +1491,11 @@ const DeviceDetailPage = () => {
         type: deviceType,
       });
       await refreshCurrentConfig();
-    } catch {
-      // silencioso
+    } catch (error) {
+      showSystemError(
+        error,
+        'Nao foi possivel salvar a configuracao de impressao.',
+      );
     } finally {
       setSavingDisplayPrintingConfig(false);
     }
@@ -1443,6 +1510,7 @@ const DeviceDetailPage = () => {
     linkedDisplayId,
     refreshCurrentConfig,
     savingDisplayPrintingConfig,
+    showSystemError,
   ]);
 
   const sendCatalogRefreshCommand = useCallback(() => {
@@ -1459,13 +1527,16 @@ const DeviceDetailPage = () => {
           command: 'clear-product-cache',
           companyId: currentCompany.id,
         });
-      } catch {
-        // silencioso
+      } catch (error) {
+        showSystemError(
+          error,
+          'Nao foi possivel enviar o comando para limpar o cache de produtos.',
+        );
       } finally {
         setSendingCatalogRefresh(false);
       }
     });
-  }, [currentCompany?.id, deviceString, sendingCatalogRefresh, websocketActions]);
+  }, [currentCompany?.id, deviceString, sendingCatalogRefresh, showSystemError, websocketActions]);
 
   // Totais derivados
   const productTotal = useMemo(
@@ -1579,7 +1650,6 @@ const DeviceDetailPage = () => {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: brandColors.background }]}>
-      <StateStore stores={['invoice', 'device_config', 'device', 'displays', 'printer', 'websocket']} />
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
 
         {/* Cabeçalho do dispositivo */}

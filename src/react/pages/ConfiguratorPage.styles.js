@@ -80,19 +80,25 @@ const styles = StyleSheet.create({
     backgroundColor: colors.white,
     ...cardShadow,
   },
+  actionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginBottom: 12,
+  },
   actionIconWrap: {
     width: 42,
     height: 42,
     borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 12,
+    flexShrink: 0,
   },
   actionLabel: {
     fontSize: 16,
     fontWeight: '800',
     color: colors.text,
-    marginBottom: 8,
+    flex: 1,
   },
   actionDescription: {
     fontSize: 13,
