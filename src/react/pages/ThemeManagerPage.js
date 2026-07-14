@@ -55,12 +55,6 @@ const DEFAULT_THEME_FIELD_MAP = Object.fromEntries(
   DEFAULT_THEME_FIELDS.map(field => [field.key, field]),
 );
 
-const THEME_MEDIA_FIELDS = [
-  { key: 'logo', label: 'Logo' },
-  { key: 'icon', label: 'Icon' },
-  { key: 'pin', label: 'Pin' },
-];
-
 const AUTO_GENERATED_ALIAS_KEYS = new Set([
   'q-primary',
   'btn-primary',
@@ -892,50 +886,25 @@ const sortThemesById = themes => {
   return [...themes].sort((a, b) => Number(a?.id || 0) - Number(b?.id || 0));
 };
 
-const getThemeMediaValue = (themeItem, mediaKey) => {
-  if (!themeItem || !mediaKey) return null;
-  return themeItem?.[mediaKey] ?? themeItem?.media?.[mediaKey] ?? null;
-};
-
 const normalizeThemeEntity = themeItem => {
   if (!themeItem || typeof themeItem !== 'object') {
     return themeItem;
   }
 
-  const nextTheme = {
+  return {
     ...themeItem,
     colors: normalizeThemeColors(themeItem?.colors),
   };
-
-  THEME_MEDIA_FIELDS.forEach(field => {
-    nextTheme[field.key] = getThemeMediaValue(themeItem, field.key);
-  });
-
-  return nextTheme;
-};
-
-const buildThemeMediaPayload = (themeItem = {}, mediaOverrides = {}) => {
-  return THEME_MEDIA_FIELDS.reduce((accumulator, field) => {
-    const nextValue = Object.prototype.hasOwnProperty.call(mediaOverrides, field.key)
-      ? mediaOverrides[field.key]
-      : getThemeMediaValue(themeItem, field.key);
-
-    accumulator[field.key] = getId(nextValue) ? Number(getId(nextValue)) : null;
-    return accumulator;
-  }, {});
 };
 
 const buildThemePayload = ({
-  themeItem = null,
   themeName = '',
   background = null,
   colors: draftColors = {},
-  mediaOverrides = {},
 }) => ({
   theme: String(themeName || '').trim(),
   background: getId(background) ? Number(getId(background)) : null,
   colors: buildThemeColorsPayload(draftColors),
-  ...buildThemeMediaPayload(themeItem, mediaOverrides),
 });
 
 const buildThemeColumns = themeColors => {
@@ -3248,7 +3217,6 @@ export default function ThemeManagerPage() {
             theme: payload.theme,
             background: payload.background,
             colors: payload.colors,
-            ...buildThemeMediaPayload(themeItem),
           },
       );
 
@@ -3358,7 +3326,6 @@ export default function ThemeManagerPage() {
 
           const payload = {
             ...buildThemePayload({
-              themeItem: targetTheme,
               themeName: normalizedName,
               background: targetTheme?.background,
               colors: buildOverwriteThemeColors(sourceThemeColors, targetTheme?.colors || {}),
@@ -3382,7 +3349,6 @@ export default function ThemeManagerPage() {
                 theme: payload.theme,
                 background: payload.background,
                 colors: payload.colors,
-                ...buildThemeMediaPayload(targetTheme),
               },
           );
 
@@ -3396,7 +3362,6 @@ export default function ThemeManagerPage() {
         } else {
           const payload = {
             ...buildThemePayload({
-              themeItem: duplicateSourceTheme,
               themeName: normalizedName,
               background: duplicateSourceTheme?.background,
               colors: sourceThemeColors,
@@ -3409,7 +3374,6 @@ export default function ThemeManagerPage() {
             const nextTheme = normalizeThemeEntity({
               ...createdThemeResponse,
               colors: normalizeThemeColors(createdThemeResponse?.colors ?? payload.colors),
-              ...buildThemeMediaPayload(duplicateSourceTheme),
             });
 
             setThemes(currentThemes => sortThemesById([
@@ -3482,7 +3446,6 @@ export default function ThemeManagerPage() {
     setIsSaving(true);
     try {
       const payload = buildThemePayload({
-        themeItem: editingTheme,
         themeName: normalizedName,
         background: editingTheme?.background,
         colors: themeDraft,
@@ -3506,7 +3469,6 @@ export default function ThemeManagerPage() {
               theme: payload.theme,
               background: payload.background,
               colors: payload.colors,
-              ...buildThemeMediaPayload(editingTheme),
             },
         );
 
@@ -3524,7 +3486,6 @@ export default function ThemeManagerPage() {
           const nextTheme = normalizeThemeEntity({
             ...createdThemeResponse,
             colors: normalizeThemeColors(createdThemeResponse?.colors ?? payload.colors),
-            ...buildThemeMediaPayload(editingTheme),
           });
 
           setThemes(currentThemes => sortThemesById([
