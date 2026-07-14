@@ -21,6 +21,49 @@ const normalizeCollection = payload => {
 
 const normalizeId = value => String(value || '').replace(/\D+/g, '');
 
+const companyIconFileCache = new Map();
+const companyIconRequestCache = new Map();
+
+const loadCompanyIconFile = companyId => {
+  const normalizedCompanyId = normalizeId(companyId);
+  if (!normalizedCompanyId) {
+    return Promise.resolve(null);
+  }
+
+  if (companyIconFileCache.has(normalizedCompanyId)) {
+    return Promise.resolve(companyIconFileCache.get(normalizedCompanyId));
+  }
+
+  if (companyIconRequestCache.has(normalizedCompanyId)) {
+    return companyIconRequestCache.get(normalizedCompanyId);
+  }
+
+  const request = api
+    .fetch('/people_media', {
+      params: {
+        people: `/people/${normalizedCompanyId}`,
+        'mediaType.type': 'icon',
+        'mediaType.peopleType': 'J',
+        itemsPerPage: 1,
+      },
+    })
+    .then(response => {
+      const [media] = normalizeCollection(response);
+      const file = media?.file || null;
+      companyIconFileCache.set(normalizedCompanyId, file);
+      companyIconRequestCache.delete(normalizedCompanyId);
+      return file;
+    })
+    .catch(() => {
+      companyIconFileCache.set(normalizedCompanyId, null);
+      companyIconRequestCache.delete(normalizedCompanyId);
+      return null;
+    });
+
+  companyIconRequestCache.set(normalizedCompanyId, request);
+  return request;
+};
+
 const CompanyFilter = ({ navigation, mode }) => {
   const insets = useSafeAreaInsets();
   const peopleStore = useStore('people');
@@ -81,42 +124,37 @@ const CompanyFilter = ({ navigation, mode }) => {
   const styles = useMemo(() => createStyles(palette), [palette]);
 
   const selectedCompanyId = normalizeId(selectedCompany?.id);
+  const shouldLoadCompanyIcons = modalVisible && canSwitchCompany;
+  const companyIconIdsSignature = useMemo(() => {
+    if (!shouldLoadCompanyIcons) {
+      return '';
+    }
+
+    const ids = [
+      selectedCompanyId,
+      ...(Array.isArray(companies) ? companies : []).map(company => normalizeId(company?.id)),
+    ].filter(Boolean);
+
+    return Array.from(new Set(ids))
+      .sort((left, right) => Number(left) - Number(right))
+      .join(',');
+  }, [companies, selectedCompanyId, shouldLoadCompanyIcons]);
 
   useEffect(() => {
     let cancelled = false;
-    const companyCandidates = [selectedCompany, ...(Array.isArray(companies) ? companies : [])]
-      .filter(Boolean)
-      .reduce((accumulator, company) => {
-        const companyId = normalizeId(company?.id);
+    const companyIds = companyIconIdsSignature
+      ? companyIconIdsSignature.split(',').filter(Boolean)
+      : [];
 
-        if (!companyId || accumulator.some(item => item.id === companyId)) {
-          return accumulator;
-        }
-
-        accumulator.push({id: companyId, company});
-        return accumulator;
-      }, []);
-
-    if (companyCandidates.length === 0) {
+    if (companyIds.length === 0) {
       setCompanyIconFilesById({});
       return undefined;
     }
 
     Promise.all(
-      companyCandidates.map(({id}) =>
-        api
-          .fetch('/people_media', {
-            params: {
-              people: `/people/${id}`,
-              'mediaType.type': 'icon',
-              'mediaType.peopleType': 'J',
-              itemsPerPage: 1,
-            },
-          })
-          .then(response => {
-            const [media] = normalizeCollection(response);
-            return [id, media?.file || null];
-          })
+      companyIds.map(id =>
+        loadCompanyIconFile(id)
+          .then(file => [id, file])
           .catch(() => [id, null]),
       ),
     )
@@ -141,9 +179,13 @@ const CompanyFilter = ({ navigation, mode }) => {
     return () => {
       cancelled = true;
     };
-  }, [companies, selectedCompany]);
+  }, [companyIconIdsSignature]);
 
   const companyLogoUrl = useMemo(() => {
+    if (!shouldLoadCompanyIcons) {
+      return null;
+    }
+
     const selectedCompanyIconFile = companyIconFilesById[selectedCompanyId];
     if (!selectedCompanyIconFile) {
       return null;
@@ -152,7 +194,7 @@ const CompanyFilter = ({ navigation, mode }) => {
     return resolveDefaultFileUrl(selectedCompanyIconFile, {
       company: selectedCompany,
     });
-  }, [companyIconFilesById, selectedCompany, selectedCompanyId]);
+  }, [companyIconFilesById, selectedCompany, selectedCompanyId, shouldLoadCompanyIcons]);
 
 
 
