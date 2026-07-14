@@ -4,8 +4,10 @@ import {
   Alert,
   Modal,
   PanResponder,
+  Platform,
   Pressable,
   ScrollView,
+  StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
@@ -552,6 +554,7 @@ const findTokenGroupLabel = tokenKey => {
 const HEX_COLOR_REGEX = /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/;
 const RGB_COLOR_FUNCTION_REGEX = /^rgba?\((.*)\)$/i;
 const TRANSPARENT_COLOR_VALUE = 'transparent';
+const THEME_COLOR_DRAG_TYPE = 'application/x-controleonline-theme-color';
 
 const normalizeCollection = payload => {
   if (Array.isArray(payload)) return payload;
@@ -707,6 +710,34 @@ const formatRgbaColor = value => {
     : 1;
 
   return `rgba(${red}, ${green}, ${blue}, ${alpha})`;
+};
+
+const parseDraggedThemeColorPayload = rawPayload => {
+  if (typeof rawPayload !== 'string') return null;
+
+  const trimmedPayload = rawPayload.trim();
+  if (!trimmedPayload) return null;
+
+  try {
+    const parsedPayload = JSON.parse(trimmedPayload);
+    const normalizedValue = normalizeThemeColorValue(parsedPayload?.value);
+    if (!normalizedValue) return null;
+
+    return {
+      value: normalizedValue,
+      sourceKey: String(parsedPayload?.sourceKey || '').trim(),
+      sourceThemeId: String(parsedPayload?.sourceThemeId || '').trim(),
+    };
+  } catch (error) {
+    const normalizedValue = normalizeThemeColorValue(trimmedPayload);
+    if (!normalizedValue) return null;
+
+    return {
+      value: normalizedValue,
+      sourceKey: '',
+      sourceThemeId: '',
+    };
+  }
 };
 
 const composeHexWithAlpha = (value, alphaPercent = 100) => {
@@ -2869,10 +2900,12 @@ export default function ThemeManagerPage() {
   const [newSearchByTheme, setNewSearchByTheme] = useState({});
   const [previewSearchByTheme, setPreviewSearchByTheme] = useState({});
   const [savingColorKeys, setSavingColorKeys] = useState({});
+  const [dragOverColorKey, setDragOverColorKey] = useState('');
   const newColumnRefs = useRef({});
   const newEntryLayouts = useRef({});
   const previewColumnRefs = useRef({});
   const previewGroupLayouts = useRef({});
+  const draggedThemeColorRef = useRef(null);
   const editorFields = useMemo(
     () => buildEditorFields(themeDraft),
     [themeDraft],
@@ -3182,6 +3215,82 @@ export default function ThemeManagerPage() {
     }));
   }, []);
 
+  const readDraggedThemeColor = useCallback(event => {
+    const refPayload = draggedThemeColorRef.current;
+    if (refPayload?.value) return refPayload;
+
+    const customPayload = event?.dataTransfer?.getData?.(THEME_COLOR_DRAG_TYPE);
+    const parsedCustomPayload = parseDraggedThemeColorPayload(customPayload);
+    if (parsedCustomPayload?.value) return parsedCustomPayload;
+
+    const plainTextPayload = event?.dataTransfer?.getData?.('text/plain');
+    return parseDraggedThemeColorPayload(plainTextPayload);
+  }, []);
+
+  const handleNewColorDragStart = useCallback((event, payload) => {
+    const normalizedValue = normalizeThemeColorValue(payload?.value);
+    if (!normalizedValue) {
+      event.preventDefault?.();
+      return;
+    }
+
+    const dragPayload = {
+      value: normalizedValue,
+      sourceKey: String(payload?.sourceKey || '').trim(),
+      sourceThemeId: String(payload?.sourceThemeId || '').trim(),
+    };
+
+    draggedThemeColorRef.current = dragPayload;
+
+    if (event.dataTransfer) {
+      event.dataTransfer.effectAllowed = 'copy';
+      event.dataTransfer.setData(THEME_COLOR_DRAG_TYPE, JSON.stringify(dragPayload));
+      event.dataTransfer.setData('text/plain', normalizedValue);
+    }
+  }, []);
+
+  const handleNewColorDragEnd = useCallback(() => {
+    draggedThemeColorRef.current = null;
+    setDragOverColorKey('');
+  }, []);
+
+  const handleNewColorDragOver = useCallback(event => {
+    if (!readDraggedThemeColor(event)?.value) return;
+
+    event.preventDefault();
+    if (event.dataTransfer) {
+      event.dataTransfer.dropEffect = 'copy';
+    }
+  }, [readDraggedThemeColor]);
+
+  const handleNewColorDragEnter = useCallback((event, themeId, itemKey) => {
+    const draggedColor = readDraggedThemeColor(event);
+    if (!draggedColor?.value) return;
+    if (
+      draggedColor.sourceKey
+      && draggedColor.sourceThemeId
+      && draggedColor.sourceKey === itemKey
+      && draggedColor.sourceThemeId === String(themeId)
+    ) {
+      return;
+    }
+
+    event.preventDefault();
+    setDragOverColorKey(`${themeId}:${itemKey}`);
+  }, [readDraggedThemeColor]);
+
+  const handleNewColorDragLeave = useCallback((event, themeId, itemKey) => {
+    event.preventDefault();
+
+    const relatedTarget = event.relatedTarget;
+    if (relatedTarget && event.currentTarget?.contains?.(relatedTarget)) {
+      return;
+    }
+
+    const stateKey = `${themeId}:${itemKey}`;
+    setDragOverColorKey(current => (current === stateKey ? '' : current));
+  }, []);
+
   const updateSingleThemeColor = useCallback(async (themeItem, fieldKey, nextValue = '') => {
     const themeId = String(themeItem?.id || '').trim();
     const savingKey = `${themeId}:${fieldKey}`;
@@ -3229,10 +3338,12 @@ export default function ThemeManagerPage() {
           : item
       )));
 
-      showSuccess('Cor removida.');
+      showSuccess(nextValue ? 'Cor atualizada.' : 'Cor removida.');
       await refreshCurrentThemeIfNeeded();
+      return true;
     } catch (error) {
       showError(formatApiError(error));
+      return false;
     } finally {
       setSavingColorKeys(current => {
         const nextState = { ...current };
@@ -3241,6 +3352,25 @@ export default function ThemeManagerPage() {
       });
     }
   }, [refreshCurrentThemeIfNeeded, showError, showSuccess]);
+
+  const handleNewColorDrop = useCallback(async (event, themeItem, themeId, itemKey) => {
+    event.preventDefault();
+    setDragOverColorKey('');
+
+    const draggedColor = readDraggedThemeColor(event);
+    draggedThemeColorRef.current = null;
+    if (!draggedColor?.value) return;
+    if (
+      draggedColor.sourceKey
+      && draggedColor.sourceThemeId
+      && draggedColor.sourceKey === itemKey
+      && draggedColor.sourceThemeId === String(themeId)
+    ) {
+      return;
+    }
+
+    await updateSingleThemeColor(themeItem, itemKey, draggedColor.value);
+  }, [readDraggedThemeColor, updateSingleThemeColor]);
 
   const confirmClearThemeColor = useCallback((themeItem, fieldKey) => {
     const confirmAction = () => {
@@ -3772,10 +3902,23 @@ export default function ThemeManagerPage() {
                             const isRelatedToSelectedPreview =
                               selectedPreviewTokenKeysByTheme[themeId]?.includes(item.key);
                             const isSavingColor = Boolean(savingColorKeys[`${themeId}:${item.key}`]);
-
-                            return (
+                            const canDragColor = Platform.OS === 'web'
+                              && Boolean(normalizeThemeColorValue(item.value))
+                              && !isSavingColor;
+                            const isDragOverTarget = dragOverColorKey === `${themeId}:${item.key}`;
+                            const colorSwatchStyle = StyleSheet.flatten([
+                              styles.colorSwatch,
+                              normalizedValue
+                                ? {
+                                  backgroundColor: normalizedValue,
+                                  borderColor: '#000000',
+                                }
+                                : isTransparentValue
+                                  ? styles.transparentColorSwatch
+                                  : styles.missingColorSwatch,
+                            ]);
+                            const colorCard = (
                               <Pressable
-                                key={`${themeItem.id}-new-${item.key}`}
                                 onLayout={event => registerNewEntryLayout(
                                   themeId,
                                   item.key,
@@ -3789,6 +3932,7 @@ export default function ThemeManagerPage() {
                                 style={[
                                   styles.colorListItem,
                                   isRelatedToSelectedPreview && styles.relatedColorListItem,
+                                  isDragOverTarget && styles.colorDropTargetListItem,
                                 ]}
                               >
                                 <TouchableOpacity
@@ -3817,19 +3961,26 @@ export default function ThemeManagerPage() {
                                 >
                                   <Icon name="edit-3" size={12} color="#334155" />
                                 </TouchableOpacity>
-                                <View
-                                  style={[
-                                    styles.colorSwatch,
-                                    normalizedValue
-                                      ? {
-                                        backgroundColor: normalizedValue,
-                                        borderColor: '#000000',
-                                      }
-                                      : isTransparentValue
-                                        ? styles.transparentColorSwatch
-                                      : styles.missingColorSwatch,
-                                  ]}
-                                />
+                                {canDragColor ? React.createElement(
+                                  'div',
+                                  {
+                                    draggable: true,
+                                    onDragStart: event => handleNewColorDragStart(event, {
+                                      value: item.value,
+                                      sourceKey: item.key,
+                                      sourceThemeId: themeId,
+                                    }),
+                                    onDragEnd: handleNewColorDragEnd,
+                                    style: {
+                                      ...colorSwatchStyle,
+                                      cursor: 'grab',
+                                      flexShrink: 0,
+                                    },
+                                    title: `Arraste a cor ${item.key}`,
+                                  },
+                                ) : (
+                                  <View style={colorSwatchStyle} />
+                                )}
                                 <View style={{ flex: 1 }}>
                                   <Text numberOfLines={1} style={styles.colorListKey}>
                                     {item.key}
@@ -3839,6 +3990,27 @@ export default function ThemeManagerPage() {
                                   </Text>
                                 </View>
                               </Pressable>
+                            );
+
+                            if (Platform.OS !== 'web') {
+                              return (
+                                <React.Fragment key={`${themeItem.id}-new-${item.key}`}>
+                                  {colorCard}
+                                </React.Fragment>
+                              );
+                            }
+
+                            return React.createElement(
+                              'div',
+                              {
+                                key: `${themeItem.id}-new-${item.key}`,
+                                onDragOver: handleNewColorDragOver,
+                                onDragEnter: event => handleNewColorDragEnter(event, themeId, item.key),
+                                onDragLeave: event => handleNewColorDragLeave(event, themeId, item.key),
+                                onDrop: event => handleNewColorDrop(event, themeItem, themeId, item.key),
+                                style: { display: 'block' },
+                              },
+                              colorCard,
                             );
                           })
                         )}

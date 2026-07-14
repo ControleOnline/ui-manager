@@ -609,6 +609,11 @@ const styles = StyleSheet.create({
     borderWidth: 3,
     borderColor: '#334155',
   },
+  colorDropTargetListItem: {
+    borderWidth: 2,
+    borderColor: '#2563EB',
+    backgroundColor: '#EFF6FF',
+  },
   unexpectedColorListItem: {
     borderColor: '#DC2626',
     borderWidth: 2,
