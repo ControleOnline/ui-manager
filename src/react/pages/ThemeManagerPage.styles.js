@@ -609,16 +609,6 @@ const styles = StyleSheet.create({
     borderWidth: 3,
     borderColor: '#334155',
   },
-  colorDropTargetListItem: {
-    borderWidth: 2,
-    borderColor: '#2563EB',
-    backgroundColor: '#EFF6FF',
-  },
-  colorDropAppliedListItem: {
-    borderWidth: 2,
-    borderColor: '#16A34A',
-    backgroundColor: '#F0FDF4',
-  },
   unexpectedColorListItem: {
     borderColor: '#DC2626',
     borderWidth: 2,
@@ -675,16 +665,6 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#64748B',
     marginTop: 2,
-  },
-  iconButton: {
-    width: 38,
-    height: 38,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: '#cccccc',
-    backgroundColor: '#F8FAFC',
   },
   backdrop: {
     flex: 1,
@@ -1059,12 +1039,6 @@ const styles = StyleSheet.create({
     color: '#475569',
     textAlign: 'center',
   },
-  editorControlCardBody: {
-    minHeight: 28,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
   editorControlCardFooter: {
     height: 16,
     alignItems: 'center',
@@ -1103,20 +1077,6 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     backgroundColor: '#D7E1EC',
   },
-  toneEditorTrackGradientLeft: {
-    position: 'absolute',
-    left: 0,
-    top: 0,
-    bottom: 0,
-    width: '50%',
-  },
-  toneEditorTrackGradientRight: {
-    position: 'absolute',
-    right: 0,
-    top: 0,
-    bottom: 0,
-    width: '50%',
-  },
   toneEditorCenterMark: {
     position: 'absolute',
     left: '50%',
@@ -1148,13 +1108,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     flexShrink: 0,
   },
-  toneEditorInlineLabel: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: '#475569',
-    minWidth: 16,
-    textAlign: 'center',
-  },
   opacityEditor: {
     gap: 8,
   },
@@ -1164,13 +1117,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 16,
-  },
-  opacityEditorInlineValue: {
-    fontSize: 12,
-    fontWeight: '800',
-    color: '#1a1a1a',
-    minWidth: 40,
-    textAlign: 'right',
   },
   opacityEditorDisabled: {
     opacity: 0.45,
