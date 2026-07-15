@@ -27,6 +27,7 @@
  */
 
 import React, { useState, useEffect, useMemo } from 'react';
+import { useIsFocused } from '@react-navigation/native';
 import {
   TouchableOpacity,
   View,
@@ -59,6 +60,7 @@ export default function HomePage({ navigation }) {
   const { user } = authStore.getters;
   const translateMessages = translateStore?.getters?.messages || {};
   const pendingTranslateMessages = translateStore?.getters?.pendingMessages || {};
+  const isFocused = useIsFocused();
   const canManageAdminMenus = userHasRole(user, 'ROLE_SUPER');
 
   const brandColors = useMemo(
@@ -109,8 +111,9 @@ export default function HomePage({ navigation }) {
   }, [statValues, tones.info, tones.success, translateMessages, pendingTranslateMessages]);
 
   useEffect(() => {
-    if (isAdminApp || !currentCompany?.id) return;
+    if (isAdminApp || !currentCompany?.id || !isFocused) return undefined;
 
+    let cancelled = false;
     const fetchStats = async () => {
       setLoadingStats(true);
       try {
@@ -120,19 +123,26 @@ export default function HomePage({ navigation }) {
             api.fetch('/people', { params: { 'link.company': `/people/${currentCompany.id}`, 'link.linkType': 'client'} }).catch(() => null),
           ]);
 
-        setStatValues([
-          { key: 'orders', value: String(ordersRes?.totalItems ?? '-') },
-          { key: 'customers', value: String(clientsRes?.totalItems ?? '-') },
-        ]);
+        if (!cancelled) {
+          setStatValues([
+            { key: 'orders', value: String(ordersRes?.totalItems ?? '-') },
+            { key: 'customers', value: String(clientsRes?.totalItems ?? '-') },
+          ]);
+        }
       } catch {
         // mantém os valores padrão
       } finally {
-        setLoadingStats(false);
+        if (!cancelled) {
+          setLoadingStats(false);
+        }
       }
     };
 
     fetchStats();
-  }, [currentCompany?.id]);
+    return () => {
+      cancelled = true;
+    };
+  }, [currentCompany?.id, isAdminApp, isFocused]);
 
   const go = (route, params = undefined) => navigation.navigate(route, params);
 
