@@ -40,11 +40,8 @@ import { colors } from '@controleonline/../../src/styles/colors';
 import Icon from 'react-native-vector-icons/Feather';
 import { useStore } from '@store';
 import { api } from '@controleonline/ui-common/src/api';
-import {app_type, app_type_base} from '@appType';
-import {
-  normalizeRuntimeMenuResponse,
-  userHasRole,
-} from '@controleonline/ui-common/src/react/utils/runtimeMenu';
+import { app_type_base } from '@appType';
+import { userHasRole } from '@controleonline/ui-common/src/react/utils/runtimeMenu';
 import AppMenuGrid from '@controleonline/ui-layout/src/react/components/AppMenuGrid';
 import { createStyles } from './index.styles';
 
@@ -59,7 +56,6 @@ export default function HomePage({ navigation }) {
   const translateStore = useStore('translate');
 
   const { colors: themeColors, menus } = themeStore.getters;
-  const themeActions = themeStore.actions;
   const { currentCompany } = peopleStore.getters;
   const { user } = authStore.getters;
   const translateMessages = translateStore?.getters?.messages || {};
@@ -147,37 +143,6 @@ export default function HomePage({ navigation }) {
       cancelled = true;
     };
   }, [currentCompany?.id, isAdminApp, isFocused]);
-
-  useEffect(() => {
-    if (!currentCompany?.id || !themeActions?.setMenus) {
-      return undefined;
-    }
-
-    let cancelled = false;
-
-    api
-      .fetch('menus-people', {
-        params: {
-          myCompany: currentCompany.id,
-          appType: app_type,
-          menuType: 'home',
-        },
-      })
-      .then(result => {
-        if (!cancelled) {
-          themeActions.setMenus(normalizeRuntimeMenuResponse(result, {appType: app_type}));
-        }
-      })
-      .catch(() => {
-        if (!cancelled) {
-          themeActions.setMenus(normalizeRuntimeMenuResponse(null, {appType: app_type}));
-        }
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [currentCompany?.id, themeActions]);
 
   const go = (route, params = undefined) => navigation.navigate(route, params);
 
