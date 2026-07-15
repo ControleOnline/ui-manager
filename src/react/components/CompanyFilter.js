@@ -165,7 +165,7 @@ const CompanyFilter = ({ navigation, mode }) => {
                 source={{uri: companyIcon}}
                 style={styles.companyLogo}
               />
-            )}
+            ) : null}
             <Text
               style={styles.companyItemName}>
               {company.alias || company.name}
@@ -240,7 +240,7 @@ const CompanyFilter = ({ navigation, mode }) => {
             source={{ uri: companyIconUrl }}
             style={styles.iconCompanyLogo}
           />
-        )}
+        ) : null}
 
         <Text
           numberOfLines={1}
@@ -312,9 +312,9 @@ const CompanyFilter = ({ navigation, mode }) => {
                 onPress={canSwitchCompany ? openModal : undefined}
                 disabled={!canSwitchCompany}
                 activeOpacity={0.8}>
-                {companyLogoUrl ? (
+                {companyIconUrl ? (
                   <Image
-                    source={{ uri: companyLogoUrl }}
+                    source={{ uri: companyIconUrl }}
                     style={styles.companyLogo}
                   />
                 ) : null}
