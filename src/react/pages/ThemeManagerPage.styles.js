@@ -611,8 +611,8 @@ const styles = StyleSheet.create({
   },
   colorDropTargetListItem: {
     borderWidth: 2,
-    borderColor: '#2563EB',
-    backgroundColor: '#EFF6FF',
+    borderColor: '#10B981',
+    backgroundColor: '#ECFDF5',
   },
   unexpectedColorListItem: {
     borderColor: '#DC2626',
@@ -645,9 +645,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   colorSwatch: {
-    width: 18,
-    height: 18,
-    borderRadius: 6,
+    width: 24,
+    height: 24,
+    borderRadius: 8,
     borderWidth: 1,
     borderColor: '#000000',
   },
@@ -871,6 +871,10 @@ const styles = StyleSheet.create({
     overflow: 'visible',
     zIndex: 1,
   },
+  swatchPickerCardActive: {
+    borderWidth: 2,
+    borderColor: '#10B981',
+  },
   swatchPickerSection: {
     gap: 8,
   },
@@ -887,9 +891,9 @@ const styles = StyleSheet.create({
     color: '#94A3B8',
   },
   pickerButton: {
-    width: 30,
-    height: 30,
-    borderRadius: 10,
+    width: 24,
+    height: 24,
+    borderRadius: 8,
     borderWidth: 1,
     borderColor: '#000000',
     backgroundColor: '#FFFFFF',
@@ -903,6 +907,10 @@ const styles = StyleSheet.create({
   pickerButtonActive: {
     borderWidth: 2,
     borderColor: '#000000',
+  },
+  pickerButtonDropTarget: {
+    borderWidth: 2,
+    borderColor: '#10B981',
   },
   pickerTooltip: {
     position: 'absolute',
@@ -956,7 +964,6 @@ const styles = StyleSheet.create({
     maxWidth: 200,
     overflow: 'visible',
   },
-  
   colorInputShell: {
     flex: 1,
     height: 28,
@@ -1024,6 +1031,11 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: 8,
     overflow: 'visible',
+    position: 'relative',
+  },
+  editorControlCardRaised: {
+    zIndex: 200,
+    elevation: 200,
   },
   editorControlCardFixed: {
     width: 224,
@@ -1035,14 +1047,32 @@ const styles = StyleSheet.create({
     minWidth: 180,
   },
   editorControlCardHeader: {
-    alignItems: 'center',
+    alignItems: 'flex-start',
     justifyContent: 'center',
+  },
+  editorControlCardHeaderSplit: {
+    width: '100%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
   editorControlCardTitle: {
     fontSize: 12,
     fontWeight: '800',
     color: '#475569',
+    textAlign: 'left',
+  },
+  editorControlCardHeaderValue: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#475569',
     textAlign: 'center',
+  },
+  editorControlCardHeaderPreviewValue: {
+    width: 24,
+    minWidth: 24,
+    maxWidth: 24,
+    alignItems: 'center',
   },
   editorControlCardFooter: {
     height: 16,

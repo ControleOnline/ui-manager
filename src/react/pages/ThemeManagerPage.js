@@ -1053,6 +1053,25 @@ const buildThemeEditorPaletteColors = themeColors => {
   return extractUniqueNormalizedColors(newEntries);
 };
 
+const resolveEditorHighlightRowId = fieldKey => {
+  const normalizedFieldKey = String(fieldKey || '').trim();
+  if (!normalizedFieldKey) return '';
+  return THEME_REFERENCE_TOKEN_SET.has(normalizedFieldKey) ? 'new' : 'legacy';
+};
+
+const replaceThemeDraftFieldValue = (themeDraft = {}, fieldKey, sourceValue) => {
+  const normalizedFieldKey = String(fieldKey || '').trim();
+  const normalizedSource = normalizeThemeColorValue(sourceValue);
+  if (!normalizedFieldKey || !normalizedSource) {
+    return themeDraft;
+  }
+
+  return {
+    ...themeDraft,
+    [normalizedFieldKey]: normalizedSource,
+  };
+};
+
 const buildOverwriteThemeColors = (sourceThemeColors = {}, targetThemeColors = {}) => {
   const sourceColors = normalizeThemeColors(sourceThemeColors);
   const targetColors = normalizeThemeColors(targetThemeColors);
@@ -2147,9 +2166,11 @@ case 'table': {
       );
     }
     case 'radio': {
+      const radioTextTokenKeys = ['radioText', 'textPrimary', 'text'];
       const radioBorder = getPreviewColorMode(themeColors, ['radioBorder', 'border'], '#94A3B8', useRnwPreview);
       const radioSelectedBorder = getPreviewColorMode(themeColors, ['radioSelectedBorder', 'primary'], '#2563EB', useRnwPreview);
       const radioSelectedDot = getPreviewColorMode(themeColors, ['radioSelectedDot', 'primary'], '#2563EB', useRnwPreview);
+      const radioText = getPreviewColorMode(themeColors, radioTextTokenKeys, '#0F172A', useRnwPreview);
 
       return (
         <View style={styles.previewStack}>
@@ -2157,8 +2178,8 @@ case 'table': {
             <PreviewPressTarget tokenKeys={['radioBackground', 'radioBorder']} onSelectTokens={onSelectTokens} style={styles.previewChoiceTarget}>
               <View style={[styles.previewRadio, { borderColor: resolvePreviewValue(radioBorder, '#94A3B8', useRnwPreview), borderWidth: useRnwPreview ? 1 : radioBorder ? 1 : 0 }]} />
             </PreviewPressTarget>
-            <PreviewPressTarget tokenKeys={['radioText']} onSelectTokens={onSelectTokens} style={styles.previewChoiceTextTarget}>
-              <Text style={[styles.previewChoiceText, { color: resolvePreviewValue(textPrimary, '#0F172A', useRnwPreview) }]}>Opcao base</Text>
+            <PreviewPressTarget tokenKeys={radioTextTokenKeys} onSelectTokens={onSelectTokens} style={styles.previewChoiceTextTarget}>
+              <Text style={[styles.previewChoiceText, { color: resolvePreviewValue(radioText, '#0F172A', useRnwPreview) }]}>Opcao base</Text>
             </PreviewPressTarget>
           </View>
           <View style={styles.previewChoiceRow}>
@@ -2167,8 +2188,8 @@ case 'table': {
                 <View style={[styles.previewRadioDot, { backgroundColor: resolvePreviewValue(radioSelectedDot, '#2563EB', useRnwPreview) }]} />
               </View>
             </PreviewPressTarget>
-            <PreviewPressTarget tokenKeys={['radioText']} onSelectTokens={onSelectTokens} style={styles.previewChoiceTextTarget}>
-              <Text style={[styles.previewChoiceText, { color: resolvePreviewValue(textPrimary, '#0F172A', useRnwPreview) }]}>Opcao ativa</Text>
+            <PreviewPressTarget tokenKeys={radioTextTokenKeys} onSelectTokens={onSelectTokens} style={styles.previewChoiceTextTarget}>
+              <Text style={[styles.previewChoiceText, { color: resolvePreviewValue(radioText, '#0F172A', useRnwPreview) }]}>Opcao ativa</Text>
             </PreviewPressTarget>
           </View>
         </View>
@@ -2540,7 +2561,7 @@ const ToneSlider = ({
 
     const ratio = clampNumber(locationX / trackWidth, 0, 1);
     const rawValue = (ratio * 200) - 100;
-    const snappedValue = snapToStep(rawValue, 10);
+    const snappedValue = snapToStep(rawValue, 5);
 
     onChange(clampNumber(snappedValue, -100, 100));
   }, [disabled, onChange, trackWidth]);
@@ -2601,6 +2622,10 @@ const ColorEditor = ({
   swatchRows = [],
   selectedSwatchValue,
   onSelectSwatchValue,
+  swatchDropSourceRowIds = [],
+  swatchDropTargetRowIds = [],
+  highlightedSwatchRowId = '',
+  onApplySwatchDrop,
   showCloseButton = false,
   onClose,
   emphasizeLabel = false,
@@ -2614,11 +2639,15 @@ const ColorEditor = ({
   const baseHexColor = currentBaseHexColor || lastBaseHexColor || '';
   const hasEditableBaseHex = Boolean(baseHexColor);
   const [hoveredSwatchKey, setHoveredSwatchKey] = useState('');
-  const [hoveredInputHelp, setHoveredInputHelp] = useState(false);
+  const [dragOverSwatchKey, setDragOverSwatchKey] = useState('');
+  const [draftInputValue, setDraftInputValue] = useState(normalizedValue);
   const [toneValue, setToneValue] = useState(0);
   const [tonePreviewColor, setTonePreviewColor] = useState(baseHexColor);
   const [opacityPreviewPercent, setOpacityPreviewPercent] = useState(alphaPercent);
-    
+  const draggedSwatchColorRef = useRef(null);
+  const sourceRowIdSet = useMemo(() => new Set(swatchDropSourceRowIds), [swatchDropSourceRowIds]);
+  const targetRowIdSet = useMemo(() => new Set(swatchDropTargetRowIds), [swatchDropTargetRowIds]);
+
   useEffect(() => {
     if (currentBaseHexColor) {
       setLastBaseHexColor(currentBaseHexColor);
@@ -2632,6 +2661,127 @@ const ColorEditor = ({
   useEffect(() => {
     setOpacityPreviewPercent(alphaPercent);
   }, [alphaPercent, baseHexColor]);
+
+  useEffect(() => {
+    setDraftInputValue(normalizedValue);
+  }, [normalizedValue]);
+
+  const applyColorInputValue = useCallback(nextValue => {
+    const normalizedText = normalizeThemeColorValue(nextValue);
+    if (normalizedText) {
+      setToneValue(0);
+      setTonePreviewColor(getHexBaseColor(normalizedText) || '');
+      setOpacityPreviewPercent(getHexAlphaPercent(normalizedText));
+      setDraftInputValue(normalizedText);
+      onChange(normalizedText);
+      return;
+    }
+
+    setDraftInputValue(nextValue);
+    onChange(nextValue);
+  }, [onChange]);
+
+  const handleColorInputPaste = useCallback(event => {
+    const pastedText = event?.clipboardData?.getData?.('text')
+      || event?.nativeEvent?.clipboardData?.getData?.('text')
+      || '';
+
+    if (!pastedText) return;
+
+    event.preventDefault?.();
+    applyColorInputValue(pastedText);
+  }, [applyColorInputValue]);
+
+  const readDraggedSwatchColor = useCallback(event => {
+    const refPayload = draggedSwatchColorRef.current;
+    if (refPayload?.value) return refPayload;
+
+    const customPayload = event?.dataTransfer?.getData?.(THEME_COLOR_DRAG_TYPE);
+    const parsedCustomPayload = parseDraggedThemeColorPayload(customPayload);
+    if (parsedCustomPayload?.value) return parsedCustomPayload;
+
+    const plainTextPayload = event?.dataTransfer?.getData?.('text/plain');
+    return parseDraggedThemeColorPayload(plainTextPayload);
+  }, []);
+
+  const handleSwatchDragStart = useCallback((event, rowId, colorValue) => {
+    const normalizedValue = normalizeThemeColorValue(colorValue);
+    if (!normalizedValue) {
+      event.preventDefault?.();
+      return;
+    }
+
+    const dragPayload = {
+      value: normalizedValue,
+      sourceKey: String(rowId || '').trim(),
+      sourceThemeId: String(field?.key || '').trim(),
+    };
+
+    draggedSwatchColorRef.current = dragPayload;
+
+    if (event.dataTransfer) {
+      event.dataTransfer.effectAllowed = 'copy';
+      event.dataTransfer.setData(THEME_COLOR_DRAG_TYPE, JSON.stringify(dragPayload));
+      event.dataTransfer.setData('text/plain', normalizedValue);
+    }
+  }, [field?.key]);
+
+  const handleSwatchDragEnd = useCallback(() => {
+    draggedSwatchColorRef.current = null;
+    setDragOverSwatchKey('');
+  }, []);
+
+  const handleSwatchDragOver = useCallback((event, rowId, colorValue) => {
+    if (!targetRowIdSet.has(rowId)) return;
+    if (!readDraggedSwatchColor(event)?.value) return;
+
+    event.preventDefault();
+    if (event.dataTransfer) {
+      event.dataTransfer.dropEffect = 'copy';
+    }
+  }, [readDraggedSwatchColor, targetRowIdSet]);
+
+  const handleSwatchDragEnter = useCallback((event, swatchKey, rowId, colorValue) => {
+    if (!targetRowIdSet.has(rowId)) return;
+
+    const draggedColor = readDraggedSwatchColor(event);
+    if (!draggedColor?.value) {
+      return;
+    }
+
+    event.preventDefault();
+    setDragOverSwatchKey(swatchKey);
+  }, [readDraggedSwatchColor, targetRowIdSet]);
+
+  const handleSwatchDragLeave = useCallback((event, swatchKey) => {
+    event.preventDefault();
+
+    const relatedTarget = event.relatedTarget;
+    if (relatedTarget && event.currentTarget?.contains?.(relatedTarget)) {
+      return;
+    }
+
+    setDragOverSwatchKey(current => (current === swatchKey ? '' : current));
+  }, []);
+
+  const handleSwatchDrop = useCallback((event, swatchKey, rowId, colorValue) => {
+    if (!targetRowIdSet.has(rowId)) return;
+
+    event.preventDefault();
+    setDragOverSwatchKey(current => (current === swatchKey ? '' : current));
+
+    const draggedColor = readDraggedSwatchColor(event);
+    draggedSwatchColorRef.current = null;
+
+    if (
+      !draggedColor?.value
+      || typeof onApplySwatchDrop !== 'function'
+    ) {
+      return;
+    }
+
+    onApplySwatchDrop(draggedColor.value, field.key);
+  }, [field.key, onApplySwatchDrop, readDraggedSwatchColor, targetRowIdSet]);
 
   return (
     <View style={styles.colorEditor}>
@@ -2650,7 +2800,13 @@ const ColorEditor = ({
       </View>
 
       {swatchRows.map(row => (
-        <View key={`${field.key}-${row.id}`} style={styles.swatchPickerCard}>
+        <View
+          key={`${field.key}-${row.id}`}
+          style={[
+            styles.swatchPickerCard,
+            highlightedSwatchRowId === row.id && styles.swatchPickerCardActive,
+          ]}
+        >
           <Text style={styles.swatchPickerLabel}>{row.label}</Text>
           {row.colors.length === 0 ? (
             <Text style={styles.swatchPickerEmpty}>Sem cores</Text>
@@ -2663,6 +2819,12 @@ const ColorEditor = ({
                   const isFirstColor = index === 0;
                   const isLastColor = index === row.colors.length - 1;
                   const rgbaValue = formatRgbaColor(colorItem.value);
+                  const canDragSwatch = Platform.OS === 'web'
+                    && sourceRowIdSet.has(row.id)
+                    && Boolean(normalizeThemeColorValue(colorItem.value));
+                  const isDropTarget = Platform.OS === 'web'
+                    && targetRowIdSet.has(row.id)
+                    && dragOverSwatchKey === swatchKey;
                   const tooltipLines = [
                     colorItem.label || '',
                     colorItem.value || '',
@@ -2693,33 +2855,92 @@ const ColorEditor = ({
                         </View>
                       ) : null}
 
-                      <Pressable
-                        style={[
-                          styles.pickerButton,
-                          {
-                            backgroundColor: colorItem.value,
-                            borderColor: '#000000',
+                      {Platform.OS === 'web' ? React.createElement(
+                        'div',
+                        {
+                          draggable: canDragSwatch,
+                          onDragStart: canDragSwatch
+                            ? event => handleSwatchDragStart(event, row.id, colorItem.value)
+                            : undefined,
+                          onDragEnd: canDragSwatch ? handleSwatchDragEnd : undefined,
+                          onDragOver: event => handleSwatchDragOver(event, row.id, colorItem.value),
+                          onDragEnter: event => handleSwatchDragEnter(
+                            event,
+                            swatchKey,
+                            row.id,
+                            colorItem.value,
+                          ),
+                          onDragLeave: event => handleSwatchDragLeave(event, swatchKey),
+                          onDrop: event => handleSwatchDrop(
+                            event,
+                            swatchKey,
+                            row.id,
+                            colorItem.value,
+                          ),
+                          style: {
+                            display: 'inline-block',
+                            cursor: canDragSwatch ? 'grab' : 'default',
                           },
-                          selected && styles.pickerButtonActive,
-                        ]}
-						onPress={() => {
-                          const nextColor = colorItem.value;
-                          const normalizedNextBase = getHexBaseColor(nextColor) || '';
+                        },
+                        <Pressable
+                          style={[
+                            styles.pickerButton,
+                            {
+                              backgroundColor: colorItem.value,
+                              borderColor: '#000000',
+                            },
+                            selected && styles.pickerButtonActive,
+                            isDropTarget && styles.pickerButtonDropTarget,
+                          ]}
+                          onPress={() => {
+                            const nextColor = colorItem.value;
+                            const normalizedNextBase = getHexBaseColor(nextColor) || '';
 
-                          setToneValue(0);
-                          setTonePreviewColor(normalizedNextBase);
+                            setToneValue(0);
+                            setTonePreviewColor(normalizedNextBase);
 
-                          if (onSelectSwatchValue) {
-                            onSelectSwatchValue(nextColor);
-                            return;
-                          }
+                            if (onSelectSwatchValue) {
+                              onSelectSwatchValue(nextColor);
+                              return;
+                            }
 
-                          onChange(nextColor);
-                        }}                        onHoverIn={() => setHoveredSwatchKey(swatchKey)}
-                        onHoverOut={() => setHoveredSwatchKey(current => (
-                          current === swatchKey ? '' : current
-                        ))}
-                      />
+                            onChange(nextColor);
+                          }}
+                          onHoverIn={() => setHoveredSwatchKey(swatchKey)}
+                          onHoverOut={() => setHoveredSwatchKey(current => (
+                            current === swatchKey ? '' : current
+                          ))}
+                        />,
+                      ) : (
+                        <Pressable
+                          style={[
+                            styles.pickerButton,
+                            {
+                              backgroundColor: colorItem.value,
+                              borderColor: '#000000',
+                            },
+                            selected && styles.pickerButtonActive,
+                          ]}
+                          onPress={() => {
+                            const nextColor = colorItem.value;
+                            const normalizedNextBase = getHexBaseColor(nextColor) || '';
+
+                            setToneValue(0);
+                            setTonePreviewColor(normalizedNextBase);
+
+                            if (onSelectSwatchValue) {
+                              onSelectSwatchValue(nextColor);
+                              return;
+                            }
+
+                            onChange(nextColor);
+                          }}
+                          onHoverIn={() => setHoveredSwatchKey(swatchKey)}
+                          onHoverOut={() => setHoveredSwatchKey(current => (
+                            current === swatchKey ? '' : current
+                          ))}
+                        />
+                      )}
                     </View>
                   );
                 })}
@@ -2729,8 +2950,13 @@ const ColorEditor = ({
         </View>
       ))}
 
-<View style={styles.colorControlsRow}>
-        <View style={[styles.editorControlCard, styles.editorControlCardFixed]}>
+      <View style={styles.colorControlsRow}>
+        <View
+          style={[
+            styles.editorControlCard,
+            styles.editorControlCardFixed,
+          ]}
+        >
           <View style={styles.editorControlCardHeader}>
             <Text style={styles.editorControlCardTitle}>Cor</Text>
           </View>
@@ -2738,46 +2964,16 @@ const ColorEditor = ({
           <View style={styles.colorInputRow}>
             <View style={styles.colorInputShell}>
               <TextInput
-                value={normalizedValue}
-                onChangeText={text => {
-                  const normalizedText = normalizeThemeColorValue(text);
-                  if (normalizedText) {
-                    setToneValue(0);
-                    setTonePreviewColor(getHexBaseColor(normalizedText) || '');
-                    setOpacityPreviewPercent(getHexAlphaPercent(normalizedText));
-                    onChange(normalizedText);
-                    return;
-                  }
-
-                  onChange(text);
-                }}
+                value={draftInputValue}
+                onChangeText={setDraftInputValue}
+                onBlur={() => applyColorInputValue(draftInputValue)}
+                onPaste={Platform.OS === 'web' ? handleColorInputPaste : undefined}
                 autoCapitalize="none"
                 autoCorrect={false}
                 placeholder="#000000"
                 placeholderTextColor="#94A3B8"
                 style={styles.colorInput}
               />
-              <Text style={styles.colorHint}>HEX</Text>
-              <Pressable
-                onHoverIn={() => setHoveredInputHelp(true)}
-                onHoverOut={() => setHoveredInputHelp(false)}
-                style={styles.colorInputInfoWrap}
-              >
-                <View style={styles.colorInputInfoButton}>
-                  <Icon name="info" size={12} color="#64748B" />
-                </View>
-                {hoveredInputHelp ? (
-                  <View style={styles.colorInputTooltip}>
-                    <View>
-                      <Text style={styles.pickerTooltipText}>HEX</Text>
-                      <Text style={styles.pickerTooltipText}>rgb(...)</Text>
-                      <Text style={styles.pickerTooltipText}>rgba(...)</Text>
-                      <Text style={styles.pickerTooltipText}>28, 143, 189, 0.1</Text>
-                      <Text style={styles.pickerTooltipText}>28, 143, 189, 10%</Text>
-                    </View>
-                  </View>
-                ) : null}
-              </Pressable>
             </View>
           </View>
 
@@ -2789,8 +2985,13 @@ const ColorEditor = ({
         </View>
 
         <View style={[styles.editorControlCard, styles.editorControlCardFlexible]}>
-          <View style={[styles.editorControlCardHeader, styles.editorControlCardHeaderSliderAligned]}>
+          <View style={[styles.editorControlCardHeader, styles.editorControlCardHeaderSplit]}>
             <Text style={styles.editorControlCardTitle}>Brilho</Text>
+            <View style={styles.editorControlCardHeaderPreviewValue}>
+              <Text style={styles.editorControlCardHeaderValue}>
+                {toneValue > 0 ? `+${toneValue}%` : `${toneValue}%`}
+              </Text>
+            </View>
           </View>
 
           <ToneSlider
@@ -2808,15 +3009,20 @@ const ColorEditor = ({
           />
 
           <View style={[styles.editorControlCardFooter, styles.editorControlCardFooterSliderAligned]}>
-            <Text style={styles.editorControlCardFooterText}>
-              {toneValue > 0 ? `+${toneValue}%` : `${toneValue}%`}
+            <Text style={[styles.editorControlCardFooterText, { opacity: 0 }]}>
+              +100%
             </Text>
           </View>
         </View>
 
         <View style={[styles.editorControlCard, styles.editorControlCardFlexible]}>
-          <View style={[styles.editorControlCardHeader, styles.editorControlCardHeaderSliderAligned]}>
+          <View style={[styles.editorControlCardHeader, styles.editorControlCardHeaderSplit]}>
             <Text style={styles.editorControlCardTitle}>Opacidade</Text>
+            <View style={styles.editorControlCardHeaderPreviewValue}>
+              <Text style={styles.editorControlCardHeaderValue}>
+                {opacityPreviewPercent}%
+              </Text>
+            </View>
           </View>
 
           <OpacitySlider
@@ -2842,8 +3048,8 @@ const ColorEditor = ({
           />
 
           <View style={[styles.editorControlCardFooter, styles.editorControlCardFooterSliderAligned]}>
-            <Text style={styles.editorControlCardFooterText}>
-              {opacityPreviewPercent}%
+            <Text style={[styles.editorControlCardFooterText, { opacity: 0 }]}>
+              100%
             </Text>
           </View>
         </View>
@@ -2914,6 +3120,10 @@ export default function ThemeManagerPage() {
     if (!editingFieldKey) return editorFields;
     return [buildEditorField(editingFieldKey)];
   }, [editingFieldKey, editorFields]);
+  const objectEditorHighlightedRowId = useMemo(
+    () => resolveEditorHighlightRowId(editingFieldKey),
+    [editingFieldKey],
+  );
   const objectEditorSwatchRows = useMemo(() => {
     const { legacyEntries, newEntries } = buildThemeColumns(themeDraft);
 
@@ -3005,8 +3215,10 @@ export default function ThemeManagerPage() {
         .sort((a, b) => Number(a?.id || 0) - Number(b?.id || 0));
 
       setThemes(nextThemes);
+      return nextThemes;
     } catch (error) {
       showError(formatApiError(error));
+      return [];
     } finally {
       setIsLoading(false);
     }
@@ -3152,6 +3364,9 @@ export default function ThemeManagerPage() {
       ...current,
       [fieldKey]: value,
     }));
+  }, []);
+  const applyDraftPaletteDrop = useCallback((sourceValue, fieldKey) => {
+    setThemeDraft(current => replaceThemeDraftFieldValue(current, fieldKey, sourceValue));
   }, []);
   const setThemeDraftPaletteColor = useCallback(value => {
     const nextSelectedColor = normalizeThemeColorValue(value) || value;
@@ -3616,6 +3831,7 @@ export default function ThemeManagerPage() {
             ? { ...item, ...nextTheme }
             : item
         )));
+        setEditingTheme(nextTheme);
 
         showSuccess('Tema atualizado.');
       } else {
@@ -3632,14 +3848,21 @@ export default function ThemeManagerPage() {
             ...currentThemes.filter(item => String(item?.id) !== String(nextTheme.id)),
             nextTheme,
           ]));
+          setEditingTheme(nextTheme);
         } else {
-          await loadData();
+          const refreshedThemes = await loadData();
+          const persistedTheme = [...refreshedThemes]
+            .reverse()
+            .find(item => String(item?.theme || '').trim() === normalizedName);
+
+          if (persistedTheme) {
+            setEditingTheme(persistedTheme);
+          }
         }
 
         showSuccess('Tema criado.');
       }
 
-      closeEditor();
       await refreshCurrentThemeIfNeeded();
     } catch (error) {
       showError(formatApiError(error));
@@ -4313,6 +4536,10 @@ export default function ThemeManagerPage() {
                       value={themeDraft[field.key]}
                       onChange={value => setDraftColor(field.key, value)}
                       swatchRows={objectEditorSwatchRows}
+                      swatchDropSourceRowIds={['standard', 'legacy', 'new']}
+                      swatchDropTargetRowIds={objectEditorHighlightedRowId ? [objectEditorHighlightedRowId] : []}
+                      highlightedSwatchRowId={objectEditorHighlightedRowId}
+                      onApplySwatchDrop={applyDraftPaletteDrop}
                       showCloseButton={Boolean(editingFieldKey)}
                       onClose={editingFieldKey ? closeEditor : undefined}
                       emphasizeLabel={Boolean(editingFieldKey)}
