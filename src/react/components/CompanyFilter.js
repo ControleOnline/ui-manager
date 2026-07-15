@@ -237,7 +237,6 @@ const CompanyFilter = ({ navigation, mode }) => {
       <>
         {companyIconUrl ? (
           <Image
-            testID="company-selector-icon"
             source={{ uri: companyIconUrl }}
             style={styles.iconCompanyLogo}
           />
