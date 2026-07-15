@@ -67,21 +67,21 @@ const CompanyFilter = ({ navigation, mode }) => {
   );
   const styles = useMemo(() => createStyles(palette), [palette]);
 
-  const resolveCompanyLogoUrl = useCallback(
+  const resolveCompanyIconUrl = useCallback(
     company => {
-      const logoSource = company?.logo || null;
-      if (!logoSource) {
+      const iconSource = company?.icon || null;
+      if (!iconSource) {
         return '';
       }
 
-      return resolveDefaultFileUrl(logoSource, {company});
+      return resolveDefaultFileUrl(iconSource, {company});
     },
     [],
   );
 
-  const companyLogoUrl = useMemo(
-    () => resolveCompanyLogoUrl(selectedCompany),
-    [resolveCompanyLogoUrl, selectedCompany],
+  const companyIconUrl = useMemo(
+    () => resolveCompanyIconUrl(selectedCompany),
+    [resolveCompanyIconUrl, selectedCompany],
   );
 
 
@@ -148,7 +148,7 @@ const CompanyFilter = ({ navigation, mode }) => {
   const renderCompanyItem = useCallback(
     company => {
       const isSelected = selectedCompany?.id === company.id;
-      const companyLogo = resolveCompanyLogoUrl(company);
+      const companyIcon = resolveCompanyIconUrl(company);
 
       return (
         <TouchableOpacity
@@ -160,13 +160,11 @@ const CompanyFilter = ({ navigation, mode }) => {
           onPress={() => handleSelectCompany(company)}
           activeOpacity={0.8}>
           <View style={styles.companyItemLeft}>
-            {companyLogo ? (
+            {companyIcon ? (
               <Image
-                source={{uri: companyLogo}}
+                source={{uri: companyIcon}}
                 style={styles.companyLogo}
               />
-            ) : (
-              <Icon name="briefcase" size={18} color={palette.listItemIcon} />
             )}
             <Text
               style={styles.companyItemName}>
@@ -180,7 +178,7 @@ const CompanyFilter = ({ navigation, mode }) => {
         </TouchableOpacity>
       );
     },
-    [handleSelectCompany, palette.listItemIcon, resolveCompanyLogoUrl, selectedCompany, styles.companyItem, styles.companyItemLeft, styles.companyItemName, styles.companyItemSelected, styles.companyLogo],
+    [handleSelectCompany, palette.listItemIcon, resolveCompanyIconUrl, selectedCompany, styles.companyItem, styles.companyItemLeft, styles.companyItemName, styles.companyItemSelected, styles.companyLogo],
   );
 
   const renderCompanyModal = () => (
@@ -237,13 +235,12 @@ const CompanyFilter = ({ navigation, mode }) => {
 
     const triggerContent = (
       <>
-        {companyLogoUrl ? (
+        {companyIconUrl ? (
           <Image
-            source={{ uri: companyLogoUrl }}
+            testID="company-selector-icon"
+            source={{ uri: companyIconUrl }}
             style={styles.iconCompanyLogo}
           />
-        ) : (
-          <Icon name="briefcase" size={18} color={palette.headerIcon} />
         )}
 
         <Text
