@@ -5,7 +5,7 @@ import { useFocusEffect, useNavigation, useRoute } from '@react-navigation/nativ
 import {Picker} from '@react-native-picker/picker';
 import { useStore } from '@store';
 import Formatter from '@controleonline/ui-common/src/utils/formatter';
-import StateStore from '@controleonline/ui-layout/src/react/components/StateStore';
+import StateStore from '@controleonline/ui-common/src/react/components/StateStore';
 import PaymentTypesByWalletTab from '@controleonline/ui-common/src/react/pages/SettingsPage/PaymentTypesByWalletTab';
 import { appendScreenMetrics } from '@controleonline/ui-common/src/react/utils/screenMetrics';
 import { useMessage } from '@controleonline/ui-common/src/react/components/MessageService';

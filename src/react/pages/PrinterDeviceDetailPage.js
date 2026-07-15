@@ -15,7 +15,7 @@ import {Picker} from '@react-native-picker/picker';
 import Icon from 'react-native-vector-icons/Feather';
 import {useStore} from '@store';
 import {api} from '@controleonline/ui-common/src/api';
-import StateStore from '@controleonline/ui-layout/src/react/components/StateStore';
+import StateStore from '@controleonline/ui-common/src/react/components/StateStore';
 import {resolveThemePalette, withOpacity} from '@controleonline/../../src/styles/branding';
 import {colors} from '@controleonline/../../src/styles/colors';
 import {resolveFileImageUrl} from '@controleonline/ui-common/src/react/utils/fileUrl';

@@ -20,7 +20,7 @@ import Icon from 'react-native-vector-icons/Feather';
 import { useStore } from '@store';
 import { useMessage } from '@controleonline/ui-common/src/react/components/MessageService';
 import CompactFilterSelector from '@controleonline/ui-default/src/react/components/filters/CompactFilterSelector';
-import StateStore from '@controleonline/ui-layout/src/react/components/StateStore';
+import StateStore from '@controleonline/ui-common/src/react/components/StateStore';
 import styles, { MENU_COLORS } from './index.styles';
 import {
   resolveMenuCostsInitialSection,
