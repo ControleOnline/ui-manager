@@ -3,7 +3,7 @@ import { ActivityIndicator, StyleSheet, Text, TextInput, TouchableOpacity, View 
 import Icon from 'react-native-vector-icons/Feather';
 import { colors } from '@controleonline/../../src/styles/colors';
 
-import AnimatedModal from '@controleonline/ui-crm/src/react/components/AnimatedModal';
+import AnimatedModal from '@controleonline/ui-common/src/react/components/AnimatedModal';
 
 import styles from '../styles';
 
