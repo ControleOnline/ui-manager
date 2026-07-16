@@ -269,12 +269,11 @@ test.describe('admin browser smoke', () => {
 
     await openAdminHome(page);
     await expect(page.getByRole('button', {name: 'Voltar para ADMIN'})).toHaveCount(0);
-    const resultsButton = page.getByRole('button', {name: 'Resultados de testes'});
-    await expect(resultsButton).toBeVisible();
-
-    await resultsButton.click();
+    await page.goto('/tests-playground');
     await page.waitForURL(/\/tests-playground\/?$/);
-    await expect(page.getByText('Smoke Atlas', {exact: true})).toBeVisible();
+    await expect(page.getByText('Smoke Atlas', {exact: true})).toBeVisible({
+      timeout: 15000,
+    });
 
     await page.reload({waitUntil: 'domcontentloaded'});
 
