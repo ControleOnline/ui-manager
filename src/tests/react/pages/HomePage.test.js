@@ -64,6 +64,10 @@ jest.mock('react-native-animatable', () => ({
 
 jest.mock('react-native-vector-icons/Feather', () => 'FeatherIcon');
 
+jest.mock('@react-navigation/native', () => ({
+  useIsFocused: () => true,
+}));
+
 jest.mock('@controleonline/ui-layout/src/react/components/AppMenuGrid', () => {
   const ReactMock = require('react');
 

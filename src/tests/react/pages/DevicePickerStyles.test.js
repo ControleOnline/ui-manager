@@ -20,7 +20,7 @@ test('device detail display pickers keep explicit native styling hooks', () => {
   );
   assert.match(
     source,
-    /selectedValue=\{displaySize\}[\s\S]*style=\{styles\.picker\}[\s\S]*dropdownIconColor="#64748B"/,
+    /selectedValue=\{devicePaymentTarget \|\| ''\}[\s\S]*style=\{styles\.picker\}[\s\S]*dropdownIconColor="#64748B"/,
   );
   assert.match(
     styles,
