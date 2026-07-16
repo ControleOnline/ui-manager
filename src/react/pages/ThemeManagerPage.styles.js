@@ -958,10 +958,27 @@ const styles = StyleSheet.create({
   pickerTooltipSpacer: {
     height: 4,
   },
+  colorInputsStack: {
+    width: '100%',
+    gap: 8,
+  },
+  colorInputPair: {
+    width: '100%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  colorInputLabel: {
+    width: 40,
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#475569',
+    textAlign: 'left',
+  },
   colorInputRow: {
-    width: 200,
-    minWidth: 200,
-    maxWidth: 200,
+    width: 140,
+    minWidth: 140,
+    maxWidth: 140,
     overflow: 'visible',
   },
   colorInputShell: {
@@ -1014,13 +1031,15 @@ const styles = StyleSheet.create({
   },
   colorControlsRow: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
+    flexWrap: 'wrap',
     gap: 10,
     overflow: 'visible',
     zIndex: 10,
   },
   editorControlCard: {
-    minHeight: 88,
+    height: 90,
+    minHeight: 90,
     borderRadius: 12,
     borderWidth: 1,
     borderColor: '#CBD5E1',
@@ -1043,8 +1062,14 @@ const styles = StyleSheet.create({
     maxWidth: 224,
   },
   editorControlCardFlexible: {
-    flex: 1,
-    minWidth: 180,
+    flexGrow: 1,
+    flexBasis: 220,
+    minWidth: 220,
+  },
+  editorControlCardPreviewFixed: {
+    width: 220,
+    minWidth: 220,
+    maxWidth: 220,
   },
   editorControlCardHeader: {
     alignItems: 'flex-start',
@@ -1084,6 +1109,22 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: '#475569',
     textAlign: 'center',
+  },
+  currentColorPreviewWrap: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  currentColorPreviewSwatch: {
+    width: '100%',
+    minHeight: 42,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+    backgroundColor: '#FFFFFF',
+  },
+  currentColorPreviewTransparent: {
+    borderStyle: 'dashed',
   },
   editorControlCardHeaderSliderAligned: {
     paddingRight: 40,

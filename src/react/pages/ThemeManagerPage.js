@@ -49,7 +49,7 @@ const DEFAULT_THEME_FIELDS = [
   { key: 'secondary', label: 'Secundaria', helper: 'Apoio visual e variacoes.' },
   { key: 'background', label: 'Fundo', helper: 'Plano principal das telas.' },
   { key: 'text', label: 'Texto', helper: 'Titulos e conteudo principal.' },
-  { key: 'textSecondary', label: 'Texto secundario', helper: 'Legendas e informacoes de apoio.' },
+  { key: 'textSecondary', label: 'Texto secundário', helper: 'Legendas e informacoes de apoio.' },
   { key: 'border', label: 'Borda', helper: 'Linhas, contornos e divisores.' },
 ];
 
@@ -126,7 +126,7 @@ const COLOR_HINTS = {
   secondary: 'cor secundaria de apoio',
   background: 'fundo principal das telas',
   text: 'texto principal da interface',
-  textSecondary: 'texto secundario e legendas',
+  textSecondary: 'texto secundário e legendas',
   border: 'bordas e divisores',
   info: 'informacoes e destaques leves',
   accent: 'acentos visuais e chamadas',
@@ -594,6 +594,15 @@ const normalizeHex = value => {
   return raw.toUpperCase();
 };
 
+const normalizeHexInputValue = value => {
+  if (typeof value !== 'string') return '';
+  const raw = value.trim();
+  if (!raw) return '';
+
+  const prefixedValue = raw.startsWith('#') ? raw : `#${raw}`;
+  return normalizeHex(prefixedValue) || '';
+};
+
 const parseAlphaPercent = value => {
   if (typeof value !== 'string') return null;
 
@@ -710,6 +719,20 @@ const formatRgbaColor = value => {
     : 1;
 
   return `rgba(${red}, ${green}, ${blue}, ${alpha})`;
+};
+
+const formatHexInputValue = value => {
+  const normalized = normalizeHex(value);
+  if (!normalized) return '';
+  return normalized.slice(1);
+};
+
+const formatRgbaInputValue = value => {
+  const formatted = formatRgbaColor(value);
+  if (!formatted) return '';
+
+  const functionMatch = formatted.match(RGB_COLOR_FUNCTION_REGEX);
+  return functionMatch?.[1] || formatted;
 };
 
 const parseDraggedThemeColorPayload = rawPayload => {
@@ -1213,7 +1236,7 @@ const renderThemeObjectPreview = (group, themeColors, onSelectTokens, useRnwPrev
               ]}
             >
               <Icon name="check" size={12} color={resolvePreviewValue(primaryIcon, primaryBaseIcon, useRnwPreview)} />
-              <Text style={[styles.previewButtonText, { color: resolvePreviewValue(primaryText, primaryBaseText, useRnwPreview) }]}>Primario</Text>
+              <Text style={[styles.previewButtonText, { color: resolvePreviewValue(primaryText, primaryBaseText, useRnwPreview) }]}>Primário</Text>
             </PreviewPressTarget>
             <PreviewPressTarget
               tokenKeys={['buttonBackgroundSecondary', 'buttonBorderSecondary', 'buttonTextSecondary', 'buttonIconSecondary']}
@@ -1227,7 +1250,7 @@ const renderThemeObjectPreview = (group, themeColors, onSelectTokens, useRnwPrev
                 },
               ]}
             >
-              <Text style={[styles.previewButtonText, { color: resolvePreviewValue(secondaryText, secondaryBaseText, useRnwPreview) }]}>Secundario</Text>
+              <Text style={[styles.previewButtonText, { color: resolvePreviewValue(secondaryText, secondaryBaseText, useRnwPreview) }]}>Secundário</Text>
             </PreviewPressTarget>
           </View>
           <View style={styles.previewRow}>
@@ -1533,7 +1556,7 @@ const renderThemeObjectPreview = (group, themeColors, onSelectTokens, useRnwPrev
             style={styles.previewInnerCardContent}
           >
             <Text style={[styles.previewParagraph, { color: resolvePreviewValue(cardText, '#0F172A', useRnwPreview) }]}>
-              Card com titulo, texto e estrutura visual do grupo.
+              Card com título, texto e estrutura visual do grupo.
             </Text>
           </PreviewPressTarget>
         </View>
@@ -1655,7 +1678,7 @@ const renderThemeObjectPreview = (group, themeColors, onSelectTokens, useRnwPrev
             ]}
           >
             <Text style={[styles.previewFieldText, { color: resolvePreviewValue(placeholderColor, '#94A3B8', useRnwPreview) }]}>
-              {group.label === 'select' ? 'Selecione uma opcao' : 'Placeholder'}
+              {group.label === 'select' ? 'Selecione uma opção' : 'Placeholder'}
             </Text>
             {group.label === 'select' ? <Icon name="chevron-down" size={14} color={resolvePreviewValue(placeholderColor, '#94A3B8', useRnwPreview)} /> : null}
           </PreviewPressTarget>
@@ -1674,7 +1697,7 @@ const renderThemeObjectPreview = (group, themeColors, onSelectTokens, useRnwPrev
             ]}
           >
             <Text style={[styles.previewFieldText, { color: resolvePreviewValue(fieldText, '#0F172A', useRnwPreview) }]}>
-              {group.label === 'select' ? 'Opcao ativa' : 'Valor preenchido'}
+              {group.label === 'select' ? 'Opção ativa' : 'Valor preenchido'}
             </Text>
           </PreviewPressTarget>
           {group.label === 'input' ? (
@@ -1709,7 +1732,7 @@ const renderThemeObjectPreview = (group, themeColors, onSelectTokens, useRnwPrev
           </PreviewPressTarget>
           <PreviewPressTarget tokenKeys={['textSecondary']} onSelectTokens={onSelectTokens}>
             <Text style={[styles.previewParagraph, { color: resolvePreviewValue(textSecondary, '#64748B', useRnwPreview) }]}>
-              Texto secundario para validar contraste e leitura.
+              Texto secundário para validar contraste e leitura.
             </Text>
           </PreviewPressTarget>
           <View style={styles.previewRowWrap}>
@@ -2158,7 +2181,7 @@ case 'table': {
                 <Text style={[styles.previewInnerCardTitle, { color: resolvePreviewValue(textPrimary, '#0F172A', useRnwPreview) }]}>
                   {group.label === 'modal' ? 'Modal' : 'Overlay'}
                 </Text>
-                <Text style={[styles.previewParagraph, { color: resolvePreviewValue(textSecondary, '#64748B', useRnwPreview) }]}>Bloco de visualizacao</Text>
+                <Text style={[styles.previewParagraph, { color: resolvePreviewValue(textSecondary, '#64748B', useRnwPreview) }]}>Bloco de visualização</Text>
               </>
             )}
           </PreviewPressTarget>
@@ -2179,7 +2202,7 @@ case 'table': {
               <View style={[styles.previewRadio, { borderColor: resolvePreviewValue(radioBorder, '#94A3B8', useRnwPreview), borderWidth: useRnwPreview ? 1 : radioBorder ? 1 : 0 }]} />
             </PreviewPressTarget>
             <PreviewPressTarget tokenKeys={radioTextTokenKeys} onSelectTokens={onSelectTokens} style={styles.previewChoiceTextTarget}>
-              <Text style={[styles.previewChoiceText, { color: resolvePreviewValue(radioText, '#0F172A', useRnwPreview) }]}>Opcao base</Text>
+              <Text style={[styles.previewChoiceText, { color: resolvePreviewValue(radioText, '#0F172A', useRnwPreview) }]}>Opção base</Text>
             </PreviewPressTarget>
           </View>
           <View style={styles.previewChoiceRow}>
@@ -2189,7 +2212,7 @@ case 'table': {
               </View>
             </PreviewPressTarget>
             <PreviewPressTarget tokenKeys={radioTextTokenKeys} onSelectTokens={onSelectTokens} style={styles.previewChoiceTextTarget}>
-              <Text style={[styles.previewChoiceText, { color: resolvePreviewValue(radioText, '#0F172A', useRnwPreview) }]}>Opcao ativa</Text>
+              <Text style={[styles.previewChoiceText, { color: resolvePreviewValue(radioText, '#0F172A', useRnwPreview) }]}>Opção ativa</Text>
             </PreviewPressTarget>
           </View>
         </View>
@@ -2279,7 +2302,7 @@ case 'table': {
       return (
         <View style={styles.previewStack}>
           <PreviewPressTarget tokenKeys={['dividerText']} onSelectTokens={onSelectTokens}>
-            <Text style={[styles.previewParagraph, { color: resolvePreviewValue(textSecondary, '#64748B', useRnwPreview) }]}>Secao acima</Text>
+            <Text style={[styles.previewParagraph, { color: resolvePreviewValue(textSecondary, '#64748B', useRnwPreview) }]}>Seção acima</Text>
           </PreviewPressTarget>
           <PreviewPressTarget
             tokenKeys={['dividerBackground', 'dividerBorder']}
@@ -2287,7 +2310,7 @@ case 'table': {
             style={[styles.previewDivider, { backgroundColor: resolvePreviewValue(dividerColor, '#CBD5E1', useRnwPreview) }]}
           />
           <PreviewPressTarget tokenKeys={['dividerText']} onSelectTokens={onSelectTokens}>
-            <Text style={[styles.previewParagraph, { color: resolvePreviewValue(textPrimary, '#0F172A', useRnwPreview) }]}>Secao abaixo</Text>
+            <Text style={[styles.previewParagraph, { color: resolvePreviewValue(textPrimary, '#0F172A', useRnwPreview) }]}>Seção abaixo</Text>
           </PreviewPressTarget>
         </View>
       );
@@ -2357,7 +2380,7 @@ case 'table': {
           </PreviewPressTarget>
           <PreviewPressTarget tokenKeys={['textSecondary']} onSelectTokens={onSelectTokens}>
             <Text style={[styles.previewParagraph, { color: resolvePreviewValue(textSecondary, '#64748B', useRnwPreview) }]}>
-              Fundo, superficie, borda e contraste principal.
+              Fundo, superfície, borda e contraste principal.
             </Text>
           </PreviewPressTarget>
         </PreviewPressTarget>
@@ -2633,14 +2656,18 @@ const ColorEditor = ({
   const normalizedValue = normalizeHex(value)
     || (isTransparentColor(value) ? TRANSPARENT_COLOR_VALUE : (typeof value === 'string' ? value : ''));
   const isExplicitTransparent = isTransparentColor(normalizedValue);
+  const currentHexInputValue = isExplicitTransparent ? '' : formatHexInputValue(normalizedValue);
+  const currentRgbaInputValue = formatRgbaInputValue(normalizedValue);
   const currentBaseHexColor = getHexBaseColor(normalizedValue);
+  const currentPreviewColor = isExplicitTransparent ? '#FFFFFF' : (normalizedValue || '#FFFFFF');
   const [lastBaseHexColor, setLastBaseHexColor] = useState(currentBaseHexColor);
   const alphaPercent = getHexAlphaPercent(normalizedValue);
   const baseHexColor = currentBaseHexColor || lastBaseHexColor || '';
   const hasEditableBaseHex = Boolean(baseHexColor);
   const [hoveredSwatchKey, setHoveredSwatchKey] = useState('');
   const [dragOverSwatchKey, setDragOverSwatchKey] = useState('');
-  const [draftInputValue, setDraftInputValue] = useState(normalizedValue);
+  const [draftHexInputValue, setDraftHexInputValue] = useState(currentHexInputValue);
+  const [draftRgbaInputValue, setDraftRgbaInputValue] = useState(currentRgbaInputValue);
   const [toneValue, setToneValue] = useState(0);
   const [tonePreviewColor, setTonePreviewColor] = useState(baseHexColor);
   const [opacityPreviewPercent, setOpacityPreviewPercent] = useState(alphaPercent);
@@ -2663,34 +2690,71 @@ const ColorEditor = ({
   }, [alphaPercent, baseHexColor]);
 
   useEffect(() => {
-    setDraftInputValue(normalizedValue);
-  }, [normalizedValue]);
+    setDraftHexInputValue(currentHexInputValue);
+    setDraftRgbaInputValue(currentRgbaInputValue);
+  }, [currentHexInputValue, currentRgbaInputValue]);
 
-  const applyColorInputValue = useCallback(nextValue => {
-    const normalizedText = normalizeThemeColorValue(nextValue);
-    if (normalizedText) {
-      setToneValue(0);
-      setTonePreviewColor(getHexBaseColor(normalizedText) || '');
-      setOpacityPreviewPercent(getHexAlphaPercent(normalizedText));
-      setDraftInputValue(normalizedText);
-      onChange(normalizedText);
-      return;
-    }
+  const syncResolvedColor = useCallback(nextValue => {
+    const resolvedHexValue = isTransparentColor(nextValue) ? '' : formatHexInputValue(nextValue);
 
-    setDraftInputValue(nextValue);
+    setToneValue(0);
+    setTonePreviewColor(getHexBaseColor(nextValue) || '');
+    setOpacityPreviewPercent(getHexAlphaPercent(nextValue));
+    setDraftHexInputValue(resolvedHexValue);
+    setDraftRgbaInputValue(formatRgbaInputValue(nextValue));
     onChange(nextValue);
   }, [onChange]);
 
-  const handleColorInputPaste = useCallback(event => {
-    const pastedText = event?.clipboardData?.getData?.('text')
-      || event?.nativeEvent?.clipboardData?.getData?.('text')
-      || '';
+  const clearResolvedColor = useCallback(() => {
+    setToneValue(0);
+    setTonePreviewColor('');
+    setOpacityPreviewPercent(100);
+    setDraftHexInputValue('');
+    setDraftRgbaInputValue('');
+    onChange('');
+  }, [onChange]);
 
-    if (!pastedText) return;
+  const resetDraftInputs = useCallback(() => {
+    setDraftHexInputValue(currentHexInputValue);
+    setDraftRgbaInputValue(currentRgbaInputValue);
+  }, [currentHexInputValue, currentRgbaInputValue]);
 
-    event.preventDefault?.();
-    applyColorInputValue(pastedText);
-  }, [applyColorInputValue]);
+  const applyHexInputValue = useCallback(nextValue => {
+    const rawValue = typeof nextValue === 'string' ? nextValue.trim() : '';
+    if (!rawValue) {
+      clearResolvedColor();
+      return;
+    }
+
+    const normalizedHexValue = normalizeHexInputValue(rawValue);
+    if (!normalizedHexValue) {
+      resetDraftInputs();
+      return;
+    }
+
+    syncResolvedColor(normalizedHexValue);
+  }, [clearResolvedColor, resetDraftInputs, syncResolvedColor]);
+
+  const applyRgbaInputValue = useCallback(nextValue => {
+    const rawValue = typeof nextValue === 'string' ? nextValue.trim() : '';
+    if (!rawValue) {
+      clearResolvedColor();
+      return;
+    }
+
+    if (isTransparentColor(rawValue)) {
+      syncResolvedColor(TRANSPARENT_COLOR_VALUE);
+      return;
+    }
+
+    const normalizedRgbValue = normalizeRgbColorInput(rawValue);
+    if (!normalizedRgbValue) {
+      resetDraftInputs();
+      return;
+    }
+
+    syncResolvedColor(normalizedRgbValue);
+  }, [clearResolvedColor, resetDraftInputs, syncResolvedColor]);
 
   const readDraggedSwatchColor = useCallback(event => {
     const refPayload = draggedSwatchColorRef.current;
@@ -2957,24 +3021,64 @@ const ColorEditor = ({
             styles.editorControlCardFixed,
           ]}
         >
-          <View style={styles.editorControlCardHeader}>
-            <Text style={styles.editorControlCardTitle}>Cor</Text>
+          <View style={styles.colorInputsStack}>
+            <View style={styles.colorInputPair}>
+              <Text style={styles.colorInputLabel}>HEX</Text>
+              <View style={styles.colorInputRow}>
+                <View style={styles.colorInputShell}>
+                  <TextInput
+                    value={draftHexInputValue}
+                    onChangeText={setDraftHexInputValue}
+                    onBlur={() => applyHexInputValue(draftHexInputValue)}
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    placeholder="000000"
+                    placeholderTextColor="#94A3B8"
+                    style={styles.colorInput}
+                  />
+                </View>
+              </View>
+            </View>
+            <View style={styles.colorInputPair}>
+              <Text style={styles.colorInputLabel}>RGBa</Text>
+              <View style={styles.colorInputRow}>
+                <View style={styles.colorInputShell}>
+                  <TextInput
+                    value={draftRgbaInputValue}
+                    onChangeText={setDraftRgbaInputValue}
+                    onBlur={() => applyRgbaInputValue(draftRgbaInputValue)}
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    placeholder="0, 0, 0, 1"
+                    placeholderTextColor="#94A3B8"
+                    style={styles.colorInput}
+                  />
+                </View>
+              </View>
+            </View>
           </View>
 
-          <View style={styles.colorInputRow}>
-            <View style={styles.colorInputShell}>
-              <TextInput
-                value={draftInputValue}
-                onChangeText={setDraftInputValue}
-                onBlur={() => applyColorInputValue(draftInputValue)}
-                onPaste={Platform.OS === 'web' ? handleColorInputPaste : undefined}
-                autoCapitalize="none"
-                autoCorrect={false}
-                placeholder="#000000"
-                placeholderTextColor="#94A3B8"
-                style={styles.colorInput}
-              />
-            </View>
+          <View style={styles.editorControlCardFooter}>
+            <Text style={[styles.editorControlCardFooterText, { opacity: 0 }]}>
+              000%
+            </Text>
+          </View>
+        </View>
+
+        <View
+          style={[
+            styles.editorControlCard,
+            styles.editorControlCardPreviewFixed,
+          ]}
+        >
+          <View style={styles.currentColorPreviewWrap}>
+            <View
+              style={[
+                styles.currentColorPreviewSwatch,
+                { backgroundColor: currentPreviewColor },
+                isExplicitTransparent && styles.currentColorPreviewTransparent,
+              ]}
+            />
           </View>
 
           <View style={styles.editorControlCardFooter}>
