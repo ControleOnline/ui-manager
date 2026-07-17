@@ -1,5 +1,7 @@
-import React, { useMemo } from 'react';
-import { ActivityIndicator, Text, View } from 'react-native';
+/* eslint-disable no-unused-vars */
+import React, { useCallback, useMemo } from 'react';
+import { ActivityIndicator, Text, TouchableOpacity, View } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/Feather';
 import { useStore } from '@store';
@@ -10,9 +12,8 @@ import { colors } from '@controleonline/../../src/styles/colors';
 import { userHasRole } from '@controleonline/ui-common/src/react/utils/runtimeMenu';
 import styles from './CronJobsPage.styles';
 
-const tt = (type, key) => global.t?.t('configs', type, key);
-
 export default function CronJobsPage() {
+  const navigation = useNavigation();
   const peopleStore = useStore('people');
   const themeStore = useStore('theme');
   const authStore = useStore('auth');
@@ -41,6 +42,37 @@ export default function CronJobsPage() {
         ? { people: `/people/${String(mainCompanyId).replace(/\D+/g, '')}` }
         : {},
     [mainCompanyId],
+  );
+
+  const openCronLogs = useCallback(
+    row => {
+      if (!row?.id) {
+        return;
+      }
+
+      navigation.navigate('EntityLogPage', {
+        id: row.id,
+        store: 'cron_jobs',
+        entityClass: 'ControleOnline\\Entity\\CronJob',
+        entityLabel: row?.title || `Cron #${row.id}`,
+      });
+    },
+    [navigation],
+  );
+
+  const CronJobRowActions = useCallback(
+    ({ row }) => (
+      <TouchableOpacity
+        accessibilityRole="button"
+        accessibilityLabel={`Abrir logs de ${row?.title || `cron ${row?.id || ''}`}`.trim()}
+        activeOpacity={0.82}
+        onPress={() => openCronLogs(row)}
+        style={styles.rowActionButton}
+      >
+        <Icon name="file-text" size={14} color={palette.primary} />
+      </TouchableOpacity>
+    ),
+    [openCronLogs, palette.primary],
   );
 
   const mainCompanyLabel =
@@ -73,31 +105,23 @@ export default function CronJobsPage() {
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: palette.background }]} edges={['bottom']}>
       <View style={styles.content}>
-        <View style={[styles.heroCard, { backgroundColor: palette.primary }]}>
-          <View style={styles.heroTopRow}>
-            <View style={styles.heroBadge}>
-              <Icon name="clock" size={20} color="#FFFFFF" />
-            </View>
-            <View style={styles.heroCopy}>
-              <Text style={styles.heroEyebrow}>
-                {tt('hub_eyebrow', 'cronJobs') || 'ADMIN'}
-              </Text>
-              <Text style={styles.heroTitle}>Jobs agendados</Text>
-            </View>
+        <View style={styles.pageHeader}>
+          <View style={styles.pageHeaderCopy}>
+            <Text style={styles.pageEyebrow}>ADMIN</Text>
+            <Text style={styles.pageTitle}>Jobs agendados</Text>
+            <Text style={styles.pageSubtitle}>
+              Os jobs ficam no banco da empresa principal. Cada linha mostra a última execução, o último status e abre o histórico da entidade.
+            </Text>
           </View>
 
-          <Text style={styles.heroText}>
-            Os comandos aqui são lidos do Symfony, escolhidos por catálogo e persistidos no banco da empresa principal.
-          </Text>
-
-          <View style={styles.heroMetaRow}>
-            <View style={styles.heroPill}>
-              <Icon name="home" size={14} color="#FFFFFF" />
-              <Text style={styles.heroPillText}>{mainCompanyLabel}</Text>
+          <View style={styles.pageMetaRow}>
+            <View style={styles.pageMetaPill}>
+              <Icon name="home" size={14} color={palette.primary} />
+              <Text style={styles.pageMetaText}>{mainCompanyLabel}</Text>
             </View>
-            <View style={styles.heroPill}>
-              <Icon name="terminal" size={14} color="#FFFFFF" />
-              <Text style={styles.heroPillText}>Comandos do sistema</Text>
+            <View style={styles.pageMetaPill}>
+              <Icon name="clock" size={14} color={palette.primary} />
+              <Text style={styles.pageMetaText}>Assíncronos</Text>
             </View>
           </View>
         </View>
@@ -107,6 +131,7 @@ export default function CronJobsPage() {
             accentColor={palette.primary}
             requestParams={requestParams}
             storeName="cron_jobs"
+            rowActionsComponent={CronJobRowActions}
             visibleColumnsPreferenceKey="cron_jobs"
             showTotalItemsInCompactToolbar
           />

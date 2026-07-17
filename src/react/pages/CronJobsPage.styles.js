@@ -9,7 +9,7 @@ export default StyleSheet.create({
   },
   content: {
     flex: 1,
-    gap: 16,
+    gap: 14,
   },
   loadingWrap: {
     alignItems: 'center',
@@ -40,62 +40,64 @@ export default StyleSheet.create({
     fontSize: 13,
     lineHeight: 18,
   },
-  heroCard: {
-    borderRadius: 22,
-    gap: 14,
-    padding: 18,
-  },
-  heroTopRow: {
-    alignItems: 'center',
-    flexDirection: 'row',
+  pageHeader: {
+    backgroundColor: '#FFFFFF',
+    borderColor: '#E2E8F0',
+    borderRadius: 18,
+    borderWidth: 1,
     gap: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
   },
-  heroBadge: {
-    alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.16)',
-    borderRadius: 14,
-    height: 42,
-    justifyContent: 'center',
-    width: 42,
-  },
-  heroCopy: {
-    flex: 1,
+  pageHeaderCopy: {
     gap: 4,
   },
-  heroEyebrow: {
-    color: 'rgba(255,255,255,0.8)',
+  pageEyebrow: {
+    color: '#64748B',
     fontSize: 11,
     fontWeight: '800',
     letterSpacing: 1.2,
   },
-  heroTitle: {
-    color: '#FFFFFF',
-    fontSize: 24,
+  pageTitle: {
+    color: '#0F172A',
+    fontSize: 22,
     fontWeight: '900',
   },
-  heroText: {
-    color: 'rgba(255,255,255,0.92)',
+  pageSubtitle: {
+    color: '#64748B',
     fontSize: 13,
     lineHeight: 19,
   },
-  heroMetaRow: {
+  pageMetaRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 10,
   },
-  heroPill: {
+  pageMetaPill: {
     alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.14)',
+    backgroundColor: '#F8FAFC',
+    borderColor: '#E2E8F0',
     borderRadius: 999,
+    borderWidth: 1,
     flexDirection: 'row',
     gap: 8,
     paddingHorizontal: 12,
     paddingVertical: 8,
   },
-  heroPillText: {
-    color: '#FFFFFF',
+  pageMetaText: {
+    color: '#0F172A',
     fontSize: 12,
     fontWeight: '700',
+  },
+  rowActionButton: {
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderColor: '#E2E8F0',
+    borderRadius: 14,
+    borderWidth: 1,
+    height: 28,
+    justifyContent: 'center',
+    width: 28,
   },
   tableCard: {
     backgroundColor: '#FFFFFF',

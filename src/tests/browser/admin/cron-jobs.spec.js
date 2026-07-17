@@ -47,16 +47,32 @@ const createCronJobsResponse = () => ({
   member: [
     {
       id: 1,
-      jobKey: 'websocket_start',
       title: 'Servidor WebSocket',
       description: 'Mantem o servidor WebSocket da API ativo.',
       enabled: true,
       cronExpression: '* * * * *',
       command: 'websocket:start',
       arguments: ['--domain=api.controleonline.com', '-p', '8080', '-b', '0.0.0.0'],
-      background: true,
-      sortOrder: 10,
       isValid: true,
+    },
+  ],
+  summary: {},
+});
+
+const createCronLogsResponse = () => ({
+  member: [
+    {
+      id: 91,
+      type: 'entity',
+      action: 'info',
+      class: 'ControleOnline\\Entity\\CronJob',
+      row: 1,
+      createdAt: '2026-07-17T12:34:56.000Z',
+      payload: {
+        channel: 'cron-jobs',
+        level: 'info',
+        message: '[cron:1] started | pid=1234 | command=websocket:start',
+      },
     },
   ],
   summary: {},
@@ -157,6 +173,14 @@ const mockCronJobsApi = async page => {
       });
     }
 
+    if (pathname === 'logs') {
+      return route.fulfill({
+        status: 200,
+        headers: jsonHeaders(),
+        body: JSON.stringify(createCronLogsResponse()),
+      });
+    }
+
     return route.fulfill({
       status: 200,
       headers: jsonHeaders(),
@@ -216,6 +240,10 @@ test.describe('cron jobs browser smoke', () => {
     await expect(page.getByText('Jobs agendados')).toBeVisible();
     await expect(page.getByText('Servidor WebSocket')).toBeVisible();
     await expect(page.getByText('websocket:start')).toBeVisible();
+    await expect(page.getByText('Última execução')).toBeVisible();
+    await expect(page.getByText('Último status')).toBeVisible();
+    await expect(page.getByText('Sucesso')).toBeVisible();
+    await expect(page.getByRole('button', {name: /abrir logs de servidor websocket/i})).toBeVisible();
     await expect(page.getByRole('button', {name: /^Adicionar$/})).toBeVisible();
   });
 });
