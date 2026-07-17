@@ -2,7 +2,6 @@ import * as defaultActions from '@controleonline/ui-default/src/store/default/ac
 import * as getters from '@controleonline/ui-default/src/store/default/getters';
 import mutations from '@controleonline/ui-default/src/store/default/mutations';
 import {cronJobColumns} from './columns';
-import * as customActions from './customActions';
 
 export default {
   namespaced: true,
@@ -19,10 +18,7 @@ export default {
     add: true,
     columns: cronJobColumns,
   },
-  actions: {
-    ...defaultActions,
-    ...customActions,
-  },
+  actions: defaultActions,
   getters,
   mutations,
 };

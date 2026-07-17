@@ -1,6 +1,5 @@
-/* eslint-disable no-unused-vars */
-import React, { useCallback, useMemo } from 'react';
-import { ActivityIndicator, Text, TouchableOpacity, View } from 'react-native';
+import React, { useCallback, useEffect, useMemo } from 'react';
+import { ActivityIndicator, Alert, Text, TouchableOpacity, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/Feather';
@@ -44,6 +43,28 @@ export default function CronJobsPage() {
     [mainCompanyId],
   );
 
+  useEffect(() => {
+    navigation.setOptions({
+      title: 'Jobs agendados',
+      headerRight: () => (
+        <TouchableOpacity
+          accessibilityRole="button"
+          accessibilityLabel="Ajuda sobre jobs agendados"
+          activeOpacity={0.82}
+          onPress={() =>
+            Alert.alert(
+              'Jobs agendados',
+              'A lista vem do banco e os campos de ultima execucao e status sao gravados pelo comando-base.',
+            )
+          }
+          style={styles.headerHelpButton}
+        >
+          <Text style={styles.headerHelpText}>?</Text>
+        </TouchableOpacity>
+      ),
+    });
+  }, [navigation]);
+
   const openCronLogs = useCallback(
     row => {
       if (!row?.id) {
@@ -75,9 +96,6 @@ export default function CronJobsPage() {
     [openCronLogs, palette.primary],
   );
 
-  const mainCompanyLabel =
-    mainCompany?.name || mainCompany?.alias || `Empresa ${mainCompanyId || ''}`.trim();
-
   if (!canManageCronJobs) {
     return (
       <SafeAreaView style={[styles.container, { backgroundColor: palette.background }]} edges={['bottom']}>
@@ -105,27 +123,6 @@ export default function CronJobsPage() {
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: palette.background }]} edges={['bottom']}>
       <View style={styles.content}>
-        <View style={styles.pageHeader}>
-          <View style={styles.pageHeaderCopy}>
-            <Text style={styles.pageEyebrow}>ADMIN</Text>
-            <Text style={styles.pageTitle}>Jobs agendados</Text>
-            <Text style={styles.pageSubtitle}>
-              Os jobs ficam no banco da empresa principal. Cada linha mostra a última execução, o último status e abre o histórico da entidade.
-            </Text>
-          </View>
-
-          <View style={styles.pageMetaRow}>
-            <View style={styles.pageMetaPill}>
-              <Icon name="home" size={14} color={palette.primary} />
-              <Text style={styles.pageMetaText}>{mainCompanyLabel}</Text>
-            </View>
-            <View style={styles.pageMetaPill}>
-              <Icon name="clock" size={14} color={palette.primary} />
-              <Text style={styles.pageMetaText}>Assíncronos</Text>
-            </View>
-          </View>
-        </View>
-
         <View style={styles.tableCard}>
           <DefaultTable
             accentColor={palette.primary}

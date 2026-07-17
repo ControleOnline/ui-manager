@@ -70,3 +70,20 @@ export const saveArgumentsValue = value => {
     .map(argument => argument.trim())
     .filter(Boolean);
 };
+
+export const formatLastStatusValue = value => {
+  const normalized = String(value ?? '').trim().toLowerCase();
+  if (!normalized) {
+    return '—';
+  }
+
+  if (['success', 'ok', 'done', 'sucesso'].includes(normalized)) {
+    return 'Sucesso';
+  }
+
+  if (['failure', 'failed', 'error', 'falha'].includes(normalized)) {
+    return 'Falha';
+  }
+
+  return String(value ?? '').trim();
+};

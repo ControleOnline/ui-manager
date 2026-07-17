@@ -53,26 +53,9 @@ const createCronJobsResponse = () => ({
       cronExpression: '* * * * *',
       command: 'websocket:start',
       arguments: ['--domain=api.controleonline.com', '-p', '8080', '-b', '0.0.0.0'],
+      lastExecution: '2026-07-17T12:34:56.000Z',
+      lastStatus: 'success',
       isValid: true,
-    },
-  ],
-  summary: {},
-});
-
-const createCronLogsResponse = () => ({
-  member: [
-    {
-      id: 91,
-      type: 'entity',
-      action: 'info',
-      class: 'ControleOnline\\Entity\\CronJob',
-      row: 1,
-      createdAt: '2026-07-17T12:34:56.000Z',
-      payload: {
-        channel: 'cron-jobs',
-        level: 'info',
-        message: '[cron:1] started | pid=1234 | command=websocket:start',
-      },
     },
   ],
   summary: {},
@@ -170,14 +153,6 @@ const mockCronJobsApi = async page => {
         status: 200,
         headers: jsonHeaders(),
         body: JSON.stringify(createCronJobsResponse()),
-      });
-    }
-
-    if (pathname === 'logs') {
-      return route.fulfill({
-        status: 200,
-        headers: jsonHeaders(),
-        body: JSON.stringify(createCronLogsResponse()),
       });
     }
 

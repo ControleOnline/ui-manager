@@ -9,7 +9,7 @@ export default StyleSheet.create({
   },
   content: {
     flex: 1,
-    gap: 14,
+    gap: 12,
   },
   loadingWrap: {
     alignItems: 'center',
@@ -40,54 +40,22 @@ export default StyleSheet.create({
     fontSize: 13,
     lineHeight: 18,
   },
-  pageHeader: {
-    backgroundColor: '#FFFFFF',
-    borderColor: '#E2E8F0',
-    borderRadius: 18,
-    borderWidth: 1,
-    gap: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-  },
-  pageHeaderCopy: {
-    gap: 4,
-  },
-  pageEyebrow: {
-    color: '#64748B',
-    fontSize: 11,
-    fontWeight: '800',
-    letterSpacing: 1.2,
-  },
-  pageTitle: {
-    color: '#0F172A',
-    fontSize: 22,
-    fontWeight: '900',
-  },
-  pageSubtitle: {
-    color: '#64748B',
-    fontSize: 13,
-    lineHeight: 19,
-  },
-  pageMetaRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 10,
-  },
-  pageMetaPill: {
+  headerHelpButton: {
     alignItems: 'center',
-    backgroundColor: '#F8FAFC',
+    backgroundColor: '#FFFFFF',
     borderColor: '#E2E8F0',
     borderRadius: 999,
     borderWidth: 1,
-    flexDirection: 'row',
-    gap: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+    height: 28,
+    justifyContent: 'center',
+    marginRight: 10,
+    width: 28,
   },
-  pageMetaText: {
+  headerHelpText: {
     color: '#0F172A',
-    fontSize: 12,
-    fontWeight: '700',
+    fontSize: 14,
+    fontWeight: '900',
+    lineHeight: 16,
   },
   rowActionButton: {
     alignItems: 'center',

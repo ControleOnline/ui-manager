@@ -4,6 +4,7 @@ import {
   formatBooleanValue,
   formatCommandValue,
   formatEnabledValue,
+  formatLastStatusValue,
   saveArgumentsValue,
   saveBooleanValue,
   saveCommandValue,
@@ -64,7 +65,7 @@ export const cronJobColumns = [
     name: 'lastStatus',
     align: 'left',
     label: 'Último status',
-    format: value => String(value ?? '').trim() || '—',
+    format: formatLastStatusValue,
   },
   {
     editable: true,
