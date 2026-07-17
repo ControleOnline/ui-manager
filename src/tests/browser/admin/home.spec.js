@@ -71,6 +71,16 @@ const createAdminRuntimeMenusResponse = () => ({
           menuType: 'home',
         },
         {
+          id: 'cron_jobs',
+          menuKey: 'cron_jobs',
+          label: 'Jobs agendados',
+          route: 'CronJobsPage',
+          icon: 'clock',
+          color: '#F59E0B',
+          sortOrder: 15,
+          menuType: 'home',
+        },
+        {
           id: 'test_results',
           menuKey: 'test_results',
           label: 'Resultados de testes',
@@ -268,6 +278,7 @@ test.describe('admin browser smoke', () => {
     await mockAdminApi(page);
 
     await openAdminHome(page);
+    await expect(page.getByText('Jobs agendados', { exact: true })).toBeVisible();
     await expect(page.getByRole('button', {name: 'Voltar para ADMIN'})).toHaveCount(0);
     await page.goto('/tests-playground');
     await page.waitForURL(/\/tests-playground\/?$/);
