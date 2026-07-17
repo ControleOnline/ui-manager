@@ -45,6 +45,7 @@ import MenuCostsResalePage from '@controleonline/ui-manager/src/react/pages/Menu
 import MenuCostsSuppliersPage from '@controleonline/ui-manager/src/react/pages/MenuCostsSuppliersPage';
 import MenuCostsPurchasesPage from '@controleonline/ui-manager/src/react/pages/MenuCostsPurchasesPage';
 import MenuAccessConfigPage from '@controleonline/ui-manager/src/react/pages/MenuAccessConfigPage';
+import CronJobsPage from '@controleonline/ui-manager/src/react/pages/CronJobsPage';
 import LabelsPage from '@controleonline/ui-manager/src/react/pages/LabelsPage';
 import ModelTemplatesPage from '@controleonline/ui-manager/src/react/pages/ModelTemplatesPage';
 import WhatsAppConnectionPage from '@controleonline/ui-manager/src/react/pages/WhatsAppConnectionPage';
@@ -158,6 +159,18 @@ const managerRoutes = [
       headerShown: true,
       headerBackVisible: true,
       title: 'Menus por perfil',
+      showCompanyFilter: true,
+      companyFilterMode: 'icon',
+    },
+  },
+  {
+    name: 'CronJobsPage',
+    component: CronJobsPage,
+    path: 'cron-jobs',
+    options: {
+      headerShown: true,
+      headerBackVisible: true,
+      title: 'Jobs agendados',
       showCompanyFilter: true,
       companyFilterMode: 'icon',
     },

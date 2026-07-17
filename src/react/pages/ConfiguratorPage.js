@@ -47,6 +47,15 @@ const getConfigActions = () => [
     route: 'IntegrationsPage',
   },
   {
+    label: tt('hub_label', 'cronJobs') || 'Cron jobs',
+    description:
+      tt('hub_description', 'cronJobs') ||
+      'Organize os agendamentos do sistema por empresa principal usando comandos descobertos dinamicamente.',
+    icon: 'clock',
+    accentKey: 'warning',
+    route: 'CronJobsPage',
+  },
+  {
     label: tt('hub_label', 'translations') || 'Traduções',
     description:
       tt('hub_description', 'translations') ||
