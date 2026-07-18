@@ -83,10 +83,8 @@ export const peopleDomainColumns = [
     align: 'left',
     label: 'API vinculada',
     list: 'people_domains_api/getItems',
-    listRequestParams: ({ currentCompanyId, requestParams }) => ({
-      ...(requestParams?.people ? { people: requestParams.people } : (
-        currentCompanyId ? { people: `/people/${currentCompanyId}` } : {}
-      )),
+    listRequestParams: ({ requestParams }) => ({
+      ...(requestParams?.people ? { people: requestParams.people } : {}),
       domainType: 'API',
     }),
     searchParam: 'domain',

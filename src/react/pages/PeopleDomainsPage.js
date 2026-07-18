@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo } from 'react';
-import { ActivityIndicator, Text, TouchableOpacity, View } from 'react-native';
+import { Text, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useStore } from '@store';
@@ -22,7 +22,6 @@ export default function PeopleDomainsPage() {
   const isAdminApp = app_type_base === 'ADMIN';
   const canManagePeopleDomains = isAdminApp && userHasRole(user, 'ROLE_SUPER');
   const mainCompany = defaultCompany || currentCompany || null;
-  const mainCompanyId = mainCompany?.id || null;
 
   const palette = useMemo(
     () =>
@@ -31,14 +30,6 @@ export default function PeopleDomainsPage() {
         colors,
       ),
     [mainCompany?.id, mainCompany?.theme?.colors, themeColors],
-  );
-
-  const requestParams = useMemo(
-    () =>
-      mainCompanyId
-        ? { people: `/people/${String(mainCompanyId).replace(/\D+/g, '')}` }
-        : {},
-    [mainCompanyId],
   );
 
   useEffect(() => {
@@ -75,17 +66,6 @@ export default function PeopleDomainsPage() {
     );
   }
 
-  if (!mainCompanyId) {
-    return (
-      <SafeAreaView style={[styles.container, { backgroundColor: palette.background }]} edges={['bottom']}>
-        <View style={styles.loadingWrap}>
-          <ActivityIndicator size="large" color={palette.primary} />
-          <Text style={styles.loadingText}>Carregando empresa principal...</Text>
-        </View>
-      </SafeAreaView>
-    );
-  }
-
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: palette.background }]} edges={['bottom']}>
       <View style={styles.content}>
@@ -93,7 +73,6 @@ export default function PeopleDomainsPage() {
           <DefaultTable
             accentColor={palette.primary}
             onRowPress={openDomainDetail}
-            requestParams={requestParams}
             storeName="people_domains"
             visibleColumnsPreferenceKey="people_domains"
             showTotalItemsInCompactToolbar
