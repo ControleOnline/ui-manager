@@ -60,7 +60,7 @@ export const resolveHomeColors = brandColors => {
     cardBorder: brandColors.cardBorder || brandColors.border,
     mutedText: withOpacity(textColor, 0.68),
     statIcon: actionBackground,
-    statIconBackground: actionText,
+    statIconBackground: withOpacity(actionText, 0.7),
     text: textColor,
   };
 };

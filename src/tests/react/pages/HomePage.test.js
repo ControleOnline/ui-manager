@@ -177,7 +177,7 @@ describe('HomePage', () => {
       cardBorder: '#E5E5E5',
       mutedText: '#222222:0.68',
       statIcon: '#111111',
-      statIconBackground: '#FFCC00',
+      statIconBackground: '#FFCC00:0.7',
       text: '#222222',
     }));
   });
