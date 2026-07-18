@@ -46,6 +46,8 @@ import MenuCostsSuppliersPage from '@controleonline/ui-manager/src/react/pages/M
 import MenuCostsPurchasesPage from '@controleonline/ui-manager/src/react/pages/MenuCostsPurchasesPage';
 import MenuAccessConfigPage from '@controleonline/ui-manager/src/react/pages/MenuAccessConfigPage';
 import CronJobsPage from '@controleonline/ui-manager/src/react/pages/CronJobsPage';
+import PeopleDomainsPage from '@controleonline/ui-manager/src/react/pages/PeopleDomainsPage';
+import PeopleDomainDetailPage from '@controleonline/ui-manager/src/react/pages/PeopleDomainDetailPage';
 import LabelsPage from '@controleonline/ui-manager/src/react/pages/LabelsPage';
 import ModelTemplatesPage from '@controleonline/ui-manager/src/react/pages/ModelTemplatesPage';
 import WhatsAppConnectionPage from '@controleonline/ui-manager/src/react/pages/WhatsAppConnectionPage';
@@ -171,6 +173,30 @@ const managerRoutes = [
       headerShown: true,
       headerBackVisible: true,
       title: 'Jobs agendados',
+      showCompanyFilter: true,
+      companyFilterMode: 'icon',
+    },
+  },
+  {
+    name: 'PeopleDomainsPage',
+    component: PeopleDomainsPage,
+    path: 'people-domains',
+    options: {
+      headerShown: true,
+      headerBackVisible: true,
+      title: 'Domínios',
+      showCompanyFilter: true,
+      companyFilterMode: 'icon',
+    },
+  },
+  {
+    name: 'PeopleDomainDetailPage',
+    component: PeopleDomainDetailPage,
+    path: 'people-domains/:id',
+    options: {
+      headerShown: true,
+      headerBackVisible: true,
+      title: 'Domínio',
       showCompanyFilter: true,
       companyFilterMode: 'icon',
     },
