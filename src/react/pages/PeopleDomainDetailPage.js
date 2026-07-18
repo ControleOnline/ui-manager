@@ -222,9 +222,6 @@ export default function PeopleDomainDetailPage() {
           <View style={styles.summaryCard}>
             <Text style={styles.summaryLabel}>Testes</Text>
             <Text style={styles.summaryValue}>{displayTestDomain || '—'}</Text>
-            <Text style={styles.summaryMeta}>
-              Os smoke tests usam o domínio resolvido pela relação API.
-            </Text>
           </View>
         </View>
 

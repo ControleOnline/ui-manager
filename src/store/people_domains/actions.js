@@ -3,34 +3,8 @@ import { api } from '@controleonline/ui-common/src/api';
 const normalizeText = value => String(value ?? '').trim();
 let detailLoadRequestId = 0;
 
-const normalizeCollectionItems = response => {
-  if (Array.isArray(response)) {
-    return response;
-  }
-
-  if (Array.isArray(response?.member)) {
-    return response.member;
-  }
-
-  if (Array.isArray(response?.['hydra:member'])) {
-    return response['hydra:member'];
-  }
-
-  return [];
-};
-
 const extractId = value =>
   normalizeText(value?.id ?? value?.['@id'] ?? value).replace(/\D+/g, '');
-
-const resolveTestDomain = (item, linkedItem) => {
-  const itemType = normalizeText(item?.domainType).toUpperCase();
-
-  if (itemType === 'API') {
-    return normalizeText(item?.domain);
-  }
-
-  return normalizeText(linkedItem?.domain || item?.domain || '');
-};
 
 const readErrorMessage = (error, fallback) => {
   if (typeof error === 'string') {
@@ -66,59 +40,20 @@ export async function loadDetail({ commit }, payload = {}) {
   commit('SET_TEST_DOMAIN', '');
 
   try {
-    const item = await api.fetch(`people_domains/${id}`);
+    const item = await api.fetch(`people_domains/${id}/overview`);
     if (requestId !== detailLoadRequestId) {
       return null;
     }
     commit('SET_ITEM', item);
-
-    const linkedId = extractId(item?.apiPeopleDomain);
-    let linkedItem = null;
-
-    if (linkedId && linkedId !== id) {
-      linkedItem = await api.fetch(`people_domains/${linkedId}`);
-      if (requestId !== detailLoadRequestId) {
-        return null;
-      }
-      commit('SET_LINKED_ITEM', linkedItem);
-    }
-
-    const testDomain = resolveTestDomain(item, linkedItem);
-    if (requestId !== detailLoadRequestId) {
-      return null;
-    }
-    commit('SET_TEST_DOMAIN', testDomain);
-
-    if (testDomain) {
-      const serverResponse = await api.fetch('people-domains/server', {
-        params: {
-          domain: testDomain,
-        },
-      });
-
-      if (requestId !== detailLoadRequestId) {
-        return null;
-      }
-      commit('SET_SERVER', serverResponse?.server || null);
-    }
-
-    if (normalizeText(item?.domainType).toUpperCase() === 'API') {
-      const frontsResponse = await api.fetch('people_domains', {
-        params: {
-          apiPeopleDomain: `/people_domains/${id}`,
-        },
-      });
-
-      if (requestId !== detailLoadRequestId) {
-        return null;
-      }
-      commit('SET_FRONT_ITEMS', normalizeCollectionItems(frontsResponse));
-    }
+    commit('SET_LINKED_ITEM', item?.apiPeopleDomain || null);
+    commit('SET_FRONT_ITEMS', Array.isArray(item?.linkedFrontDomains) ? item.linkedFrontDomains : []);
+    commit('SET_SERVER', item?.server || null);
+    commit('SET_TEST_DOMAIN', item?.testsDomain || '');
 
     return {
       item,
-      linkedItem,
-      testDomain,
+      linkedItem: item?.apiPeopleDomain || null,
+      testDomain: item?.testsDomain || '',
     };
   } catch (error) {
     if (requestId !== detailLoadRequestId) {

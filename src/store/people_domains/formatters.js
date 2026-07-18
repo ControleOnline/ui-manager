@@ -2,7 +2,8 @@ const normalizeValue = value => String(value ?? '').trim();
 
 export const PEOPLE_DOMAIN_TYPES = ['API', 'APP', 'ERP', 'SHOP', 'WEBSITE'];
 
-export const formatPeopleValue = value => normalizeValue(value?.alias || value?.name || value?.peopleName || '');
+export const formatPeopleValue = (value, column, row) =>
+  normalizeValue(row?.peopleLabel || value?.alias || value?.name || value?.peopleName || value);
 
 export const savePeopleValue = value => {
   const rawValue = normalizeValue(value?.value ?? value?.id ?? value);
@@ -10,8 +11,8 @@ export const savePeopleValue = value => {
   return rawValue ? `/people/${rawValue}` : null;
 };
 
-export const formatApiPeopleDomainValue = value =>
-  normalizeValue(value?.domain || value?.apiPeopleDomainLabel || value?.label || '');
+export const formatApiPeopleDomainValue = (value, column, row) =>
+  normalizeValue(row?.apiPeopleDomainLabel || value?.domain || value?.apiPeopleDomainLabel || value?.label || value);
 
 export const saveApiPeopleDomainValue = value => {
   const rawValue = normalizeValue(value?.value ?? value?.id ?? value);
@@ -19,7 +20,8 @@ export const saveApiPeopleDomainValue = value => {
   return rawValue ? `/people_domains/${rawValue}` : null;
 };
 
-export const formatThemeValue = value => normalizeValue(value?.theme || value?.label || '');
+export const formatThemeValue = (value, column, row) =>
+  normalizeValue(row?.themeLabel || value?.theme || value?.label || value);
 
 export const saveThemeValue = value => {
   const rawValue = normalizeValue(value?.value ?? value?.id ?? value);
