@@ -123,7 +123,15 @@ jest.mock('@appType', () => ({
   app_type_base: 'ADMIN',
 }));
 
-const HomePage = require('../../../react/pages/home').default;
+const {
+  default: HomePage,
+  resolveHomeColors,
+} = require('../../../react/pages/home');
+
+const homePageSource = require('node:fs').readFileSync(
+  require('node:path').resolve(__dirname, '../../../react/pages/home/index.js'),
+  'utf8',
+);
 
 const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
 
@@ -146,6 +154,34 @@ function renderHomePage() {
 }
 
 describe('HomePage', () => {
+  it('keeps Portuguese labels visible while translations are unavailable', () => {
+    expect(homePageSource).toContain("|| 'Visão geral'");
+    expect(homePageSource).toContain("|| 'Pedidos'");
+    expect(homePageSource).toContain("|| 'Clientes'");
+  });
+
+  it('derives the home accents and readable labels from the company theme', () => {
+    expect(resolveHomeColors({
+      border: '#DDDDDD',
+      buttonBackground: '#111111',
+      buttonText: '#FFCC00',
+      cardBackground: '#FFFFFF',
+      cardBorder: '#E5E5E5',
+      text: '#222222',
+      textSecondary: '#FFCC00',
+      white: '#FFFFFF',
+    })).toEqual(expect.objectContaining({
+      actionBackground: '#111111',
+      actionText: '#FFCC00',
+      cardBackground: '#FFFFFF',
+      cardBorder: '#E5E5E5',
+      mutedText: '#222222:0.68',
+      statIcon: '#111111',
+      statIconBackground: '#FFCC00',
+      text: '#222222',
+    }));
+  });
+
   it('renders the ADMIN home without hero blocks', () => {
     const { renderer } = renderHomePage();
 
@@ -156,6 +192,10 @@ describe('HomePage', () => {
     expect(mockFetch).not.toHaveBeenCalled();
     expect(appMenuGrid).toHaveLength(1);
     expect(appMenuGrid[0].props.menus).toBe(mockMenus);
+    expect(appMenuGrid[0].props.colorTokens).toEqual(expect.objectContaining({
+      actionBackground: '#0EA5E9',
+      text: '#0F172A',
+    }));
     expect(serializedTree).toContain('AppMenuGrid');
     expect(serializedTree).not.toContain('Cadastro de menus');
     expect(serializedTree).not.toContain('Olá,');

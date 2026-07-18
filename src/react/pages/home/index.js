@@ -47,6 +47,24 @@ import { createStyles } from './index.styles';
 
 const translate = (store, type, key) => global.t?.t(store, type, key);
 
+export const resolveHomeColors = brandColors => {
+  const textColor = brandColors.textPrimary || brandColors.text;
+  const actionBackground = brandColors.buttonBackground || brandColors.primary;
+  const actionText = brandColors.buttonText || brandColors.white;
+
+  return {
+    ...brandColors,
+    actionBackground,
+    actionText,
+    cardBackground: brandColors.cardBackground || brandColors.white,
+    cardBorder: brandColors.cardBorder || brandColors.border,
+    mutedText: withOpacity(textColor, 0.68),
+    statIcon: actionBackground,
+    statIconBackground: actionText,
+    text: textColor,
+  };
+};
+
 export default function HomePage({ navigation }) {
   const isAdminApp = app_type_base === 'ADMIN';
 
@@ -71,14 +89,8 @@ export default function HomePage({ navigation }) {
       ),
     [themeColors, currentCompany?.id],
   );
-  const styles = useMemo(() => createStyles(brandColors), [brandColors]);
-  const tones = useMemo(
-    () => ({
-      info: { solid: brandColors.info, soft: withOpacity(brandColors.info, 0.12) },
-      success: { solid: brandColors.success, soft: withOpacity(brandColors.success, 0.12) },
-    }),
-    [brandColors.info, brandColors.success],
-  );
+  const homeColors = useMemo(() => resolveHomeColors(brandColors), [brandColors]);
+  const styles = useMemo(() => createStyles(homeColors), [homeColors]);
 
   const [statValues, setStatValues] = useState([
     { key: 'orders', value: '...' },
@@ -93,22 +105,20 @@ export default function HomePage({ navigation }) {
     return [
       {
         key: 'orders',
-        label: translate('configs', 'stat_label', 'orders'),
+        label: translate('configs', 'stat_label', 'orders') || 'Pedidos',
         value: valuesByKey.orders || '...',
         icon: 'shopping-bag',
-        tone: tones.info,
         route: 'OrderHistoryPage',
       },
       {
         key: 'customers',
-        label: translate('configs', 'stat_label', 'customers'),
+        label: translate('configs', 'stat_label', 'customers') || 'Clientes',
         value: valuesByKey.customers || '...',
         icon: 'users',
-        tone: tones.success,
         route: 'ClientsIndex',
       },
     ];
-  }, [statValues, tones.info, tones.success, translateMessages, pendingTranslateMessages]);
+  }, [statValues, translateMessages, pendingTranslateMessages]);
 
   useEffect(() => {
     if (isAdminApp || !currentCompany?.id || !isFocused) return undefined;
@@ -158,7 +168,11 @@ export default function HomePage({ navigation }) {
     return (
       <View style={[styles.container, { backgroundColor: brandColors.background }]}>
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
-          <AppMenuGrid menus={menus} navigation={navigation} />
+          <AppMenuGrid
+            colorTokens={homeColors}
+            menus={menus}
+            navigation={navigation}
+          />
         </ScrollView>
       </View>
     );
@@ -170,7 +184,7 @@ export default function HomePage({ navigation }) {
 
         {/* Stats */}
         <Text style={styles.overviewLabel}>
-          {translate('configs', 'section_title', 'overview')}
+          {translate('configs', 'section_title', 'overview') || 'Visão geral'}
         </Text>
         <View style={styles.statsRow}>
           {stats.map((stat, idx) => (
@@ -180,13 +194,13 @@ export default function HomePage({ navigation }) {
               activeOpacity={0.85}
               onPress={() => go(stat.route)}
             >
-              <View style={[styles.statIcon, { backgroundColor: stat.tone.soft }]}>
-                <Icon name={stat.icon} size={17} color={stat.tone.solid} />
+              <View style={styles.statIcon}>
+                <Icon name={stat.icon} size={17} color={homeColors.statIcon} />
               </View>
               {loadingStats ? (
                 <ActivityIndicator
                   size="small"
-                  color={stat.tone.solid}
+                  color={homeColors.statIcon}
                   style={styles.statLoader}
                 />
               ) : (
@@ -199,7 +213,7 @@ export default function HomePage({ navigation }) {
 
         {isAdminApp && canManageAdminMenus ? (
           <TouchableOpacity
-            style={[styles.actionBanner, { backgroundColor: brandColors.primary }]}
+            style={styles.actionBanner}
             activeOpacity={0.9}
             onPress={() => go('MenuAccessConfigPage')}
           >
@@ -211,13 +225,13 @@ export default function HomePage({ navigation }) {
                 </Text>
               </View>
               <View style={styles.actionArrow}>
-                <Icon name="list" size={20} color={brandColors.primary} />
+                <Icon name="list" size={20} color={homeColors.actionBackground} />
               </View>
             </View>
           </TouchableOpacity>
         ) : (
           <TouchableOpacity
-            style={[styles.actionBanner, { backgroundColor: brandColors.primary }]}
+            style={styles.actionBanner}
             activeOpacity={0.9}
             onPress={() => go('IncomeStatement')}
           >
@@ -231,13 +245,17 @@ export default function HomePage({ navigation }) {
                 </Text>
               </View>
               <View style={styles.actionArrow}>
-                <Icon name="arrow-right" size={20} color={brandColors.primary} />
+                <Icon name="arrow-right" size={20} color={homeColors.actionBackground} />
               </View>
             </View>
           </TouchableOpacity>
         )}
 
-        <AppMenuGrid menus={menus} navigation={navigation} />
+        <AppMenuGrid
+          colorTokens={homeColors}
+          menus={menus}
+          navigation={navigation}
+        />
 
       </ScrollView>
     </View>

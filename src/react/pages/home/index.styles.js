@@ -38,7 +38,9 @@ export const createStyles = (palette = colors) => {
   },
   statCard: {
     flex: 1,
-    backgroundColor: palette.white,
+    backgroundColor: palette.cardBackground,
+    borderColor: palette.cardBorder,
+    borderWidth: 1,
     borderRadius: 16,
     padding: 14,
     alignItems: 'center',
@@ -51,6 +53,7 @@ export const createStyles = (palette = colors) => {
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 8,
+    backgroundColor: palette.statIconBackground,
   },
   statValue: {
     fontSize: 20,
@@ -60,7 +63,7 @@ export const createStyles = (palette = colors) => {
   },
   statLabel: {
     fontSize: 11,
-    color: palette.textSecondary,
+    color: palette.mutedText,
     fontWeight: '600',
     textAlign: 'center',
   },
@@ -69,6 +72,7 @@ export const createStyles = (palette = colors) => {
     marginBottom: 28,
     borderRadius: 20,
     overflow: 'hidden',
+    backgroundColor: palette.actionBackground,
     ...Platform.select({
       ios: {
         shadowOffset: { width: 0, height: 8 },
@@ -76,7 +80,7 @@ export const createStyles = (palette = colors) => {
         shadowRadius: 16,
       },
       android: { elevation: 5 },
-      web: { boxShadow: `0 8px 24px ${withOpacity(palette.info, 0.2)}` },
+      web: { boxShadow: `0 8px 24px ${withOpacity(palette.actionBackground, 0.18)}` },
     }),
   },
   actionContent: {
@@ -88,18 +92,18 @@ export const createStyles = (palette = colors) => {
   actionTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: palette.white,
+    color: palette.actionText,
     marginBottom: 4,
   },
   actionSub: {
     fontSize: 13,
-    color: withOpacity(palette.white, 0.8),
+    color: withOpacity(palette.actionText, 0.76),
   },
   actionArrow: {
     width: 40,
     height: 40,
     borderRadius: 12,
-    backgroundColor: palette.white,
+    backgroundColor: palette.actionText,
     alignItems: 'center',
     justifyContent: 'center',
   },
