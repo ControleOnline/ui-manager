@@ -33,7 +33,6 @@ const getConfigActions = () => [
       tt('hub_description', 'generalSettings') ||
       'Abra o configurador principal sem misturar conexões e integrações direto na home.',
     icon: 'settings',
-    accentKey: 'textSecondary',
     route: 'GeneralSettings',
   },
   {
@@ -42,7 +41,6 @@ const getConfigActions = () => [
       tt('hub_description', 'logs') ||
       'Consulte a timeline completa de logs, incluindo registros por entidade e outros tipos técnicos.',
     icon: 'activity',
-    accentKey: 'warning',
     route: 'GenericLogPage',
   },
   {
@@ -51,7 +49,6 @@ const getConfigActions = () => [
       tt('hub_description', 'connections') ||
       'Centralize canais de comunicação e configurações operacionais ligadas à empresa ativa.',
     icon: 'radio',
-    accentKey: 'success',
     route: 'ConnectionsPage',
   },
   {
@@ -60,7 +57,6 @@ const getConfigActions = () => [
       tt('hub_description', 'integrations') ||
       'Gerencie marketplaces e outras integrações da operação dentro do mesmo hub.',
     icon: 'link',
-    accentKey: 'info',
     route: 'IntegrationsPage',
   },
   {
@@ -69,7 +65,6 @@ const getConfigActions = () => [
       tt('hub_description', 'cronJobs') ||
       'Organize os agendamentos do sistema por empresa principal usando comandos descobertos dinamicamente.',
     icon: 'clock',
-    accentKey: 'warning',
     route: 'CronJobsPage',
   },
   {
@@ -78,7 +73,6 @@ const getConfigActions = () => [
       tt('hub_description', 'translations') ||
       'Revise textos inseridos automaticamente, compare com o fallback principal e grave sobrescritas por empresa.',
     icon: 'type',
-    accentKey: 'error',
     route: 'TranslationsReviewPage',
   },
   {
@@ -87,7 +81,6 @@ const getConfigActions = () => [
       tt('hub_description', 'themes') ||
       'Gerencie paletas visuais, duplique temas e associe cada domínio da empresa ao tema desejado.',
     icon: 'droplet',
-    accentKey: 'primary',
     route: 'ThemeManagerPage',
   },
 ];
@@ -161,7 +154,7 @@ export default function ConfiguratorPage({ navigation }) {
               label={item.label}
               description={item.description}
               icon={item.icon}
-              color={configuratorColors[item.accentKey] || configuratorColors.primary}
+              color={configuratorColors.actionBackground}
               onPress={() => navigation.navigate(item.route)}
             />
           ))}
