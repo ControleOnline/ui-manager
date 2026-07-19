@@ -11,8 +11,10 @@ import {
 
 export default function PdvPage({navigation, route}) {
   const peopleStore = useStore('people');
+  const themeStore = useStore('theme');
   const deviceConfigStore = useStore('device_config');
   const {currentCompany} = peopleStore.getters;
+  const {colors: themeColors} = themeStore.getters;
   const {item: runtimeDeviceConfig} = deviceConfigStore.getters;
   const linkedOrderType = useMemo(
     () =>
@@ -21,6 +23,15 @@ export default function PdvPage({navigation, route}) {
         currentCompany?.configs,
       ),
     [currentCompany?.configs, runtimeDeviceConfig?.configs],
+  );
+  const palette = useMemo(
+    () => ({
+      buttonBackgroundSecondary: themeColors.buttonBackgroundSecondary,
+      buttonBorderSecondary: themeColors.buttonBorderSecondary,
+      buttonIconSecondary: themeColors.buttonIconSecondary,
+      buttonTextSecondary: themeColors.buttonTextSecondary,
+    }),
+    [themeColors],
   );
   const settlementLabel =
     global.t?.t('orders', 'title', 'linkedOrderSettlement') || 'Liquidação';
@@ -58,13 +69,13 @@ export default function PdvPage({navigation, route}) {
             marginRight: 6,
             borderRadius: 999,
             borderWidth: 1,
-            borderColor: '#BFDBFE',
-            backgroundColor: '#EFF6FF',
+            borderColor: palette.buttonBorderSecondary,
+            backgroundColor: palette.buttonBackgroundSecondary,
           }}>
-          <Icon name="layers" size={14} color="#0369A1" />
+          <Icon name="layers" size={14} color={palette.buttonIconSecondary} />
           <Text
             style={{
-              color: '#0369A1',
+              color: palette.buttonTextSecondary,
               fontSize: 12,
               fontWeight: '800',
             }}>
@@ -73,7 +84,7 @@ export default function PdvPage({navigation, route}) {
         </TouchableOpacity>
       ),
     });
-  }, [linkedOrderType, navigation, settlementLabel]);
+  }, [linkedOrderType, navigation, palette, settlementLabel]);
 
   return <AddProductScreen navigation={navigation} route={pdvRoute} />;
 }
