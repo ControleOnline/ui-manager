@@ -5,9 +5,26 @@ import Icon from 'react-native-vector-icons/Feather';
 import { useStore } from '@store';
 import { resolveThemePalette, withOpacity } from '@controleonline/../../src/styles/branding';
 import { colors } from '@controleonline/../../src/styles/colors';
-import styles from './ConfiguratorPage.styles';
+import { createStyles } from './ConfiguratorPage.styles';
 
 const tt = (type, key) => global.t?.t('configs', type, key);
+
+export const resolveConfiguratorColors = brandColors => {
+  const textColor = brandColors.textPrimary || brandColors.text;
+  const actionBackground = brandColors.buttonBackground || brandColors.primary;
+  const actionText = brandColors.buttonText || brandColors.white;
+
+  return {
+    ...brandColors,
+    actionBackground,
+    actionText,
+    cardBackground: brandColors.cardBackground || brandColors.white,
+    cardBorder: brandColors.cardBorder || brandColors.border,
+    cardText: brandColors.cardText || textColor,
+    mutedText: brandColors.textMuted || withOpacity(textColor, 0.68),
+    text: textColor,
+  };
+};
 
 const getConfigActions = () => [
   {
@@ -75,7 +92,7 @@ const getConfigActions = () => [
   },
 ];
 
-function ActionCard({ label, description, icon, color, onPress }) {
+function ActionCard({ styles, label, description, icon, color, onPress }) {
   return (
     <TouchableOpacity style={styles.actionCard} activeOpacity={0.9} onPress={onPress}>
       <View style={styles.actionHeader}>
@@ -103,14 +120,24 @@ export default function ConfiguratorPage({ navigation }) {
       ),
     [themeColors, currentCompany?.id],
   );
+  const configuratorColors = useMemo(
+    () => resolveConfiguratorColors(palette),
+    [palette],
+  );
+  const styles = useMemo(
+    () => createStyles(configuratorColors),
+    [configuratorColors],
+  );
   const configActions = getConfigActions();
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: palette.background }]} edges={['bottom']}>
+    <SafeAreaView
+      style={[styles.container, { backgroundColor: configuratorColors.background }]}
+      edges={['bottom']}>
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-        <View style={[styles.heroCard, { backgroundColor: palette.primary }]}>
+        <View style={styles.heroCard}>
           <View style={styles.heroBadge}>
-            <Icon name="sliders" size={22} color={palette.primary} />
+            <Icon name="sliders" size={22} color={configuratorColors.actionBackground} />
           </View>
           <Text style={styles.heroEyebrow}>{tt('hub_eyebrow', 'configurator') || 'CONFIGURADOR'}</Text>
           <Text style={styles.heroTitle}>{tt('hub_title', 'configurationCenter') || 'Central de configuração'}</Text>
@@ -130,10 +157,11 @@ export default function ConfiguratorPage({ navigation }) {
           {configActions.map(item => (
             <ActionCard
               key={item.route}
+              styles={styles}
               label={item.label}
               description={item.description}
               icon={item.icon}
-              color={palette[item.accentKey] || palette.primary}
+              color={configuratorColors[item.accentKey] || configuratorColors.primary}
               onPress={() => navigation.navigate(item.route)}
             />
           ))}
