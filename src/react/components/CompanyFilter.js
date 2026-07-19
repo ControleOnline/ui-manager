@@ -3,8 +3,17 @@ import { View, Text, TouchableOpacity, Modal, ScrollView, Animated, Image } from
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/Feather';
 import { useStore } from '@store';
-import md5 from 'md5';
-import { resolveDefaultFileUrl } from '@controleonline/ui-common/src/react/utils/fileUrl';
+import {
+  resolveDefaultFileUrl,
+  resolveFileImageUrl,
+} from '@controleonline/ui-common/src/react/utils/fileUrl';
+import UserAvatar from '@controleonline/ui-common/src/react/components/UserAvatar';
+import {
+  getAvatarDisplayName,
+  resolveUserAvatarUrl,
+} from '@controleonline/ui-common/src/react/utils/userAvatar';
+import {resolveThemePalette} from '@controleonline/../../src/styles/branding';
+import {colors} from '@controleonline/../../src/styles/colors';
 import createStyles from './CompanyFilter.styles';
 
 import { inlineStyle_275_20 } from './CompanyFilter.styles';
@@ -36,9 +45,7 @@ const CompanyFilter = ({ navigation, mode }) => {
 
   const currentUser = {
     ...authUser,
-    name: String(
-      authUser?.realname || authUser?.name || authUser?.username || '',
-    ).trim(),
+    name: getAvatarDisplayName(authUser),
   };
   const firstName = currentUser?.name?.split(' ')[0] || 'Usuário';
   const canSwitchCompany = Array.isArray(companies) && companies.length > 1;
@@ -46,11 +53,23 @@ const CompanyFilter = ({ navigation, mode }) => {
     selectedCompany?.name ||
     'Selecionar empresa';
 
+  const brandColors = useMemo(
+    () =>
+      resolveThemePalette(
+        {...themeColors, ...(currentCompany?.theme?.colors || {})},
+        colors,
+      ),
+    [currentCompany?.id, currentCompany?.theme?.colors, themeColors],
+  );
+
   const palette = useMemo(
     () => ({
       pageBackground: themeColors.pageBackground,
       headerText: themeColors.headerText,
       headerIcon: themeColors.headerIcon,
+      avatarBackground: brandColors.buttonBackground || brandColors.primary,
+      avatarBorder: brandColors.buttonText || brandColors.white,
+      avatarText: brandColors.buttonText || brandColors.white,
       listItemBackground: themeColors.listItemBackground,
       listItemBorder: themeColors.listItemBorder,
       listItemIcon: themeColors.listItemIcon,
@@ -63,7 +82,7 @@ const CompanyFilter = ({ navigation, mode }) => {
       modalHeaderText: themeColors.modalHeaderText,
       modalOverlay: themeColors.modalOverlay,
     }),
-    [themeColors],
+    [brandColors, themeColors],
   );
   const styles = useMemo(() => createStyles(palette), [palette]);
 
@@ -84,25 +103,17 @@ const CompanyFilter = ({ navigation, mode }) => {
     [resolveCompanyIconUrl, selectedCompany],
   );
 
-
-
-  const getAvatarUrl = () => {
-    if (typeof currentUser?.avatarUrl === 'string' && currentUser.avatarUrl) {
-      return currentUser.avatarUrl;
+  const avatarEmail = useMemo(() => {
+    const email = currentUser?.email;
+    if (Array.isArray(email)) {
+      return String(email[0]?.value || email[0]?.email || '').trim();
     }
 
-    if (currentUser?.avatar?.url) {
-      const domain = currentUser?.avatar?.domain || '';
-      return `${domain}${currentUser.avatar.url}`;
-    }
-
-    if (!currentUser?.email) {
-      return 'https://www.gravatar.com/avatar/?d=identicon';
-    }
-
-    const emailHash = md5(currentUser.email.trim().toLowerCase());
-    return `https://www.gravatar.com/avatar/${emailHash}?s=200&d=identicon`;
-  };
+    return String(email?.value || email?.email || email || '').trim();
+  }, [currentUser?.email]);
+  const avatarImageUrl = useMemo(() => {
+    return resolveUserAvatarUrl(currentUser, resolveFileImageUrl);
+  }, [currentUser?.avatar]);
 
   const openModal = useCallback(() => {
     setModalVisible(true);
@@ -340,7 +351,17 @@ const CompanyFilter = ({ navigation, mode }) => {
             <TouchableOpacity
               style={styles.avatarWrap}
               onPress={() => navigation?.navigate?.('ProfilePage')}>
-              <Image source={{ uri: getAvatarUrl() }} style={styles.avatar} />
+              <UserAvatar
+                imageUrl={avatarImageUrl}
+                email={avatarEmail}
+                name={currentUser?.name}
+                size={40}
+                backgroundColor={palette.avatarBackground}
+                borderColor={palette.avatarBorder}
+                borderWidth={1}
+                textColor={palette.avatarText}
+                style={styles.avatar}
+              />
             </TouchableOpacity>
           </View>
         )}
