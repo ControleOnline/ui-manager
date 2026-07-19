@@ -35,8 +35,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { Text } from 'react-native-animatable';
-import { resolveThemePalette, withOpacity } from '@controleonline/../../src/styles/branding';
-import { colors } from '@controleonline/../../src/styles/colors';
+import { resolveThemePalette } from '@controleonline/../../src/styles/branding';
 import Icon from 'react-native-vector-icons/Feather';
 import { useStore } from '@store';
 import { api } from '@controleonline/ui-common/src/api';
@@ -48,20 +47,20 @@ import { createStyles } from './index.styles';
 const translate = (store, type, key) => global.t?.t(store, type, key);
 
 export const resolveHomeColors = brandColors => {
-  const textColor = brandColors.textPrimary || brandColors.text;
-  const actionBackground = brandColors.buttonBackground || brandColors.primary;
-  const actionText = brandColors.buttonText || brandColors.white;
-
   return {
     ...brandColors,
-    actionBackground,
-    actionText,
-    cardBackground: brandColors.cardBackground || brandColors.white,
-    cardBorder: brandColors.cardBorder || brandColors.border,
-    mutedText: withOpacity(textColor, 0.68),
-    statIcon: actionBackground,
-    statIconBackground: withOpacity(actionText, 0.7),
-    text: textColor,
+    actionBackground: brandColors.buttonBackground,
+    actionText: brandColors.buttonText,
+    cardBackground: brandColors.cardBackground,
+    cardBorder: brandColors.cardBorder,
+    cardIconColor: brandColors.cardIconColor,
+    cardIconBackground: brandColors.cardIconBackground,
+    cardShadow: brandColors.cardShadow,
+    buttonShadow: brandColors.buttonShadow,
+    iconBackground: brandColors.iconBackground,
+    iconColor: brandColors.iconColor,
+    mutedText: brandColors.textMuted,
+    text: brandColors.textPrimary,
   };
 };
 
@@ -83,10 +82,10 @@ export default function HomePage({ navigation }) {
 
   const brandColors = useMemo(
     () =>
-      resolveThemePalette(
-        { ...themeColors, ...(currentCompany?.theme?.colors || {}) },
-        colors,
-      ),
+      resolveThemePalette({
+        ...themeColors,
+        ...(currentCompany?.theme?.colors || {}),
+      }),
     [themeColors, currentCompany?.id],
   );
   const homeColors = useMemo(() => resolveHomeColors(brandColors), [brandColors]);
@@ -195,12 +194,12 @@ export default function HomePage({ navigation }) {
               onPress={() => go(stat.route)}
             >
               <View style={styles.statIcon}>
-                <Icon name={stat.icon} size={17} color={homeColors.statIcon} />
+                <Icon name={stat.icon} size={17} color={homeColors.cardIconColor} />
               </View>
               {loadingStats ? (
                 <ActivityIndicator
                   size="small"
-                  color={homeColors.statIcon}
+                  color={homeColors.cardIconColor}
                   style={styles.statLoader}
                 />
               ) : (
@@ -225,7 +224,7 @@ export default function HomePage({ navigation }) {
                 </Text>
               </View>
               <View style={styles.actionArrow}>
-                <Icon name="list" size={20} color={homeColors.actionBackground} />
+                <Icon name="list" size={20} color={homeColors.cardIconColor} />
               </View>
             </View>
           </TouchableOpacity>
@@ -245,7 +244,7 @@ export default function HomePage({ navigation }) {
                 </Text>
               </View>
               <View style={styles.actionArrow}>
-                <Icon name="arrow-right" size={20} color={homeColors.actionBackground} />
+                <Icon name="arrow-right" size={20} color={homeColors.cardIconColor} />
               </View>
             </View>
           </TouchableOpacity>

@@ -3,26 +3,25 @@ import { ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/Feather';
 import { useStore } from '@store';
-import { resolveThemePalette, withOpacity } from '@controleonline/../../src/styles/branding';
-import { colors } from '@controleonline/../../src/styles/colors';
+import { resolveThemePalette } from '@controleonline/../../src/styles/branding';
 import { createStyles } from './ConfiguratorPage.styles';
 
 const tt = (type, key) => global.t?.t('configs', type, key);
 
 export const resolveConfiguratorColors = brandColors => {
-  const textColor = brandColors.textPrimary || brandColors.text;
-  const actionBackground = brandColors.buttonBackground || brandColors.primary;
-  const actionText = brandColors.buttonText || brandColors.white;
-
   return {
     ...brandColors,
-    actionBackground,
-    actionText,
-    cardBackground: brandColors.cardBackground || brandColors.white,
-    cardBorder: brandColors.cardBorder || brandColors.border,
-    cardText: brandColors.cardText || textColor,
-    mutedText: brandColors.textMuted || withOpacity(textColor, 0.68),
-    text: textColor,
+    actionBackground: brandColors.buttonBackground,
+    actionText: brandColors.buttonText,
+    cardBackground: brandColors.cardBackground,
+    cardBorder: brandColors.cardBorder,
+    cardIconColor: brandColors.cardIconColor,
+    cardIconBackground: brandColors.cardIconBackground,
+    cardText: brandColors.cardText,
+    iconBackground: brandColors.iconBackground,
+    iconColor: brandColors.iconColor,
+    mutedText: brandColors.textMuted,
+    text: brandColors.textPrimary,
   };
 };
 
@@ -85,12 +84,12 @@ const getConfigActions = () => [
   },
 ];
 
-function ActionCard({ styles, label, description, icon, color, onPress }) {
+function ActionCard({ styles, colors, label, description, icon, onPress }) {
   return (
     <TouchableOpacity style={styles.actionCard} activeOpacity={0.9} onPress={onPress}>
       <View style={styles.actionHeader}>
-        <View style={[styles.actionIconWrap, { backgroundColor: withOpacity(color, 0.12) }]}>
-          <Icon name={icon} size={18} color={color} />
+        <View style={[styles.actionIconWrap, { backgroundColor: colors.cardIconBackground }]}>
+          <Icon name={icon} size={18} color={colors.cardIconColor} />
         </View>
         <Text style={styles.actionLabel}>{label}</Text>
       </View>
@@ -107,10 +106,10 @@ export default function ConfiguratorPage({ navigation }) {
 
   const palette = useMemo(
     () =>
-      resolveThemePalette(
-        { ...themeColors, ...(currentCompany?.theme?.colors || {}) },
-        colors,
-      ),
+      resolveThemePalette({
+        ...themeColors,
+        ...(currentCompany?.theme?.colors || {}),
+      }),
     [themeColors, currentCompany?.id],
   );
   const configuratorColors = useMemo(
@@ -130,7 +129,7 @@ export default function ConfiguratorPage({ navigation }) {
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         <View style={styles.heroCard}>
           <View style={styles.heroBadge}>
-            <Icon name="sliders" size={22} color={configuratorColors.actionBackground} />
+            <Icon name="sliders" size={22} color={configuratorColors.cardIconColor} />
           </View>
           <Text style={styles.heroEyebrow}>{tt('hub_eyebrow', 'configurator') || 'CONFIGURADOR'}</Text>
           <Text style={styles.heroTitle}>{tt('hub_title', 'configurationCenter') || 'Central de configuração'}</Text>
@@ -151,10 +150,10 @@ export default function ConfiguratorPage({ navigation }) {
             <ActionCard
               key={item.route}
               styles={styles}
+              colors={configuratorColors}
               label={item.label}
               description={item.description}
               icon={item.icon}
-              color={configuratorColors.actionBackground}
               onPress={() => navigation.navigate(item.route)}
             />
           ))}

@@ -76,7 +76,7 @@ const RNW = {
   buttonShadow: '#2563EB33', buttonText: '#FFFFFF', buttonTextSecondary: '#0F172A',
   cardBackground: '#FFFFFF', cardBorder: '#E2E8F0', cardDisabledBackground: '#F8FAFC',
   cardDisabledText: '#94A3B8', cardHeaderBackground: '#F8FAFC', cardHeaderText: '#0F172A',
-  cardIcon: '#64748B', cardSelectedBackground: '#EFF6FF', cardSelectedBorder: '#BFDBFE',
+  cardIcon: '#64748B', cardIconColor: '#64748B', cardIconBackground: '#FFFFFF', cardSelectedBackground: '#EFF6FF', cardSelectedBorder: '#BFDBFE',
   cardSelectedText: '#1D4ED8', cardShadow: '#0000001A', cardText: '#0F172A',
   checkboxBackground: '#FFFFFF', checkboxBorder: '#94A3B8', checkboxDisabledBackground: '#F1F5F9',
   checkboxDisabledBorder: '#CBD5E1', checkboxDisabledMark: '#94A3B8', checkboxSelectedBackground: '#2563EB',
@@ -89,7 +89,7 @@ const RNW = {
   footerLink: '#60A5FA', footerText: '#CBD5E1',
   headerBackground: '#FFFFFF', headerBorder: '#E2E8F0', headerIcon: '#64748B',
   headerLink: '#2563EB', headerText: '#0F172A',
-  iconColor: '#2563EB', iconActive: '#1D4ED8', iconDanger: '#DC2626', iconDisabled: '#94A3B8',
+  iconBackground: '#FFFFFF', iconColor: '#2563EB', iconActive: '#1D4ED8', iconDanger: '#DC2626', iconDisabled: '#94A3B8',
   iconInfo: '#0EA5E9', iconInverse: '#FFFFFF', iconMuted: '#64748B', iconSuccess: '#16A34A',
   iconText: '#0F172A', iconWarning: '#D97706',
   inputBackground: '#FFFFFF', inputBorder: '#CBD5E1', inputFilledBorder: '#94A3B8',
@@ -174,7 +174,7 @@ const THEME_MAP_GROUPS = [
   {
     label: 'card',
     tokens: ['cardBackground','cardBorder','cardDisabledBackground','cardDisabledText',
-      'cardHeaderBackground','cardHeaderText','cardIcon','cardSelectedBackground',
+      'cardHeaderBackground','cardHeaderText','cardIcon','cardIconColor','cardSelectedBackground',
       'cardSelectedBorder','cardSelectedText','cardShadow','cardText'],
   },
   {
@@ -298,10 +298,7 @@ const resolveColor = (themeColors, key, rnwMode) => {
   if (isTransparent(raw)) return 'transparent';
   const n = normalizeHex(raw);
   if (n) return n;
-  if (!rnwMode) return '';
-  const fb = RNW[key];
-  if (isTransparent(fb)) return 'transparent';
-  return normalizeHex(fb) || fb || '';
+  return '';
 };
 
 const tokenHasOwnColor = (themeColors, key) => hasValue(themeColors?.[key]);
@@ -314,12 +311,11 @@ const hasUndefinedToken = (themeColors, tokenKeys) => {
 const getTokenLabel = (themeColors, key, rnwMode) => {
   const raw = themeColors?.[key];
   if (raw) return normalizeHex(raw) || raw;
-  if (rnwMode && RNW[key]) return `↩ ${normalizeHex(RNW[key]) || RNW[key]}`;
   return 'undefined';
 };
 
-const safeColor = (color, fallback = '#E2E8F0') =>
-  (color && !isTransparent(color)) ? color : fallback;
+const safeColor = color =>
+  (color && !isTransparent(color)) ? color : undefined;
 
 // ─── CheckboxToggle ──────────────────────────────────────────────────────────
 
@@ -456,17 +452,17 @@ const renderGroupVisual = (groupLabel, themeColors, rnwMode, showUndefined) => {
         <View style={styles.miniStack}>
           <Hz keys={['navbarBackground', 'navbarBorder']}
             style={[styles.miniBar, { backgroundColor: sc('navbarBackground', '#0F172A'), borderColor: sc('navbarBorder', '#1E293B') }]}>
-            <Text style={[styles.miniBarText, { color: readableText(gc('navbarBackground') || '#0F172A') }]}>navbar</Text>
-            <Icon name="menu" size={10} color={readableText(gc('navbarBackground') || '#0F172A')} />
+            <Text style={[styles.miniBarText, { color: readableText(gc('navbarBackground')) }]}>navbar</Text>
+            <Icon name="menu" size={10} color={readableText(gc('navbarBackground'))} />
           </Hz>
           <Hz keys={['toolbarBackground', 'toolbarBorder']}
             style={[styles.miniBar, { backgroundColor: sc('toolbarBackground', '#F8FAFC'), borderColor: sc('toolbarBorder', '#E2E8F0') }]}>
-            <Text style={[styles.miniBarText, { color: readableText(gc('toolbarBackground') || '#F8FAFC') }]}>toolbar</Text>
-            <Icon name="sliders" size={10} color={readableText(gc('toolbarBackground') || '#F8FAFC')} />
+            <Text style={[styles.miniBarText, { color: readableText(gc('toolbarBackground')) }]}>toolbar</Text>
+            <Icon name="sliders" size={10} color={readableText(gc('toolbarBackground'))} />
           </Hz>
           <Hz keys={['tabBarBackground', 'tabBarBorder']}
             style={[styles.miniBar, { backgroundColor: sc('tabBarBackground', '#FFFFFF'), borderColor: sc('tabBarBorder', '#E2E8F0') }]}>
-            <Text style={[styles.miniBarText, { color: readableText(gc('tabBarBackground') || '#FFFFFF') }]}>tabBar</Text>
+            <Text style={[styles.miniBarText, { color: readableText(gc('tabBarBackground')) }]}>tabBar</Text>
           </Hz>
         </View>
       );
@@ -513,9 +509,10 @@ const renderGroupVisual = (groupLabel, themeColors, rnwMode, showUndefined) => {
       return (
         <Hz keys={['cardBackground', 'cardBorder']}
           style={[styles.miniCard, { backgroundColor: sc('cardBackground', '#FFFFFF'), borderColor: sc('cardBorder', '#E2E8F0') }]}>
-          <Hz keys={['cardHeaderBackground', 'cardHeaderText', 'cardIcon']}
+          <Hz keys={['cardHeaderBackground', 'cardHeaderText', 'cardIcon', 'cardIconColor']}
             style={[styles.miniCardHeader, { backgroundColor: sc('cardHeaderBackground', '#F8FAFC'), borderBottomColor: sc('cardBorder', '#E2E8F0') }]}>
             <Text style={[styles.miniText, { fontWeight: '900', color: sc('cardHeaderText', '#0F172A') }]}>Card header</Text>
+            <Icon name="more-horizontal" size={10} color={sc('cardIconColor', '#64748B')} />
           </Hz>
           <Hz keys={['cardText', 'cardBackground']}
             style={styles.miniCardBody}>
@@ -985,8 +982,8 @@ const ThemeLandingPreview = ({
     </HoverZone>
   );
 
-  const navReadable = readableText(gc('navbarBackground') || '#0F172A');
-  const footerReadable = readableText(gc('footerBackground') || '#0F172A');
+  const navReadable = readableText(gc('navbarBackground'));
+  const footerReadable = readableText(gc('footerBackground'));
 
   const navItems = [
     { label: 'Overview', keys: ['headerLink'], colorKey: 'headerLink' },
@@ -1544,7 +1541,7 @@ const ThemeLandingPreview = ({
             </Zone>
 
             <Zone
-              keys={['cardBackground', 'cardBorder', 'cardText', 'cardHeaderBackground', 'cardHeaderText', 'cardIcon']}
+              keys={['cardBackground', 'cardBorder', 'cardText', 'cardHeaderBackground', 'cardHeaderText', 'cardIcon', 'cardIconColor']}
               style={[
                 styles.heroVisualCard,
                 {
@@ -1554,7 +1551,7 @@ const ThemeLandingPreview = ({
               ]}
             >
               <Zone
-                keys={['cardHeaderBackground', 'cardBorder', 'cardHeaderText', 'cardIcon']}
+                keys={['cardHeaderBackground', 'cardBorder', 'cardHeaderText', 'cardIcon', 'cardIconColor']}
                 style={[
                   styles.showcasePanel,
                   {
@@ -1570,7 +1567,7 @@ const ThemeLandingPreview = ({
                       Uma leitura rápida da sensação do tema.
                     </Text>
                   </View>
-                  <Icon name="bar-chart-2" size={16} color={sc('cardIcon', '#64748B')} />
+                  <Icon name="bar-chart-2" size={16} color={sc('cardIconColor', '#64748B')} />
                 </View>
 
                 <View style={styles.statsGrid}>
@@ -2525,15 +2522,13 @@ export default function ThemePreviewPage() {
   );
 
   const bgColor = useMemo(() => {
-    const bg = resolveColor(themeColors, 'appBackground', rnwMode)
-      || resolveColor(themeColors, 'screenBackground', rnwMode)
-      || resolveColor(themeColors, 'background', rnwMode);
-    return bg && !isTransparent(bg) ? bg : '#F8FAFC';
+    const bg = resolveColor(themeColors, 'appBackground', rnwMode);
+    return bg && !isTransparent(bg) ? bg : undefined;
   }, [themeColors, rnwMode]);
 
   const controlBarStyle = useMemo(() => ({
-    backgroundColor: resolveColor(themeColors, 'containerBackground', rnwMode) || '#FFFFFF',
-    borderBottomColor: resolveColor(themeColors, 'containerBorder', rnwMode) || '#E2E8F0',
+    backgroundColor: resolveColor(themeColors, 'containerBackground', rnwMode),
+    borderBottomColor: resolveColor(themeColors, 'containerBorder', rnwMode),
   }), [themeColors, rnwMode]);
 
   if (isLoading && !themeItem) {
@@ -2559,20 +2554,20 @@ export default function ThemePreviewPage() {
   }
 
   return (
-    <SafeAreaView style={[styles.root, { backgroundColor: bgColor }]} edges={['bottom']}>
+      <SafeAreaView style={[styles.root, { backgroundColor: bgColor }]} edges={['bottom']}>
       <View style={styles.ambientLayer} pointerEvents="none">
-        <View style={[styles.ambientOrbA, { backgroundColor: withOpacity(resolveColor(themeColors, 'buttonBackground', rnwMode) || '#2563EB', 0.12) }]} />
-        <View style={[styles.ambientOrbB, { backgroundColor: withOpacity(resolveColor(themeColors, 'chipSelectedBackground', rnwMode) || '#2563EB', 0.08) }]} />
-        <View style={[styles.ambientOrbC, { backgroundColor: withOpacity(resolveColor(themeColors, 'badgeBackground', rnwMode) || '#CBD5E1', 0.18) }]} />
+        <View style={[styles.ambientOrbA, { backgroundColor: withOpacity(resolveColor(themeColors, 'buttonBackground', rnwMode), 0.12) }]} />
+        <View style={[styles.ambientOrbB, { backgroundColor: withOpacity(resolveColor(themeColors, 'chipSelectedBackground', rnwMode), 0.08) }]} />
+        <View style={[styles.ambientOrbC, { backgroundColor: withOpacity(resolveColor(themeColors, 'badgeBackground', rnwMode), 0.18) }]} />
       </View>
 
       {/* ── barra de controles ── */}
       <View style={[styles.controlsBar, controlBarStyle]}>
         <View style={styles.controlsInfo}>
-          <Text style={[styles.controlsName, { color: resolveColor(themeColors, 'textPrimary', rnwMode) || '#0F172A' }]}>
+          <Text style={[styles.controlsName, { color: resolveColor(themeColors, 'textPrimary', rnwMode) }]}>
             {themeItem?.theme || `Tema ${themeItem?.id}`}
           </Text>
-          <Text style={[styles.controlsId, { color: resolveColor(themeColors, 'textSecondary', rnwMode) || '#64748B' }]}>
+          <Text style={[styles.controlsId, { color: resolveColor(themeColors, 'textSecondary', rnwMode) }]}>
             #{themeItem?.id} · passe o mouse nos elementos para ver o token e a cor
           </Text>
         </View>
@@ -2613,19 +2608,19 @@ export default function ThemePreviewPage() {
             style={[
               styles.paletteSection,
               {
-                backgroundColor: resolveColor(themeColors, 'containerBackground', rnwMode) || '#FFFFFF',
-                borderColor: resolveColor(themeColors, 'containerBorder', rnwMode) || '#E2E8F0',
+                backgroundColor: resolveColor(themeColors, 'containerBackground', rnwMode),
+                borderColor: resolveColor(themeColors, 'containerBorder', rnwMode),
               },
             ]}
           >
             <View style={styles.paletteHeader}>
-              <Text style={[styles.paletteEyebrow, { color: resolveColor(themeColors, 'textMuted', rnwMode) || '#64748B' }]}>
+              <Text style={[styles.paletteEyebrow, { color: resolveColor(themeColors, 'textMuted', rnwMode) }]}>
                 Mapa Completo
               </Text>
-              <Text style={[styles.paletteTitle, { color: resolveColor(themeColors, 'textPrimary', rnwMode) || '#0F172A' }]}>
+              <Text style={[styles.paletteTitle, { color: resolveColor(themeColors, 'textPrimary', rnwMode) }]}>
                 Todos os objetos do `themes-map.md` em um inspector único.
               </Text>
-              <Text style={[styles.paletteText, { color: resolveColor(themeColors, 'textSecondary', rnwMode) || '#64748B' }]}>
+              <Text style={[styles.paletteText, { color: resolveColor(themeColors, 'textSecondary', rnwMode) }]}>
                 Cada card abaixo preserva o preview visual do objeto e mantém os swatches hoveráveis para você ver
                 nome do token e valor em hex. Com `Show Undefined`, qualquer objeto com alguma propriedade sem cor fica verde.
               </Text>
@@ -2634,15 +2629,15 @@ export default function ThemePreviewPage() {
                   style={[
                     styles.paletteSummaryCard,
                     {
-                      backgroundColor: resolveColor(themeColors, 'cardBackground', rnwMode) || '#FFFFFF',
-                      borderColor: resolveColor(themeColors, 'cardBorder', rnwMode) || '#E2E8F0',
+                      backgroundColor: resolveColor(themeColors, 'cardBackground', rnwMode),
+                      borderColor: resolveColor(themeColors, 'cardBorder', rnwMode),
                     },
                   ]}
                 >
-                  <Text style={[styles.paletteSummaryValue, { color: resolveColor(themeColors, 'cardText', rnwMode) || '#0F172A' }]}>
+                  <Text style={[styles.paletteSummaryValue, { color: resolveColor(themeColors, 'cardText', rnwMode) }]}>
                     {filledTokenCount}/{allTokens.length}
                   </Text>
-                  <Text style={[styles.paletteSummaryLabel, { color: resolveColor(themeColors, 'cardText', rnwMode) || '#0F172A' }]}>
+                  <Text style={[styles.paletteSummaryLabel, { color: resolveColor(themeColors, 'cardText', rnwMode) }]}>
                     tokens definidos
                   </Text>
                 </View>
@@ -2650,15 +2645,15 @@ export default function ThemePreviewPage() {
                   style={[
                     styles.paletteSummaryCard,
                     {
-                      backgroundColor: resolveColor(themeColors, 'badgeSelectedBackground', rnwMode) || '#2563EB',
-                      borderColor: resolveColor(themeColors, 'badgeSelectedBorder', rnwMode) || '#1D4ED8',
+                      backgroundColor: resolveColor(themeColors, 'badgeSelectedBackground', rnwMode),
+                      borderColor: resolveColor(themeColors, 'badgeSelectedBorder', rnwMode),
                     },
                   ]}
                 >
-                  <Text style={[styles.paletteSummaryValue, { color: resolveColor(themeColors, 'badgeSelectedText', rnwMode) || '#FFFFFF' }]}>
+                  <Text style={[styles.paletteSummaryValue, { color: resolveColor(themeColors, 'badgeSelectedText', rnwMode) }]}>
                     {filledGroupCount}/{THEME_MAP_GROUPS.length}
                   </Text>
-                  <Text style={[styles.paletteSummaryLabel, { color: resolveColor(themeColors, 'badgeSelectedText', rnwMode) || '#FFFFFF' }]}>
+                  <Text style={[styles.paletteSummaryLabel, { color: resolveColor(themeColors, 'badgeSelectedText', rnwMode) }]}>
                     grupos com cor
                   </Text>
                 </View>
@@ -2666,15 +2661,15 @@ export default function ThemePreviewPage() {
                   style={[
                     styles.paletteSummaryCard,
                     {
-                      backgroundColor: showUndefined ? '#22C55E' : (resolveColor(themeColors, 'chipBackground', rnwMode) || '#E2E8F0'),
-                      borderColor: showUndefined ? '#15803D' : (resolveColor(themeColors, 'chipBorder', rnwMode) || '#CBD5E1'),
+                      backgroundColor: showUndefined ? '#22C55E' : resolveColor(themeColors, 'chipBackground', rnwMode),
+                      borderColor: showUndefined ? '#15803D' : resolveColor(themeColors, 'chipBorder', rnwMode),
                     },
                   ]}
                 >
-                  <Text style={[styles.paletteSummaryValue, { color: showUndefined ? '#FFFFFF' : (resolveColor(themeColors, 'chipText', rnwMode) || '#0F172A') }]}>
+                  <Text style={[styles.paletteSummaryValue, { color: showUndefined ? '#FFFFFF' : resolveColor(themeColors, 'chipText', rnwMode) }]}>
                     {allTokens.length - filledTokenCount}
                   </Text>
-                  <Text style={[styles.paletteSummaryLabel, { color: showUndefined ? '#FFFFFF' : (resolveColor(themeColors, 'chipText', rnwMode) || '#0F172A') }]}>
+                  <Text style={[styles.paletteSummaryLabel, { color: showUndefined ? '#FFFFFF' : resolveColor(themeColors, 'chipText', rnwMode) }]}>
                     faltando agora
                   </Text>
                 </View>

@@ -55,7 +55,7 @@ export const createStyles = (palette = colors) => {
       width: 48,
       height: 48,
       borderRadius: 16,
-      backgroundColor: palette.actionText,
+      backgroundColor: palette.cardIconBackground,
       alignItems: 'center',
       justifyContent: 'center',
     },

@@ -21,7 +21,6 @@ import { useStore } from '@store';
 import { api } from '@controleonline/ui-common/src/api';
 import useToastMessage from '@controleonline/ui-crm/src/react/hooks/useToastMessage';
 import { resolveThemePalette, withOpacity } from '@controleonline/../../src/styles/branding';
-import { colors } from '@controleonline/../../src/styles/colors';
 import styles from './ThemeManagerPage.styles';
 
 const STANDARD_COLOR_SWATCHES = [
@@ -225,6 +224,8 @@ const THEME_REFERENCE_GROUPS = [
       'cardHeaderBackground',
       'cardHeaderText',
       'cardIcon',
+      'cardIconColor',
+      'cardIconBackground',
       'cardSelectedBackground',
       'cardSelectedBorder',
       'cardSelectedText',
@@ -288,6 +289,7 @@ const THEME_REFERENCE_GROUPS = [
   {
     label: 'icon',
     tokens: [
+      'iconBackground',
       'iconColor',
       'iconActive',
       'iconDanger',
@@ -866,7 +868,7 @@ const pickThemeColor = (themeColors = {}, fallbackValue = '', keys = []) => {
   }
 
   if (isTransparentColor(fallbackValue)) return TRANSPARENT_COLOR_VALUE;
-  return normalizeHex(fallbackValue) || '#000000';
+  return normalizeHex(fallbackValue) || '';
 };
 
 const pickThemeColorExact = (themeColors = {}, key = '') => {
@@ -885,15 +887,15 @@ const pickThemeColorExactFromKeys = (themeColors = {}, keys = []) => {
 };
 
 const buildNewThemeDraft = fallbackPalette => ({
-  primary: normalizeHex(fallbackPalette.primary) || '#2563EB',
-  secondary: normalizeHex(fallbackPalette.secondary) || '#0F172A',
-  background: normalizeHex(fallbackPalette.background) || '#F8FAFC',
-  text: normalizeHex(fallbackPalette.text) || '#0F172A',
-  textSecondary: normalizeHex(fallbackPalette.textSecondary) || '#64748B',
-  border: normalizeHex(fallbackPalette.border) || '#E2E8F0',
+  primary: normalizeHex(fallbackPalette.primary) || '',
+  secondary: normalizeHex(fallbackPalette.secondary) || '',
+  background: normalizeHex(fallbackPalette.background) || '',
+  text: normalizeHex(fallbackPalette.text) || '',
+  textSecondary: normalizeHex(fallbackPalette.textSecondary) || '',
+  border: normalizeHex(fallbackPalette.border) || '',
 });
 
-const buildEditableDraft = (themeColors = {}, fallbackPalette = colors) => {
+const buildEditableDraft = (themeColors = {}, fallbackPalette = {}) => {
   const filteredEntries = Object.entries(normalizeThemeColors(themeColors))
     .map(([key, value]) => [key, normalizeThemeColorValue(value)])
     .filter(([key, value]) => Boolean(value) && !AUTO_GENERATED_ALIAS_KEYS.has(key))
@@ -1112,20 +1114,15 @@ const buildOverwriteThemeColors = (sourceThemeColors = {}, targetThemeColors = {
   ]);
 };
 
-const getPreviewColor = (themeColors, keys, fallbackValue) => {
-  return pickThemeColor(themeColors, fallbackValue, Array.isArray(keys) ? keys : [keys]);
+const getPreviewColor = (themeColors, keys) => {
+  return pickThemeColor(themeColors, '', Array.isArray(keys) ? keys : [keys]);
 };
 
-const getPreviewColorMode = (themeColors, keys, fallbackValue, useRnwPreview = false) => {
-  if (useRnwPreview) {
-    return getPreviewColor(themeColors, keys, fallbackValue);
-  }
-
+const getPreviewColorMode = (themeColors, keys) => {
   return pickThemeColorExactFromKeys(themeColors, keys);
 };
 
-const resolvePreviewValue = (value, fallbackValue, useRnwPreview = false) => {
-  if (useRnwPreview) return value || fallbackValue;
+const resolvePreviewValue = value => {
   return value || undefined;
 };
 
@@ -1526,6 +1523,7 @@ const renderThemeObjectPreview = (group, themeColors, onSelectTokens, useRnwPrev
       const cardBorder = getPreviewColorMode(themeColors, ['cardBorder', 'border'], '#E2E8F0', useRnwPreview);
       const cardHeaderBackground = getPreviewColorMode(themeColors, ['cardHeaderBackground', 'sectionBackground'], '#F8FAFC', useRnwPreview);
       const cardHeaderText = getPreviewColorMode(themeColors, ['cardHeaderText', 'textPrimary', 'text'], '#0F172A', useRnwPreview);
+      const cardIconColor = getPreviewColorMode(themeColors, ['cardIconColor'], '#64748B', useRnwPreview);
       const cardText = getPreviewColorMode(themeColors, ['cardText', 'textPrimary', 'text'], '#0F172A', useRnwPreview);
 
       return (
@@ -1540,7 +1538,7 @@ const renderThemeObjectPreview = (group, themeColors, onSelectTokens, useRnwPrev
           ]}
         >
           <PreviewPressTarget
-            tokenKeys={['cardHeaderBackground', 'cardHeaderText', 'cardIcon']}
+            tokenKeys={['cardHeaderBackground', 'cardHeaderText', 'cardIcon', 'cardIconColor']}
             onSelectTokens={onSelectTokens}
             style={[
               styles.previewInnerCardHeader,
@@ -1548,7 +1546,7 @@ const renderThemeObjectPreview = (group, themeColors, onSelectTokens, useRnwPrev
             ]}
           >
             <Text style={[styles.previewInnerCardTitle, { color: resolvePreviewValue(cardHeaderText, '#0F172A', useRnwPreview) }]}>Resumo</Text>
-            <Icon name="more-horizontal" size={14} color={resolvePreviewValue(cardHeaderText, '#0F172A', useRnwPreview)} />
+            <Icon name="more-horizontal" size={14} color={resolvePreviewValue(cardIconColor, '#64748B', useRnwPreview)} />
           </PreviewPressTarget>
           <PreviewPressTarget
             tokenKeys={['cardBackground', 'cardBorder', 'cardText']}
@@ -2659,7 +2657,7 @@ const ColorEditor = ({
   const currentHexInputValue = isExplicitTransparent ? '' : formatHexInputValue(normalizedValue);
   const currentRgbaInputValue = formatRgbaInputValue(normalizedValue);
   const currentBaseHexColor = getHexBaseColor(normalizedValue);
-  const currentPreviewColor = isExplicitTransparent ? '#FFFFFF' : (normalizedValue || '#FFFFFF');
+  const currentPreviewColor = isExplicitTransparent ? '#FFFFFF' : normalizedValue;
   const [lastBaseHexColor, setLastBaseHexColor] = useState(currentBaseHexColor);
   const alphaPercent = getHexAlphaPercent(normalizedValue);
   const baseHexColor = currentBaseHexColor || lastBaseHexColor || '';
@@ -3181,7 +3179,6 @@ export default function ThemeManagerPage() {
         ...normalizeThemeColors(themeColors),
         ...normalizeThemeColors(currentCompany?.theme?.colors),
       },
-      colors,
     ),
     [themeColors, currentCompany?.id, currentCompany?.theme?.colors],
   );

@@ -1,17 +1,16 @@
 import { Platform, StyleSheet } from 'react-native';
 import { colors } from '@controleonline/../../src/styles/colors';
-import { withOpacity } from '@controleonline/../../src/styles/branding';
 
 const buildCardShadow = palette =>
   Platform.select({
     ios: {
-      shadowColor: palette.text,
+      shadowColor: palette.cardShadow,
       shadowOffset: { width: 0, height: 4 },
       shadowOpacity: 0.05,
       shadowRadius: 12,
     },
     android: { elevation: 2 },
-    web: { boxShadow: `0 4px 12px ${withOpacity(palette.text, 0.06)}` },
+    web: palette.cardShadow ? { boxShadow: `0 4px 12px ${palette.cardShadow}` } : {},
   });
 
 export const createStyles = (palette = colors) => {
@@ -53,7 +52,7 @@ export const createStyles = (palette = colors) => {
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 8,
-    backgroundColor: palette.statIconBackground,
+    backgroundColor: palette.cardIconBackground,
   },
   statValue: {
     fontSize: 20,
@@ -75,12 +74,13 @@ export const createStyles = (palette = colors) => {
     backgroundColor: palette.actionBackground,
     ...Platform.select({
       ios: {
+        shadowColor: palette.buttonShadow,
         shadowOffset: { width: 0, height: 8 },
         shadowOpacity: 0.2,
         shadowRadius: 16,
       },
       android: { elevation: 5 },
-      web: { boxShadow: `0 8px 24px ${withOpacity(palette.actionBackground, 0.18)}` },
+      web: palette.buttonShadow ? { boxShadow: `0 8px 24px ${palette.buttonShadow}` } : {},
     }),
   },
   actionContent: {
@@ -97,13 +97,13 @@ export const createStyles = (palette = colors) => {
   },
   actionSub: {
     fontSize: 13,
-    color: withOpacity(palette.actionText, 0.76),
+    color: palette.actionText,
   },
   actionArrow: {
     width: 40,
     height: 40,
     borderRadius: 12,
-    backgroundColor: palette.actionText,
+    backgroundColor: palette.cardIconBackground,
     alignItems: 'center',
     justifyContent: 'center',
   },
