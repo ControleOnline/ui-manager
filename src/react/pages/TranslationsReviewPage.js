@@ -14,7 +14,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/Feather';
 
 import { api } from '@controleonline/ui-common/src/api';
-import CompactFilterSelector from '@controleonline/ui-default/src/react/components/filters/CompactFilterSelector';
+import DefaultExternalFilters from '@controleonline/ui-default/src/react/components/filters/DefaultExternalFilters';
 import useToastMessage from '@controleonline/ui-crm/src/react/hooks/useToastMessage';
 import { useStore } from '@store';
 import { colors } from '@controleonline/../../src/styles/colors';
@@ -206,36 +206,30 @@ export default function TranslationsReviewPage() {
     || 'empresa principal';
   const languageFilterOptions = useMemo(
     () => languageOptions.map(language => ({
-      key: language.value,
+      value: language.value,
       label: language.label,
     })),
     [languageOptions],
   );
   const storeFilterOptions = useMemo(
-    () => [
-      { key: '', label: 'Todas as stores' },
-      ...storeOptions.map(store => ({
-        key: store,
+    () => storeOptions.map(store => ({
+        value: store,
         label: store,
       })),
-    ],
     [storeOptions],
   );
   const typeFilterOptions = useMemo(
-    () => [
-      { key: '', label: 'Todos os tipos' },
-      ...typeOptions.map(type => ({
-        key: type,
+    () => typeOptions.map(type => ({
+        value: type,
         label: type,
       })),
-    ],
     [typeOptions],
   );
   const reviewFilterOptions = useMemo(
     () => [
-      { key: 'all', label: 'Todas as traduções' },
+      { value: 'all', label: 'Todas as traduções' },
       {
-        key: 'pending',
+        value: 'pending',
         label: summary?.pendingReview > 0
           ? `Pendentes (${summary.pendingReview})`
           : 'Pendentes',
@@ -243,21 +237,26 @@ export default function TranslationsReviewPage() {
     ],
     [summary?.pendingReview],
   );
-  const selectedLanguageLabel = useMemo(
-    () => languageFilterOptions.find(option => option.key === filters.language)?.label || 'Idioma',
-    [filters.language, languageFilterOptions],
+  const externalFilterValues = useMemo(
+    () => ({
+      language: filters.language,
+      review: filters.pendingOnly ? 'pending' : 'all',
+      store: filters.store,
+      type: filters.type,
+    }),
+    [filters.language, filters.pendingOnly, filters.store, filters.type],
   );
-  const selectedStoreLabel = useMemo(
-    () => storeFilterOptions.find(option => option.key === filters.store)?.label || 'Todas as stores',
-    [filters.store, storeFilterOptions],
-  );
-  const selectedTypeLabel = useMemo(
-    () => typeFilterOptions.find(option => option.key === filters.type)?.label || 'Todos os tipos',
-    [filters.type, typeFilterOptions],
-  );
-  const selectedReviewLabel = useMemo(
-    () => reviewFilterOptions.find(option => option.key === (filters.pendingOnly ? 'pending' : 'all'))?.label || 'Todas as traduções',
-    [filters.pendingOnly, reviewFilterOptions],
+  const getExternalFilterOptions = useCallback(
+    column => {
+      const fieldName = column?.name || column?.key;
+      if (fieldName === 'language') return languageFilterOptions;
+      if (fieldName === 'review') return reviewFilterOptions;
+      if (fieldName === 'store') return storeFilterOptions;
+      if (fieldName === 'type') return typeFilterOptions;
+
+      return [];
+    },
+    [languageFilterOptions, reviewFilterOptions, storeFilterOptions, typeFilterOptions],
   );
 
   const loadLanguages = useCallback(async () => {
@@ -436,12 +435,15 @@ export default function TranslationsReviewPage() {
     }
   }, [loadLanguages, loadOverview]);
 
-  const setFilterValue = useCallback((field, value) => {
+  const handleExternalFiltersChange = useCallback(nextFilters => {
     setFilters(previous => ({
       ...previous,
-      [field]: value,
+      language: nextFilters?.language || resolvedLanguage || previous.language,
+      pendingOnly: nextFilters?.review ? nextFilters.review === 'pending' : true,
+      store: nextFilters?.store || '',
+      type: nextFilters?.type || '',
     }));
-  }, []);
+  }, [resolvedLanguage]);
 
   const applySearch = useCallback(() => {
     setFilters(previous => ({
@@ -587,67 +589,13 @@ export default function TranslationsReviewPage() {
             </TouchableOpacity>
           </View>
 
-          <View style={styles.filterSelectorsRow}>
-            <CompactFilterSelector
-              icon="globe"
-              label={selectedLanguageLabel}
-              title="Idioma"
-              accentColor={brandColors.primary}
-              active={Boolean(filters.language)}
-              options={languageFilterOptions}
-              selectedKey={filters.language}
-              onSelect={optionKey => {
-                setFilterValue('language', optionKey);
-                return true;
-              }}
-            />
-
-            <CompactFilterSelector
-              icon="alert-triangle"
-              label={selectedReviewLabel}
-              title="Revisao"
-              accentColor={filters.pendingOnly ? '#DC2626' : (brandColors.primary)}
-              active={filters.pendingOnly}
-              options={reviewFilterOptions}
-              selectedKey={filters.pendingOnly ? 'pending' : 'all'}
-              onSelect={optionKey => {
-                setFilterValue('pendingOnly', optionKey === 'pending');
-                return true;
-              }}
-            />
-
-            {storeOptions.length > 0 ? (
-              <CompactFilterSelector
-                icon="database"
-                label={selectedStoreLabel}
-                title="Store"
-                accentColor={brandColors.primary}
-                active={Boolean(filters.store)}
-                options={storeFilterOptions}
-                selectedKey={filters.store}
-                onSelect={optionKey => {
-                  setFilterValue('store', optionKey);
-                  return true;
-                }}
-              />
-            ) : null}
-
-            {typeOptions.length > 0 ? (
-              <CompactFilterSelector
-                icon="tag"
-                label={selectedTypeLabel}
-                title="Tipo"
-                accentColor={brandColors.primary}
-                active={Boolean(filters.type)}
-                options={typeFilterOptions}
-                selectedKey={filters.type}
-                onSelect={optionKey => {
-                  setFilterValue('type', optionKey);
-                  return true;
-                }}
-              />
-            ) : null}
-          </View>
+          <DefaultExternalFilters
+            accentColor={brandColors.primary}
+            filters={externalFilterValues}
+            getOptionsForColumn={getExternalFilterOptions}
+            onChangeFilters={handleExternalFiltersChange}
+            storeName="translate"
+          />
 
           {hasMainFallback ? (
             <View style={styles.infoBanner}>
