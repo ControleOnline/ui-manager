@@ -4,6 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useNavigation, useRoute } from '@react-navigation/native';
 import {Picker} from '@react-native-picker/picker';
 import { useStore } from '@store';
+import { api } from '@controleonline/ui-common/src/api';
 import Formatter from '@controleonline/ui-common/src/utils/formatter';
 import StateStore from '@controleonline/ui-common/src/react/components/StateStore';
 import PaymentTypesByWalletTab from '@controleonline/ui-common/src/react/pages/SettingsPage/PaymentTypesByWalletTab';
@@ -48,6 +49,7 @@ import {
   POS_OPERATION_MODE_COUNTER,
   POS_OPERATION_MODE_CONFIG_KEY,
   POS_OPERATION_MODE_OPTIONS,
+  POS_PRODUCT_SHOWCASE_CONFIG_KEY,
   POS_PRINT_MODE_FORM,
   POS_PRINT_MODE_ORDER,
   getPosOperationModeOption,
@@ -167,6 +169,13 @@ const getDisplayLabel = display => {
   }
 
   return `Display #${normalizeEntityId(display) || '--'}`;
+};
+
+const getProductShowcaseLabel = showcase => {
+  const name = String(showcase?.name || '').trim();
+  const externalCode = String(showcase?.externalStoreCode || '').trim();
+  if (name && externalCode) return `${name} (${externalCode})`;
+  return name || `Vitrine #${normalizeEntityId(showcase) || '--'}`;
 };
 
 const getIsOpen = configs => {
@@ -335,6 +344,7 @@ const DeviceDetailPage = () => {
   );
 
   const [products,      setProducts]      = useState([]);
+  const [productShowcases, setProductShowcases] = useState([]);
   const [companyDeviceConfigs, setCompanyDeviceConfigs] = useState([]);
   const [inflowData,    setInflowData]    = useState(null);
   const [configs,       setConfigs]       = useState(normalizedInitialConfigs || {});
@@ -348,6 +358,7 @@ const DeviceDetailPage = () => {
   const [savingPdvSettings, setSavingPdvSettings] = useState(false);
   const [savingPaymentTypes, setSavingPaymentTypes] = useState(false);
   const [savingPosOperationMode, setSavingPosOperationMode] = useState(false);
+  const [savingProductShowcase, setSavingProductShowcase] = useState(false);
   const [savingLauncherMode, setSavingLauncherMode] = useState(false);
   const [savingAlertSound, setSavingAlertSound] = useState(false);
   const [savingOrderVisibility, setSavingOrderVisibility] = useState(false);
@@ -355,6 +366,7 @@ const DeviceDetailPage = () => {
     useState(false);
   const [savingRuntimeDebugInfo, setSavingRuntimeDebugInfo] = useState(false);
   const [sendingCatalogRefresh, setSendingCatalogRefresh] = useState(false);
+  const [loadingProductShowcases, setLoadingProductShowcases] = useState(false);
   const [search,        setSearch]        = useState('');
   const [devicePaymentTarget, setDevicePaymentTarget] = useState(
     normalizeDeviceId(normalizedInitialConfigs?.[ORDER_PAYMENT_DEVICE_CONFIG_KEY]),
@@ -367,6 +379,9 @@ const DeviceDetailPage = () => {
   );
   const [posOperationMode, setPosOperationMode] = useState(
     resolvePosOperationMode(normalizedInitialConfigs),
+  );
+  const [productShowcaseId, setProductShowcaseId] = useState(
+    normalizeEntityId(normalizedInitialConfigs?.[POS_PRODUCT_SHOWCASE_CONFIG_KEY]),
   );
   const [androidKioskEnabled, setAndroidKioskEnabled] = useState(
     isAndroidKioskEnabled(normalizedInitialConfigs),
@@ -605,6 +620,9 @@ const DeviceDetailPage = () => {
       setPdvGateway(getPaymentGatewayFromConfigs(nextConfigs));
       setPdvPrinterEnabled(isPdvPrinterEnabled(nextConfigs));
       setPosOperationMode(resolvePosOperationMode(nextConfigs));
+      setProductShowcaseId(
+        normalizeEntityId(nextConfigs[POS_PRODUCT_SHOWCASE_CONFIG_KEY]),
+      );
       setAndroidKioskEnabled(isAndroidKioskEnabled(nextConfigs));
       setAndroidLauncherEnabled(isAndroidLauncherEnabled(nextConfigs));
       setCounterAutoPrintEnabled(isPosAutoPrintEnabled(nextConfigs));
@@ -653,6 +671,7 @@ const DeviceDetailPage = () => {
     setPdvGateway('');
     setPdvPrinterEnabled(true);
     setPosOperationMode(resolvePosOperationMode({}));
+    setProductShowcaseId('');
     setAndroidKioskEnabled(false);
     setAndroidLauncherEnabled(false);
     setCounterAutoPrintEnabled(isPosAutoPrintEnabled({}));
@@ -800,6 +819,35 @@ const DeviceDetailPage = () => {
     }
   }, [currentCompany?.id]);
 
+  const loadProductShowcases = useCallback(async () => {
+    if (!currentCompany?.id || !isPdvDevice) {
+      setProductShowcases([]);
+      return;
+    }
+
+    setLoadingProductShowcases(true);
+    try {
+      const response = await api.fetch('/product_showcases', {
+        params: {
+          company: `/people/${currentCompany.id}`,
+          integrationKey: 'pos',
+          active: 1,
+          'order[name]': 'ASC',
+        },
+      });
+      const items =
+        response?.member ||
+        response?.['hydra:member'] ||
+        response?.items ||
+        response;
+      setProductShowcases(Array.isArray(items) ? items : []);
+    } catch {
+      setProductShowcases([]);
+    } finally {
+      setLoadingProductShowcases(false);
+    }
+  }, [currentCompany?.id, isPdvDevice]);
+
   const ensureActiveTabData = useCallback(async ({ force = false } = {}) => {
     if (!currentCompany?.id) {
       return;
@@ -839,12 +887,17 @@ const DeviceDetailPage = () => {
     if (force || !hasLoadedCurrentConfig) {
       await refreshCurrentConfig();
     }
+
+    if (activePdvTab === PDV_TAB_OPERATION) {
+      await loadProductShowcases();
+    }
   }, [
     activePdvTab,
     currentCompany?.id,
     isPdvDevice,
     loadCompanyConfigs,
     loadMovementData,
+    loadProductShowcases,
     refreshCurrentConfig,
   ]);
 
@@ -1049,6 +1102,43 @@ const DeviceDetailPage = () => {
     pdvPrinterEnabled,
     refreshCurrentConfig,
     savingPdvSettings,
+    showSystemError,
+  ]);
+
+  const saveProductShowcaseConfig = useCallback(async (override = {}) => {
+    const nextProductShowcaseId =
+      override.productShowcaseId ?? productShowcaseId;
+
+    if (!currentCompany?.id || !deviceString || savingProductShowcase) {
+      return;
+    }
+
+    setSavingProductShowcase(true);
+    try {
+      await actionsRef.current.deviceConfigActions.addDeviceConfigs({
+        device: deviceString,
+        configs: JSON.stringify({
+          [POS_PRODUCT_SHOWCASE_CONFIG_KEY]: nextProductShowcaseId || '',
+        }),
+        people: '/people/' + currentCompany.id,
+        type: deviceType,
+      });
+      await refreshCurrentConfig();
+    } catch (error) {
+      showSystemError(
+        error,
+        'Nao foi possivel salvar a vitrine deste PDV.',
+      );
+    } finally {
+      setSavingProductShowcase(false);
+    }
+  }, [
+    currentCompany?.id,
+    deviceString,
+    deviceType,
+    productShowcaseId,
+    refreshCurrentConfig,
+    savingProductShowcase,
     showSystemError,
   ]);
 
@@ -1810,6 +1900,39 @@ const DeviceDetailPage = () => {
                   savePosOperationMode({posOperationMode: nextValue});
                 },
               })}
+
+              <View style={styles.pickerWrap}>
+                <Picker
+                  selectedValue={productShowcaseId || ''}
+                  mode={pickerMode}
+                  enabled={!loadingProductShowcases && !savingProductShowcase}
+                  style={styles.picker}
+                  dropdownIconColor="#64748B"
+                  onValueChange={value => {
+                    const nextValue = normalizeEntityId(value);
+                    setProductShowcaseId(nextValue);
+                    saveProductShowcaseConfig({productShowcaseId: nextValue});
+                  }}>
+                  <Picker.Item
+                    label={
+                      loadingProductShowcases
+                        ? 'Carregando vitrines...'
+                        : 'Sem vitrine vinculada'
+                    }
+                    value=""
+                  />
+                  {productShowcases.map(showcase => {
+                    const showcaseId = normalizeEntityId(showcase);
+                    return (
+                      <Picker.Item
+                        key={`pos-showcase-${showcaseId}`}
+                        label={getProductShowcaseLabel(showcase)}
+                        value={showcaseId}
+                      />
+                    );
+                  })}
+                </Picker>
+              </View>
 
               <TouchableOpacity
                 style={[

@@ -1,4 +1,5 @@
 import PurchaseSuggestions from '@controleonline/ui-products/src/react/pages/PurchaseSuggestions';
+import ProductShowcasesPage from '@controleonline/ui-products/src/react/pages/ProductShowcasesPage';
 import Inventory from '@controleonline/ui-orders/src/react/pages/inventory';
 import PdvPage from '@controleonline/ui-manager/src/react/pages/PdvPage';
 
@@ -465,6 +466,17 @@ const managerRoutes = [
       headerBackVisible: true,
       title: 'PDV',
       showBottomToolBar: true,
+      showCompanyFilter: true,
+      companyFilterMode: 'icon',
+    },
+  },
+  {
+    name: 'ProductShowcasesPage',
+    component: ProductShowcasesPage,
+    options: {
+      headerShown: true,
+      headerBackVisible: true,
+      title: 'Vitrines de preços',
       showCompanyFilter: true,
       companyFilterMode: 'icon',
     },

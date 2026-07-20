@@ -59,6 +59,14 @@ const getConfigActions = () => [
     route: 'IntegrationsPage',
   },
   {
+    label: tt('hub_label', 'productShowcases') || 'Vitrines de preços',
+    description:
+      tt('hub_description', 'productShowcases') ||
+      'Veja a distribuição de produtos por integração, preço, estoque de saída e código externo.',
+    icon: 'grid',
+    route: 'ProductShowcasesPage',
+  },
+  {
     label: tt('hub_label', 'cronJobs') || 'Cron jobs',
     description:
       tt('hub_description', 'cronJobs') ||
