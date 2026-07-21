@@ -226,6 +226,7 @@ const THEME_REFERENCE_GROUPS = [
       'cardIcon',
       'cardIconColor',
       'cardIconBackground',
+      'cardIconBorder',
       'cardSelectedBackground',
       'cardSelectedBorder',
       'cardSelectedText',
@@ -1524,6 +1525,8 @@ const renderThemeObjectPreview = (group, themeColors, onSelectTokens, useRnwPrev
       const cardHeaderBackground = getPreviewColorMode(themeColors, ['cardHeaderBackground', 'sectionBackground'], '#F8FAFC', useRnwPreview);
       const cardHeaderText = getPreviewColorMode(themeColors, ['cardHeaderText', 'textPrimary', 'text'], '#0F172A', useRnwPreview);
       const cardIconColor = getPreviewColorMode(themeColors, ['cardIconColor'], '#64748B', useRnwPreview);
+      const cardIconBackground = getPreviewColorMode(themeColors, ['cardIconBackground', 'cardBackground'], '#FFFFFF', useRnwPreview);
+      const cardIconBorder = getPreviewColorMode(themeColors, ['cardIconBorder', 'cardBorder', 'border'], '#E2E8F0', useRnwPreview);
       const cardText = getPreviewColorMode(themeColors, ['cardText', 'textPrimary', 'text'], '#0F172A', useRnwPreview);
 
       return (
@@ -1538,7 +1541,7 @@ const renderThemeObjectPreview = (group, themeColors, onSelectTokens, useRnwPrev
           ]}
         >
           <PreviewPressTarget
-            tokenKeys={['cardHeaderBackground', 'cardHeaderText', 'cardIcon', 'cardIconColor']}
+            tokenKeys={['cardHeaderBackground', 'cardHeaderText', 'cardIcon', 'cardIconColor', 'cardIconBackground', 'cardIconBorder']}
             onSelectTokens={onSelectTokens}
             style={[
               styles.previewInnerCardHeader,
@@ -1546,7 +1549,20 @@ const renderThemeObjectPreview = (group, themeColors, onSelectTokens, useRnwPrev
             ]}
           >
             <Text style={[styles.previewInnerCardTitle, { color: resolvePreviewValue(cardHeaderText, '#0F172A', useRnwPreview) }]}>Resumo</Text>
-            <Icon name="more-horizontal" size={14} color={resolvePreviewValue(cardIconColor, '#64748B', useRnwPreview)} />
+            <View
+              style={{
+                alignItems: 'center',
+                backgroundColor: resolvePreviewValue(cardIconBackground, '#FFFFFF', useRnwPreview),
+                borderColor: resolvePreviewValue(cardIconBorder, '#E2E8F0', useRnwPreview),
+                borderRadius: 999,
+                borderWidth: useRnwPreview ? 1 : cardIconBorder ? 1 : 0,
+                height: 24,
+                justifyContent: 'center',
+                width: 24,
+              }}
+            >
+              <Icon name="more-horizontal" size={14} color={resolvePreviewValue(cardIconColor, '#64748B', useRnwPreview)} />
+            </View>
           </PreviewPressTarget>
           <PreviewPressTarget
             tokenKeys={['cardBackground', 'cardBorder', 'cardText']}
