@@ -12,7 +12,7 @@ const getFinancialTabs = () => [
   {
     key: 'receivables',
     label: translate('invoice', 'label', 'accountsReceivable') || 'Contas a receber',
-    icon: 'arrow-up-circle',
+    icon: 'arrow-down-circle',
     categoryContext: 'receiver',
     categoryTitle: translate('invoice', 'label', 'revenueCategories'),
     categoryContextLabel: translate('invoice', 'label', 'revenue'),
@@ -20,7 +20,7 @@ const getFinancialTabs = () => [
   {
     key: 'payables',
     label: translate('invoice', 'label', 'accountsPayable') || 'Contas a pagar',
-    icon: 'arrow-down-circle',
+    icon: 'arrow-up-circle',
     categoryContext: 'payer',
     categoryTitle: translate('invoice', 'label', 'expenseCategories'),
     categoryContextLabel: translate('invoice', 'label', 'expense'),

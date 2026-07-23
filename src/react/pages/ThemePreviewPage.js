@@ -131,8 +131,8 @@ const RNW = {
   radioBackground: '#FFFFFF', radioBorder: '#94A3B8', radioDisabledBackground: '#F1F5F9',
   radioDisabledBorder: '#CBD5E1', radioDisabledDot: '#94A3B8', radioSelectedBackground: '#FFFFFF',
   radioSelectedBorder: '#2563EB', radioSelectedDot: '#2563EB', radioText: '#0F172A',
-  switchBorder: '#CBD5E1', switchDisabledThumb: '#94A3B8', switchDisabledTrack: '#E2E8F0',
-  switchFocusBorder: '#2563EB', switchOffThumb: '#FFFFFF', switchOffTrack: '#CBD5E1',
+  switchDisabledThumb: '#94A3B8', switchDisabledTrack: '#E2E8F0',
+  switchOffThumb: '#FFFFFF', switchOffTrack: '#CBD5E1',
   switchOnThumb: '#FFFFFF', switchOnTrack: '#2563EB',
   textDanger: '#DC2626', textDisabled: '#94A3B8', textInverse: '#FFFFFF', textLink: '#2563EB',
   textMuted: '#64748B', textPlaceholder: '#94A3B8', textPrimary: '#0F172A',
@@ -273,8 +273,8 @@ const THEME_MAP_GROUPS = [
   },
   {
     label: 'switch',
-    tokens: ['switchBorder','switchDisabledThumb','switchDisabledTrack','switchFocusBorder',
-      'switchOffThumb','switchOffTrack','switchOnThumb','switchOnTrack'],
+    tokens: ['switchDisabledThumb','switchDisabledTrack','switchOffThumb',
+      'switchOffTrack','switchOnThumb','switchOnTrack'],
   },
   {
     label: 'text',
@@ -839,11 +839,11 @@ const renderGroupVisual = (groupLabel, themeColors, rnwMode, showUndefined) => {
     case 'switch':
       return (
         <View style={styles.miniRow}>
-          <Hz keys={['switchOffTrack', 'switchOffThumb', 'switchBorder']}
+          <Hz keys={['switchOffTrack', 'switchOffThumb']}
             style={[styles.miniSwitch, { backgroundColor: sc('switchOffTrack', '#CBD5E1') }]}>
             <View style={[styles.miniSwitchThumb, { backgroundColor: sc('switchOffThumb', '#FFFFFF'), alignSelf: 'flex-start' }]} />
           </Hz>
-          <Hz keys={['switchOnTrack', 'switchOnThumb', 'switchFocusBorder']}
+          <Hz keys={['switchOnTrack', 'switchOnThumb']}
             style={[styles.miniSwitch, { backgroundColor: sc('switchOnTrack', '#2563EB') }]}>
             <View style={[styles.miniSwitchThumb, { backgroundColor: sc('switchOnThumb', '#FFFFFF'), alignSelf: 'flex-end' }]} />
           </Hz>
@@ -1801,7 +1801,7 @@ const ThemeLandingPreview = ({
                 'checkboxDisabledBackground', 'checkboxDisabledBorder', 'checkboxDisabledMark',
                 'radioBackground', 'radioBorder', 'radioText', 'radioSelectedBackground', 'radioSelectedBorder',
                 'radioSelectedDot', 'radioDisabledBackground', 'radioDisabledBorder', 'radioDisabledDot',
-                'switchBorder', 'switchOnTrack', 'switchOnThumb', 'switchOffTrack', 'switchOffThumb',
+                'switchOnTrack', 'switchOnThumb', 'switchOffTrack', 'switchOffThumb',
                 'switchDisabledTrack', 'switchDisabledThumb',
               ]}
               style={[
@@ -1941,14 +1941,14 @@ const ThemeLandingPreview = ({
                       <View style={[styles.radioBox, { backgroundColor: sc('radioDisabledBackground', '#F1F5F9'), borderColor: sc('radioDisabledBorder', '#CBD5E1') }]} />
                       <Text style={[styles.fieldValue, { color: sc('radioDisabledDot', '#94A3B8') }]}>Opção bloqueada</Text>
                     </Zone>
-                    <Zone keys={['switchOnTrack', 'switchOnThumb', 'switchFocusBorder']} style={styles.controlRow}>
-                      <View style={[styles.switchTrack, { backgroundColor: sc('switchOnTrack', '#2563EB'), borderColor: sc('switchFocusBorder', '#2563EB') }]}>
+                    <Zone keys={['switchOnTrack', 'switchOnThumb']} style={styles.controlRow}>
+                      <View style={[styles.switchTrack, { backgroundColor: sc('switchOnTrack', '#2563EB') }]}>
                         <View style={[styles.switchThumb, { backgroundColor: sc('switchOnThumb', '#FFFFFF'), alignSelf: 'flex-end' }]} />
                       </View>
                       <Text style={[styles.fieldValue, { color: sc('textPrimary', '#0F172A') }]}>Switch ligado</Text>
                     </Zone>
-                    <Zone keys={['switchDisabledTrack', 'switchDisabledThumb', 'switchBorder']} style={styles.controlRow}>
-                      <View style={[styles.switchTrack, { backgroundColor: sc('switchDisabledTrack', '#E2E8F0'), borderColor: sc('switchBorder', '#CBD5E1') }]}>
+                    <Zone keys={['switchDisabledTrack', 'switchDisabledThumb']} style={styles.controlRow}>
+                      <View style={[styles.switchTrack, { backgroundColor: sc('switchDisabledTrack', '#E2E8F0') }]}>
                         <View style={[styles.switchThumb, { backgroundColor: sc('switchDisabledThumb', '#94A3B8'), alignSelf: 'flex-start' }]} />
                       </View>
                       <Text style={[styles.fieldValue, { color: sc('textSecondary', '#64748B') }]}>Switch desabilitado</Text>

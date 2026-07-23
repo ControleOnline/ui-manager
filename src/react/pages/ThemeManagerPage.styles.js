@@ -360,12 +360,6 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '800',
   },
-  previewIconRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
   previewIconBubble: {
     width: 34,
     height: 34,
@@ -386,10 +380,6 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingVertical: 2,
     borderRadius: 8,
-  },
-  previewChoiceText: {
-    fontSize: 12,
-    fontWeight: '700',
   },
   previewCheckbox: {
     width: 20,
@@ -535,10 +525,10 @@ const styles = StyleSheet.create({
     padding: 3,
     justifyContent: 'center',
   },
-  previewSwitchThumb: {
-    width: 18,
-    height: 18,
-    borderRadius: 999,
+  previewSwitchStateText: {
+    color: '#0F172A',
+    fontSize: 11,
+    fontWeight: '800',
   },
   previewToast: {
     minHeight: 34,

@@ -8,6 +8,7 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
+  Switch,
   Text,
   TextInput,
   TouchableOpacity,
@@ -471,10 +472,8 @@ const THEME_REFERENCE_GROUPS = [
   {
     label: 'switch',
     tokens: [
-      'switchBorder',
       'switchDisabledThumb',
       'switchDisabledTrack',
-      'switchFocusBorder',
       'switchOffThumb',
       'switchOffTrack',
       'switchOnThumb',
@@ -1202,6 +1201,7 @@ const renderThemeObjectPreview = (group, themeColors, onSelectTokens, useRnwPrev
       const secondaryBackground = getPreviewColorMode(themeColors, ['buttonBackgroundSecondary'], '', useRnwPreview);
       const secondaryBorder = getPreviewColorMode(themeColors, ['buttonBorderSecondary'], '', useRnwPreview);
       const secondaryText = getPreviewColorMode(themeColors, ['buttonTextSecondary'], '', useRnwPreview);
+      const secondaryIcon = getPreviewColorMode(themeColors, ['buttonIconSecondary'], '', useRnwPreview);
       const disabledBackground = getPreviewColorMode(themeColors, ['buttonDisabledBackground'], '', useRnwPreview);
       const disabledText = getPreviewColorMode(themeColors, ['buttonDisabledText'], '', useRnwPreview);
 
@@ -1227,6 +1227,8 @@ const renderThemeObjectPreview = (group, themeColors, onSelectTokens, useRnwPrev
               style={[
                 styles.previewButton,
                 {
+                  flex: 0,
+                  minWidth: 120,
                   backgroundColor: resolvePreviewValue(primaryBackground, primaryBaseBackground, useRnwPreview),
                   borderColor: resolvePreviewValue(primaryBorder, primaryBaseBorder, useRnwPreview),
                   borderWidth: useRnwPreview ? 1 : primaryBorder ? 1 : 0,
@@ -1236,40 +1238,29 @@ const renderThemeObjectPreview = (group, themeColors, onSelectTokens, useRnwPrev
               <Icon name="check" size={12} color={resolvePreviewValue(primaryIcon, primaryBaseIcon, useRnwPreview)} />
               <Text style={[styles.previewButtonText, { color: resolvePreviewValue(primaryText, primaryBaseText, useRnwPreview) }]}>Primário</Text>
             </PreviewPressTarget>
+            <Text style={styles.previewSwitchStateText}>Primário</Text>
+          </View>
+          <View style={styles.previewRow}>
             <PreviewPressTarget
               tokenKeys={['buttonBackgroundSecondary', 'buttonBorderSecondary', 'buttonTextSecondary', 'buttonIconSecondary']}
               onSelectTokens={onSelectTokens}
               style={[
                 styles.previewButton,
                 {
+                  flex: 0,
+                  minWidth: 120,
                   backgroundColor: resolvePreviewValue(secondaryBackground, secondaryBaseBackground, useRnwPreview),
                   borderColor: resolvePreviewValue(secondaryBorder, secondaryBaseBorder, useRnwPreview),
                   borderWidth: useRnwPreview ? 1 : secondaryBorder ? 1 : 0,
                 },
               ]}
             >
+              <Icon name="circle" size={12} color={resolvePreviewValue(secondaryIcon, secondaryBaseText, useRnwPreview)} />
               <Text style={[styles.previewButtonText, { color: resolvePreviewValue(secondaryText, secondaryBaseText, useRnwPreview) }]}>Secundário</Text>
             </PreviewPressTarget>
+            <Text style={styles.previewSwitchStateText}>Secundário</Text>
           </View>
           <View style={styles.previewRow}>
-            <PreviewPressTarget
-              tokenKeys={['buttonBackground', 'buttonBorder', 'buttonIcon']}
-              onSelectTokens={onSelectTokens}
-              style={[
-                styles.previewButton,
-                {
-                  flex: 0,
-                  minWidth: 40,
-                  width: 40,
-                  paddingHorizontal: 0,
-                  backgroundColor: resolvePreviewValue(primaryBackground, primaryBaseBackground, useRnwPreview),
-                  borderColor: resolvePreviewValue(primaryBorder, primaryBaseBorder, useRnwPreview),
-                  borderWidth: useRnwPreview ? 1 : primaryBorder ? 1 : 0,
-                },
-              ]}
-            >
-              <Icon name="filter" size={13} color={resolvePreviewValue(primaryIcon, primaryBaseIcon, useRnwPreview)} />
-            </PreviewPressTarget>
             <PreviewPressTarget
               tokenKeys={['buttonPressedBackground', 'buttonPressedBorder', 'buttonPressedIcon']}
               onSelectTokens={onSelectTokens}
@@ -1288,22 +1279,27 @@ const renderThemeObjectPreview = (group, themeColors, onSelectTokens, useRnwPrev
             >
               <Icon name="grid" size={13} color={resolvePreviewValue(pressedIcon, pressedBaseIcon, useRnwPreview)} />
             </PreviewPressTarget>
+            <Text style={styles.previewSwitchStateText}>Pressionado</Text>
           </View>
-          <PreviewPressTarget
-            tokenKeys={['buttonDisabledBackground', 'buttonDisabledText', 'buttonDisabledOpacity']}
-            onSelectTokens={onSelectTokens}
-            style={[
-              styles.previewButton,
-              styles.previewButtonDisabled,
-              {
-                backgroundColor: resolvePreviewValue(disabledBackground, disabledBaseBackground, useRnwPreview),
-                borderColor: resolvePreviewValue(disabledBackground, disabledBaseBackground, useRnwPreview),
-                borderWidth: useRnwPreview ? 1 : disabledBackground ? 1 : 0,
-              },
-            ]}
-          >
-            <Text style={[styles.previewButtonText, { color: resolvePreviewValue(disabledText, disabledBaseText, useRnwPreview) }]}>Desabilitado</Text>
-          </PreviewPressTarget>
+          <View style={styles.previewRow}>
+            <PreviewPressTarget
+              tokenKeys={['buttonDisabledBackground', 'buttonDisabledText', 'buttonDisabledOpacity']}
+              onSelectTokens={onSelectTokens}
+              style={[
+                styles.previewButton,
+                styles.previewButtonDisabled,
+                {
+                  minWidth: 120,
+                  backgroundColor: resolvePreviewValue(disabledBackground, disabledBaseBackground, useRnwPreview),
+                  borderColor: resolvePreviewValue(disabledBackground, disabledBaseBackground, useRnwPreview),
+                  borderWidth: useRnwPreview ? 1 : disabledBackground ? 1 : 0,
+                },
+              ]}
+            >
+              <Text style={[styles.previewButtonText, { color: resolvePreviewValue(disabledText, disabledBaseText, useRnwPreview) }]}>Desabilitado</Text>
+            </PreviewPressTarget>
+            <Text style={styles.previewSwitchStateText}>Desabilitado</Text>
+          </View>
         </View>
       );
     }
@@ -1316,32 +1312,32 @@ const renderThemeObjectPreview = (group, themeColors, onSelectTokens, useRnwPrev
       const iconSuccess = getPreviewColorMode(themeColors, ['iconSuccess', 'textSuccess'], '#16A34A', useRnwPreview);
 
       return (
-        <View style={styles.previewIconRow}>
+        <View style={styles.previewStack}>
           {[
-            { name: 'star', color: iconColor, tokens: ['iconColor'] },
-            { name: 'info', color: iconInfo, tokens: ['iconInfo'] },
-            { name: 'settings', color: iconMuted, tokens: ['iconMuted'] },
-            { name: 'alert-triangle', color: iconWarning, tokens: ['iconWarning'] },
-            { name: 'alert-triangle', color: iconDanger, tokens: ['iconDanger'] },
-            { name: 'check-circle', color: iconSuccess, tokens: ['iconSuccess'] },
-
-            
+            { label: 'Padrão', name: 'star', color: iconColor, tokens: ['iconColor'] },
+            { label: 'Info', name: 'info', color: iconInfo, tokens: ['iconInfo'] },
+            { label: 'Muted', name: 'settings', color: iconMuted, tokens: ['iconMuted'] },
+            { label: 'Warning', name: 'alert-triangle', color: iconWarning, tokens: ['iconWarning'] },
+            { label: 'Danger', name: 'alert-triangle', color: iconDanger, tokens: ['iconDanger'] },
+            { label: 'Success', name: 'check-circle', color: iconSuccess, tokens: ['iconSuccess'] },
           ].map(item => (
-            <PreviewPressTarget
-              key={`${group.label}-${item.tokens[0]}`}
-              tokenKeys={item.tokens}
-              onSelectTokens={onSelectTokens}
-              style={[
-                styles.previewIconBubble,
-                {
-                  backgroundColor: useRnwPreview
-                    ? withOpacity(item.color, 0.12)
-                    : undefined,
-                },
-              ]}
-            >
-              <Icon name={item.name} size={16} color={item.color} />
-            </PreviewPressTarget>
+            <View key={`${group.label}-${item.tokens[0]}`} style={styles.previewRow}>
+              <PreviewPressTarget
+                tokenKeys={item.tokens}
+                onSelectTokens={onSelectTokens}
+                style={[
+                  styles.previewIconBubble,
+                  {
+                    backgroundColor: useRnwPreview
+                      ? withOpacity(item.color, 0.12)
+                      : undefined,
+                  },
+                ]}
+              >
+                <Icon name={item.name} size={16} color={item.color} />
+              </PreviewPressTarget>
+              <Text style={styles.previewSwitchStateText}>{item.label}</Text>
+            </View>
           ))}
         </View>
       );
@@ -1354,7 +1350,6 @@ const renderThemeObjectPreview = (group, themeColors, onSelectTokens, useRnwPrev
       const checkboxSelectedMark = getPreviewColorMode(themeColors, ['checkboxSelectedMark', 'textInverse'], '#FFFFFF', useRnwPreview);
       const checkboxDisabledBackground = getPreviewColorMode(themeColors, ['checkboxDisabledBackground'], '#E2E8F0', useRnwPreview);
       const checkboxDisabledBorder = getPreviewColorMode(themeColors, ['checkboxDisabledBorder'], '#CBD5E1', useRnwPreview);
-      const checkboxText = getPreviewColorMode(themeColors, ['checkboxText', 'textPrimary', 'text'], '#0F172A', useRnwPreview);
 
       return (
         <View style={styles.previewStack}>
@@ -1380,7 +1375,7 @@ const renderThemeObjectPreview = (group, themeColors, onSelectTokens, useRnwPrev
               onSelectTokens={onSelectTokens}
               style={styles.previewChoiceTextTarget}
             >
-              <Text style={[styles.previewChoiceText, { color: resolvePreviewValue(checkboxText, '#0F172A', useRnwPreview) }]}>Normal</Text>
+              <Text style={styles.previewSwitchStateText}>Normal</Text>
             </PreviewPressTarget>
           </View>
           <View style={styles.previewChoiceRow}>
@@ -1407,7 +1402,7 @@ const renderThemeObjectPreview = (group, themeColors, onSelectTokens, useRnwPrev
               onSelectTokens={onSelectTokens}
               style={styles.previewChoiceTextTarget}
             >
-              <Text style={[styles.previewChoiceText, { color: resolvePreviewValue(checkboxText, '#0F172A', useRnwPreview) }]}>Selecionado</Text>
+              <Text style={styles.previewSwitchStateText}>Selecionado</Text>
             </PreviewPressTarget>
           </View>
           <View style={styles.previewChoiceRow}>
@@ -1432,7 +1427,7 @@ const renderThemeObjectPreview = (group, themeColors, onSelectTokens, useRnwPrev
               onSelectTokens={onSelectTokens}
               style={styles.previewChoiceTextTarget}
             >
-              <Text style={[styles.previewChoiceText, { color: resolvePreviewValue(textSecondary, '#64748B', useRnwPreview) }]}>Desabilitado</Text>
+              <Text style={styles.previewSwitchStateText}>Desabilitado</Text>
             </PreviewPressTarget>
           </View>
         </View>
@@ -1602,47 +1597,92 @@ const renderThemeObjectPreview = (group, themeColors, onSelectTokens, useRnwPrev
         '#2563EB',
         useRnwPreview,
       );
+      const selectedBorder = getPreviewColorMode(
+        themeColors,
+        group.label === 'chip'
+          ? ['chipSelectedBorder', 'chipSelectedBackground', 'primary']
+          : ['badgeSelectedBorder', 'badgeSelectedBackground', 'primary'],
+        selectedBackground,
+        useRnwPreview,
+      );
       const selectedText = getPreviewColorMode(
         themeColors,
         group.label === 'chip' ? ['chipSelectedText', 'textInverse'] : ['badgeSelectedText', 'textInverse'],
         '#FFFFFF',
         useRnwPreview,
       );
+      const disabledBackground = getPreviewColorMode(
+        themeColors,
+        group.label === 'chip' ? ['chipDisabledBackground', 'surface'] : ['badgeDisabledBackground', 'surface'],
+        '#F1F5F9',
+        useRnwPreview,
+      );
+      const disabledText = getPreviewColorMode(
+        themeColors,
+        group.label === 'chip' ? ['chipDisabledText', 'textSecondary'] : ['badgeDisabledText', 'textSecondary'],
+        '#94A3B8',
+        useRnwPreview,
+      );
 
       return (
-        <View style={styles.previewRowWrap}>
-          <PreviewPressTarget
-            tokenKeys={group.label === 'chip'
-              ? ['chipBackground', 'chipBorder', 'chipText', 'chipIcon', 'chipShadow']
-              : ['badgeBackground', 'badgeBorder', 'badgeText', 'badgeIcon', 'badgeShadow']}
-            onSelectTokens={onSelectTokens}
-            style={[
-              styles.previewPill,
-              {
-                backgroundColor: resolvePreviewValue(pillBackground, '#E2E8F0', useRnwPreview),
-                borderColor: resolvePreviewValue(pillBorder, pillBackground, useRnwPreview),
-                borderWidth: useRnwPreview ? 1 : pillBorder ? 1 : 0,
-              },
-            ]}
-          >
-            <Text style={[styles.previewPillText, { color: resolvePreviewValue(pillText, '#0F172A', useRnwPreview) }]}>Base</Text>
-          </PreviewPressTarget>
-          <PreviewPressTarget
-            tokenKeys={group.label === 'chip'
-              ? ['chipSelectedBackground', 'chipSelectedBorder', 'chipSelectedText']
-              : ['badgeSelectedBackground', 'badgeSelectedBorder', 'badgeSelectedText']}
-            onSelectTokens={onSelectTokens}
-            style={[
-              styles.previewPill,
-              {
-                backgroundColor: resolvePreviewValue(selectedBackground, '#2563EB', useRnwPreview),
-                borderColor: resolvePreviewValue(selectedBackground, '#2563EB', useRnwPreview),
-                borderWidth: useRnwPreview ? 1 : selectedBackground ? 1 : 0,
-              },
-            ]}
-          >
-            <Text style={[styles.previewPillText, { color: resolvePreviewValue(selectedText, '#FFFFFF', useRnwPreview) }]}>Selecionado</Text>
-          </PreviewPressTarget>
+        <View style={styles.previewStack}>
+          <View style={styles.previewRow}>
+            <PreviewPressTarget
+              tokenKeys={group.label === 'chip'
+                ? ['chipBackground', 'chipBorder', 'chipText', 'chipIcon', 'chipShadow']
+                : ['badgeBackground', 'badgeBorder', 'badgeText', 'badgeIcon', 'badgeShadow']}
+              onSelectTokens={onSelectTokens}
+              style={[
+                styles.previewPill,
+                {
+                  backgroundColor: resolvePreviewValue(pillBackground, '#E2E8F0', useRnwPreview),
+                  borderColor: resolvePreviewValue(pillBorder, pillBackground, useRnwPreview),
+                  borderWidth: useRnwPreview ? 1 : pillBorder ? 1 : 0,
+                },
+              ]}
+            >
+              <Text style={[styles.previewPillText, { color: resolvePreviewValue(pillText, '#0F172A', useRnwPreview) }]}>Base</Text>
+            </PreviewPressTarget>
+            <Text style={styles.previewSwitchStateText}>Base</Text>
+          </View>
+          <View style={styles.previewRow}>
+            <PreviewPressTarget
+              tokenKeys={group.label === 'chip'
+                ? ['chipSelectedBackground', 'chipSelectedBorder', 'chipSelectedText']
+                : ['badgeSelectedBackground', 'badgeSelectedBorder', 'badgeSelectedText']}
+              onSelectTokens={onSelectTokens}
+              style={[
+                styles.previewPill,
+                {
+                  backgroundColor: resolvePreviewValue(selectedBackground, '#2563EB', useRnwPreview),
+                  borderColor: resolvePreviewValue(selectedBorder, selectedBackground, useRnwPreview),
+                  borderWidth: useRnwPreview ? 1 : selectedBorder ? 1 : 0,
+                },
+              ]}
+            >
+              <Text style={[styles.previewPillText, { color: resolvePreviewValue(selectedText, '#FFFFFF', useRnwPreview) }]}>Selecionado</Text>
+            </PreviewPressTarget>
+            <Text style={styles.previewSwitchStateText}>Selecionado</Text>
+          </View>
+          <View style={styles.previewRow}>
+            <PreviewPressTarget
+              tokenKeys={group.label === 'chip'
+                ? ['chipDisabledBackground', 'chipBorder', 'chipDisabledText']
+                : ['badgeDisabledBackground', 'badgeBorder', 'badgeDisabledText']}
+              onSelectTokens={onSelectTokens}
+              style={[
+                styles.previewPill,
+                {
+                  backgroundColor: resolvePreviewValue(disabledBackground, '#F1F5F9', useRnwPreview),
+                  borderColor: resolvePreviewValue(pillBorder, '#CBD5E1', useRnwPreview),
+                  borderWidth: useRnwPreview ? 1 : pillBorder ? 1 : 0,
+                },
+              ]}
+            >
+              <Text style={[styles.previewPillText, { color: resolvePreviewValue(disabledText, '#94A3B8', useRnwPreview) }]}>Disabled</Text>
+            </PreviewPressTarget>
+            <Text style={styles.previewSwitchStateText}>Desabilitado</Text>
+          </View>
         </View>
       );
     }
@@ -2207,7 +2247,6 @@ case 'table': {
       const radioBorder = getPreviewColorMode(themeColors, ['radioBorder', 'border'], '#94A3B8', useRnwPreview);
       const radioSelectedBorder = getPreviewColorMode(themeColors, ['radioSelectedBorder', 'primary'], '#2563EB', useRnwPreview);
       const radioSelectedDot = getPreviewColorMode(themeColors, ['radioSelectedDot', 'primary'], '#2563EB', useRnwPreview);
-      const radioText = getPreviewColorMode(themeColors, radioTextTokenKeys, '#0F172A', useRnwPreview);
 
       return (
         <View style={styles.previewStack}>
@@ -2216,7 +2255,7 @@ case 'table': {
               <View style={[styles.previewRadio, { borderColor: resolvePreviewValue(radioBorder, '#94A3B8', useRnwPreview), borderWidth: useRnwPreview ? 1 : radioBorder ? 1 : 0 }]} />
             </PreviewPressTarget>
             <PreviewPressTarget tokenKeys={radioTextTokenKeys} onSelectTokens={onSelectTokens} style={styles.previewChoiceTextTarget}>
-              <Text style={[styles.previewChoiceText, { color: resolvePreviewValue(radioText, '#0F172A', useRnwPreview) }]}>Opção base</Text>
+              <Text style={styles.previewSwitchStateText}>Base</Text>
             </PreviewPressTarget>
           </View>
           <View style={styles.previewChoiceRow}>
@@ -2226,7 +2265,7 @@ case 'table': {
               </View>
             </PreviewPressTarget>
             <PreviewPressTarget tokenKeys={radioTextTokenKeys} onSelectTokens={onSelectTokens} style={styles.previewChoiceTextTarget}>
-              <Text style={[styles.previewChoiceText, { color: resolvePreviewValue(radioText, '#0F172A', useRnwPreview) }]}>Opção ativa</Text>
+              <Text style={styles.previewSwitchStateText}>Selecionado</Text>
             </PreviewPressTarget>
           </View>
         </View>
@@ -2237,23 +2276,76 @@ case 'table': {
       const offThumb = getPreviewColorMode(themeColors, ['switchOffThumb', 'surface'], '#FFFFFF', useRnwPreview);
       const onTrack = getPreviewColorMode(themeColors, ['switchOnTrack', 'primary'], '#2563EB', useRnwPreview);
       const onThumb = getPreviewColorMode(themeColors, ['switchOnThumb', 'textInverse'], '#FFFFFF', useRnwPreview);
+      const disabledTrack = getPreviewColorMode(themeColors, ['switchDisabledTrack', 'surface'], '#E2E8F0', useRnwPreview);
+      const disabledThumb = getPreviewColorMode(themeColors, ['switchDisabledThumb', 'textSecondary'], '#94A3B8', useRnwPreview);
 
       return (
-        <View style={styles.previewRowWrap}>
-          <PreviewPressTarget
-            tokenKeys={['switchOffTrack', 'switchOffThumb', 'switchBorder']}
-            onSelectTokens={onSelectTokens}
-            style={[styles.previewSwitch, { backgroundColor: resolvePreviewValue(offTrack, '#CBD5E1', useRnwPreview), borderWidth: useRnwPreview ? 1 : offTrack ? 0 : 0 }]}
-          >
-            <View style={[styles.previewSwitchThumb, { backgroundColor: resolvePreviewValue(offThumb, '#FFFFFF', useRnwPreview), alignSelf: 'flex-start' }]} />
-          </PreviewPressTarget>
-          <PreviewPressTarget
-            tokenKeys={['switchOnTrack', 'switchOnThumb', 'switchBorder']}
-            onSelectTokens={onSelectTokens}
-            style={[styles.previewSwitch, { backgroundColor: resolvePreviewValue(onTrack, '#2563EB', useRnwPreview), borderWidth: useRnwPreview ? 1 : onTrack ? 0 : 0 }]}
-          >
-            <View style={[styles.previewSwitchThumb, { backgroundColor: resolvePreviewValue(onThumb, '#FFFFFF', useRnwPreview), alignSelf: 'flex-end' }]} />
-          </PreviewPressTarget>
+        <View style={styles.previewStack}>
+          <View style={styles.previewRow}>
+            <PreviewPressTarget
+              tokenKeys={['switchDisabledTrack', 'switchDisabledThumb']}
+              onSelectTokens={onSelectTokens}
+              style={styles.previewSwitch}
+            >
+              <View pointerEvents="none">
+                <Switch
+                  value={false}
+                  disabled
+                  onValueChange={() => {}}
+                  ios_backgroundColor={resolvePreviewValue(disabledTrack, '#E2E8F0', useRnwPreview)}
+                  trackColor={{
+                    false: resolvePreviewValue(disabledTrack, '#E2E8F0', useRnwPreview),
+                    true: resolvePreviewValue(disabledTrack, '#E2E8F0', useRnwPreview),
+                  }}
+                  thumbColor={resolvePreviewValue(disabledThumb, '#94A3B8', useRnwPreview)}
+                />
+              </View>
+            </PreviewPressTarget>
+            <Text style={styles.previewSwitchStateText}>Disabled</Text>
+          </View>
+          <View style={styles.previewRow}>
+            <PreviewPressTarget
+              tokenKeys={['switchOffTrack', 'switchOffThumb']}
+              onSelectTokens={onSelectTokens}
+              style={styles.previewSwitch}
+            >
+              <View pointerEvents="none">
+                <Switch
+                  value={false}
+                  onValueChange={() => {}}
+                  ios_backgroundColor={resolvePreviewValue(offTrack, '#CBD5E1', useRnwPreview)}
+                  trackColor={{
+                    false: resolvePreviewValue(offTrack, '#CBD5E1', useRnwPreview),
+                    true: resolvePreviewValue(onTrack, '#2563EB', useRnwPreview),
+                  }}
+                  thumbColor={resolvePreviewValue(offThumb, '#FFFFFF', useRnwPreview)}
+                />
+              </View>
+            </PreviewPressTarget>
+            <Text style={styles.previewSwitchStateText}>Off</Text>
+          </View>
+          <View style={styles.previewRow}>
+            <PreviewPressTarget
+              tokenKeys={['switchOnTrack', 'switchOnThumb']}
+              onSelectTokens={onSelectTokens}
+              style={styles.previewSwitch}
+            >
+              <View pointerEvents="none">
+                <Switch
+                  value
+                  onValueChange={() => {}}
+                  activeThumbColor={resolvePreviewValue(onThumb, '#FFFFFF', useRnwPreview)}
+                  ios_backgroundColor={resolvePreviewValue(offTrack, '#CBD5E1', useRnwPreview)}
+                  trackColor={{
+                    false: resolvePreviewValue(offTrack, '#CBD5E1', useRnwPreview),
+                    true: resolvePreviewValue(onTrack, '#2563EB', useRnwPreview),
+                  }}
+                  thumbColor={resolvePreviewValue(offThumb, '#FFFFFF', useRnwPreview)}
+                />
+              </View>
+            </PreviewPressTarget>
+            <Text style={styles.previewSwitchStateText}>On</Text>
+          </View>
         </View>
       );
     }
