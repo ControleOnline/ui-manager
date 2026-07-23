@@ -24,6 +24,8 @@ import useToastMessage from '@controleonline/ui-crm/src/react/hooks/useToastMess
 import { resolveThemePalette, withOpacity } from '@controleonline/../../src/styles/branding';
 import styles from './ThemeManagerPage.styles';
 
+const SKIP_THEME_COLOR_MAPPING_PROP = '__skipThemeColorMapping';
+
 const STANDARD_COLOR_SWATCHES = [
   { value: '#FFFFFF', name: 'white' },
   { value: '#0000001A', name: 'black 10%' },
@@ -2583,6 +2585,7 @@ const OpacitySlider = ({
         </View>
 
         <Pressable
+          {...{ [SKIP_THEME_COLOR_MAPPING_PROP]: true }}
           disabled={disabled || !resolvedPreviewColor}
           onPress={() => {
             if (disabled || !resolvedPreviewColor || !onApplyPreview) return;
@@ -2726,6 +2729,7 @@ const ToneSlider = ({
       </View>
 
       <Pressable
+        {...{ [SKIP_THEME_COLOR_MAPPING_PROP]: true }}
         disabled={disabled || !resolvedPreviewColor}
         onPress={() => {
           if (disabled || !resolvedPreviewColor || !onApplyPreview) return;
@@ -3053,6 +3057,7 @@ const ColorEditor = ({
                           },
                         },
                         <Pressable
+                          {...{ [SKIP_THEME_COLOR_MAPPING_PROP]: true }}
                           style={[
                             styles.pickerButton,
                             {
@@ -3083,6 +3088,7 @@ const ColorEditor = ({
                         />,
                       ) : (
                         <Pressable
+                          {...{ [SKIP_THEME_COLOR_MAPPING_PROP]: true }}
                           style={[
                             styles.pickerButton,
                             {
@@ -3179,6 +3185,7 @@ const ColorEditor = ({
         >
           <View style={styles.currentColorPreviewWrap}>
             <View
+              {...{ [SKIP_THEME_COLOR_MAPPING_PROP]: true }}
               style={[
                 styles.currentColorPreviewSwatch,
                 { backgroundColor: currentPreviewColor },
