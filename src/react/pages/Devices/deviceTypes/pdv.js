@@ -32,6 +32,7 @@ const pdvDeviceType = {
     label: 'PDVs',
     queryTypes: [PDV_DEVICE_TYPE],
     emptyState,
+    offerCurrentPdvSetup: true,
   }),
 };
 

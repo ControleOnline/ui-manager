@@ -16,6 +16,7 @@ const allDeviceType = {
   TabComponent: createDeviceTypeTab({
     label: 'Todos os dispositivos',
     emptyState,
+    offerCurrentPdvSetup: true,
   }),
 };
 

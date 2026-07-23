@@ -16,6 +16,17 @@ const buildCardShadow = palette =>
 
 export const createStyles = (palette = colors) => {
   const cardShadow = buildCardShadow(palette);
+  const cardBackground = palette.cardBackground || palette.white;
+  const cardBorder = palette.cardBorder || palette.border;
+  const cardText = palette.cardText || palette.text;
+  const selectedBackground =
+    palette.cardSelectedBackground || withOpacity(palette.primary, 0.07);
+  const selectedBorder = palette.cardSelectedBorder || palette.primary;
+  const selectedText = palette.cardSelectedText || cardText;
+  const selectedBadgeBackground =
+    palette.badgeSelectedBackground || withOpacity(palette.primary, 0.14);
+  const selectedBadgeText =
+    palette.badgeSelectedText || selectedText || palette.primary;
   return StyleSheet.create({
   container: {
     flex: 1,
@@ -30,7 +41,9 @@ export const createStyles = (palette = colors) => {
   },
   summaryCard: {
     flex: 1,
-    backgroundColor: palette.white,
+    backgroundColor: cardBackground,
+    borderColor: cardBorder,
+    borderWidth: 1,
     borderRadius: 14,
     paddingHorizontal: 12,
     paddingVertical: 10,
@@ -151,13 +164,20 @@ export const createStyles = (palette = colors) => {
   },
 
   deviceCard: {
-    backgroundColor: palette.white,
+    backgroundColor: cardBackground,
+    borderColor: cardBorder,
+    borderWidth: 1,
     borderRadius: 16,
     padding: 14,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     ...cardShadow,
+  },
+  deviceCardCurrent: {
+    backgroundColor: selectedBackground,
+    borderColor: selectedBorder,
+    borderWidth: 2,
   },
   cardLeft: {
     flexDirection: 'row',
@@ -167,6 +187,26 @@ export const createStyles = (palette = colors) => {
   },
   cardTextWrap: {
     flex: 1,
+  },
+  currentDeviceBadge: {
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    backgroundColor: selectedBadgeBackground,
+    borderColor: selectedBorder,
+    borderRadius: 999,
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: 4,
+    marginBottom: 5,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+  },
+  currentDeviceBadgeText: {
+    color: selectedBadgeText,
+    fontSize: 9,
+    fontWeight: '800',
+    letterSpacing: 0.2,
+    textTransform: 'uppercase',
   },
   iconBox: {
     width: 40,
@@ -178,7 +218,7 @@ export const createStyles = (palette = colors) => {
   deviceTitle: {
     fontSize: 15,
     fontWeight: '700',
-    color: palette.text,
+    color: cardText,
   },
   deviceSub: {
     fontSize: 11,
@@ -201,6 +241,55 @@ export const createStyles = (palette = colors) => {
     fontSize: 10,
     fontWeight: '700',
     color: palette.textSecondary,
+  },
+  deviceConfigRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 7,
+    marginTop: 10,
+  },
+  deviceConfigChip: {
+    alignItems: 'center',
+    borderRadius: 999,
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: 5,
+    minHeight: 32,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  deviceConfigChipActive: {
+    borderWidth: 2,
+  },
+  deviceConfigChipText: {
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.2,
+    textTransform: 'uppercase',
+  },
+  deviceConfigChipActiveText: {
+    color: selectedText,
+    fontSize: 9,
+    fontWeight: '800',
+    textTransform: 'uppercase',
+  },
+  deviceConfigCreateChip: {
+    alignItems: 'center',
+    backgroundColor: palette.buttonBackground || palette.primary,
+    borderColor: palette.buttonBorder || palette.primary,
+    borderRadius: 999,
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: 6,
+    minHeight: 32,
+    paddingHorizontal: 11,
+    paddingVertical: 6,
+  },
+  deviceConfigCreateChipText: {
+    color: palette.buttonText || palette.white,
+    fontSize: 10,
+    fontWeight: '800',
   },
   cardRight: {
     flexDirection: 'row',
@@ -230,9 +319,15 @@ export const createStyles = (palette = colors) => {
     marginLeft: 8,
   },
 
+  currentPdvSetupButtonDisabled: {
+    opacity: 0.6,
+  },
+
   emptyBox: {
     alignItems: 'center',
-    backgroundColor: palette.white,
+    backgroundColor: cardBackground,
+    borderColor: cardBorder,
+    borderWidth: 1,
     borderRadius: 16,
     padding: 32,
     ...cardShadow,

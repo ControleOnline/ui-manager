@@ -8,8 +8,9 @@ import {
 } from 'react-native';
 import {useFocusEffect, useNavigation} from '@react-navigation/native';
 import {useStore} from '@store';
-import {api} from '@controleonline/ui-common/src/api';
+import {app_type} from '@appType';
 import {
+  buildProviderManagedDeviceConfigs,
   getPosOperationModeOption,
   isPosCashRegisterOpen,
   parseConfigsObject,
@@ -41,12 +42,23 @@ import {
   normalizeEntityId,
 } from '@controleonline/ui-common/src/react/utils/paymentDevices';
 import {getRuntimeFooterDebugInfo} from '@controleonline/ui-common/src/react/utils/runtimeFooter';
+import {resolveOperationalDeviceType} from '@controleonline/ui-common/src/react/utils/deviceRuntime';
 import {resolveThemePalette, withOpacity} from '@controleonline/../../src/styles/branding';
 import {colors} from '@controleonline/../../src/styles/colors';
 import Icon from 'react-native-vector-icons/Feather';
+import {
+  findDeviceConfigByType,
+  getRuntimeDeviceIdentifier,
+  groupDeviceConfigs,
+  hasCurrentPdvConfig,
+  isCurrentDeviceGroup,
+  prioritizeCurrentDeviceGroups,
+  readStoredRuntimeDevice,
+} from '../currentDevice';
 import styles from '../../Devices.styles';
 
 const PAGE_SIZE = 20;
+const API_PAGE_SIZE = 200;
 const tt = (type, key) => global.t?.t('configs', type, key);
 
 const hex = {
@@ -154,7 +166,9 @@ const getDeviceBadgeLabel = (type, deviceConfig) => {
 
   if (normalizedType === PDV_DEVICE_TYPE) {
     const gateway = getPaymentGateway(deviceConfig);
-    return gateway ? getPaymentGatewayLabel(gateway) : 'PDV';
+    return gateway
+      ? `PDV · ${getPaymentGatewayLabel(gateway)}`
+      : 'PDV';
   }
 
   return getDeviceItemTypeLabel(normalizedType);
@@ -211,6 +225,7 @@ const buildDeviceListParams = ({
   const params = {
     people: `/people/${companyId}`,
     page,
+    itemsPerPage: pageSize,
     'order[id]': 'DESC',
   };
 
@@ -231,6 +246,7 @@ export const createDeviceTypeTab = ({
   queryTypes = [],
   emptyState,
   clientFilter = null,
+  offerCurrentPdvSetup = false,
 }) => {
   const DeviceTypeTab = () => {
     const navigation = useNavigation();
@@ -254,24 +270,25 @@ export const createDeviceTypeTab = ({
     const [deviceConfigs, setDeviceConfigs] = useState([]);
     const [loading, setLoading] = useState(false);
     const [refreshing, setRefreshing] = useState(false);
-    const [loadingMore, setLoadingMore] = useState(false);
-    const [totalItems, setTotalItems] = useState(0);
-    const [lastBatchSize, setLastBatchSize] = useState(0);
     const [error, setError] = useState('');
+    const [creatingPdv, setCreatingPdv] = useState(false);
+    const [runtimeDevice, setRuntimeDevice] = useState(() =>
+      readStoredRuntimeDevice(),
+    );
     const [networkConnectivityByDevice, setNetworkConnectivityByDevice] =
       useState({});
 
     const fetchingRef = useRef(false);
     const companyId = String(currentCompany?.id || '').trim();
-
-    const hasMore = useMemo(() => {
-      if (totalItems > 0) {
-        return deviceConfigs.length < totalItems;
-      }
-
-      return lastBatchSize === pageSize;
-    }, [deviceConfigs.length, lastBatchSize, pageSize, totalItems]);
-    const visibleDeviceConfigs = useMemo(() => {
+    const runtimeDeviceIdentifier =
+      getRuntimeDeviceIdentifier(runtimeDevice);
+    const runtimeDeviceType = normalizeDeviceType(
+      resolveOperationalDeviceType({
+        appType: app_type,
+        deviceInfo: runtimeDevice,
+      }),
+    );
+    const filteredDeviceConfigs = useMemo(() => {
       if (typeof clientFilter !== 'function') {
         return deviceConfigs;
       }
@@ -280,18 +297,42 @@ export const createDeviceTypeTab = ({
         deviceConfig => clientFilter(deviceConfig),
       );
     }, [clientFilter, deviceConfigs]);
+    const visibleDeviceGroups = useMemo(
+      () =>
+        prioritizeCurrentDeviceGroups(
+          groupDeviceConfigs(filteredDeviceConfigs, {
+            includeRuntimeDevice: offerCurrentPdvSetup,
+            runtimeDevice,
+          }),
+          runtimeDeviceIdentifier,
+        ),
+      [
+        filteredDeviceConfigs,
+        offerCurrentPdvSetup,
+        runtimeDevice,
+        runtimeDeviceIdentifier,
+      ],
+    );
+    const currentDeviceGroup = useMemo(
+      () =>
+        visibleDeviceGroups.find(deviceGroup =>
+          isCurrentDeviceGroup({
+            deviceGroup,
+            runtimeDeviceIdentifier,
+          }),
+        ) || null,
+      [runtimeDeviceIdentifier, visibleDeviceGroups],
+    );
+    const currentDeviceConfigs = currentDeviceGroup?.deviceConfigs || [];
 
-    const fetchPage = useCallback(
-      async (targetPage, mode = 'loading') => {
+    const fetchDeviceConfigs = useCallback(
+      async (mode = 'loading') => {
         if (!companyId || fetchingRef.current) {
           if (!companyId) {
             setDeviceConfigs([]);
-            setTotalItems(0);
-            setLastBatchSize(0);
             setError('');
             setLoading(false);
             setRefreshing(false);
-            setLoadingMore(false);
           }
           return;
         }
@@ -306,37 +347,48 @@ export const createDeviceTypeTab = ({
           setRefreshing(true);
         }
 
-        if (mode === 'append') {
-          setLoadingMore(true);
-        }
-
         try {
-          const response = await api.fetch('/device_configs', {
-            params: buildDeviceListParams({
-              companyId,
-              page: targetPage,
-              pageSize,
-              queryTypes,
-            }),
-          });
+          const requestPageSize = Math.max(pageSize, API_PAGE_SIZE);
+          let page = 1;
+          let loadedItems = [];
+          let reportedTotal = 0;
 
-          const nextItems = Array.isArray(response?.member) ? response.member : [];
-          const nextTotalItems = Number(response?.totalItems || 0);
+          while (true) {
+            const pageItems = await deviceConfigStore.actions.getItems(
+              buildDeviceListParams({
+                companyId,
+                page,
+                pageSize: requestPageSize,
+                queryTypes,
+              }),
+            );
+            const previousLength = loadedItems.length;
+            loadedItems = mergeDeviceConfigs(loadedItems, pageItems);
+            reportedTotal = Math.max(
+              reportedTotal,
+              Number(
+                deviceConfigStore.getters.totalItems ||
+                  loadedItems.length ||
+                  0,
+              ),
+            );
 
-          setDeviceConfigs(currentItems =>
-            mode === 'append'
-              ? mergeDeviceConfigs(currentItems, nextItems)
-              : nextItems,
-          );
-          setTotalItems(nextTotalItems);
-          setLastBatchSize(nextItems.length);
+            if (
+              !Array.isArray(pageItems) ||
+              pageItems.length === 0 ||
+              loadedItems.length >= reportedTotal ||
+              loadedItems.length === previousLength
+            ) {
+              break;
+            }
+
+            page += 1;
+          }
+
+          setDeviceConfigs(loadedItems);
           setError('');
         } catch (fetchError) {
-          if (mode !== 'append') {
-            setDeviceConfigs([]);
-            setTotalItems(0);
-            setLastBatchSize(0);
-          }
+          setDeviceConfigs([]);
 
           setError(
             fetchError?.message || 'Nao foi possivel carregar os dispositivos.',
@@ -345,16 +397,22 @@ export const createDeviceTypeTab = ({
           fetchingRef.current = false;
           setLoading(false);
           setRefreshing(false);
-          setLoadingMore(false);
         }
       },
-      [companyId, pageSize, queryTypes],
+      [
+        companyId,
+        deviceConfigStore.actions,
+        deviceConfigStore.getters,
+        pageSize,
+        queryTypes,
+      ],
     );
 
     useFocusEffect(
       useCallback(() => {
-        fetchPage(1, 'loading');
-      }, [fetchPage]),
+        setRuntimeDevice(readStoredRuntimeDevice());
+        fetchDeviceConfigs('loading');
+      }, [fetchDeviceConfigs]),
     );
 
     useEffect(() => {
@@ -501,68 +559,150 @@ export const createDeviceTypeTab = ({
       [deviceConfigStore.actions, deviceStore.actions, navigation],
     );
 
-    const handleRefresh = useCallback(() => {
-      fetchPage(1, 'refresh');
-    }, [fetchPage]);
+    const currentPdvExists = useMemo(
+      () =>
+        hasCurrentPdvConfig(
+          currentDeviceConfigs,
+          runtimeDeviceIdentifier,
+        ),
+      [currentDeviceConfigs, runtimeDeviceIdentifier],
+    );
+    const showCurrentPdvSetup = Boolean(
+      offerCurrentPdvSetup &&
+        !loading &&
+        runtimeDeviceIdentifier &&
+        !currentPdvExists,
+    );
 
-    const handleLoadMore = useCallback(() => {
-      if (loading || refreshing || loadingMore || fetchingRef.current || !hasMore) {
+    const handleCreateCurrentPdv = useCallback(async () => {
+      if (
+        creatingPdv ||
+        !companyId ||
+        !runtimeDeviceIdentifier ||
+        currentPdvExists
+      ) {
         return;
       }
 
-      fetchPage(Math.floor(deviceConfigs.length / pageSize) + 1, 'append');
+      setCreatingPdv(true);
+      setError('');
+
+      try {
+        const {nextConfigs} = buildProviderManagedDeviceConfigs({
+          configs: {},
+          appVersion: runtimeDevice?.appVersion,
+          deviceInfo: runtimeDevice,
+        });
+        const savedDeviceConfig =
+          await deviceConfigStore.actions.addDeviceConfigs({
+            device: runtimeDeviceIdentifier,
+            people: `/people/${companyId}`,
+            type: PDV_DEVICE_TYPE,
+            configs: JSON.stringify(nextConfigs),
+          });
+
+        await fetchDeviceConfigs('refresh');
+
+        if (savedDeviceConfig?.id && savedDeviceConfig?.device) {
+          goToDetail(savedDeviceConfig);
+        }
+      } catch (createError) {
+        setError(
+          createError?.message ||
+            'Nao foi possivel configurar este dispositivo como PDV.',
+        );
+      } finally {
+        setCreatingPdv(false);
+      }
     }, [
-      deviceConfigs.length,
-      fetchPage,
-      hasMore,
-      loading,
-      loadingMore,
-      pageSize,
-      refreshing,
+      companyId,
+      creatingPdv,
+      currentPdvExists,
+      deviceConfigStore.actions,
+      fetchDeviceConfigs,
+      goToDetail,
+      runtimeDevice,
+      runtimeDeviceIdentifier,
     ]);
 
+    const handleRefresh = useCallback(() => {
+      fetchDeviceConfigs('refresh');
+    }, [fetchDeviceConfigs]);
+
     const renderItem = useCallback(
-      ({item: deviceConfig}) => {
-        const normalizedType = getDeviceConfigType(deviceConfig);
-        const isManagedNetwork = isManagedNetworkDeviceType(normalizedType);
+      ({item: deviceGroup}) => {
+        const isCurrentDevice = isCurrentDeviceGroup({
+          deviceGroup,
+          runtimeDeviceIdentifier,
+        });
+        const sessionConfig = isCurrentDevice
+          ? findDeviceConfigByType(deviceGroup, runtimeDeviceType)
+          : null;
+        const filteredTypeConfig =
+          queryTypes.length === 1
+            ? findDeviceConfigByType(deviceGroup, queryTypes[0])
+            : null;
+        const primaryConfig =
+          sessionConfig ||
+          filteredTypeConfig ||
+          deviceGroup.deviceConfigs[0] ||
+          null;
+        const normalizedType = primaryConfig
+          ? getDeviceConfigType(primaryConfig)
+          : runtimeDeviceType || 'DEVICE';
+        const isManagedNetwork =
+          primaryConfig && isManagedNetworkDeviceType(normalizedType);
         const isPdv = normalizedType === PDV_DEVICE_TYPE;
-        const pdvPrinterEnabled = isPdvPrinterEnabled(deviceConfig);
-        const posOperationModeLabel = isPdv
-          ? getPosOperationModeLabel(deviceConfig?.configs)
-          : '';
         const alias =
-          deviceConfig.device?.alias ||
-          deviceConfig.device?.device ||
-          `Dispositivo #${deviceConfig.id}`;
+          deviceGroup.device?.alias ||
+          deviceGroup.device?.device ||
+          'Dispositivo';
+        const deviceIdentifier = primaryConfig
+          ? getDeviceListIdentifier(primaryConfig)
+          : String(deviceGroup.device?.device || runtimeDeviceIdentifier).trim();
         const deviceKey = normalizeDeviceId(
-          deviceConfig?.device?.device || deviceConfig?.device?.id || deviceConfig?.id,
-        );
-        const printerConnectivityMeta = getPrinterConnectivityMeta(
-          networkConnectivityByDevice?.[deviceKey]?.status,
+          deviceGroup.device?.device ||
+            deviceGroup.device?.id ||
+            deviceGroup.key,
         );
         const accent = getDeviceTypeAccent(normalizedType);
-        const badgeText = getDeviceBadgeLabel(normalizedType, deviceConfig);
-        const deviceIdentifier = getDeviceListIdentifier(deviceConfig);
         const metaChips = [];
 
-        if (isPdv) {
+        if (isPdv && primaryConfig) {
+          const posOperationModeLabel = getPosOperationModeLabel(
+            primaryConfig?.configs,
+          );
+
           if (posOperationModeLabel) {
             metaChips.push(posOperationModeLabel);
           }
 
-          metaChips.push(`Impressora ${pdvPrinterEnabled ? 'Sim' : 'Nao'}`);
-          metaChips.push(getPosStatusLabel(deviceConfig));
+          metaChips.push(
+            `Impressora ${isPdvPrinterEnabled(primaryConfig) ? 'Sim' : 'Nao'}`,
+          );
+          metaChips.push(getPosStatusLabel(primaryConfig));
         }
 
         if (isManagedNetwork) {
-          metaChips.push(printerConnectivityMeta.label);
+          metaChips.push(
+            getPrinterConnectivityMeta(
+              networkConnectivityByDevice?.[deviceKey]?.status,
+            ).label,
+          );
         }
 
         return (
-          <TouchableOpacity
-            style={styles.deviceCard}
-            activeOpacity={0.82}
-            onPress={() => goToDetail(deviceConfig)}>
+          <View
+            testID={`device-group-${deviceGroup.key}`}
+            accessibilityLabel={
+              isCurrentDevice
+                ? `${alias}, ${tt('device_label', 'currentDevice') || 'Este dispositivo'}`
+                : alias
+            }
+            style={[
+              styles.deviceCard,
+              isCurrentDevice && styles.deviceCardCurrent,
+            ]}>
             <View style={styles.cardLeft}>
               <View
                 style={[
@@ -576,49 +716,152 @@ export const createDeviceTypeTab = ({
                 />
               </View>
               <View style={styles.cardTextWrap}>
+                {isCurrentDevice ? (
+                  <View
+                    testID="current-device-badge"
+                    style={styles.currentDeviceBadge}>
+                    <Icon
+                      name="crosshair"
+                      size={11}
+                      color={
+                        brandColors.badgeSelectedText ||
+                        brandColors.cardSelectedText ||
+                        brandColors.primary
+                      }
+                    />
+                    <Text style={styles.currentDeviceBadgeText}>
+                      {tt('device_label', 'currentDevice') ||
+                        'Este dispositivo'}
+                    </Text>
+                  </View>
+                ) : null}
                 <Text style={styles.deviceTitle} numberOfLines={1}>
                   {alias}
                 </Text>
                 <Text style={styles.deviceSub} numberOfLines={1}>
-                  {`${getDeviceItemTypeLabel(normalizedType)} • ${deviceIdentifier}`}
+                  {deviceIdentifier}
                 </Text>
+
+                <View style={styles.deviceConfigRow}>
+                  {deviceGroup.deviceConfigs.map(deviceConfig => {
+                    const configType = getDeviceConfigType(deviceConfig);
+                    const configAccent = getDeviceTypeAccent(configType);
+                    const isSessionConfig =
+                      isCurrentDevice &&
+                      runtimeDeviceType &&
+                      configType === runtimeDeviceType;
+
+                    return (
+                      <TouchableOpacity
+                        key={String(deviceConfig.id)}
+                        testID={`device-config-${deviceConfig.id}`}
+                        dataSet={{
+                          sessionConfig: isSessionConfig ? 'true' : 'false',
+                        }}
+                        accessibilityRole="button"
+                        accessibilityLabel={`${getDeviceItemTypeLabel(configType)}${
+                          isSessionConfig ? ', Em uso nesta sessao' : ''
+                        }`}
+                        activeOpacity={0.82}
+                        style={[
+                          styles.deviceConfigChip,
+                          {
+                            backgroundColor: withOpacity(configAccent, 0.1),
+                            borderColor: withOpacity(configAccent, 0.45),
+                          },
+                          isSessionConfig && styles.deviceConfigChipActive,
+                        ]}
+                        onPress={() => goToDetail(deviceConfig)}>
+                        <View
+                          style={[
+                            styles.dot,
+                            {backgroundColor: configAccent},
+                          ]}
+                        />
+                        <Text
+                          style={[
+                            styles.deviceConfigChipText,
+                            {color: configAccent},
+                          ]}>
+                          {getDeviceBadgeLabel(configType, deviceConfig)}
+                        </Text>
+                        {isSessionConfig ? (
+                          <Text style={styles.deviceConfigChipActiveText}>
+                            {tt('device_label', 'inUse') || 'Em uso'}
+                          </Text>
+                        ) : null}
+                        <Icon
+                          name="chevron-right"
+                          size={13}
+                          color={configAccent}
+                        />
+                      </TouchableOpacity>
+                    );
+                  })}
+
+                  {isCurrentDevice && showCurrentPdvSetup ? (
+                    <TouchableOpacity
+                      testID="configure-current-device-pdv"
+                      accessibilityRole="button"
+                      accessibilityLabel={
+                        tt('device_action', 'configureCurrentAsPdv') ||
+                        'Configurar este dispositivo como PDV'
+                      }
+                      activeOpacity={0.82}
+                      disabled={creatingPdv}
+                      style={[
+                        styles.deviceConfigCreateChip,
+                        creatingPdv &&
+                          styles.currentPdvSetupButtonDisabled,
+                      ]}
+                      onPress={handleCreateCurrentPdv}>
+                      <Icon
+                        name="plus-circle"
+                        size={15}
+                        color={brandColors.buttonText || brandColors.white}
+                      />
+                      <Text style={styles.deviceConfigCreateChipText}>
+                        {creatingPdv
+                          ? tt('device_action', 'configuringPdv') ||
+                            'Configurando...'
+                          : tt('device_action', 'configureAsPdv') ||
+                            'Configurar como PDV'}
+                      </Text>
+                    </TouchableOpacity>
+                  ) : null}
+                </View>
+
                 {metaChips.length > 0 ? (
                   <View style={styles.deviceMetaRow}>
                     {metaChips.map(chipLabel => (
                       <View key={chipLabel} style={styles.deviceMetaChip}>
-                        <Text style={styles.deviceMetaChipText}>{chipLabel}</Text>
+                        <Text style={styles.deviceMetaChipText}>
+                          {chipLabel}
+                        </Text>
                       </View>
                     ))}
                   </View>
                 ) : null}
               </View>
             </View>
-
-            <View style={styles.cardRight}>
-              <View
-                style={[
-                  styles.badge,
-                  {
-                    backgroundColor: withOpacity(accent, 0.12),
-                    borderColor: withOpacity(accent, 0.4),
-                  },
-                ]}>
-                <View style={[styles.dot, {backgroundColor: accent}]} />
-                <Text style={[styles.badgeText, {color: accent}]}>
-                  {badgeText}
-                </Text>
-              </View>
-              <Icon
-                name="chevron-right"
-                size={16}
-                color="#CBD5E1"
-                style={styles.chevronIcon}
-              />
-            </View>
-          </TouchableOpacity>
+          </View>
         );
       },
-      [goToDetail, networkConnectivityByDevice],
+      [
+        brandColors.badgeSelectedText,
+        brandColors.buttonText,
+        brandColors.cardSelectedText,
+        brandColors.primary,
+        brandColors.white,
+        creatingPdv,
+        goToDetail,
+        handleCreateCurrentPdv,
+        networkConnectivityByDevice,
+        queryTypes,
+        runtimeDeviceIdentifier,
+        runtimeDeviceType,
+        showCurrentPdvSetup,
+      ],
     );
 
     return (
@@ -626,11 +869,9 @@ export const createDeviceTypeTab = ({
         <View style={styles.listMetaRow}>
           <Text style={styles.listMetaTitle}>{label}</Text>
           <Text style={styles.listMetaText}>
-            {typeof clientFilter === 'function'
-              ? `${visibleDeviceConfigs.length} exibido(s)`
-              : totalItems > 0
-                ? `${deviceConfigs.length} de ${totalItems}`
-                : `${deviceConfigs.length} carregado(s)`}
+            {`${visibleDeviceGroups.length} dispositivo(s) • ${
+              filteredDeviceConfigs.length
+            } configuracao(oes)`}
           </Text>
         </View>
 
@@ -649,16 +890,14 @@ export const createDeviceTypeTab = ({
 
         <FlatList
           style={styles.tabList}
-          data={visibleDeviceConfigs}
-          keyExtractor={item => String(item.id)}
+          data={visibleDeviceGroups}
+          keyExtractor={item => item.key}
           renderItem={renderItem}
           refreshing={refreshing}
           onRefresh={handleRefresh}
-          onEndReached={handleLoadMore}
-          onEndReachedThreshold={0.35}
           contentContainerStyle={[
             styles.listContent,
-            visibleDeviceConfigs.length === 0 && styles.listContentEmpty,
+            visibleDeviceGroups.length === 0 && styles.listContentEmpty,
           ]}
           ListEmptyComponent={
             !loading && !error ? (
@@ -671,14 +910,6 @@ export const createDeviceTypeTab = ({
                 />
                 <Text style={styles.emptyTitle}>{emptyState.title}</Text>
                 <Text style={styles.emptySub}>{emptyState.description}</Text>
-              </View>
-            ) : null
-          }
-          ListFooterComponent={
-            loadingMore ? (
-              <View style={styles.listFooterLoader}>
-                <ActivityIndicator size="small" color={brandColors.primary} />
-                <Text style={styles.loadingText}>Carregando mais dispositivos...</Text>
               </View>
             ) : null
           }
