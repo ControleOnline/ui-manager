@@ -248,12 +248,12 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   columnBody: {
-    padding: 10,
-    gap: 10,
+    padding: 5,
+    gap: 5,
   },
   previewColumnBody: {
-    padding: 10,
-    gap: 10,
+    padding: 5,
+    gap: 5,
   },
   columnHeaderSearchWrap: {
     flexDirection: 'row',

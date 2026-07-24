@@ -130,9 +130,9 @@ const COLOR_HINTS = {
   text: 'texto principal da interface',
   textSecondary: 'texto secundário e legendas',
   border: 'bordas e divisores',
-  info: 'informacoes e destaques leves',
+  info: 'informações e destaques leves',
   accent: 'acentos visuais e chamadas',
-  warning: 'avisos e estados de atencao',
+  warning: 'avisos e estados de atenção',
   negative: 'erros e estados negativos',
   positive: 'sucesso e estados positivos',
   'bg-dark': 'fundo escuro principal',
@@ -245,6 +245,7 @@ const THEME_REFERENCE_GROUPS = [
       'checkboxDisabledBackground',
       'checkboxDisabledBorder',
       'checkboxDisabledMark',
+      'checkboxDisabledText',
       'checkboxSelectedBackground',
       'checkboxSelectedBorder',
       'checkboxSelectedMark',
@@ -1352,6 +1353,7 @@ const renderThemeObjectPreview = (group, themeColors, onSelectTokens, useRnwPrev
       const checkboxSelectedMark = getPreviewColorMode(themeColors, ['checkboxSelectedMark', 'textInverse'], '#FFFFFF', useRnwPreview);
       const checkboxDisabledBackground = getPreviewColorMode(themeColors, ['checkboxDisabledBackground'], '#E2E8F0', useRnwPreview);
       const checkboxDisabledBorder = getPreviewColorMode(themeColors, ['checkboxDisabledBorder'], '#CBD5E1', useRnwPreview);
+	  const checkboxDisabledText = getPreviewColorMode(themeColors, ['checkboxDisabledText', 'textDisabled', 'textSecondary'], '#94A3B8', useRnwPreview);
 
       return (
         <View style={styles.previewStack}>
@@ -1429,7 +1431,14 @@ const renderThemeObjectPreview = (group, themeColors, onSelectTokens, useRnwPrev
               onSelectTokens={onSelectTokens}
               style={styles.previewChoiceTextTarget}
             >
-              <Text style={styles.previewSwitchStateText}>Desabilitado</Text>
+              <Text
+				  style={[
+					styles.previewSwitchStateText,
+					{ color: resolvePreviewValue(checkboxDisabledText, '#94A3B8', useRnwPreview) }
+				  ]}
+				>
+				  Desabilitado
+				</Text>
             </PreviewPressTarget>
           </View>
         </View>
