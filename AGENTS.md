@@ -9,8 +9,8 @@
 - A home do `ADMIN` e menu-only: nao renderiza hero, resumo nem banner explicativo; os atalhos ficam apenas no grid de menus.
 - A rota `admin/flowcharts` pertence ao `ADMIN` e deve ler/gravar os fluxogramas Mermaid pelo store `flowcharts` e pela API `flowcharts`; nao usar definicoes hardcoded como fonte de verdade.
 - O fluxograma de venda/producao deve mostrar o vinculo real PDV -> PCP por `order_product_queue`, nao por status final do pedido. Pagamento antes da producao so deve aparecer como obrigatorio quando o modo/canal explicitar essa regra, como no balcao/prepaid checkout; mesa/comanda e demais fluxos podem produzir antes do pagamento quando configurados assim. Delivery acontece depois da producao, com cobranca na entrega apenas quando aplicavel ao nosso entregador.
+- No PCP, o fluxograma deve mostrar a sequencia operacional: `production` recebe os itens da fila, imprime etiqueta/codigo de barras, depois passa por picking/separation com bipagem, segue para `conference` e so entao fica ready/tracking.
 - Antes de direcionar um pedido para `ON DELIVERY`, o fluxograma deve decidir se a entrega e nossa. Entregas iFood/99 feitas pelo courier do marketplace nao entram no nosso app DELIVERY; o sistema fica aguardando a entrega externa.
-- No fluxograma de venda/producao, abertura/fechamento de caixa nao e uma etapa independente depois da producao ou delivery; e uma opcao do `ON POS`, como cash register/cash drawer, para conferencia do dinheiro recebido pelo operador.
 - Nos fluxogramas e editores, os tipos canonicos de display sao `production`, `conference` e `tracking`; nao voltar a usar `products`, `orders` ou `tv` como termos de dominio.
 - A rota `/menu-costs-page/parametros` é a tela oficial de parâmetros da engenharia.
 - Essa tela lê e grava apenas `configs` da empresa selecionada.
