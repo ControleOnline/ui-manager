@@ -1,6 +1,6 @@
 /* eslint-disable no-unused-vars -- The current flat ESLint config does not mark JSX identifiers as used. */
 import React, {useCallback, useEffect, useMemo, useState} from 'react';
-import {Pressable, ScrollView, Text, TextInput, View} from 'react-native';
+import {Pressable, ScrollView, Text, View} from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/Feather';
 import {useStore} from '@store';
@@ -9,6 +9,7 @@ import {resolveThemePalette, withOpacity} from '@controleonline/../../src/styles
 import {colors} from '@controleonline/../../src/styles/colors';
 import {APP_ENV} from '../../../../../../../config/env';
 import {resolveAppDomain} from '@controleonline/ui-common/src/utils/appDomain';
+import FlowchartVisualEditor from './FlowchartVisualEditor';
 import MermaidDiagram from './MermaidDiagram';
 import {createStyles} from './index.styles';
 
@@ -90,6 +91,7 @@ export default function FlowchartsPage() {
   const [draftSummary, setDraftSummary] = useState('');
   const [draftMermaid, setDraftMermaid] = useState('');
   const [isCreatingFlow, setIsCreatingFlow] = useState(false);
+  const [isEditingFlow, setIsEditingFlow] = useState(false);
   const [saveStatus, setSaveStatus] = useState('');
   const [saveError, setSaveError] = useState('');
   const isLoading = Boolean(flowchartsStore.getters?.isLoading);
@@ -167,6 +169,7 @@ export default function FlowchartsPage() {
 
   const handleNewFlow = useCallback(() => {
     setIsCreatingFlow(true);
+    setIsEditingFlow(true);
     setActiveFlowId(NEW_FLOW_ID);
     setDraftTitle('Novo fluxo');
     setDraftSummary('');
@@ -199,6 +202,7 @@ export default function FlowchartsPage() {
       });
 
       setIsCreatingFlow(false);
+      setIsEditingFlow(false);
       setActiveFlowId(normalizeFlowId(saved));
       setSaveStatus('Fluxograma salvo.');
     } catch (error) {
@@ -289,6 +293,7 @@ export default function FlowchartsPage() {
                   key={normalizeFlowId(flow)}
                   onPress={() => {
                     setIsCreatingFlow(false);
+                    setIsEditingFlow(false);
                     setActiveFlowId(normalizeFlowId(flow));
                   }}
                   style={({pressed}) => [
@@ -316,76 +321,53 @@ export default function FlowchartsPage() {
               </View>
             ) : null}
 
-            {activeFlow || isCreatingFlow ? (
-              <View style={styles.editorPanel}>
-                <View style={styles.editorHeader}>
-                  <Text style={styles.editorTitle}>Editor Mermaid</Text>
-                  <Pressable
-                    accessibilityRole="button"
-                    disabled={!hasChanges || isSaving}
-                    onPress={handleSave}
-                    style={({pressed}) => [
-                      styles.saveButton,
-                      (!hasChanges || isSaving) && styles.saveButtonDisabled,
-                      pressed && hasChanges && !isSaving && {backgroundColor: withOpacity(palette.primary, 0.86)},
-                    ]}
-                  >
-                    <Icon name="save" size={15} color={palette.white} />
-                    <Text style={styles.saveButtonText}>{isSaving ? 'Salvando' : 'Salvar'}</Text>
-                  </Pressable>
-                </View>
-
-                <View style={styles.editorFields}>
-                  <View style={styles.editorField}>
-                    <Text style={styles.editorLabel}>Título</Text>
-                    <TextInput
-                      onChangeText={setDraftTitle}
-                      placeholder="Título"
-                      placeholderTextColor={palette.textSecondary}
-                      style={styles.editorInput}
-                      value={draftTitle}
-                    />
-                  </View>
-                  <View style={styles.editorField}>
-                    <Text style={styles.editorLabel}>Resumo</Text>
-                    <TextInput
-                      onChangeText={setDraftSummary}
-                      placeholder="Resumo"
-                      placeholderTextColor={palette.textSecondary}
-                      style={styles.editorInput}
-                      value={draftSummary}
-                    />
-                  </View>
-                </View>
-
-                <TextInput
-                  multiline
-                  onChangeText={setDraftMermaid}
-                  placeholder="flowchart TD"
-                  placeholderTextColor={palette.textSecondary}
-                  style={[styles.editorInput, styles.editorCode]}
-                  textAlignVertical="top"
-                  value={draftMermaid}
-                />
-
-                {saveStatus ? <Text style={styles.successText}>{saveStatus}</Text> : null}
-                {saveError ? <Text style={styles.errorText}>{saveError}</Text> : null}
-              </View>
+            {previewFlow && isEditingFlow ? (
+              <FlowchartVisualEditor
+                draftMermaid={draftMermaid}
+                draftSummary={draftSummary}
+                draftTitle={draftTitle}
+                hasChanges={hasChanges}
+                isSaving={isSaving}
+                onMermaidChange={setDraftMermaid}
+                onSave={handleSave}
+                onSummaryChange={setDraftSummary}
+                onTitleChange={setDraftTitle}
+                palette={palette}
+                saveError={saveError}
+                saveStatus={saveStatus}
+                styles={styles}
+              />
             ) : null}
 
-            <View style={styles.diagramFrame}>
-              <ScrollView
-                horizontal
-                style={styles.diagramScroll}
-                contentContainerStyle={styles.diagramScrollContent}
-                showsHorizontalScrollIndicator
-                showsVerticalScrollIndicator
-              >
-                {previewFlow ? (
+            {previewFlow && !isEditingFlow ? (
+              <View style={styles.diagramFrame}>
+                <View style={styles.readOnlyHeader}>
+                  <View style={styles.titleWrap}>
+                    <Text style={styles.editorTitle}>{previewFlow.title}</Text>
+                    <Text style={styles.pageSubtitle}>{previewFlow.summary}</Text>
+                  </View>
+                  <Pressable
+                    accessibilityRole="button"
+                    onPress={() => setIsEditingFlow(true)}
+                    style={({pressed}) => [
+                      styles.saveButton,
+                      pressed && {backgroundColor: withOpacity(palette.primary, 0.82)},
+                    ]}
+                  >
+                    <Icon name="edit-2" size={14} color={palette.white} />
+                    <Text style={styles.saveButtonText}>Editar</Text>
+                  </Pressable>
+                </View>
+                <ScrollView
+                  horizontal
+                  style={styles.diagramScroll}
+                  contentContainerStyle={styles.diagramScrollContent}
+                  showsHorizontalScrollIndicator
+                >
                   <MermaidDiagram chart={previewFlow} palette={palette} styles={styles} />
-                ) : null}
-              </ScrollView>
-            </View>
+                </ScrollView>
+              </View>
+            ) : null}
 
             {activeFlow?.checkpoints?.length ? (
               <View style={styles.checkpointList}>

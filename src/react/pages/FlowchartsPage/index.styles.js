@@ -259,6 +259,17 @@ export const createStyles = palette =>
       overflow: 'hidden',
       ...createShadow(palette),
     },
+    readOnlyHeader: {
+      alignItems: 'center',
+      backgroundColor: palette.cardBackground,
+      borderBottomColor: palette.cardBorder,
+      borderBottomWidth: 1,
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: 10,
+      justifyContent: 'space-between',
+      padding: 12,
+    },
     diagramScroll: {
       flex: 1,
     },
