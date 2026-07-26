@@ -101,6 +101,7 @@ export default function FlowchartsPage({navigation, route}) {
   const [draftMermaid, setDraftMermaid] = useState('');
   const [isCreatingFlow, setIsCreatingFlow] = useState(false);
   const [isEditingFlow, setIsEditingFlow] = useState(false);
+  const [isFlowMaximized, setIsFlowMaximized] = useState(false);
   const [saveStatus, setSaveStatus] = useState('');
   const [saveError, setSaveError] = useState('');
   const isLoading = Boolean(flowchartsStore.getters?.isLoading);
@@ -163,6 +164,7 @@ export default function FlowchartsPage({navigation, route}) {
       setActiveFlowId(normalizedFlowId);
       setIsCreatingFlow(false);
       setIsEditingFlow(false);
+      setIsFlowMaximized(false);
       setSaveStatus('');
       setSaveError('');
       syncUrlFlowId(normalizedFlowId);
@@ -252,6 +254,7 @@ export default function FlowchartsPage({navigation, route}) {
     clearUrlFlowId();
     setIsCreatingFlow(true);
     setIsEditingFlow(true);
+    setIsFlowMaximized(false);
     setActiveFlowId(NEW_FLOW_ID);
     setDraftTitle('Novo fluxo');
     setDraftSummary('');
@@ -285,6 +288,7 @@ export default function FlowchartsPage({navigation, route}) {
 
       setIsCreatingFlow(false);
       setIsEditingFlow(false);
+      setIsFlowMaximized(false);
       const savedFlowId = normalizeFlowId(saved);
       setActiveFlowId(savedFlowId);
       syncUrlFlowId(savedFlowId);
@@ -430,17 +434,33 @@ export default function FlowchartsPage({navigation, route}) {
                     <Text style={styles.editorTitle}>{previewFlow.title}</Text>
                     <Text style={styles.pageSubtitle}>{previewFlow.summary}</Text>
                   </View>
-                  <Pressable
-                    accessibilityRole="button"
-                    onPress={() => setIsEditingFlow(true)}
-                    style={({pressed}) => [
-                      styles.saveButton,
-                      pressed && {backgroundColor: withOpacity(palette.primary, 0.82)},
-                    ]}
-                  >
-                    <Icon name="edit-2" size={14} color={palette.white} />
-                    <Text style={styles.saveButtonText}>Editar</Text>
-                  </Pressable>
+                  <View style={styles.readOnlyActions}>
+                    <Pressable
+                      accessibilityRole="button"
+                      onPress={() => setIsFlowMaximized(true)}
+                      style={({pressed}) => [
+                        styles.secondaryButton,
+                        pressed && {backgroundColor: withOpacity(palette.primary, 0.08)},
+                      ]}
+                    >
+                      <Icon name="maximize-2" size={14} color={palette.primary} />
+                      <Text style={styles.secondaryButtonText}>Maximizar</Text>
+                    </Pressable>
+                    <Pressable
+                      accessibilityRole="button"
+                      onPress={() => {
+                        setIsFlowMaximized(false);
+                        setIsEditingFlow(true);
+                      }}
+                      style={({pressed}) => [
+                        styles.saveButton,
+                        pressed && {backgroundColor: withOpacity(palette.primary, 0.82)},
+                      ]}
+                    >
+                      <Icon name="edit-2" size={14} color={palette.white} />
+                      <Text style={styles.saveButtonText}>Editar</Text>
+                    </Pressable>
+                  </View>
                 </View>
                 <ScrollView
                   horizontal
@@ -466,6 +486,43 @@ export default function FlowchartsPage({navigation, route}) {
           </View>
         </View>
       </ScrollView>
+      {previewFlow && isFlowMaximized ? (
+        <View style={styles.flowMaximizedBackdrop}>
+          <View style={styles.flowMaximizedPanel}>
+            <View style={styles.flowMaximizedHeader}>
+              <View style={styles.titleWrap}>
+                <Text style={styles.editorTitle}>{previewFlow.title}</Text>
+                <Text style={styles.pageSubtitle}>{previewFlow.summary}</Text>
+              </View>
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => setIsFlowMaximized(false)}
+                style={({pressed}) => [
+                  styles.secondaryButton,
+                  pressed && {backgroundColor: withOpacity(palette.primary, 0.08)},
+                ]}
+              >
+                <Icon name="minimize-2" size={14} color={palette.primary} />
+                <Text style={styles.secondaryButtonText}>Fechar</Text>
+              </Pressable>
+            </View>
+            <ScrollView
+              horizontal
+              style={styles.flowMaximizedScroll}
+              contentContainerStyle={styles.flowMaximizedHorizontalContent}
+              showsHorizontalScrollIndicator
+            >
+              <ScrollView
+                style={styles.flowMaximizedVerticalScroll}
+                contentContainerStyle={styles.flowMaximizedDiagramContent}
+                showsVerticalScrollIndicator
+              >
+                <MermaidDiagram chart={previewFlow} palette={palette} styles={styles} />
+              </ScrollView>
+            </ScrollView>
+          </View>
+        </View>
+      ) : null}
     </SafeAreaView>
   );
 }
