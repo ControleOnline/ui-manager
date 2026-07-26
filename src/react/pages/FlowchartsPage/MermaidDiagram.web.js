@@ -47,7 +47,7 @@ export default function MermaidDiagram({chart, palette, styles}) {
         });
 
         const rendered = await mermaid.render(
-          `admin-flowchart-${chart.id}-${Date.now()}`,
+          `admin-flowchart-${chart.id || chart.flowKey}-${Date.now()}`,
           chart.mermaid,
         );
 
@@ -66,7 +66,7 @@ export default function MermaidDiagram({chart, palette, styles}) {
     return () => {
       cancelled = true;
     };
-  }, [chart.id, chart.mermaid, palette]);
+  }, [chart.id, chart.flowKey, chart.mermaid, palette]);
 
   if (error) {
     return (

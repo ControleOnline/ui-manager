@@ -1,13 +1,12 @@
 /* eslint-disable no-unused-vars -- The current flat ESLint config does not mark JSX identifiers as used. */
-import React, {useMemo, useState} from 'react';
-import {Pressable, ScrollView, Text, View} from 'react-native';
+import React, {useCallback, useEffect, useMemo, useState} from 'react';
+import {Pressable, ScrollView, Text, TextInput, View} from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/Feather';
 import {useStore} from '@store';
 import {app_type_base} from '@appType';
 import {resolveThemePalette, withOpacity} from '@controleonline/../../src/styles/branding';
 import {colors} from '@controleonline/../../src/styles/colors';
-import {ADMIN_FLOWCHARTS} from './flowcharts';
 import MermaidDiagram from './MermaidDiagram';
 import {createStyles} from './index.styles';
 
@@ -21,9 +20,26 @@ const buildPalette = basePalette => ({
   iconBackground: withOpacity(basePalette.primary, 0.12),
 });
 
+const normalizeFlowId = flow => String(flow?.id || flow?.flowKey || flow?.flow_key || '');
+
+const normalizeFlowcharts = flowcharts =>
+  (Array.isArray(flowcharts) ? flowcharts : [])
+    .filter(flow => flow && flow.enabled !== false)
+    .sort((a, b) => {
+      const sortA = Number(a.sortOrder ?? a.sort_order ?? 0);
+      const sortB = Number(b.sortOrder ?? b.sort_order ?? 0);
+
+      if (sortA !== sortB) {
+        return sortA - sortB;
+      }
+
+      return String(a.title || '').localeCompare(String(b.title || ''));
+    });
+
 export default function FlowchartsPage() {
   const themeStore = useStore('theme');
   const peopleStore = useStore('people');
+  const flowchartsStore = useStore('flowcharts');
   const {colors: themeColors = {}} = themeStore.getters || {};
   const {currentCompany = {}, defaultCompany = {}} = peopleStore.getters || {};
   const company = currentCompany?.id ? currentCompany : defaultCompany;
@@ -39,14 +55,116 @@ export default function FlowchartsPage() {
     [company?.id, company?.theme?.colors, themeColors],
   );
   const styles = useMemo(() => createStyles(palette), [palette]);
-  const [activeFlowId, setActiveFlowId] = useState(ADMIN_FLOWCHARTS[0]?.id || '');
+  const isAdminApp = app_type_base === 'ADMIN';
+  const flowcharts = useMemo(
+    () => normalizeFlowcharts(flowchartsStore.getters?.items),
+    [flowchartsStore.getters?.items],
+  );
+  const [activeFlowId, setActiveFlowId] = useState('');
   const activeFlow = useMemo(
     () =>
-      ADMIN_FLOWCHARTS.find(flow => flow.id === activeFlowId) ||
-      ADMIN_FLOWCHARTS[0],
-    [activeFlowId],
+      flowcharts.find(flow => normalizeFlowId(flow) === activeFlowId) ||
+      flowcharts[0] ||
+      null,
+    [activeFlowId, flowcharts],
   );
-  const isAdminApp = app_type_base === 'ADMIN';
+  const [draftTitle, setDraftTitle] = useState('');
+  const [draftSummary, setDraftSummary] = useState('');
+  const [draftMermaid, setDraftMermaid] = useState('');
+  const [saveStatus, setSaveStatus] = useState('');
+  const [saveError, setSaveError] = useState('');
+  const isLoading = Boolean(flowchartsStore.getters?.isLoading);
+  const isSaving = Boolean(flowchartsStore.getters?.isSaving);
+  const loadError = flowchartsStore.getters?.error;
+
+  useEffect(() => {
+    if (!isAdminApp) {
+      return;
+    }
+
+    flowchartsStore.actions
+      .getItems({
+        appType: 'ADMIN',
+        enabled: true,
+        'order[sortOrder]': 'asc',
+        'order[title]': 'asc',
+      })
+      .catch(() => undefined);
+  }, [flowchartsStore.actions, isAdminApp]);
+
+  useEffect(() => {
+    if (!flowcharts.length) {
+      setActiveFlowId('');
+      return;
+    }
+
+    if (!flowcharts.some(flow => normalizeFlowId(flow) === activeFlowId)) {
+      setActiveFlowId(normalizeFlowId(flowcharts[0]));
+    }
+  }, [activeFlowId, flowcharts]);
+
+  useEffect(() => {
+    setDraftTitle(activeFlow?.title || '');
+    setDraftSummary(activeFlow?.summary || '');
+    setDraftMermaid(activeFlow?.mermaid || '');
+    setSaveStatus('');
+    setSaveError('');
+  }, [activeFlow?.id, activeFlow?.flowKey]);
+
+  const previewFlow = useMemo(
+    () =>
+      activeFlow
+        ? {
+            ...activeFlow,
+            id: activeFlow.id || activeFlow.flowKey,
+            title: draftTitle,
+            summary: draftSummary,
+            mermaid: draftMermaid,
+          }
+        : null,
+    [activeFlow, draftMermaid, draftSummary, draftTitle],
+  );
+  const hasChanges = Boolean(
+    activeFlow &&
+      (draftTitle !== (activeFlow.title || '') ||
+        draftSummary !== (activeFlow.summary || '') ||
+        draftMermaid !== (activeFlow.mermaid || '')),
+  );
+
+  const handleSave = useCallback(async () => {
+    if (!activeFlow || isSaving) {
+      return;
+    }
+
+    setSaveStatus('');
+    setSaveError('');
+
+    try {
+      const saved = await flowchartsStore.actions.save({
+        id: activeFlow.id,
+        appType: activeFlow.appType || 'ADMIN',
+        checkpoints: Array.isArray(activeFlow.checkpoints) ? activeFlow.checkpoints : [],
+        enabled: activeFlow.enabled !== false,
+        flowKey: activeFlow.flowKey || activeFlow.flow_key || 'flowchart',
+        mermaid: draftMermaid,
+        sortOrder: Number(activeFlow.sortOrder ?? activeFlow.sort_order ?? 0),
+        summary: draftSummary,
+        title: draftTitle.trim() || activeFlow.title || 'Fluxograma',
+      });
+
+      setActiveFlowId(normalizeFlowId(saved));
+      setSaveStatus('Fluxograma salvo.');
+    } catch (error) {
+      setSaveError(String(error?.message || error || 'Falha ao salvar fluxograma.'));
+    }
+  }, [
+    activeFlow,
+    draftMermaid,
+    draftSummary,
+    draftTitle,
+    flowchartsStore.actions,
+    isSaving,
+  ]);
 
   if (!isAdminApp) {
     return (
@@ -64,7 +182,7 @@ export default function FlowchartsPage() {
         <View style={styles.header}>
           <View style={styles.titleWrap}>
             <Text style={styles.pageTitle}>Fluxogramas</Text>
-            <Text style={styles.pageSubtitle}>{activeFlow?.summary}</Text>
+            <Text style={styles.pageSubtitle}>{draftSummary || activeFlow?.summary || ''}</Text>
           </View>
           <View style={styles.badge}>
             <Icon name="shield" size={13} color={palette.primary} />
@@ -75,14 +193,24 @@ export default function FlowchartsPage() {
         <View style={styles.shell}>
           <View style={styles.sidebar}>
             <Text style={styles.sidebarTitle}>Fluxos</Text>
-            {ADMIN_FLOWCHARTS.map(flow => {
-              const active = flow.id === activeFlow?.id;
+            {isLoading && !flowcharts.length ? (
+              <View style={styles.sidebarStatus}>
+                <Text style={styles.statusText}>Carregando fluxogramas...</Text>
+              </View>
+            ) : null}
+            {!isLoading && !flowcharts.length ? (
+              <View style={styles.sidebarStatus}>
+                <Text style={styles.statusText}>Nenhum fluxograma encontrado.</Text>
+              </View>
+            ) : null}
+            {flowcharts.map(flow => {
+              const active = normalizeFlowId(flow) === normalizeFlowId(activeFlow);
 
               return (
                 <Pressable
                   accessibilityRole="button"
-                  key={flow.id}
-                  onPress={() => setActiveFlowId(flow.id)}
+                  key={normalizeFlowId(flow)}
+                  onPress={() => setActiveFlowId(normalizeFlowId(flow))}
                   style={({pressed}) => [
                     styles.flowButton,
                     active && styles.flowButtonActive,
@@ -102,6 +230,69 @@ export default function FlowchartsPage() {
           </View>
 
           <View style={styles.main}>
+            {loadError ? (
+              <View style={styles.statusStrip}>
+                <Text style={styles.errorText}>{String(loadError)}</Text>
+              </View>
+            ) : null}
+
+            {activeFlow ? (
+              <View style={styles.editorPanel}>
+                <View style={styles.editorHeader}>
+                  <Text style={styles.editorTitle}>Editor Mermaid</Text>
+                  <Pressable
+                    accessibilityRole="button"
+                    disabled={!hasChanges || isSaving}
+                    onPress={handleSave}
+                    style={({pressed}) => [
+                      styles.saveButton,
+                      (!hasChanges || isSaving) && styles.saveButtonDisabled,
+                      pressed && hasChanges && !isSaving && {backgroundColor: withOpacity(palette.primary, 0.86)},
+                    ]}
+                  >
+                    <Icon name="save" size={15} color={palette.white} />
+                    <Text style={styles.saveButtonText}>{isSaving ? 'Salvando' : 'Salvar'}</Text>
+                  </Pressable>
+                </View>
+
+                <View style={styles.editorFields}>
+                  <View style={styles.editorField}>
+                    <Text style={styles.editorLabel}>Título</Text>
+                    <TextInput
+                      onChangeText={setDraftTitle}
+                      placeholder="Título"
+                      placeholderTextColor={palette.textSecondary}
+                      style={styles.editorInput}
+                      value={draftTitle}
+                    />
+                  </View>
+                  <View style={styles.editorField}>
+                    <Text style={styles.editorLabel}>Resumo</Text>
+                    <TextInput
+                      onChangeText={setDraftSummary}
+                      placeholder="Resumo"
+                      placeholderTextColor={palette.textSecondary}
+                      style={styles.editorInput}
+                      value={draftSummary}
+                    />
+                  </View>
+                </View>
+
+                <TextInput
+                  multiline
+                  onChangeText={setDraftMermaid}
+                  placeholder="flowchart TD"
+                  placeholderTextColor={palette.textSecondary}
+                  style={[styles.editorInput, styles.editorCode]}
+                  textAlignVertical="top"
+                  value={draftMermaid}
+                />
+
+                {saveStatus ? <Text style={styles.successText}>{saveStatus}</Text> : null}
+                {saveError ? <Text style={styles.errorText}>{saveError}</Text> : null}
+              </View>
+            ) : null}
+
             <View style={styles.diagramFrame}>
               <ScrollView
                 horizontal
@@ -110,8 +301,8 @@ export default function FlowchartsPage() {
                 showsHorizontalScrollIndicator
                 showsVerticalScrollIndicator
               >
-                {activeFlow ? (
-                  <MermaidDiagram chart={activeFlow} palette={palette} styles={styles} />
+                {previewFlow ? (
+                  <MermaidDiagram chart={previewFlow} palette={palette} styles={styles} />
                 ) : null}
               </ScrollView>
             </View>

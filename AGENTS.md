@@ -7,7 +7,7 @@
 
 ## Regras atuais
 - A home do `ADMIN` e menu-only: nao renderiza hero, resumo nem banner explicativo; os atalhos ficam apenas no grid de menus.
-- A rota `admin/flowcharts` pertence ao `ADMIN` e deve manter os fluxogramas como definicoes Mermaid versionadas em `FlowchartsPage/flowcharts.js`.
+- A rota `admin/flowcharts` pertence ao `ADMIN` e deve ler/gravar os fluxogramas Mermaid pelo store `flowcharts` e pela API `flowcharts`; nao usar definicoes hardcoded como fonte de verdade.
 - A rota `/menu-costs-page/parametros` é a tela oficial de parâmetros da engenharia.
 - Essa tela lê e grava apenas `configs` da empresa selecionada.
 - `MenuCostsPage` deve navegar para essa rota quando o usuário tocar em `Parâmetros`.
