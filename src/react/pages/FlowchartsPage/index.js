@@ -7,8 +7,15 @@ import {useStore} from '@store';
 import {app_type_base} from '@appType';
 import {resolveThemePalette, withOpacity} from '@controleonline/../../src/styles/branding';
 import {colors} from '@controleonline/../../src/styles/colors';
+import {APP_ENV} from '../../../../../../../config/env';
+import {resolveAppDomain} from '@controleonline/ui-common/src/utils/appDomain';
 import MermaidDiagram from './MermaidDiagram';
 import {createStyles} from './index.styles';
+
+const NEW_FLOW_ID = '__new-flowchart__';
+const DEFAULT_NEW_MERMAID = `flowchart TD
+  start["Novo fluxo"] --> step["Edite o Mermaid"]
+  step --> done["Salvar no tenant"]`;
 
 const buildPalette = basePalette => ({
   ...basePalette,
@@ -21,6 +28,17 @@ const buildPalette = basePalette => ({
 });
 
 const normalizeFlowId = flow => String(flow?.id || flow?.flowKey || flow?.flow_key || '');
+
+const buildFlowKey = title => {
+  const slug = String(title || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+
+  return `${slug || 'fluxo'}-${Date.now()}`;
+};
 
 const normalizeFlowcharts = flowcharts =>
   (Array.isArray(flowcharts) ? flowcharts : [])
@@ -71,6 +89,7 @@ export default function FlowchartsPage() {
   const [draftTitle, setDraftTitle] = useState('');
   const [draftSummary, setDraftSummary] = useState('');
   const [draftMermaid, setDraftMermaid] = useState('');
+  const [isCreatingFlow, setIsCreatingFlow] = useState(false);
   const [saveStatus, setSaveStatus] = useState('');
   const [saveError, setSaveError] = useState('');
   const isLoading = Boolean(flowchartsStore.getters?.isLoading);
@@ -84,8 +103,9 @@ export default function FlowchartsPage() {
 
     flowchartsStore.actions
       .getItems({
+        'app-domain': resolveAppDomain(APP_ENV.DOMAIN),
         appType: 'ADMIN',
-        enabled: true,
+        enabled: 1,
         'order[sortOrder]': 'asc',
         'order[title]': 'asc',
       })
@@ -94,26 +114,39 @@ export default function FlowchartsPage() {
 
   useEffect(() => {
     if (!flowcharts.length) {
-      setActiveFlowId('');
+      if (!isCreatingFlow) {
+        setActiveFlowId('');
+      }
       return;
     }
 
-    if (!flowcharts.some(flow => normalizeFlowId(flow) === activeFlowId)) {
+    if (!isCreatingFlow && !flowcharts.some(flow => normalizeFlowId(flow) === activeFlowId)) {
       setActiveFlowId(normalizeFlowId(flowcharts[0]));
     }
-  }, [activeFlowId, flowcharts]);
+  }, [activeFlowId, flowcharts, isCreatingFlow]);
 
   useEffect(() => {
+    if (isCreatingFlow) {
+      return;
+    }
+
     setDraftTitle(activeFlow?.title || '');
     setDraftSummary(activeFlow?.summary || '');
     setDraftMermaid(activeFlow?.mermaid || '');
     setSaveStatus('');
     setSaveError('');
-  }, [activeFlow?.id, activeFlow?.flowKey]);
+  }, [activeFlow?.id, activeFlow?.flowKey, isCreatingFlow]);
 
   const previewFlow = useMemo(
     () =>
-      activeFlow
+      isCreatingFlow
+        ? {
+            id: NEW_FLOW_ID,
+            title: draftTitle || 'Novo fluxo',
+            summary: draftSummary,
+            mermaid: draftMermaid,
+          }
+        : activeFlow
         ? {
             ...activeFlow,
             id: activeFlow.id || activeFlow.flowKey,
@@ -122,17 +155,28 @@ export default function FlowchartsPage() {
             mermaid: draftMermaid,
           }
         : null,
-    [activeFlow, draftMermaid, draftSummary, draftTitle],
+    [activeFlow, draftMermaid, draftSummary, draftTitle, isCreatingFlow],
   );
   const hasChanges = Boolean(
-    activeFlow &&
+    isCreatingFlow ||
+      (activeFlow &&
       (draftTitle !== (activeFlow.title || '') ||
         draftSummary !== (activeFlow.summary || '') ||
-        draftMermaid !== (activeFlow.mermaid || '')),
+          draftMermaid !== (activeFlow.mermaid || ''))),
   );
 
+  const handleNewFlow = useCallback(() => {
+    setIsCreatingFlow(true);
+    setActiveFlowId(NEW_FLOW_ID);
+    setDraftTitle('Novo fluxo');
+    setDraftSummary('');
+    setDraftMermaid(DEFAULT_NEW_MERMAID);
+    setSaveStatus('');
+    setSaveError('');
+  }, []);
+
   const handleSave = useCallback(async () => {
-    if (!activeFlow || isSaving) {
+    if ((!activeFlow && !isCreatingFlow) || isSaving) {
       return;
     }
 
@@ -140,18 +184,21 @@ export default function FlowchartsPage() {
     setSaveError('');
 
     try {
+      const baseFlow = isCreatingFlow ? {} : activeFlow;
+      const nextTitle = draftTitle.trim() || baseFlow.title || 'Fluxograma';
       const saved = await flowchartsStore.actions.save({
-        id: activeFlow.id,
-        appType: activeFlow.appType || 'ADMIN',
-        checkpoints: Array.isArray(activeFlow.checkpoints) ? activeFlow.checkpoints : [],
-        enabled: activeFlow.enabled !== false,
-        flowKey: activeFlow.flowKey || activeFlow.flow_key || 'flowchart',
+        id: baseFlow.id,
+        appType: baseFlow.appType || 'ADMIN',
+        checkpoints: Array.isArray(baseFlow.checkpoints) ? baseFlow.checkpoints : [],
+        enabled: baseFlow.enabled !== false,
+        flowKey: baseFlow.flowKey || baseFlow.flow_key || buildFlowKey(nextTitle),
         mermaid: draftMermaid,
-        sortOrder: Number(activeFlow.sortOrder ?? activeFlow.sort_order ?? 0),
+        sortOrder: Number(baseFlow.sortOrder ?? baseFlow.sort_order ?? flowcharts.length + 1),
         summary: draftSummary,
-        title: draftTitle.trim() || activeFlow.title || 'Fluxograma',
+        title: nextTitle,
       });
 
+      setIsCreatingFlow(false);
       setActiveFlowId(normalizeFlowId(saved));
       setSaveStatus('Fluxograma salvo.');
     } catch (error) {
@@ -162,7 +209,9 @@ export default function FlowchartsPage() {
     draftMermaid,
     draftSummary,
     draftTitle,
+    flowcharts.length,
     flowchartsStore.actions,
+    isCreatingFlow,
     isSaving,
   ]);
 
@@ -192,7 +241,20 @@ export default function FlowchartsPage() {
 
         <View style={styles.shell}>
           <View style={styles.sidebar}>
-            <Text style={styles.sidebarTitle}>Fluxos</Text>
+            <View style={styles.sidebarHeader}>
+              <Text style={styles.sidebarTitle}>Fluxos</Text>
+              <Pressable
+                accessibilityRole="button"
+                onPress={handleNewFlow}
+                style={({pressed}) => [
+                  styles.newFlowButton,
+                  pressed && {backgroundColor: withOpacity(palette.primary, 0.08)},
+                ]}
+              >
+                <Icon name="plus" size={15} color={palette.primary} />
+                <Text style={styles.newFlowButtonText}>Novo</Text>
+              </Pressable>
+            </View>
             {isLoading && !flowcharts.length ? (
               <View style={styles.sidebarStatus}>
                 <Text style={styles.statusText}>Carregando fluxogramas...</Text>
@@ -200,8 +262,23 @@ export default function FlowchartsPage() {
             ) : null}
             {!isLoading && !flowcharts.length ? (
               <View style={styles.sidebarStatus}>
-                <Text style={styles.statusText}>Nenhum fluxograma encontrado.</Text>
+                <Text style={styles.statusText}>Nenhum fluxo carregado neste tenant.</Text>
               </View>
+            ) : null}
+            {isCreatingFlow ? (
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => setActiveFlowId(NEW_FLOW_ID)}
+                style={[styles.flowButton, styles.flowButtonActive]}
+              >
+                <View style={styles.flowIcon}>
+                  <Icon name="plus" size={16} color={palette.primary} />
+                </View>
+                <View style={styles.flowTextWrap}>
+                  <Text numberOfLines={2} style={styles.flowTitle}>{draftTitle || 'Novo fluxo'}</Text>
+                  <Text numberOfLines={3} style={styles.flowSummary}>Rascunho ainda não salvo.</Text>
+                </View>
+              </Pressable>
             ) : null}
             {flowcharts.map(flow => {
               const active = normalizeFlowId(flow) === normalizeFlowId(activeFlow);
@@ -210,7 +287,10 @@ export default function FlowchartsPage() {
                 <Pressable
                   accessibilityRole="button"
                   key={normalizeFlowId(flow)}
-                  onPress={() => setActiveFlowId(normalizeFlowId(flow))}
+                  onPress={() => {
+                    setIsCreatingFlow(false);
+                    setActiveFlowId(normalizeFlowId(flow));
+                  }}
                   style={({pressed}) => [
                     styles.flowButton,
                     active && styles.flowButtonActive,
@@ -236,7 +316,7 @@ export default function FlowchartsPage() {
               </View>
             ) : null}
 
-            {activeFlow ? (
+            {activeFlow || isCreatingFlow ? (
               <View style={styles.editorPanel}>
                 <View style={styles.editorHeader}>
                   <Text style={styles.editorTitle}>Editor Mermaid</Text>

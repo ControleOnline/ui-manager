@@ -47,6 +47,28 @@ export const createStyles = palette =>
       fontSize: 15,
       fontWeight: '900',
     },
+    sidebarHeader: {
+      alignItems: 'center',
+      flexDirection: 'row',
+      gap: 8,
+      justifyContent: 'space-between',
+    },
+    newFlowButton: {
+      alignItems: 'center',
+      borderColor: palette.primary,
+      borderRadius: 8,
+      borderWidth: 1,
+      flexDirection: 'row',
+      gap: 5,
+      minHeight: 32,
+      paddingHorizontal: 9,
+      paddingVertical: 6,
+    },
+    newFlowButtonText: {
+      color: palette.primary,
+      fontSize: 11,
+      fontWeight: '900',
+    },
     sidebarStatus: {
       borderColor: palette.cardBorder,
       borderRadius: 8,
