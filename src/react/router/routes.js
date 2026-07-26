@@ -206,7 +206,7 @@ const managerRoutes = [
   {
     name: 'FlowchartsPage',
     component: FlowchartsPage,
-    path: 'admin/flowcharts',
+    path: 'admin/flowcharts/:id?',
     options: {
       headerShown: true,
       headerBackVisible: true,

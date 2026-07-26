@@ -55,7 +55,7 @@ const normalizeFlowcharts = flowcharts =>
       return String(a.title || '').localeCompare(String(b.title || ''));
     });
 
-export default function FlowchartsPage() {
+export default function FlowchartsPage({navigation, route}) {
   const themeStore = useStore('theme');
   const peopleStore = useStore('people');
   const flowchartsStore = useStore('flowcharts');
@@ -79,13 +79,22 @@ export default function FlowchartsPage() {
     () => normalizeFlowcharts(flowchartsStore.getters?.items),
     [flowchartsStore.getters?.items],
   );
+  const loadedFlow = flowchartsStore.getters?.item;
+  const routeFlowId = String(route?.params?.id || '').replace(/\D+/g, '');
   const [activeFlowId, setActiveFlowId] = useState('');
   const activeFlow = useMemo(
-    () =>
-      flowcharts.find(flow => normalizeFlowId(flow) === activeFlowId) ||
+    () => {
+      const loadedFlowId = normalizeFlowId(loadedFlow);
+
+      if (activeFlowId && loadedFlowId === activeFlowId) {
+        return loadedFlow;
+      }
+
+      return flowcharts.find(flow => normalizeFlowId(flow) === activeFlowId) ||
       flowcharts[0] ||
-      null,
-    [activeFlowId, flowcharts],
+      null;
+    },
+    [activeFlowId, flowcharts, loadedFlow],
   );
   const [draftTitle, setDraftTitle] = useState('');
   const [draftSummary, setDraftSummary] = useState('');
@@ -114,6 +123,71 @@ export default function FlowchartsPage() {
       .catch(() => undefined);
   }, [flowchartsStore.actions, isAdminApp]);
 
+  const syncUrlFlowId = useCallback(
+    flowId => {
+      const normalizedFlowId = String(flowId || '').replace(/\D+/g, '');
+      if (!normalizedFlowId || normalizedFlowId === routeFlowId) {
+        return;
+      }
+
+      if (navigation?.replace) {
+        navigation.replace('FlowchartsPage', {id: normalizedFlowId});
+        return;
+      }
+
+      navigation?.navigate?.('FlowchartsPage', {id: normalizedFlowId});
+    },
+    [navigation, routeFlowId],
+  );
+
+  const clearUrlFlowId = useCallback(() => {
+    if (!routeFlowId) {
+      return;
+    }
+
+    if (navigation?.replace) {
+      navigation.replace('FlowchartsPage');
+      return;
+    }
+
+    navigation?.navigate?.('FlowchartsPage');
+  }, [navigation, routeFlowId]);
+
+  const loadFlowById = useCallback(
+    flowId => {
+      const normalizedFlowId = String(flowId || '').replace(/\D+/g, '');
+      if (!normalizedFlowId) {
+        return Promise.resolve(null);
+      }
+
+      setActiveFlowId(normalizedFlowId);
+      setIsCreatingFlow(false);
+      setIsEditingFlow(false);
+      setSaveStatus('');
+      setSaveError('');
+      syncUrlFlowId(normalizedFlowId);
+
+      return flowchartsStore.actions
+        .get({
+          id: normalizedFlowId,
+          __storeMeta: {preserveItem: true},
+        })
+        .catch(error => {
+          setSaveError(String(error?.message || error || 'Falha ao carregar fluxograma.'));
+          return null;
+        });
+    },
+    [flowchartsStore.actions, syncUrlFlowId],
+  );
+
+  useEffect(() => {
+    if (!isAdminApp || !routeFlowId) {
+      return;
+    }
+
+    void loadFlowById(routeFlowId);
+  }, [isAdminApp, loadFlowById, routeFlowId]);
+
   useEffect(() => {
     if (!flowcharts.length) {
       if (!isCreatingFlow) {
@@ -122,10 +196,17 @@ export default function FlowchartsPage() {
       return;
     }
 
-    if (!isCreatingFlow && !flowcharts.some(flow => normalizeFlowId(flow) === activeFlowId)) {
-      setActiveFlowId(normalizeFlowId(flowcharts[0]));
+    if (isCreatingFlow || routeFlowId) {
+      return;
     }
-  }, [activeFlowId, flowcharts, isCreatingFlow]);
+
+    if (!flowcharts.some(flow => normalizeFlowId(flow) === activeFlowId)) {
+      const firstFlowId = normalizeFlowId(flowcharts[0]);
+      if (firstFlowId) {
+        void loadFlowById(firstFlowId);
+      }
+    }
+  }, [activeFlowId, flowcharts, isCreatingFlow, loadFlowById, routeFlowId]);
 
   useEffect(() => {
     if (isCreatingFlow) {
@@ -168,6 +249,7 @@ export default function FlowchartsPage() {
   );
 
   const handleNewFlow = useCallback(() => {
+    clearUrlFlowId();
     setIsCreatingFlow(true);
     setIsEditingFlow(true);
     setActiveFlowId(NEW_FLOW_ID);
@@ -176,7 +258,7 @@ export default function FlowchartsPage() {
     setDraftMermaid(DEFAULT_NEW_MERMAID);
     setSaveStatus('');
     setSaveError('');
-  }, []);
+  }, [clearUrlFlowId]);
 
   const handleSave = useCallback(async () => {
     if ((!activeFlow && !isCreatingFlow) || isSaving) {
@@ -203,7 +285,9 @@ export default function FlowchartsPage() {
 
       setIsCreatingFlow(false);
       setIsEditingFlow(false);
-      setActiveFlowId(normalizeFlowId(saved));
+      const savedFlowId = normalizeFlowId(saved);
+      setActiveFlowId(savedFlowId);
+      syncUrlFlowId(savedFlowId);
       setSaveStatus('Fluxograma salvo.');
     } catch (error) {
       setSaveError(String(error?.message || error || 'Falha ao salvar fluxograma.'));
@@ -272,7 +356,9 @@ export default function FlowchartsPage() {
             {isCreatingFlow ? (
               <Pressable
                 accessibilityRole="button"
-                onPress={() => setActiveFlowId(NEW_FLOW_ID)}
+                onPress={() => {
+                  setActiveFlowId(NEW_FLOW_ID);
+                }}
                 style={[styles.flowButton, styles.flowButtonActive]}
               >
                 <View style={styles.flowIcon}>
@@ -292,9 +378,7 @@ export default function FlowchartsPage() {
                   accessibilityRole="button"
                   key={normalizeFlowId(flow)}
                   onPress={() => {
-                    setIsCreatingFlow(false);
-                    setIsEditingFlow(false);
-                    setActiveFlowId(normalizeFlowId(flow));
+                    void loadFlowById(normalizeFlowId(flow));
                   }}
                   style={({pressed}) => [
                     styles.flowButton,
