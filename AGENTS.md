@@ -12,6 +12,8 @@
 - A decisao de cobranca pendente no fluxograma nao e exclusiva da entrega: em mesa/garcom, a configuracao define se o garcom cobra no POS ou se a cobranca fica para a saida do estabelecimento via `APP_TYPE=CHECKOUT` ou `APP_TYPE=MANAGER`.
 - No PCP, o fluxograma deve mostrar a sequencia operacional: `production` recebe os itens da fila, imprime etiqueta/codigo de barras, depois passa por picking/separation com bipagem, segue para `conference` e so entao fica ready/tracking.
 - Produto sem queue de producao nao deve ir direto para entrega/pronto; ele deve passar pelo display `conference` antes de ficar pronto.
+- Nao criar um bypass `Sem PCP` antes da conferencia: os itens do pedido devem ser avaliados para `production` quando possuem queue ou para `conference` quando nao possuem queue.
+- Depois de `ready`, o fluxograma nao deve perguntar se o pedido esta pronto; deve decidir apenas o tipo de saida: delivery, mesa/comanda entregue pelo garcom, ou retirada pelo cliente. Cada tipo aciona sua propria regra de handoff e cobranca pendente.
 - Antes de direcionar um pedido para `ON DELIVERY`, o fluxograma deve decidir se a entrega e nossa. Entregas iFood/99 feitas pelo courier do marketplace nao entram no nosso app DELIVERY; o sistema fica aguardando a entrega externa.
 - Nos fluxogramas e editores, os tipos canonicos de display sao `production`, `conference` e `tracking`; nao voltar a usar `products`, `orders` ou `tv` como termos de dominio.
 - A rota `/menu-costs-page/parametros` é a tela oficial de parâmetros da engenharia.
