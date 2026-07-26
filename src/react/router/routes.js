@@ -49,6 +49,7 @@ import MenuAccessConfigPage from '@controleonline/ui-manager/src/react/pages/Men
 import CronJobsPage from '@controleonline/ui-manager/src/react/pages/CronJobsPage';
 import PeopleDomainsPage from '@controleonline/ui-manager/src/react/pages/PeopleDomainsPage';
 import PeopleDomainDetailPage from '@controleonline/ui-manager/src/react/pages/PeopleDomainDetailPage';
+import FlowchartsPage from '@controleonline/ui-manager/src/react/pages/FlowchartsPage';
 import LabelsPage from '@controleonline/ui-manager/src/react/pages/LabelsPage';
 import ModelTemplatesPage from '@controleonline/ui-manager/src/react/pages/ModelTemplatesPage';
 import WhatsAppConnectionPage from '@controleonline/ui-manager/src/react/pages/WhatsAppConnectionPage';
@@ -200,6 +201,17 @@ const managerRoutes = [
       title: 'Domínio',
       showCompanyFilter: true,
       companyFilterMode: 'icon',
+    },
+  },
+  {
+    name: 'FlowchartsPage',
+    component: FlowchartsPage,
+    path: 'admin/flowcharts',
+    options: {
+      headerShown: true,
+      headerBackVisible: true,
+      title: 'Fluxogramas',
+      showCompanyFilter: false,
     },
   },
   {

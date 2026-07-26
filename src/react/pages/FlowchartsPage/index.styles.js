@@ -1,0 +1,204 @@
+import {Platform, StyleSheet} from 'react-native';
+import {withOpacity} from '@controleonline/../../src/styles/branding';
+
+const createShadow = palette =>
+  Platform.OS === 'web'
+    ? {boxShadow: `0 8px 24px ${withOpacity(palette.text, 0.08)}`}
+    : {
+        elevation: 2,
+        shadowColor: palette.text,
+        shadowOffset: {height: 2, width: 0},
+        shadowOpacity: 0.1,
+        shadowRadius: 8,
+      };
+
+export const createStyles = palette =>
+  StyleSheet.create({
+    safeArea: {
+      flex: 1,
+    },
+    content: {
+      gap: 12,
+      paddingBottom: 24,
+      paddingHorizontal: 16,
+      paddingTop: 16,
+    },
+    shell: {
+      alignItems: 'stretch',
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: 12,
+    },
+    sidebar: {
+      backgroundColor: palette.cardBackground,
+      borderColor: palette.cardBorder,
+      borderRadius: 8,
+      borderWidth: 1,
+      flexBasis: 260,
+      flexGrow: 1,
+      gap: 10,
+      maxWidth: 340,
+      minWidth: 240,
+      padding: 12,
+      ...createShadow(palette),
+    },
+    sidebarTitle: {
+      color: palette.text,
+      fontSize: 15,
+      fontWeight: '900',
+    },
+    flowButton: {
+      alignItems: 'center',
+      borderColor: palette.cardBorder,
+      borderRadius: 8,
+      borderWidth: 1,
+      flexDirection: 'row',
+      gap: 10,
+      paddingHorizontal: 10,
+      paddingVertical: 10,
+    },
+    flowButtonActive: {
+      backgroundColor: palette.activeBackground,
+      borderColor: palette.primary,
+    },
+    flowIcon: {
+      alignItems: 'center',
+      backgroundColor: palette.iconBackground,
+      borderRadius: 8,
+      height: 34,
+      justifyContent: 'center',
+      width: 34,
+    },
+    flowTextWrap: {
+      flex: 1,
+      gap: 3,
+      minWidth: 0,
+    },
+    flowTitle: {
+      color: palette.text,
+      fontSize: 13,
+      fontWeight: '900',
+    },
+    flowSummary: {
+      color: palette.textSecondary,
+      fontSize: 11,
+      fontWeight: '600',
+      lineHeight: 15,
+    },
+    main: {
+      flexBasis: 640,
+      flexGrow: 999,
+      gap: 12,
+      minWidth: 0,
+    },
+    header: {
+      alignItems: 'center',
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: 10,
+      justifyContent: 'space-between',
+    },
+    titleWrap: {
+      flexGrow: 1,
+      gap: 2,
+      minWidth: 220,
+    },
+    pageTitle: {
+      color: palette.text,
+      fontSize: 22,
+      fontWeight: '900',
+    },
+    pageSubtitle: {
+      color: palette.textSecondary,
+      fontSize: 12,
+      fontWeight: '700',
+      lineHeight: 17,
+    },
+    badge: {
+      alignItems: 'center',
+      backgroundColor: palette.activeBackground,
+      borderColor: palette.primary,
+      borderRadius: 8,
+      borderWidth: 1,
+      flexDirection: 'row',
+      gap: 6,
+      paddingHorizontal: 10,
+      paddingVertical: 7,
+    },
+    badgeText: {
+      color: palette.primary,
+      fontSize: 11,
+      fontWeight: '900',
+    },
+    diagramFrame: {
+      backgroundColor: palette.diagramBackground,
+      borderColor: palette.cardBorder,
+      borderRadius: 8,
+      borderWidth: 1,
+      minHeight: 560,
+      overflow: 'hidden',
+      ...createShadow(palette),
+    },
+    diagramScroll: {
+      flex: 1,
+    },
+    diagramScrollContent: {
+      minHeight: 560,
+      padding: 12,
+    },
+    nativeFallback: {
+      gap: 10,
+      padding: 16,
+    },
+    nativeCode: {
+      backgroundColor: palette.codeBackground,
+      borderColor: palette.cardBorder,
+      borderRadius: 8,
+      borderWidth: 1,
+      color: palette.text,
+      fontFamily: Platform.OS === 'web' ? 'monospace' : undefined,
+      fontSize: 12,
+      lineHeight: 18,
+      padding: 12,
+    },
+    statusBox: {
+      alignItems: 'center',
+      flex: 1,
+      justifyContent: 'center',
+      minHeight: 520,
+      padding: 16,
+    },
+    statusText: {
+      color: palette.textSecondary,
+      fontSize: 13,
+      fontWeight: '800',
+      textAlign: 'center',
+    },
+    checkpointList: {
+      backgroundColor: palette.cardBackground,
+      borderColor: palette.cardBorder,
+      borderRadius: 8,
+      borderWidth: 1,
+      gap: 8,
+      padding: 12,
+    },
+    checkpointRow: {
+      alignItems: 'flex-start',
+      flexDirection: 'row',
+      gap: 8,
+    },
+    checkpointBullet: {
+      backgroundColor: palette.primary,
+      borderRadius: 4,
+      height: 8,
+      marginTop: 5,
+      width: 8,
+    },
+    checkpointText: {
+      color: palette.text,
+      flex: 1,
+      fontSize: 12,
+      fontWeight: '700',
+      lineHeight: 17,
+    },
+  });
