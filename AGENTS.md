@@ -8,6 +8,8 @@
 ## Regras atuais
 - A home do `ADMIN` e menu-only: nao renderiza hero, resumo nem banner explicativo; os atalhos ficam apenas no grid de menus.
 - A rota `admin/flowcharts` pertence ao `ADMIN` e deve ler/gravar os fluxogramas Mermaid pelo store `flowcharts` e pela API `flowcharts`; nao usar definicoes hardcoded como fonte de verdade.
+- O fluxograma de venda/producao deve mostrar o vinculo real PDV -> PCP por `order_product_queue`, nao por status final do pedido. Mesa/comanda pode produzir antes do pagamento; delivery acontece depois da producao, com cobranca na entrega apenas quando aplicavel ao nosso entregador.
+- Nos fluxogramas e editores, os tipos canonicos de display sao `production`, `conference` e `tracking`; nao voltar a usar `products`, `orders` ou `tv` como termos de dominio.
 - A rota `/menu-costs-page/parametros` é a tela oficial de parâmetros da engenharia.
 - Essa tela lê e grava apenas `configs` da empresa selecionada.
 - `MenuCostsPage` deve navegar para essa rota quando o usuário tocar em `Parâmetros`.
