@@ -1861,15 +1861,21 @@ const DeviceDetailPage = () => {
 
                 {!!deviceId && (
                   <TouchableOpacity
-                    style={styles.editAliasBtn}
+                    style={[
+                      styles.editAliasBtn,
+                      {
+                        backgroundColor: themeColors.buttonBackground,
+                        borderColor: themeColors.buttonBackground,
+                      },
+                    ]}
                     onPress={editingAlias ? saveAlias : startEditAlias}
                     activeOpacity={0.8}
                     disabled={savingAlias}
                   >
                     <Icon
-                      name={savingAlias ? 'save' : editingAlias ? 'check' : 'edit'}
-                      size={14}
-                      color={savingAlias ? brandColors.primary : editingAlias ? hex.success : '#64748B'}
+                      name={savingAlias ? 'save' : editingAlias ? 'check' : 'edit-2'}
+                      size={16}
+                      color={themeColors.buttonIcon}
                     />
                   </TouchableOpacity>
                 )}
@@ -2618,13 +2624,21 @@ const DeviceDetailPage = () => {
               <TouchableOpacity
                 style={[
                   styles.configButton,
+                  {
+                    backgroundColor: themeColors.buttonBackground,
+                    borderColor: themeColors.buttonBackground,
+                  },
                   sendingCatalogRefresh && {opacity: 0.6},
                 ]}
                 activeOpacity={0.85}
                 disabled={sendingCatalogRefresh}
                 onPress={sendCatalogRefreshCommand}>
-                <Icon name="trash-2" size={14} color="#fff" />
-                <Text style={styles.configButtonText}>
+                <Icon name="trash-2" size={16} color={themeColors.buttonIcon} />
+                <Text
+                  style={[
+                    styles.configButtonText,
+                    {color: themeColors.buttonText},
+                  ]}>
                   {sendingCatalogRefresh ? 'Limpando cache...' : 'Limpar cache de produtos'}
                 </Text>
               </TouchableOpacity>
