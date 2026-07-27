@@ -9,6 +9,7 @@ import {resolveThemePalette, withOpacity} from '@controleonline/../../src/styles
 import {colors} from '@controleonline/../../src/styles/colors';
 import {APP_ENV} from '../../../../../../../config/env';
 import {resolveAppDomain} from '@controleonline/ui-common/src/utils/appDomain';
+import Formatter from '@controleonline/ui-common/src/utils/formatter';
 import FlowchartVisualEditor from './FlowchartVisualEditor';
 import MermaidDiagram from './MermaidDiagram';
 import {createStyles} from './index.styles';
@@ -30,6 +31,23 @@ const buildPalette = basePalette => ({
 
 const normalizeFlowId = flow => String(flow?.id || flow?.flowKey || flow?.flow_key || '');
 
+const repairText = value => Formatter.repairMojibake(value);
+
+const normalizeFlowchart = flow => {
+  if (!flow) {
+    return null;
+  }
+
+  return {
+    ...flow,
+    checkpoints: Array.isArray(flow.checkpoints)
+      ? flow.checkpoints.map(checkpoint => repairText(checkpoint))
+      : flow.checkpoints,
+    summary: repairText(flow.summary),
+    title: repairText(flow.title),
+  };
+};
+
 const buildFlowKey = title => {
   const slug = String(title || '')
     .normalize('NFD')
@@ -44,6 +62,7 @@ const buildFlowKey = title => {
 const normalizeFlowcharts = flowcharts =>
   (Array.isArray(flowcharts) ? flowcharts : [])
     .filter(flow => flow && flow.enabled !== false)
+    .map(normalizeFlowchart)
     .sort((a, b) => {
       const sortA = Number(a.sortOrder ?? a.sort_order ?? 0);
       const sortB = Number(b.sortOrder ?? b.sort_order ?? 0);
@@ -79,7 +98,10 @@ export default function FlowchartsPage({navigation, route}) {
     () => normalizeFlowcharts(flowchartsStore.getters?.items),
     [flowchartsStore.getters?.items],
   );
-  const loadedFlow = flowchartsStore.getters?.item;
+  const loadedFlow = useMemo(
+    () => normalizeFlowchart(flowchartsStore.getters?.item),
+    [flowchartsStore.getters?.item],
+  );
   const routeFlowId = String(route?.params?.id || '').replace(/\D+/g, '');
   const [activeFlowId, setActiveFlowId] = useState('');
   const activeFlow = useMemo(
@@ -215,8 +237,8 @@ export default function FlowchartsPage({navigation, route}) {
       return;
     }
 
-    setDraftTitle(activeFlow?.title || '');
-    setDraftSummary(activeFlow?.summary || '');
+    setDraftTitle(repairText(activeFlow?.title || ''));
+    setDraftSummary(repairText(activeFlow?.summary || ''));
     setDraftMermaid(activeFlow?.mermaid || '');
     setSaveStatus('');
     setSaveError('');
@@ -273,7 +295,8 @@ export default function FlowchartsPage({navigation, route}) {
 
     try {
       const baseFlow = isCreatingFlow ? {} : activeFlow;
-      const nextTitle = draftTitle.trim() || baseFlow.title || 'Fluxograma';
+      const nextTitle = repairText(draftTitle).trim() || baseFlow.title || 'Fluxograma';
+      const nextSummary = repairText(draftSummary);
       const saved = await flowchartsStore.actions.save({
         id: baseFlow.id,
         appType: baseFlow.appType || 'ADMIN',
@@ -282,7 +305,7 @@ export default function FlowchartsPage({navigation, route}) {
         flowKey: baseFlow.flowKey || baseFlow.flow_key || buildFlowKey(nextTitle),
         mermaid: draftMermaid,
         sortOrder: Number(baseFlow.sortOrder ?? baseFlow.sort_order ?? flowcharts.length + 1),
-        summary: draftSummary,
+        summary: nextSummary,
         title: nextTitle,
       });
 
