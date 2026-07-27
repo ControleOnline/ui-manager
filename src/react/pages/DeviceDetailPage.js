@@ -1739,9 +1739,21 @@ const DeviceDetailPage = () => {
 
   const renderHelpButton = (title, message) => (
     <DefaultTooltip
-      accentColor={brandColors.primary}
+      accentColor={themeColors.buttonIcon}
       title={title}
       message={message}
+      style={{
+        backgroundColor: themeColors.buttonBackground,
+        borderColor: themeColors.buttonBackground,
+        borderRadius: 8,
+        height: 34,
+        width: 34,
+      }}
+      textStyle={{
+        color: themeColors.buttonIcon,
+        fontSize: 16,
+        lineHeight: 16,
+      }}
     />
   );
 
@@ -2327,6 +2339,14 @@ const DeviceDetailPage = () => {
                   },
                 ],
                 value: deviceOrderVisibility,
+                optionColors: {
+                  buttonBackground: themeColors.buttonBackground,
+                  buttonBorder: themeColors.buttonBorder,
+                  buttonText: themeColors.buttonText,
+                  buttonBackgroundSecondary: themeColors.buttonBackgroundSecondary,
+                  buttonBorderSecondary: themeColors.buttonBorderSecondary,
+                  buttonTextSecondary: themeColors.buttonTextSecondary,
+                },
                 onChange: value => {
                   const nextValue =
                     value || DEVICE_ORDER_VISIBILITY_DEVICE;

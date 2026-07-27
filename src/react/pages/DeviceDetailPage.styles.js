@@ -32,8 +32,7 @@ const styles = StyleSheet.create({
     outlineStyle: 'none',
   },
   editAliasBtn: {
-    width: 26, height: 26, borderRadius: 13,
-    backgroundColor: '#E2E8F0',
+    width: 34, height: 34, borderRadius: 8, borderWidth: 1,
     alignItems: 'center', justifyContent: 'center',
     flexShrink: 0,
   },
