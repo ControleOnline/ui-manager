@@ -8,6 +8,7 @@
 ## Regras atuais
 - A home do `ADMIN` e menu-only: nao renderiza hero, resumo nem banner explicativo; os atalhos ficam apenas no grid de menus.
 - A rota `admin/flowcharts` pertence ao `ADMIN` e deve ler/gravar os fluxogramas Mermaid pelo store `flowcharts` e pela API `flowcharts`; nao usar definicoes hardcoded como fonte de verdade.
+- O editor visual web de fluxogramas deve permitir remover conexoes/arestas especificas, alem de remover elementos; remover um elemento continua removendo suas conexoes incidentes.
 - O fluxograma de venda/producao deve mostrar o vinculo real PDV -> PCP por `order_product_queue`, nao por status final do pedido. Pagamento antes da producao so deve aparecer como obrigatorio quando o modo/canal explicitar essa regra, como no balcao/prepaid checkout; mesa/comanda e demais fluxos podem produzir antes do pagamento quando configurados assim. Delivery acontece depois da producao, com cobranca na entrega apenas quando aplicavel ao nosso entregador.
 - A decisao de cobranca pendente no fluxograma nao e exclusiva da entrega: em mesa/garcom, a configuracao define se o garcom cobra no POS ou se a cobranca fica para a saida do estabelecimento via `APP_TYPE=CHECKOUT` ou `APP_TYPE=MANAGER`.
 - No PCP, o fluxograma deve mostrar a sequencia operacional: `production` recebe os itens da fila, imprime etiqueta/codigo de barras, depois passa por picking/separation com bipagem, segue para `conference` e so entao fica ready/tracking.

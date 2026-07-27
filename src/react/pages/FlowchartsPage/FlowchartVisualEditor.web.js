@@ -301,6 +301,7 @@ export default function FlowchartVisualEditor({
   const [edges, setEdges] = useState([]);
   const [positions, setPositions] = useState({});
   const [selectedNodeId, setSelectedNodeId] = useState('');
+  const [selectedEdgeId, setSelectedEdgeId] = useState('');
   const [connectSourceId, setConnectSourceId] = useState('');
   const [showCode, setShowCode] = useState(false);
   const canvasRef = useRef(null);
@@ -315,12 +316,24 @@ export default function FlowchartVisualEditor({
     setEdges(parsed.edges);
     setPositions(buildInitialPositions(parsed.nodes, parsed.edges));
     setSelectedNodeId(current => current || parsed.nodes[0]?.id || '');
+    setSelectedEdgeId('');
     setConnectSourceId('');
   }, [draftMermaid]);
 
   const selectedNode = useMemo(
     () => nodes.find(node => node.id === selectedNodeId) || null,
     [nodes, selectedNodeId],
+  );
+  const selectedEdge = useMemo(
+    () => edges.find(edge => edge.id === selectedEdgeId) || null,
+    [edges, selectedEdgeId],
+  );
+  const selectedNodeEdges = useMemo(
+    () =>
+      selectedNodeId
+        ? edges.filter(edge => edge.source === selectedNodeId || edge.target === selectedNodeId)
+        : [],
+    [edges, selectedNodeId],
   );
 
   const canvasSize = useMemo(() => {
@@ -416,10 +429,29 @@ export default function FlowchartVisualEditor({
         return nextPositions;
       });
       setSelectedNodeId(nextNodes[0]?.id || '');
+      setSelectedEdgeId('');
       syncMermaid(nextNodes, nextEdges);
       return nextNodes;
     });
   }, [edges, selectedNodeId, syncMermaid]);
+
+  const removeEdge = useCallback(
+    edgeId => {
+      if (!edgeId) return;
+
+      setEdges(currentEdges => {
+        const nextEdges = currentEdges.filter(edge => edge.id !== edgeId);
+        setSelectedEdgeId(current => (current === edgeId ? '' : current));
+        syncMermaid(nodes, nextEdges);
+        return nextEdges;
+      });
+    },
+    [nodes, syncMermaid],
+  );
+
+  const removeSelectedEdge = useCallback(() => {
+    removeEdge(selectedEdgeId);
+  }, [removeEdge, selectedEdgeId]);
 
   const handleNodeClick = useCallback(
     nodeId => {
@@ -439,14 +471,23 @@ export default function FlowchartVisualEditor({
         setEdges(nextEdges);
         setConnectSourceId('');
         setSelectedNodeId(nodeId);
+        setSelectedEdgeId('');
         syncMermaid(nodes, nextEdges);
         return;
       }
 
       setSelectedNodeId(nodeId);
+      setSelectedEdgeId('');
     },
     [connectSourceId, edges, nodes, syncMermaid],
   );
+
+  const handleEdgeClick = useCallback((event, edgeId) => {
+    event.stopPropagation();
+    setSelectedEdgeId(edgeId);
+    setSelectedNodeId('');
+    setConnectSourceId('');
+  }, []);
 
   const startDrag = useCallback((event, nodeId) => {
     const rect = canvasRef.current?.getBoundingClientRect();
@@ -458,6 +499,7 @@ export default function FlowchartVisualEditor({
       offsetY: event.clientY - (rect?.top || 0) - position.y,
     };
     setSelectedNodeId(nodeId);
+    setSelectedEdgeId('');
     event.preventDefault();
   }, [positions]);
 
@@ -514,6 +556,14 @@ export default function FlowchartVisualEditor({
             type="button"
           >
             Remover
+          </button>
+          <button
+            disabled={!selectedEdgeId}
+            onClick={removeSelectedEdge}
+            style={{...styles.toolButton, opacity: selectedEdgeId ? 1 : 0.45}}
+            type="button"
+          >
+            Remover conexão
           </button>
           <button onClick={() => setShowCode(value => !value)} style={styles.toolButton} type="button">
             Código
@@ -572,15 +622,29 @@ export default function FlowchartVisualEditor({
                 const y2 = target.y + NODE_HEIGHT / 2;
                 const midX = (x1 + x2) / 2;
 
+                const path = `M ${x1} ${y1} C ${midX} ${y1}, ${midX} ${y2}, ${x2} ${y2}`;
+                const selected = edge.id === selectedEdgeId;
+
                 return (
-                  <path
-                    d={`M ${x1} ${y1} C ${midX} ${y1}, ${midX} ${y2}, ${x2} ${y2}`}
-                    fill="none"
-                    key={edge.id}
-                    markerEnd="url(#flow-arrow)"
-                    stroke={palette.text}
-                    strokeWidth="1.7"
-                  />
+                  <g key={edge.id}>
+                    <path
+                      d={path}
+                      fill="none"
+                      onClick={event => handleEdgeClick(event, edge.id)}
+                      pointerEvents="stroke"
+                      stroke="transparent"
+                      strokeWidth="16"
+                    />
+                    <path
+                      d={path}
+                      fill="none"
+                      markerEnd="url(#flow-arrow)"
+                      onClick={event => handleEdgeClick(event, edge.id)}
+                      pointerEvents="stroke"
+                      stroke={selected ? palette.primary : palette.text}
+                      strokeWidth={selected ? '3' : '1.7'}
+                    />
+                  </g>
                 );
               })}
             </svg>
@@ -614,8 +678,23 @@ export default function FlowchartVisualEditor({
         </div>
 
         <aside style={{...styles.inspector, borderColor: palette.cardBorder}}>
-          <div style={styles.inspectorTitle}>Elemento</div>
-          {selectedNode ? (
+          <div style={styles.inspectorTitle}>{selectedEdge ? 'Conexão' : 'Elemento'}</div>
+          {selectedEdge ? (
+            <>
+              <div style={styles.edgeSummary}>
+                {selectedEdge.source} → {selectedEdge.target}
+                {selectedEdge.label ? ` (${selectedEdge.label})` : ''}
+              </div>
+              <button
+                onClick={removeSelectedEdge}
+                style={{...styles.toolButton, ...styles.dangerButton}}
+                type="button"
+              >
+                Remover conexão
+              </button>
+              <div style={styles.hint}>Apenas esta seta será removida do Mermaid.</div>
+            </>
+          ) : selectedNode ? (
             <>
               <label style={styles.label}>
                 Texto
@@ -665,6 +744,21 @@ export default function FlowchartVisualEditor({
                   />
                 </label>
               </div>
+              {selectedNodeEdges.length ? (
+                <div style={styles.connectionList}>
+                  <div style={styles.label}>Conexões</div>
+                  {selectedNodeEdges.map(edge => (
+                    <button
+                      key={edge.id}
+                      onClick={() => removeEdge(edge.id)}
+                      style={styles.connectionButton}
+                      type="button"
+                    >
+                      Remover {edge.source} → {edge.target}
+                    </button>
+                  ))}
+                </div>
+              ) : null}
               {connectSourceId ? (
                 <div style={styles.hint}>Clique no elemento de destino para conectar.</div>
               ) : (
@@ -722,6 +816,26 @@ const styles = {
     height: 34,
     width: '100%',
   },
+  connectionButton: {
+    background: '#F8FAFC',
+    border: '1px solid #CBD5E1',
+    borderRadius: 6,
+    color: '#0F172A',
+    cursor: 'pointer',
+    fontSize: 11,
+    fontWeight: 800,
+    padding: '7px 8px',
+    textAlign: 'left',
+  },
+  connectionList: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 6,
+  },
+  dangerButton: {
+    borderColor: '#FCA5A5',
+    color: '#B91C1C',
+  },
   diamondLabel: {
     display: 'block',
     maxWidth: 90,
@@ -735,9 +849,20 @@ const styles = {
   },
   edges: {
     left: 0,
-    pointerEvents: 'none',
+    pointerEvents: 'auto',
     position: 'absolute',
     top: 0,
+  },
+  edgeSummary: {
+    background: '#F8FAFC',
+    border: '1px solid #CBD5E1',
+    borderRadius: 6,
+    color: '#0F172A',
+    fontSize: 12,
+    fontWeight: 800,
+    lineHeight: '17px',
+    padding: 10,
+    wordBreak: 'break-word',
   },
   error: {
     color: '#B91C1C',
