@@ -2,6 +2,7 @@
 import React, {useEffect, useState} from 'react';
 import {Text, View} from 'react-native';
 import mermaid from 'mermaid';
+import Formatter from '@controleonline/ui-common/src/utils/formatter';
 
 export const buildMermaidThemeVariables = palette => ({
   background: palette.diagramBackground,
@@ -48,11 +49,11 @@ export default function MermaidDiagram({chart, palette, styles}) {
 
         const rendered = await mermaid.render(
           `admin-flowchart-${chart.id || chart.flowKey}-${Date.now()}`,
-          chart.mermaid,
+          Formatter.repairMojibake(chart.mermaid),
         );
 
         if (!cancelled) {
-          setSvg(rendered.svg || '');
+          setSvg(Formatter.repairMojibake(rendered.svg || ''));
         }
       } catch (renderError) {
         if (!cancelled) {

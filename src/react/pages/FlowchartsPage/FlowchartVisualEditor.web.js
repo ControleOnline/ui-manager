@@ -1,5 +1,6 @@
 /* eslint-disable no-unused-vars -- The current flat ESLint config does not mark JSX identifiers as used. */
 import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
+import Formatter from '@controleonline/ui-common/src/utils/formatter';
 
 const NODE_WIDTH = 190;
 const NODE_HEIGHT = 76;
@@ -18,7 +19,7 @@ const escapeMermaidLabel = value =>
     .replace(/\n/g, '<br/>');
 
 const decodeMermaidLabel = value =>
-  String(value || '')
+  Formatter.repairMojibake(value)
     .replace(/<br\s*\/?>/gi, '\n')
     .replace(/\\"/g, '"')
     .replace(/\\\\/g, '\\');
@@ -132,11 +133,12 @@ const parseEdgeExpression = line => {
 };
 
 const parseMermaid = mermaid => {
+  const source = Formatter.repairMojibake(mermaid);
   const nodes = new Map();
   const edges = [];
   const styles = new Map();
 
-  String(mermaid || '')
+  source
     .split(/\r?\n/)
     .map(line => line.trim())
     .filter(Boolean)
