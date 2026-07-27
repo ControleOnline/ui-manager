@@ -67,9 +67,9 @@ export default function FinancialHubPage({navigation}) {
     [translateMessages, pendingTranslateMessages],
   );
   const tabSurfaceColor = palette.buttonBackground;
+  const tabSecondarySurfaceColor = palette.buttonBackgroundSecondary || palette.cardBackground;
   const tabHighlightColor = palette.buttonText;
-  const tabBorderColor = palette.cardBorder;
-  const tabBackgroundColor = palette.cardBackground;
+  const tabBorderColor = palette.buttonBorderSecondary || palette.cardBorder;
 
   const [activeTab, setActiveTab] = useState('receivables');
 
@@ -82,10 +82,10 @@ export default function FinancialHubPage({navigation}) {
         key: 'wallets',
         label: translate('invoice', 'label', 'wallets'),
         icon: 'briefcase',
-        color: palette.buttonTextSecondary,
+        color: tabHighlightColor,
         style: {
-          backgroundColor: palette.buttonBackgroundSecondary,
-          borderColor: palette.buttonBorderSecondary,
+          backgroundColor: tabSurfaceColor,
+          borderColor: tabSurfaceColor,
           paddingHorizontal: 10,
         },
         onPress: () => navigation.navigate('WalletsPage'),
@@ -115,10 +115,6 @@ export default function FinancialHubPage({navigation}) {
       activeSection.categoryTitle,
       navigation,
       palette.buttonBackground,
-      palette.buttonBackgroundSecondary,
-      palette.buttonBorder,
-      palette.buttonBorderSecondary,
-      palette.buttonTextSecondary,
       translateMessages,
       pendingTranslateMessages,
       tabHighlightColor,
@@ -163,7 +159,7 @@ export default function FinancialHubPage({navigation}) {
                 style={[
                   styles.tabChip,
                   {
-                    backgroundColor: isActive ? tabSurfaceColor : tabBackgroundColor,
+                    backgroundColor: isActive ? tabSurfaceColor : tabSecondarySurfaceColor,
                     borderColor: isActive ? palette.buttonBorder : tabBorderColor,
                   },
                 ]}
@@ -172,12 +168,12 @@ export default function FinancialHubPage({navigation}) {
                 <Icon
                   name={item.icon}
                   size={14}
-                  color={isActive ? tabHighlightColor : palette.textSecondary}
+                  color={isActive ? tabHighlightColor : palette.buttonTextSecondary || palette.textSecondary}
                 />
                 <Text
                   style={[
                     styles.tabChipText,
-                    {color: isActive ? tabHighlightColor : palette.textSecondary},
+                    {color: isActive ? tabHighlightColor : palette.buttonTextSecondary || palette.textSecondary},
                   ]}>
                   {item.label}
                 </Text>
