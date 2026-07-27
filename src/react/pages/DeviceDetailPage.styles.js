@@ -1,19 +1,10 @@
 import { Platform, StyleSheet } from 'react-native';
-import { withOpacity } from '@controleonline/../../src/styles/branding';
 
 const cardShadow = Platform.select({
   ios: { shadowColor: '#0F172A', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.06, shadowRadius: 12 },
   android: { elevation: 2 },
   web: { boxShadow: '0 4px 12px rgba(15,23,42,0.06)' },
 });
-
-const hex = {
-  success: '#10b981',
-  danger:  '#c10015',
-  warning: '#e67e22',
-  info:    '#0EA5E9',
-  purple:  '#8B5CF6',
-};
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
@@ -73,9 +64,7 @@ const styles = StyleSheet.create({
     minWidth: 126,
     minHeight: 42,
     borderWidth: 1,
-    borderColor: 'transparent',
     borderRadius: 10,
-    backgroundColor: '#F8FAFC',
     paddingHorizontal: 12,
     paddingVertical: 9,
     flexDirection: 'row',
@@ -86,7 +75,6 @@ const styles = StyleSheet.create({
   tabButtonText: {
     fontSize: 12,
     fontWeight: '800',
-    color: '#64748B',
   },
 
   /* Resumo */
@@ -215,9 +203,7 @@ const styles = StyleSheet.create({
   },
   toggleRow: {
     borderWidth: 1,
-    borderColor: '#E2E8F0',
     borderRadius: 12,
-    backgroundColor: '#F8FAFC',
     paddingHorizontal: 14,
     paddingVertical: 12,
     flexDirection: 'row',
@@ -225,19 +211,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 12,
   },
-  toggleRowActive: {
-    borderColor: withOpacity(hex.success, 0.4),
-    backgroundColor: withOpacity(hex.success, 0.08),
+  toggleRowCopy: {
+    flex: 1,
+    marginRight: 12,
   },
+  toggleRowDisabled: { opacity: 0.6 },
   toggleRowLabel: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#0F172A',
   },
   toggleRowValue: {
     marginTop: 4,
     fontSize: 12,
-    color: '#64748B',
   },
   textInputWrap: {
     gap: 6,

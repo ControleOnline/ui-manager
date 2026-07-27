@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, FlatList, Platform, Pressable, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Alert, FlatList, Platform, Pressable, ScrollView, Switch, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useNavigation, useRoute } from '@react-navigation/native';
 import {Picker} from '@react-native-picker/picker';
@@ -193,10 +193,37 @@ const confirm = (msg, cb) => {
   }
 };
 
+const getDeviceSwitchProps = ({
+  disabled = false,
+  palette,
+  value = false,
+}) => {
+  const offTrackColor = disabled
+    ? palette.switchDisabledTrack
+    : palette.switchOffTrack;
+  const onTrackColor = disabled
+    ? palette.switchDisabledTrack
+    : palette.switchOnTrack;
+
+  return {
+    ios_backgroundColor: offTrackColor,
+    thumbColor: disabled
+      ? palette.switchDisabledThumb
+      : value
+        ? palette.switchOnThumb
+        : palette.switchOffThumb,
+    trackColor: {
+      false: offTrackColor,
+      true: onTrackColor,
+    },
+  };
+};
+
 const OptionButtonChip = ({
   label,
   selected,
   disabled,
+  colors: optionColors,
   tooltip,
   onPress,
 }) => {
@@ -213,6 +240,14 @@ const OptionButtonChip = ({
         style={[
           styles.optionButton,
           selected && styles.optionButtonActive,
+          optionColors && {
+            backgroundColor: selected
+              ? optionColors.buttonBackground
+              : optionColors.buttonBackgroundSecondary,
+            borderColor: selected
+              ? optionColors.buttonBorder
+              : optionColors.buttonBorderSecondary,
+          },
           disabled && {opacity: 0.55},
         ]}
         accessibilityHint={tooltip || undefined}
@@ -224,6 +259,11 @@ const OptionButtonChip = ({
           style={[
             styles.optionButtonText,
             selected && styles.optionButtonTextActive,
+            optionColors && {
+              color: selected
+                ? optionColors.buttonText
+                : optionColors.buttonTextSecondary,
+            },
           ]}
         >
           {label}
@@ -1705,7 +1745,56 @@ const DeviceDetailPage = () => {
     />
   );
 
-  const renderOptionButtons = ({ options, value, onChange, disabled = false }) => (
+  const renderSwitchRow = ({
+    disabled = false,
+    label,
+    onValueChange,
+    value,
+    valueLabel,
+  }) => {
+    const checked = Boolean(value);
+
+    return (
+      <View
+        style={[
+          styles.toggleRow,
+          {
+            backgroundColor: themeColors.listItemBackground,
+            borderColor: themeColors.listItemBorder,
+          },
+          disabled && styles.toggleRowDisabled,
+        ]}>
+        <View style={styles.toggleRowCopy}>
+          <Text
+            style={[
+              styles.toggleRowLabel,
+              {color: themeColors.listItemText},
+            ]}>
+            {label}
+          </Text>
+          <Text
+            style={[
+              styles.toggleRowValue,
+              {color: themeColors.listItemSubtitleText},
+            ]}>
+            {valueLabel}
+          </Text>
+        </View>
+        <Switch
+          value={checked}
+          disabled={disabled}
+          onValueChange={onValueChange}
+          {...getDeviceSwitchProps({
+            disabled,
+            palette: themeColors,
+            value: checked,
+          })}
+        />
+      </View>
+    );
+  };
+
+  const renderOptionButtons = ({ options, value, onChange, disabled = false, optionColors = null }) => (
     <View style={styles.optionRow}>
       {options.map(option => {
         const selected = String(option.value) === String(value);
@@ -1718,6 +1807,7 @@ const DeviceDetailPage = () => {
               label={option.label}
               selected={selected}
               disabled
+              colors={optionColors}
               tooltip={optionTitle}
               onPress={() => onChange(option.value)}
             />
@@ -1730,6 +1820,7 @@ const DeviceDetailPage = () => {
             label={option.label}
             selected={selected}
             disabled={optionDisabled}
+            colors={optionColors}
             tooltip={optionTitle}
             onPress={() => onChange(option.value)}
           />
@@ -1807,15 +1898,28 @@ const DeviceDetailPage = () => {
               contentContainerStyle={styles.tabsContent}>
               {PDV_DETAIL_TABS.map(tab => {
                 const active = activePdvTab === tab.key;
+                const tabButtonColors = active
+                  ? {
+                      backgroundColor: themeColors.buttonBackground,
+                      borderColor: themeColors.buttonBorder,
+                      iconColor: themeColors.buttonIcon,
+                      textColor: themeColors.buttonText,
+                    }
+                  : {
+                      backgroundColor: themeColors.buttonBackgroundSecondary,
+                      borderColor: themeColors.buttonBorderSecondary,
+                      iconColor: themeColors.buttonIconSecondary,
+                      textColor: themeColors.buttonTextSecondary,
+                    };
 
                 return (
                   <TouchableOpacity
                     key={tab.key}
                     style={[
                       styles.tabButton,
-                      active && {
-                        borderColor: withOpacity(brandColors.primary, 0.35),
-                        backgroundColor: withOpacity(brandColors.primary, 0.1),
+                      {
+                        backgroundColor: tabButtonColors.backgroundColor,
+                        borderColor: tabButtonColors.borderColor,
                       },
                     ]}
                     activeOpacity={0.85}
@@ -1823,12 +1927,12 @@ const DeviceDetailPage = () => {
                     <Icon
                       name={tab.icon}
                       size={14}
-                      color={active ? brandColors.primary : '#64748B'}
+                      color={tabButtonColors.iconColor}
                     />
                     <Text
                       style={[
                         styles.tabButtonText,
-                        active && {color: brandColors.primary},
+                        {color: tabButtonColors.textColor},
                       ]}>
                       {tt('tab', tab.labelKey) ||
                         (tab.key === PDV_TAB_PAYMENT_TYPES
@@ -1892,6 +1996,14 @@ const DeviceDetailPage = () => {
                   value: option.value,
                 })),
                 value: posOperationMode,
+                optionColors: {
+                  buttonBackground: themeColors.buttonBackground,
+                  buttonBorder: themeColors.buttonBorder,
+                  buttonText: themeColors.buttonText,
+                  buttonBackgroundSecondary: themeColors.buttonBackgroundSecondary,
+                  buttonBorderSecondary: themeColors.buttonBorderSecondary,
+                  buttonTextSecondary: themeColors.buttonTextSecondary,
+                },
                 onChange: value => {
                   const nextValue = resolvePosOperationMode({
                     [POS_OPERATION_MODE_CONFIG_KEY]: value,
@@ -1934,29 +2046,16 @@ const DeviceDetailPage = () => {
                 </Picker>
               </View>
 
-              <TouchableOpacity
-                style={[
-                  styles.toggleRow,
-                  androidKioskEnabled && styles.toggleRowActive,
-                ]}
-                activeOpacity={0.85}
-                onPress={() => {
-                  const nextValue = !androidKioskEnabled;
+              {renderSwitchRow({
+                disabled: savingPosOperationMode,
+                label: 'Modo Kiosk',
+                value: androidKioskEnabled,
+                valueLabel: androidKioskEnabled ? 'Ativo' : 'Inativo',
+                onValueChange: nextValue => {
                   setAndroidKioskEnabled(nextValue);
                   savePosOperationMode({androidKioskEnabled: nextValue});
-                }}>
-                <View>
-                  <Text style={styles.toggleRowLabel}>Modo Kiosk</Text>
-                  <Text style={styles.toggleRowValue}>
-                    {androidKioskEnabled ? 'Ativo' : 'Inativo'}
-                  </Text>
-                </View>
-                <Icon
-                  name={androidKioskEnabled ? 'toggle-right' : 'toggle-left'}
-                  size={28}
-                  color={androidKioskEnabled ? hex.success : '#94A3B8'}
-                />
-              </TouchableOpacity>
+                },
+              })}
 
               {renderOptionButtons({
                 options: [
@@ -1982,6 +2081,14 @@ const DeviceDetailPage = () => {
                   },
                 ],
                 value: checkOrderType,
+                optionColors: {
+                  buttonBackground: themeColors.buttonBackground,
+                  buttonBorder: themeColors.buttonBorder,
+                  buttonText: themeColors.buttonText,
+                  buttonBackgroundSecondary: themeColors.buttonBackgroundSecondary,
+                  buttonBorderSecondary: themeColors.buttonBorderSecondary,
+                  buttonTextSecondary: themeColors.buttonTextSecondary,
+                },
                 onChange: value => {
                   const nextCheckOrderType =
                     value === POS_CHECK_ORDER_TYPE_TAB
@@ -2045,36 +2152,16 @@ const DeviceDetailPage = () => {
 
               {posOperationMode === POS_OPERATION_MODE_COUNTER && (
                 <>
-                  <TouchableOpacity
-                    style={styles.toggleRow}
-                    activeOpacity={0.85}
-                    onPress={() => {
-                      const nextValue = !counterAutoPrintEnabled;
+                  {renderSwitchRow({
+                    disabled: savingPosOperationMode,
+                    label: 'Impressao automatica',
+                    value: counterAutoPrintEnabled,
+                    valueLabel: counterAutoPrintEnabled ? 'Sim' : 'Nao',
+                    onValueChange: nextValue => {
                       setCounterAutoPrintEnabled(nextValue);
                       savePosOperationMode({counterAutoPrintEnabled: nextValue});
-                    }}>
-                    <View>
-                      <Text style={styles.toggleRowLabel}>
-                        Impressao automatica
-                      </Text>
-                      <Text style={styles.toggleRowValue}>
-                        {counterAutoPrintEnabled ? 'Sim' : 'Nao'}
-                      </Text>
-                    </View>
-                    <Icon
-                      name={
-                        counterAutoPrintEnabled
-                          ? 'toggle-right'
-                          : 'toggle-left'
-                      }
-                      size={28}
-                      color={
-                        counterAutoPrintEnabled
-                          ? hex.success
-                          : '#94A3B8'
-                      }
-                    />
-                  </TouchableOpacity>
+                    },
+                  })}
 
                   {counterAutoPrintEnabled &&
                     renderOptionButtons({
@@ -2083,6 +2170,14 @@ const DeviceDetailPage = () => {
                         {label: 'Fichas', value: POS_PRINT_MODE_FORM},
                       ],
                       value: counterPrintMode,
+                      optionColors: {
+                        buttonBackground: themeColors.buttonBackground,
+                        buttonBorder: themeColors.buttonBorder,
+                        buttonText: themeColors.buttonText,
+                        buttonBackgroundSecondary: themeColors.buttonBackgroundSecondary,
+                        buttonBorderSecondary: themeColors.buttonBorderSecondary,
+                        buttonTextSecondary: themeColors.buttonTextSecondary,
+                      },
                       onChange: value => {
                         const nextValue =
                           value === POS_PRINT_MODE_FORM
@@ -2105,6 +2200,14 @@ const DeviceDetailPage = () => {
                       },
                     ],
                     value: counterCashManagementMode,
+                    optionColors: {
+                      buttonBackground: themeColors.buttonBackground,
+                      buttonBorder: themeColors.buttonBorder,
+                      buttonText: themeColors.buttonText,
+                      buttonBackgroundSecondary: themeColors.buttonBackgroundSecondary,
+                      buttonBorderSecondary: themeColors.buttonBorderSecondary,
+                      buttonTextSecondary: themeColors.buttonTextSecondary,
+                    },
                     onChange: value => {
                       const nextValue =
                         value === POS_CASH_MANAGEMENT_MODE_DAILY
@@ -2130,42 +2233,16 @@ const DeviceDetailPage = () => {
                 )}
               </View>
 
-              <TouchableOpacity
-                style={[
-                  styles.toggleRow,
-                  androidLauncherEnabled && {
-                    borderColor: withOpacity(brandColors.success, 0.35),
-                    backgroundColor: withOpacity(brandColors.success, 0.08),
-                  },
-                ]}
-                activeOpacity={0.85}
-                onPress={() => {
-                  const nextValue = !androidLauncherEnabled;
+              {renderSwitchRow({
+                disabled: savingLauncherMode,
+                label: 'Modo launcher?',
+                value: androidLauncherEnabled,
+                valueLabel: androidLauncherEnabled ? 'Ativo' : 'Inativo',
+                onValueChange: nextValue => {
                   setAndroidLauncherEnabled(nextValue);
                   saveLauncherMode({androidLauncherEnabled: nextValue});
-                }}>
-                <View>
-                  <Text style={[styles.toggleRowLabel, {color: brandColors.text}]}>
-                    Modo launcher?
-                  </Text>
-                  <Text
-                    style={[
-                      styles.toggleRowValue,
-                      {color: brandColors.textSecondary},
-                    ]}>
-                    {androidLauncherEnabled ? 'Ativo' : 'Inativo'}
-                  </Text>
-                </View>
-                <Icon
-                  name={androidLauncherEnabled ? 'toggle-right' : 'toggle-left'}
-                  size={28}
-                  color={
-                    androidLauncherEnabled
-                      ? brandColors.success
-                      : brandColors.textSecondary
-                    }
-                />
-              </TouchableOpacity>
+                },
+              })}
               <Text style={[styles.deviceString, {color: brandColors.textSecondary}]}>
                 Salva automaticamente
               </Text>
@@ -2187,6 +2264,14 @@ const DeviceDetailPage = () => {
                   {label: 'Cielo', value: 'cielo'},
                 ],
                 value: pdvGateway || '',
+                optionColors: {
+                  buttonBackground: themeColors.buttonBackground,
+                  buttonBorder: themeColors.buttonBorder,
+                  buttonText: themeColors.buttonText,
+                  buttonBackgroundSecondary: themeColors.buttonBackgroundSecondary,
+                  buttonBorderSecondary: themeColors.buttonBorderSecondary,
+                  buttonTextSecondary: themeColors.buttonTextSecondary,
+                },
                 onChange: value => {
                   const nextValue = String(value || '');
                   setPdvGateway(nextValue);
@@ -2194,29 +2279,16 @@ const DeviceDetailPage = () => {
                 },
               })}
 
-              <TouchableOpacity
-                style={[
-                  styles.toggleRow,
-                  pdvPrinterEnabled && styles.toggleRowActive,
-                ]}
-                activeOpacity={0.85}
-                onPress={() => {
-                  const nextValue = !pdvPrinterEnabled;
+              {renderSwitchRow({
+                disabled: savingPdvSettings,
+                label: 'Impressora',
+                value: pdvPrinterEnabled,
+                valueLabel: pdvPrinterEnabled ? 'Sim' : 'Nao',
+                onValueChange: nextValue => {
                   setPdvPrinterEnabled(nextValue);
                   savePdvSettings({pdvPrinterEnabled: nextValue});
-                }}>
-                <View>
-                  <Text style={styles.toggleRowLabel}>Impressora</Text>
-                  <Text style={styles.toggleRowValue}>
-                    {pdvPrinterEnabled ? 'Sim' : 'Nao'}
-                  </Text>
-                </View>
-                <Icon
-                  name={pdvPrinterEnabled ? 'toggle-right' : 'toggle-left'}
-                  size={28}
-                  color={pdvPrinterEnabled ? hex.success : '#94A3B8'}
-                />
-              </TouchableOpacity>
+                },
+              })}
               <Text style={styles.deviceString}>Salva automaticamente</Text>
             </View>
           </View>
@@ -2270,34 +2342,19 @@ const DeviceDetailPage = () => {
                 )}
               </View>
 
-              <TouchableOpacity
-                style={[
-                  styles.toggleRow,
-                  deviceDeliveryEnabled && styles.toggleRowActive,
-                ]}
-                activeOpacity={0.85}
-                onPress={() => {
-                  const nextValue = !deviceDeliveryEnabled;
+              {renderSwitchRow({
+                disabled: savingDeviceDeliverySettings,
+                label: tt('label', 'deliveryEnabled') ||
+                  'Trabalhar com delivery',
+                value: deviceDeliveryEnabled,
+                valueLabel: deviceDeliveryEnabled ? 'Ativo' : 'Inativo',
+                onValueChange: nextValue => {
                   setDeviceDeliveryEnabled(nextValue);
                   saveDeviceDeliverySettings({
                     deviceDeliveryEnabled: nextValue,
                   });
-                }}>
-                <View>
-                  <Text style={styles.toggleRowLabel}>
-                    {tt('label', 'deliveryEnabled') ||
-                      'Trabalhar com delivery'}
-                  </Text>
-                  <Text style={styles.toggleRowValue}>
-                    {deviceDeliveryEnabled ? 'Ativo' : 'Inativo'}
-                  </Text>
-                </View>
-                <Icon
-                  name={deviceDeliveryEnabled ? 'toggle-right' : 'toggle-left'}
-                  size={28}
-                  color={deviceDeliveryEnabled ? hex.success : '#94A3B8'}
-                />
-              </TouchableOpacity>
+                },
+              })}
             </View>
           </View>
         )}
@@ -2386,77 +2443,33 @@ const DeviceDetailPage = () => {
                     </Picker>
                   </View>
 
-                    <TouchableOpacity
-                      style={[
-                        styles.toggleRow,
-                        displayAllowPrinterChange && styles.toggleRowActive,
-                      ]}
-                      activeOpacity={0.85}
-                      onPress={() => {
-                        const nextValue = !displayAllowPrinterChange;
-                        setDisplayAllowPrinterChange(nextValue);
-                        saveDisplayPrintingConfig({
-                          displayAllowPrinterChange: nextValue,
-                        });
-                      }}>
-                    <View>
-                      <Text style={styles.toggleRowLabel}>
-                        Pode trocar de impressora?
-                      </Text>
-                      <Text style={styles.toggleRowValue}>
-                        {displayAllowPrinterChange ? 'Sim' : 'Nao'}
-                      </Text>
-                    </View>
-                    <Icon
-                      name={
-                        displayAllowPrinterChange
-                          ? 'toggle-right'
-                          : 'toggle-left'
-                      }
-                      size={28}
-                      color={
-                        displayAllowPrinterChange
-                          ? hex.success
-                          : '#94A3B8'
-                      }
-                    />
-                  </TouchableOpacity>
+                  {renderSwitchRow({
+                    disabled: savingDisplayPrintingConfig,
+                    label: 'Pode trocar de impressora?',
+                    value: displayAllowPrinterChange,
+                    valueLabel: displayAllowPrinterChange ? 'Sim' : 'Nao',
+                    onValueChange: nextValue => {
+                      setDisplayAllowPrinterChange(nextValue);
+                      saveDisplayPrintingConfig({
+                        displayAllowPrinterChange: nextValue,
+                      });
+                    },
+                  })}
 
-                    <TouchableOpacity
-                      style={[
-                        styles.toggleRow,
-                        displayAutoPrintProductEnabled && styles.toggleRowActive,
-                      ]}
-                      activeOpacity={0.85}
-                      onPress={() => {
-                        const nextValue = !displayAutoPrintProductEnabled;
-                        setDisplayAutoPrintProductEnabled(nextValue);
-                        saveDisplayPrintingConfig({
-                          displayAutoPrintProductEnabled: nextValue,
-                        });
-                      }}>
-                    <View>
-                      <Text style={styles.toggleRowLabel}>
-                        Imprimir produtos automaticamente
-                      </Text>
-                      <Text style={styles.toggleRowValue}>
-                        {displayAutoPrintProductEnabled ? 'Ativo' : 'Inativo'}
-                      </Text>
-                    </View>
-                    <Icon
-                      name={
-                        displayAutoPrintProductEnabled
-                          ? 'toggle-right'
-                          : 'toggle-left'
-                      }
-                      size={28}
-                      color={
-                        displayAutoPrintProductEnabled
-                          ? hex.success
-                          : '#94A3B8'
-                      }
-                    />
-                  </TouchableOpacity>
+                  {renderSwitchRow({
+                    disabled: savingDisplayPrintingConfig,
+                    label: 'Imprimir produtos automaticamente',
+                    value: displayAutoPrintProductEnabled,
+                    valueLabel: displayAutoPrintProductEnabled
+                      ? 'Ativo'
+                      : 'Inativo',
+                    onValueChange: nextValue => {
+                      setDisplayAutoPrintProductEnabled(nextValue);
+                      saveDisplayPrintingConfig({
+                        displayAutoPrintProductEnabled: nextValue,
+                      });
+                    },
+                  })}
                 </>
               )}
             </View>
@@ -2478,31 +2491,18 @@ const DeviceDetailPage = () => {
               )}
             </View>
 
-            <TouchableOpacity
-              style={[
-                styles.toggleRow,
-                deviceAlertSoundEnabled && styles.toggleRowActive,
-              ]}
-              activeOpacity={0.85}
-              onPress={() => {
-                const nextValue = !deviceAlertSoundEnabled;
+            {renderSwitchRow({
+              disabled: savingAlertSound,
+              label: 'Aviso sonoro habilitado',
+              value: deviceAlertSoundEnabled,
+              valueLabel: deviceAlertSoundEnabled ? 'Ativo' : 'Inativo',
+              onValueChange: nextValue => {
                 setDeviceAlertSoundEnabled(nextValue);
                 saveDeviceAlertSoundConfig({
                   deviceAlertSoundEnabled: nextValue,
                 });
-              }}>
-              <View>
-                <Text style={styles.toggleRowLabel}>Aviso sonoro habilitado</Text>
-                <Text style={styles.toggleRowValue}>
-                  {deviceAlertSoundEnabled ? 'Ativo' : 'Inativo'}
-                </Text>
-              </View>
-              <Icon
-                name={deviceAlertSoundEnabled ? 'toggle-right' : 'toggle-left'}
-                size={28}
-                color={deviceAlertSoundEnabled ? hex.success : '#94A3B8'}
-              />
-            </TouchableOpacity>
+              },
+            })}
 
             <View style={styles.textInputWrap}>
               <Text style={styles.textInputLabel}>URL do audio</Text>
@@ -2539,37 +2539,18 @@ const DeviceDetailPage = () => {
               )}
             </View>
 
-            <TouchableOpacity
-              style={[
-                styles.toggleRow,
-                deviceRuntimeDebugInfoEnabled && styles.toggleRowActive,
-              ]}
-              activeOpacity={0.85}
-              onPress={() => {
-                const nextValue = !deviceRuntimeDebugInfoEnabled;
+            {renderSwitchRow({
+              disabled: savingRuntimeDebugInfo,
+              label: 'Exibir debug detalhado',
+              value: deviceRuntimeDebugInfoEnabled,
+              valueLabel: deviceRuntimeDebugInfoEnabled ? 'Ativo' : 'Inativo',
+              onValueChange: nextValue => {
                 setDeviceRuntimeDebugInfoEnabled(nextValue);
                 saveDeviceRuntimeDebugInfo({
                   deviceRuntimeDebugInfoEnabled: nextValue,
                 });
-              }}>
-              <View>
-                <Text style={styles.toggleRowLabel}>Exibir debug detalhado</Text>
-                <Text style={styles.toggleRowValue}>
-                  {deviceRuntimeDebugInfoEnabled ? 'Ativo' : 'Inativo'}
-                </Text>
-              </View>
-              <Icon
-                name={
-                  deviceRuntimeDebugInfoEnabled
-                    ? 'toggle-right'
-                    : 'toggle-left'
-                }
-                size={28}
-                color={
-                  deviceRuntimeDebugInfoEnabled ? hex.success : '#94A3B8'
-                }
-              />
-            </TouchableOpacity>
+              },
+            })}
           </View>
         </View>
         )}
