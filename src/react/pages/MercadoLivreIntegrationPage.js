@@ -1,4 +1,4 @@
-import React, {useCallback, useEffect, useMemo, useState} from 'react';
+import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {
   ActivityIndicator,
   Linking,
@@ -57,6 +57,42 @@ const formatApiError = error =>
   error?.error ||
   'Nao foi possivel carregar a integracao Mercado Livre.';
 
+const MERCADO_LIVRE_OAUTH_QUERY_KEYS = [
+  'code',
+  'state',
+  'error',
+  'error_description',
+  'mercadolivre_connected',
+  'mercadolivre_error',
+];
+
+const resolveFrontOAuthRedirectUri = () => {
+  if (Platform.OS !== 'web' || typeof window === 'undefined') {
+    return undefined;
+  }
+
+  const url = new URL(window.location.href);
+  MERCADO_LIVRE_OAUTH_QUERY_KEYS.forEach(key => url.searchParams.delete(key));
+  url.hash = '';
+
+  return url.toString();
+};
+
+const replaceFrontOAuthStatus = statusParams => {
+  if (Platform.OS !== 'web' || typeof window === 'undefined') {
+    return;
+  }
+
+  const url = new URL(window.location.href);
+  MERCADO_LIVRE_OAUTH_QUERY_KEYS.forEach(key => url.searchParams.delete(key));
+  Object.entries(statusParams || {}).forEach(([key, value]) => {
+    if (value !== undefined && value !== null && value !== '') {
+      url.searchParams.set(key, String(value));
+    }
+  });
+  window.history.replaceState({}, document.title, url.toString());
+};
+
 export default function MercadoLivreIntegrationPage() {
   const peopleStore = useStore('people');
   const themeStore = useStore('theme');
@@ -83,22 +119,7 @@ export default function MercadoLivreIntegrationPage() {
   const [importing, setImporting] = useState(false);
   const [detail, setDetail] = useState(null);
   const [selectedShowcaseId, setSelectedShowcaseId] = useState(null);
-
-  useEffect(() => {
-    if (Platform.OS !== 'web' || typeof window === 'undefined') {
-      return;
-    }
-
-    const params = new URLSearchParams(window.location.search || '');
-    if (params.get('mercadolivre_connected') === '1') {
-      showSuccess('Mercado Livre conectado com sucesso.');
-    }
-
-    const oauthError = params.get('mercadolivre_error');
-    if (oauthError) {
-      showError('Nao foi possivel conectar o Mercado Livre.');
-    }
-  }, [showError, showSuccess]);
+  const oauthHandledRef = useRef(false);
 
   const loadPageData = useCallback(
     async ({showLoading = true} = {}) => {
@@ -154,6 +175,81 @@ export default function MercadoLivreIntegrationPage() {
     }, [loadPageData]),
   );
 
+  useEffect(() => {
+    if (Platform.OS !== 'web' || typeof window === 'undefined') {
+      return;
+    }
+
+    const params = new URLSearchParams(window.location.search || '');
+    const alreadyConnected = params.get('mercadolivre_connected') === '1';
+    const oauthStatusError = params.get('mercadolivre_error');
+    const oauthError = params.get('error');
+    const code = normalizeTextValue(params.get('code'));
+    const state = normalizeTextValue(params.get('state'));
+
+    if (alreadyConnected) {
+      showSuccess('Mercado Livre conectado com sucesso.');
+      replaceFrontOAuthStatus({});
+      return;
+    }
+
+    if (oauthStatusError && !code && !state) {
+      showError('Nao foi possivel conectar o Mercado Livre.');
+      replaceFrontOAuthStatus({});
+      return;
+    }
+
+    if ((!code && !state && !oauthError) || oauthHandledRef.current) {
+      return;
+    }
+
+    oauthHandledRef.current = true;
+
+    const finishOAuth = async () => {
+      if (oauthError) {
+        showError('Nao foi possivel conectar o Mercado Livre.');
+        replaceFrontOAuthStatus({mercadolivre_error: oauthError});
+        return;
+      }
+
+      const redirectUri = resolveFrontOAuthRedirectUri();
+      if (!code || !state || !redirectUri) {
+        showError('Retorno do Mercado Livre incompleto.');
+        replaceFrontOAuthStatus({mercadolivre_error: 'missing_oauth_payload'});
+        return;
+      }
+
+      setAuthorizing(true);
+      try {
+        const response = await api.fetch('/marketplace/integrations/mercadolivre/oauth/callback', {
+          method: 'POST',
+          body: {
+            code,
+            state,
+            redirect_uri: redirectUri,
+          },
+        });
+
+        if (response?.success === false) {
+          throw response;
+        }
+
+        showSuccess('Mercado Livre conectado com sucesso.');
+        replaceFrontOAuthStatus({mercadolivre_connected: '1'});
+        await loadPageData({showLoading: false});
+      } catch (error) {
+        showError(formatApiError(error));
+        replaceFrontOAuthStatus({
+          mercadolivre_error: error?.error || 'oauth_failed',
+        });
+      } finally {
+        setAuthorizing(false);
+      }
+    };
+
+    finishOAuth();
+  }, [loadPageData, showError, showSuccess]);
+
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     try {
@@ -180,10 +276,7 @@ export default function MercadoLivreIntegrationPage() {
         method: 'POST',
         body: {
           provider_id: providerId,
-          return_url:
-            Platform.OS === 'web' && typeof window !== 'undefined'
-              ? window.location.href.split('#')[0]
-              : undefined,
+          return_url: resolveFrontOAuthRedirectUri(),
         },
       });
 
