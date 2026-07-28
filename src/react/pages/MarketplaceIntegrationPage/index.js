@@ -2,15 +2,18 @@ import {useLayoutEffect, useMemo} from 'react';
 
 import Food99IntegrationPage from '@controleonline/ui-manager/src/react/pages/Food99IntegrationPage';
 import IFoodIntegrationPage from '@controleonline/ui-manager/src/react/pages/IFoodIntegrationPage';
+import MercadoLivreIntegrationPage from '@controleonline/ui-manager/src/react/pages/MercadoLivreIntegrationPage';
 
 const ROUTE_PROVIDER_MAP = {
   Food99IntegrationPage: '99food',
   IFoodIntegrationPage: 'ifood',
+  MercadoLivreIntegrationPage: 'mercadolivre',
 };
 
 const PROVIDER_LABEL_MAP = {
   '99food': '99Food',
   ifood: 'iFood',
+  mercadolivre: 'Mercado Livre',
 };
 
 const normalizeProviderKey = value =>
@@ -47,6 +50,10 @@ export default function MarketplaceIntegrationPage(props) {
 
   if (providerKey === 'ifood') {
     return <IFoodIntegrationPage {...props} />;
+  }
+
+  if (providerKey === 'mercadolivre') {
+    return <MercadoLivreIntegrationPage {...props} />;
   }
 
   return <Food99IntegrationPage {...props} />;

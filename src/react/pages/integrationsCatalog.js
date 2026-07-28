@@ -30,6 +30,16 @@ export const INTEGRATION_LIST = [
     logo: buildLogo('iFood'),
   },
   {
+    key: 'mercadolivre',
+    label: 'Mercado Livre',
+    route: 'MarketplaceIntegrationPage',
+    routeParams: {
+      providerKey: 'mercadolivre',
+    },
+    accent: '#FFE600',
+    icon: 'shopping-bag',
+  },
+  {
     key: 'uber',
     label: 'Uber',
     route: 'UberIntegrationPage',
