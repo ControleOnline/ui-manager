@@ -295,13 +295,16 @@ export default function MyCompaniesPage() {
 
   const renderMediaDropZone = useCallback(
     ({ currentMedia, isDragOver, isUploading, mediaType, mediaTypeId, paletteColors }) => {
+      const previewBackgroundStyle = Platform.OS === 'web'
+        ? styles.mediaPreviewTransparencyGrid
+        : { backgroundColor: paletteColors.panelBackground || colors.white };
       const sharedContent = (
         <>
           <View
             style={[
               styles.mediaPreviewFrame,
+              previewBackgroundStyle,
               {
-                backgroundColor: paletteColors.panelBackground || colors.white,
                 borderColor: withOpacity(paletteColors.text || colors.text, 0.08),
               },
             ]}
@@ -616,6 +619,13 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  mediaPreviewTransparencyGrid: {
+    backgroundColor: '#FFFFFF',
+    backgroundImage:
+      'linear-gradient(45deg, #E5E7EB 25%, transparent 25%), linear-gradient(-45deg, #E5E7EB 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #E5E7EB 75%), linear-gradient(-45deg, transparent 75%, #E5E7EB 75%)',
+    backgroundPosition: '0 0, 0 8px, 8px -8px, -8px 0px',
+    backgroundSize: '16px 16px',
   },
   mediaPreviewImage: {
     width: '100%',
