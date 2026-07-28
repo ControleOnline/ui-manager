@@ -1,11 +1,11 @@
 import React, {useCallback, useEffect, useMemo, useState} from 'react';
 import {
   ActivityIndicator,
+  Linking,
   Platform,
   RefreshControl,
   ScrollView,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
@@ -30,26 +30,6 @@ const PROVIDER = {
   accent: '#8A6A00',
   button: '#111827',
   icon: 'shopping-bag',
-  requiredKeys: ['mercado-livre-user-id', 'mercado-livre-access-token'],
-  fields: [
-    {
-      key: 'mercado-livre-user-id',
-      label: 'Seller/User ID',
-      placeholder: 'Informe o user id da conta Mercado Livre',
-    },
-    {
-      key: 'mercado-livre-access-token',
-      label: 'Access token',
-      placeholder: 'Informe o access token',
-      secureTextEntry: true,
-    },
-    {
-      key: 'mercado-livre-refresh-token',
-      label: 'Refresh token',
-      placeholder: 'Informe o refresh token, se disponivel',
-      secureTextEntry: true,
-    },
-  ],
 };
 
 const shadowStyle = Platform.select({
@@ -64,47 +44,6 @@ const shadowStyle = Platform.select({
 });
 
 const normalizeTextValue = value => String(value ?? '').trim();
-
-const normalizeSourceConfigs = source => {
-  if (Array.isArray(source)) {
-    return source.reduce((accumulator, item) => {
-      const key = normalizeTextValue(item?.configKey);
-      if (key) {
-        accumulator[key] = item?.configValue;
-      }
-      return accumulator;
-    }, {});
-  }
-
-  return source && typeof source === 'object' ? source : {};
-};
-
-const parseStoredValue = value => {
-  const normalized = normalizeTextValue(value);
-  if (!normalized) {
-    return '';
-  }
-
-  try {
-    const decoded = JSON.parse(normalized);
-    return typeof decoded === 'string' || typeof decoded === 'number'
-      ? String(decoded)
-      : normalized;
-  } catch {
-    return normalized;
-  }
-};
-
-const toConfigRequestValue = value => JSON.stringify(normalizeTextValue(value));
-
-const buildFieldValues = source => {
-  const sourceMap = normalizeSourceConfigs(source);
-
-  return PROVIDER.fields.reduce((accumulator, field) => {
-    accumulator[field.key] = parseStoredValue(sourceMap[field.key]);
-    return accumulator;
-  }, {});
-};
 
 const isConnected = value =>
   value === true ||
@@ -121,18 +60,11 @@ const formatApiError = error =>
 export default function MercadoLivreIntegrationPage() {
   const peopleStore = useStore('people');
   const themeStore = useStore('theme');
-  const configsStore = useStore('configs');
   const {currentCompany} = peopleStore.getters;
   const {colors: themeColors} = themeStore.getters;
   const {showError, showSuccess} = useToastMessage();
-  const configActions = configsStore.actions;
-  const {isSaving} = configsStore.getters;
 
   const providerId = currentCompany?.id;
-  const providerIri = useMemo(
-    () => (providerId ? `/people/${String(providerId).replace(/\D/g, '')}` : ''),
-    [providerId],
-  );
   const brandColors = useMemo(
     () =>
       resolveThemePalette(
@@ -147,18 +79,30 @@ export default function MercadoLivreIntegrationPage() {
 
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [authorizing, setAuthorizing] = useState(false);
   const [importing, setImporting] = useState(false);
-  const [configValues, setConfigValues] = useState({});
   const [detail, setDetail] = useState(null);
   const [selectedShowcaseId, setSelectedShowcaseId] = useState(null);
 
   useEffect(() => {
-    setConfigValues(buildFieldValues(currentCompany?.configs));
-  }, [currentCompany?.configs]);
+    if (Platform.OS !== 'web' || typeof window === 'undefined') {
+      return;
+    }
+
+    const params = new URLSearchParams(window.location.search || '');
+    if (params.get('mercadolivre_connected') === '1') {
+      showSuccess('Mercado Livre conectado com sucesso.');
+    }
+
+    const oauthError = params.get('mercadolivre_error');
+    if (oauthError) {
+      showError('Nao foi possivel conectar o Mercado Livre.');
+    }
+  }, [showError, showSuccess]);
 
   const loadPageData = useCallback(
     async ({showLoading = true} = {}) => {
-      if (!providerId || !providerIri) {
+      if (!providerId) {
         setDetail(null);
         setLoading(false);
         return;
@@ -169,20 +113,12 @@ export default function MercadoLivreIntegrationPage() {
       }
 
       try {
-        const [configResponse, detailResponse] = await Promise.all([
-          api.fetch('/configs', {
-            params: {
-              people: providerIri,
-            },
-          }),
-          api.fetch('/marketplace/integrations/mercadolivre/detail', {
-            params: {
-              provider_id: providerId,
-            },
-          }),
-        ]);
+        const detailResponse = await api.fetch('/marketplace/integrations/mercadolivre/detail', {
+          params: {
+            provider_id: providerId,
+          },
+        });
 
-        setConfigValues(buildFieldValues(configResponse?.member || configResponse));
         setDetail(detailResponse);
 
         const showcases = Array.isArray(detailResponse?.showcases)
@@ -209,7 +145,7 @@ export default function MercadoLivreIntegrationPage() {
         }
       }
     },
-    [providerId, providerIri, showError],
+    [providerId, showError],
   );
 
   useFocusEffect(
@@ -227,45 +163,39 @@ export default function MercadoLivreIntegrationPage() {
     }
   }, [loadPageData]);
 
-  const updateField = useCallback((fieldKey, value) => {
-    setConfigValues(currentValues => ({
-      ...currentValues,
-      [fieldKey]: value,
-    }));
-  }, []);
-
-  const saveIntegration = useCallback(async () => {
-    if (!providerIri) {
+  const connectMercadoLivre = useCallback(async () => {
+    if (!providerId) {
       showError('Nao foi possivel identificar a empresa ativa.');
       return;
     }
 
-    const configs = PROVIDER.fields.map(field => ({
-      configKey: field.key,
-      configValue: toConfigRequestValue(configValues[field.key]),
-    }));
-
+    setAuthorizing(true);
     try {
-      await configActions.addManyConfigs({
-        configs,
-        people: providerIri,
-        module: 4,
-        visibility: 'private',
+      const response = await api.fetch('/marketplace/integrations/mercadolivre/authorization-page', {
+        method: 'POST',
+        body: {
+          provider_id: providerId,
+          return_url:
+            Platform.OS === 'web' && typeof window !== 'undefined'
+              ? window.location.href.split('#')[0]
+              : undefined,
+        },
       });
 
-      showSuccess('Mercado Livre salvo com sucesso.');
-      await loadPageData({showLoading: false});
+      const authorizationUrl =
+        response?.authorization_url || response?.url || response?.auth_url || '';
+      if (!authorizationUrl) {
+        showError(response?.message || 'URL de autorizacao do Mercado Livre indisponivel.');
+        return;
+      }
+
+      await Linking.openURL(authorizationUrl);
     } catch (error) {
-      showError(error?.message || 'Nao foi possivel salvar a integracao Mercado Livre.');
+      showError(error?.message || 'Nao foi possivel iniciar o login do Mercado Livre.');
+    } finally {
+      setAuthorizing(false);
     }
-  }, [
-    configActions,
-    configValues,
-    loadPageData,
-    providerIri,
-    showError,
-    showSuccess,
-  ]);
+  }, [providerId, showError]);
 
   const importProducts = useCallback(async () => {
     if (!providerId || !selectedShowcaseId) {
@@ -356,7 +286,7 @@ export default function MercadoLivreIntegrationPage() {
               <Text style={styles.sectionSubtitle}>
                 {integration.user_id
                   ? `Seller/User ID ${integration.user_id}`
-                  : 'Salve o token e o user id para habilitar importacao e webhook.'}
+                  : 'Conecte a conta vendedora para habilitar importacao e webhook.'}
               </Text>
             </View>
             <View style={[styles.statusBadge, {backgroundColor: withOpacity(statusTone, 0.12)}]}>
@@ -368,45 +298,28 @@ export default function MercadoLivreIntegrationPage() {
         </View>
 
         <View style={[styles.formCard, shadowStyle]}>
-          <Text style={styles.cardTitle}>Credenciais</Text>
+          <Text style={styles.cardTitle}>Conta Mercado Livre</Text>
           <Text style={styles.cardSubtitle}>
-            Use as credenciais da conta vendedora que sera vinculada a empresa ativa.
+            O login abre o Mercado Livre, autoriza a conta vendedora e retorna para esta tela.
           </Text>
-
-          <View style={styles.fieldList}>
-            {PROVIDER.fields.map(field => (
-              <View key={field.key} style={styles.fieldGroup}>
-                <Text style={styles.fieldLabel}>{field.label}</Text>
-                <Text style={styles.fieldKey}>{field.key}</Text>
-                <TextInput
-                  style={[styles.input, isSaving && styles.inputDisabled]}
-                  value={configValues[field.key] || ''}
-                  onChangeText={value => updateField(field.key, value)}
-                  editable={!isSaving}
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                  secureTextEntry={Boolean(field.secureTextEntry)}
-                  placeholder={field.placeholder}
-                />
-              </View>
-            ))}
-          </View>
 
           <TouchableOpacity
             style={[
               styles.saveButton,
               {backgroundColor: PROVIDER.button},
-              isSaving && styles.saveButtonDisabled,
+              authorizing && styles.saveButtonDisabled,
             ]}
-            disabled={isSaving}
+            disabled={authorizing}
             activeOpacity={0.9}
-            onPress={saveIntegration}>
-            {isSaving ? (
+            onPress={connectMercadoLivre}>
+            {authorizing ? (
               <ActivityIndicator color="#FFFFFF" />
             ) : (
-              <Icon name="save" size={16} color="#FFFFFF" />
+              <Icon name="external-link" size={16} color="#FFFFFF" />
             )}
-            <Text style={styles.saveButtonText}>Salvar Mercado Livre</Text>
+            <Text style={styles.saveButtonText}>
+              {connected ? 'Reconectar Mercado Livre' : 'Conectar com Mercado Livre'}
+            </Text>
           </TouchableOpacity>
         </View>
 
