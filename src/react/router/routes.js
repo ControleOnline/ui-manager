@@ -47,6 +47,7 @@ import MenuCostsSuppliersPage from '@controleonline/ui-manager/src/react/pages/M
 import MenuCostsPurchasesPage from '@controleonline/ui-manager/src/react/pages/MenuCostsPurchasesPage';
 import MenuAccessConfigPage from '@controleonline/ui-manager/src/react/pages/MenuAccessConfigPage';
 import CronJobsPage from '@controleonline/ui-manager/src/react/pages/CronJobsPage';
+import TenanciesPage from '@controleonline/ui-manager/src/react/pages/TenanciesPage';
 import PeopleDomainsPage from '@controleonline/ui-manager/src/react/pages/PeopleDomainsPage';
 import PeopleDomainDetailPage from '@controleonline/ui-manager/src/react/pages/PeopleDomainDetailPage';
 import FlowchartsPage from '@controleonline/ui-manager/src/react/pages/FlowchartsPage';
@@ -177,6 +178,17 @@ const managerRoutes = [
       title: 'Jobs agendados',
       showCompanyFilter: true,
       companyFilterMode: 'icon',
+    },
+  },
+  {
+    name: 'TenanciesPage',
+    component: TenanciesPage,
+    path: 'admin/tenancies',
+    options: {
+      headerShown: true,
+      headerBackVisible: true,
+      title: 'Tenancies',
+      showCompanyFilter: false,
     },
   },
   {

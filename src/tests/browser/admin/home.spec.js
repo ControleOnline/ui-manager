@@ -91,6 +91,16 @@ const createAdminRuntimeMenusResponse = () => ({
           menuType: 'home',
         },
         {
+          id: 'tenancies',
+          menuKey: 'tenancies',
+          label: 'Tenancies',
+          route: 'TenanciesPage',
+          icon: 'server',
+          color: '#0F766E',
+          sortOrder: 25,
+          menuType: 'home',
+        },
+        {
           id: 'people_domains',
           menuKey: 'people_domains',
           label: 'Domínios',
