@@ -157,6 +157,10 @@ export default function TenanciesPage({ navigation }) {
               <TextInput style={styles.input} value={form.dbDriver} onChangeText={value => updateField('dbDriver', value)} autoCapitalize="none" />
             </View>
             <View style={styles.field}>
+              <Text style={styles.label}>Instância</Text>
+              <TextInput style={styles.input} value={form.dbInstance} onChangeText={value => updateField('dbInstance', value)} autoCapitalize="none" />
+            </View>
+            <View style={styles.field}>
               <Text style={styles.label}>Status</Text>
               <TextInput style={styles.input} value={form.instalationStatus} onChangeText={value => updateField('instalationStatus', value)} autoCapitalize="none" />
             </View>
