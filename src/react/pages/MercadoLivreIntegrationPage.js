@@ -169,6 +169,11 @@ export default function MercadoLivreIntegrationPage() {
       return;
     }
 
+    if (detail?.oauth?.client_configured === false) {
+      showError('Configure o Client ID e Secret do app Mercado Livre antes de conectar.');
+      return;
+    }
+
     setAuthorizing(true);
     try {
       const response = await api.fetch('/marketplace/integrations/mercadolivre/authorization-page', {
@@ -195,7 +200,7 @@ export default function MercadoLivreIntegrationPage() {
     } finally {
       setAuthorizing(false);
     }
-  }, [providerId, showError]);
+  }, [detail?.oauth?.client_configured, providerId, showError]);
 
   const importProducts = useCallback(async () => {
     if (!providerId || !selectedShowcaseId) {
@@ -255,6 +260,7 @@ export default function MercadoLivreIntegrationPage() {
 
   const integration = detail?.integration || {};
   const connected = isConnected(integration.connected);
+  const oauthClientConfigured = detail?.oauth?.client_configured !== false;
   const statusTone = connected ? '#16A34A' : '#e67e22';
   const showcases = Array.isArray(detail?.showcases) ? detail.showcases : [];
 
@@ -300,16 +306,18 @@ export default function MercadoLivreIntegrationPage() {
         <View style={[styles.formCard, shadowStyle]}>
           <Text style={styles.cardTitle}>Conta Mercado Livre</Text>
           <Text style={styles.cardSubtitle}>
-            O login abre o Mercado Livre, autoriza a conta vendedora e retorna para esta tela.
+            {oauthClientConfigured
+              ? 'O login abre o Mercado Livre, autoriza a conta vendedora e retorna para esta tela.'
+              : 'Configure o Client ID e Secret do app Mercado Livre nesta empresa para habilitar o login.'}
           </Text>
 
           <TouchableOpacity
             style={[
               styles.saveButton,
               {backgroundColor: PROVIDER.button},
-              authorizing && styles.saveButtonDisabled,
+              (!oauthClientConfigured || authorizing) && styles.saveButtonDisabled,
             ]}
-            disabled={authorizing}
+            disabled={!oauthClientConfigured || authorizing}
             activeOpacity={0.9}
             onPress={connectMercadoLivre}>
             {authorizing ? (
