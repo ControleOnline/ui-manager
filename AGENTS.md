@@ -38,7 +38,7 @@
 - Componentes de receita pertencem ao preparo e usam um vinculo proprio, sem reutilizar a composicao fixa do produto de venda.
 - Opcoes de grupos comerciais podem referenciar produto de venda, ingrediente, preparo, embalagem ou revenda, preservando explicitamente o tipo de cada alvo.
 - A leitura combinada deve coletar ERP e rascunhos locais sem sobrescrever o registro oficial. Vinculos de tipo duvidoso ficam explicitamente nao resolvidos para revisao.
-- A migracao temporaria do PWA antigo e exclusiva da empresa Gyros, idempotente e limitada a entidades tecnicas, receitas, composicao fixa e embalagens. Grupos e adicionais continuam vindo apenas do ERP atual.
+- A migracao temporaria do PWA antigo e exclusiva da empresa Produto Exemplo, idempotente e limitada a entidades tecnicas, receitas, composicao fixa e embalagens. Grupos e adicionais continuam vindo apenas do ERP atual.
 - Dados migrados do PWA devem aparecer como rascunho local e nunca participar do custo oficial antes de cadastro ou vinculo confirmado no ERP.
 - A rota `/menu-costs-page/fornecedores` é a tela oficial de fornecedores da engenharia.
 - Essa tela carrega os dados do `people` com `link.linkType=provider` somente quando exibida e deve unificar fornecedores duplicados sem criar novo cadastro.
