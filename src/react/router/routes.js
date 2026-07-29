@@ -50,7 +50,7 @@ import CronJobsPage from '@controleonline/ui-config/src/react/pages/CronJobsPage
 import TenanciesPage from '@controleonline/ui-config/src/react/pages/TenanciesPage';
 import PeopleDomainsPage from '@controleonline/ui-people/src/react/pages/PeopleDomainsPage';
 import PeopleDomainDetailPage from '@controleonline/ui-people/src/react/pages/PeopleDomainDetailPage';
-import FlowchartsPage from '@controleonline/ui-config/src/react/pages/FlowchartsPage';
+import FlowchartsPage from '@controleonline/ui-report/src/react/pages/FlowchartsPage';
 import LabelsPage from '@controleonline/ui-products/src/react/pages/LabelsPage';
 import ModelTemplatesPage from '@controleonline/ui-crm/src/react/pages/ModelTemplatesPage';
 import WhatsAppConnectionPage from '@controleonline/ui-common/src/react/pages/WhatsAppConnectionPage';
