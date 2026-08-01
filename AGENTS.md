@@ -62,3 +62,7 @@
 - A aba `Motor de custo` da `MenuCostsPage` e a leitura explicativa/editavel da regra atual de precificacao da engenharia.
 - `Motor de custo` deve ler e gravar o contrato oficial em `configs` da empresa selecionada, pela chave `menu-costs-cost-engine-rules`, mantendo `settings.costEngineRules` apenas como compatibilidade/cache local da rota.
 - As regras devem explicar e simular custo tecnico, markup, margem, taxas, comissao, repasse, arredondamento, CMV e rateio fixo gerencial sem alterar produto, pedido, catalogo ou canais globais fora da engenharia.
+
+## Qualidade de código
+
+- A barra comum de modularizacao, testes, smoke tests e limite de tamanho de componentes vive em `https://github.com/ControleOnline/agents-mcp/blob/master/skills/shared/code-quality.md`.
