@@ -591,6 +591,8 @@ const managerRoutes = [
       headerShown: true,
       headerBackVisible: true,
       title: () => global.t?.t('configs', 'title', 'incomeStatement'),
+      showCompanyFilter: true,
+      companyFilterMode: 'icon',
     },
     initialParams: {store: 'invoice'},
   },
