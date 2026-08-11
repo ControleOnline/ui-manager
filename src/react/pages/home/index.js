@@ -43,6 +43,7 @@ import { app_type_base } from '@appType';
 import { userHasRole } from '@controleonline/ui-common/src/react/utils/runtimeMenu';
 import AppMenuGrid from '@controleonline/ui-layout/src/react/components/AppMenuGrid';
 import { createStyles } from './index.styles';
+import {appendManagerOnboardingMenu} from '../onboarding/onboardingMenu';
 
 const translate = (store, type, key) => global.t?.t(store, type, key);
 
@@ -79,6 +80,12 @@ export default function HomePage({ navigation }) {
   const pendingTranslateMessages = translateStore?.getters?.pendingMessages || {};
   const isFocused = useIsFocused();
   const canManageAdminMenus = userHasRole(user, 'ROLE_SUPER');
+  const canAccessOnboarding =
+    app_type_base === 'MANAGER' && userHasRole(user, 'ROLE_SUPER');
+  const homeMenus = useMemo(
+    () => appendManagerOnboardingMenu(menus, {enabled: canAccessOnboarding}),
+    [canAccessOnboarding, menus],
+  );
 
   const brandColors = useMemo(
     () =>
@@ -252,7 +259,7 @@ export default function HomePage({ navigation }) {
 
         <AppMenuGrid
           colorTokens={homeColors}
-          menus={menus}
+          menus={homeMenus}
           navigation={navigation}
         />
 

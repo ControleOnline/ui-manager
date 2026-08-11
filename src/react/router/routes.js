@@ -60,8 +60,22 @@ import DisplayOrderConference from '@controleonline/ui-ppc/src/react/pages/displ
 import DisplayForm from '@controleonline/ui-ppc/src/react/pages/displays/DisplayForm';
 import QueueAddProducts from '@controleonline/ui-ppc/src/react/pages/queues/QueueAddProducts';
 import LinkedOrderSettlementPage from '@controleonline/ui-orders/src/react/pages/checkout/LinkedOrderSettlementPage';
+import ManagerOnboardingPage from '../pages/onboarding/OnboardingPage';
 
 const managerRoutes = [
+  {
+    name: 'ManagerOnboardingPage',
+    component: ManagerOnboardingPage,
+    path: 'manager/onboarding',
+    options: {
+      headerShown: true,
+      headerBackVisible: true,
+      title: 'Implantação assistida',
+      showBottomToolBar: false,
+      showCompanyFilter: true,
+      companyFilterMode: 'icon',
+    },
+  },
   {
     name: 'DisplayList',
     component: DisplayList,
