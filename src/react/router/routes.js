@@ -187,7 +187,7 @@ const managerRoutes = [
     options: {
       headerShown: true,
       headerBackVisible: true,
-      title: 'Tenancies',
+      title: 'Inquilinos (tenancies)',
       showCompanyFilter: false,
     },
   },
