@@ -483,6 +483,17 @@ const managerRoutes = [
     },
   },
   {
+    name: 'ReceitaFederalIntegrationPage',
+    component: IntegrationConfigPage,
+    options: {
+      headerShown: true,
+      headerBackVisible: true,
+      title: 'Receita Federal',
+      showCompanyFilter: true,
+      companyFilterMode: 'icon',
+    },
+  },
+  {
     name: 'PdvPage',
     component: PdvPage,
     options: {
