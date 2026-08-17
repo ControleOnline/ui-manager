@@ -318,34 +318,47 @@ const CompanyFilter = ({ navigation, mode }) => {
             <View>
               <Text style={styles.greeting}>Olá, {firstName}</Text>
 
-              <TouchableOpacity
-                style={styles.companyRow}
-                onPress={canSwitchCompany ? openModal : undefined}
-                disabled={!canSwitchCompany}
-                activeOpacity={0.8}>
-                {companyIconUrl ? (
-                  <Image
-                    source={{ uri: companyIconUrl }}
-                    style={styles.companyLogo}
-                  />
-                ) : null}
+              {canSwitchCompany ? (
+                <TouchableOpacity
+                  style={styles.companyRow}
+                  onPress={openModal}
+                  activeOpacity={0.8}
+                  testID="company-selector-trigger">
+                  {companyIconUrl ? (
+                    <Image
+                      source={{ uri: companyIconUrl }}
+                      style={styles.companyLogo}
+                    />
+                  ) : null}
 
-                <Text
-                  style={styles.companyName}>
-                  {selectedCompany?.alias ||
-                    selectedCompany?.name ||
-                    'Selecionar empresa'}
-                </Text>
+                  <Text style={styles.companyName}>
+                    {selectedCompany?.alias ||
+                      selectedCompany?.name ||
+                      'Selecionar empresa'}
+                  </Text>
 
-                {canSwitchCompany && (
                   <Icon
                     name="chevron-down"
                     size={14}
                     color={palette.headerIcon}
                     style={inlineStyle_275_20}
                   />
-                )}
-              </TouchableOpacity>
+                </TouchableOpacity>
+              ) : (
+                (selectedCompany?.alias || selectedCompany?.name) ? (
+                  <View style={styles.companyRow} testID="company-label-static">
+                    {companyIconUrl ? (
+                      <Image
+                        source={{ uri: companyIconUrl }}
+                        style={styles.companyLogo}
+                      />
+                    ) : null}
+                    <Text style={styles.companyName}>
+                      {selectedCompany?.alias || selectedCompany?.name}
+                    </Text>
+                  </View>
+                ) : null
+              )}
             </View>
 
             <TouchableOpacity
