@@ -10,6 +10,7 @@ import OwnTransfers from '@controleonline/ui-financial/src/react/pages/OwnTransf
 import InvoiceDetailsPage from '@controleonline/ui-financial/src/react/pages/InvoiceDetailsPage';
 import WalletsPage from '@controleonline/ui-financial/src/react/pages/WalletsPage';
 import InvoiceCategoriesPage from '@controleonline/ui-financial/src/react/pages/InvoiceCategoriesPage';
+import PaylistPage from '@controleonline/ui-financial/src/react/pages/PaylistPage';
 
 import Devices from '@controleonline/ui-common/src/react/pages/Devices';
 import DeviceDetailPage from '@controleonline/ui-common/src/react/pages/DeviceDetailPage';
@@ -645,6 +646,18 @@ const managerRoutes = [
       companyFilterMode: 'icon',
     },
     initialParams: {store: 'invoice'},
+  },
+  {
+    name: 'PaylistPage',
+    path: 'paylist',
+    component: PaylistPage,
+    options: {
+      headerShown: true,
+      headerBackVisible: false,
+      title: 'Minhas dívidas',
+      showBottomToolBar: false,
+      showCompanyFilter: false,
+    },
   },
   {
     name: 'OwnTransfers',
