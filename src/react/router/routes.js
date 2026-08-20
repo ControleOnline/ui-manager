@@ -20,6 +20,7 @@ import ThemeManagerPage from '@controleonline/ui-layout/src/react/pages/ThemeMan
 import ThemePreviewPage from '@controleonline/ui-layout/src/react/pages/ThemePreviewPage';
 import ManagerOrderNotificationsPage from '@controleonline/ui-common/src/react/pages/ManagerOrderNotificationsPage';
 import MyCompaniesPage from '@controleonline/ui-people/src/react/pages/MyCompaniesPage';
+import OnboardingPage from '../pages/onboarding/OnboardingPage';
 import TranslationsReviewPage from '@controleonline/ui-translate/src/react/pages/TranslationsReviewPage';
 import DeliveryRatesInboxPage from '@controleonline/ui-logistic/src/react/pages/delivery-rates/DeliveryRatesInboxPage';
 import DeliveryRateVersionPage from '@controleonline/ui-logistic/src/react/pages/delivery-rates/DeliveryRateVersionPage';
@@ -814,6 +815,18 @@ const managerRoutes = [
       title: () => global.t?.t('configs', 'title', 'inventory'),
     },
     initialParams: {store: 'products'},
+  },
+  {
+    name: 'OnboardingPage',
+    component: OnboardingPage,
+    path: 'onboarding',
+    options: {
+      headerShown: true,
+      headerBackVisible: true,
+      title: 'Onboarding',
+      showCompanyFilter: true,
+      companyFilterMode: 'icon',
+    },
   },
 ];
 
