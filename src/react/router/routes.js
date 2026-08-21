@@ -10,6 +10,7 @@ import OwnTransfers from '@controleonline/ui-financial/src/react/pages/OwnTransf
 import InvoiceDetailsPage from '@controleonline/ui-financial/src/react/pages/InvoiceDetailsPage';
 import WalletsPage from '@controleonline/ui-financial/src/react/pages/WalletsPage';
 import InvoiceCategoriesPage from '@controleonline/ui-financial/src/react/pages/InvoiceCategoriesPage';
+import PaylistPage from '@controleonline/ui-financial/src/react/pages/PaylistPage';
 
 import Devices from '@controleonline/ui-common/src/react/pages/Devices';
 import DeviceDetailPage from '@controleonline/ui-common/src/react/pages/DeviceDetailPage';
@@ -50,6 +51,7 @@ import MenuAccessConfigPage from '@controleonline/ui-config/src/react/pages/Menu
 import CronJobsPage from '@controleonline/ui-config/src/react/pages/CronJobsPage';
 import TenanciesPage from '@controleonline/ui-config/src/react/pages/TenanciesPage';
 import PeopleDomainsPage from '@controleonline/ui-people/src/react/pages/PeopleDomainsPage';
+import UsersPage from '@controleonline/ui-users/src/react/pages/UsersPage';
 import PeopleDomainDetailPage from '@controleonline/ui-people/src/react/pages/PeopleDomainDetailPage';
 import FlowchartsPage from '@controleonline/ui-report/src/react/pages/FlowchartsPage';
 import LabelsPage from '@controleonline/ui-products/src/react/pages/LabelsPage';
@@ -63,6 +65,19 @@ import QueueAddProducts from '@controleonline/ui-ppc/src/react/pages/queues/Queu
 import LinkedOrderSettlementPage from '@controleonline/ui-orders/src/react/pages/checkout/LinkedOrderSettlementPage';
 
 const managerRoutes = [
+  {
+    name: 'UsersPage',
+    component: UsersPage,
+    path: 'users',
+    options: {
+      headerShown: true,
+      headerBackVisible: true,
+      title: () => 'Usuários',
+      showBottomToolBar: true,
+      showCompanyFilter: true,
+      companyFilterMode: 'icon',
+    },
+  },
   {
     name: 'DisplayList',
     component: DisplayList,
@@ -484,6 +499,17 @@ const managerRoutes = [
     },
   },
   {
+    name: 'ReceitaFederalIntegrationPage',
+    component: IntegrationConfigPage,
+    options: {
+      headerShown: true,
+      headerBackVisible: true,
+      title: 'Receita Federal',
+      showCompanyFilter: true,
+      companyFilterMode: 'icon',
+    },
+  },
+  {
     name: 'PdvPage',
     component: PdvPage,
     options: {
@@ -620,6 +646,18 @@ const managerRoutes = [
       companyFilterMode: 'icon',
     },
     initialParams: {store: 'invoice'},
+  },
+  {
+    name: 'PaylistPage',
+    path: 'paylist',
+    component: PaylistPage,
+    options: {
+      headerShown: true,
+      headerBackVisible: false,
+      title: 'Minhas dívidas',
+      showBottomToolBar: false,
+      showCompanyFilter: false,
+    },
   },
   {
     name: 'OwnTransfers',
