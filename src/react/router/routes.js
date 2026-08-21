@@ -49,6 +49,7 @@ import MenuAccessConfigPage from '@controleonline/ui-config/src/react/pages/Menu
 import CronJobsPage from '@controleonline/ui-config/src/react/pages/CronJobsPage';
 import TenanciesPage from '@controleonline/ui-config/src/react/pages/TenanciesPage';
 import PeopleDomainsPage from '@controleonline/ui-people/src/react/pages/PeopleDomainsPage';
+import UsersPage from '@controleonline/ui-users/src/react/pages/UsersPage';
 import PeopleDomainDetailPage from '@controleonline/ui-people/src/react/pages/PeopleDomainDetailPage';
 import FlowchartsPage from '@controleonline/ui-report/src/react/pages/FlowchartsPage';
 import LabelsPage from '@controleonline/ui-products/src/react/pages/LabelsPage';
@@ -62,6 +63,19 @@ import QueueAddProducts from '@controleonline/ui-ppc/src/react/pages/queues/Queu
 import LinkedOrderSettlementPage from '@controleonline/ui-orders/src/react/pages/checkout/LinkedOrderSettlementPage';
 
 const managerRoutes = [
+  {
+    name: 'UsersPage',
+    component: UsersPage,
+    path: 'users',
+    options: {
+      headerShown: true,
+      headerBackVisible: true,
+      title: () => 'Usuários',
+      showBottomToolBar: true,
+      showCompanyFilter: true,
+      companyFilterMode: 'icon',
+    },
+  },
   {
     name: 'DisplayList',
     component: DisplayList,
