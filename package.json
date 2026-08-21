@@ -25,7 +25,6 @@
     "@controleonline/ui-orders": "*",
     "@controleonline/ui-people": "*",
     "@controleonline/ui-ppc": "*",
-    "@controleonline/ui-products": "*",
-    "@controleonline/ui-users": "*"
+    "@controleonline/ui-products": "*"
   }
 }
