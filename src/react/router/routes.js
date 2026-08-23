@@ -62,7 +62,6 @@ import DisplayDetails from '@controleonline/ui-ppc/src/react/pages/displays/Disp
 import DisplayOrderConference from '@controleonline/ui-ppc/src/react/pages/displays/orders/DisplayOrderConference';
 import DisplayForm from '@controleonline/ui-ppc/src/react/pages/displays/DisplayForm';
 import QueueAddProducts from '@controleonline/ui-ppc/src/react/pages/queues/QueueAddProducts';
-import LinkedOrderSettlementPage from '@controleonline/ui-orders/src/react/pages/checkout/LinkedOrderSettlementPage';
 
 const managerRoutes = [
   {
@@ -528,18 +527,6 @@ const managerRoutes = [
       headerShown: true,
       headerBackVisible: true,
       title: 'Vitrines de preços',
-      showCompanyFilter: true,
-      companyFilterMode: 'icon',
-    },
-  },
-  {
-    name: 'LinkedOrderSettlementPage',
-    component: LinkedOrderSettlementPage,
-    options: {
-      headerShown: true,
-      headerBackVisible: true,
-      title: () => global.t?.t('orders', 'title', 'linkedOrderSettlement'),
-      showBottomToolBar: true,
       showCompanyFilter: true,
       companyFilterMode: 'icon',
     },
