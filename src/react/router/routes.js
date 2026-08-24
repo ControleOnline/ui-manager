@@ -62,6 +62,7 @@ import DisplayDetails from '@controleonline/ui-ppc/src/react/pages/displays/Disp
 import DisplayOrderConference from '@controleonline/ui-ppc/src/react/pages/displays/orders/DisplayOrderConference';
 import DisplayForm from '@controleonline/ui-ppc/src/react/pages/displays/DisplayForm';
 import QueueAddProducts from '@controleonline/ui-ppc/src/react/pages/queues/QueueAddProducts';
+import LinkedOrderSettlementPage from '@controleonline/ui-orders/src/react/pages/checkout/LinkedOrderSettlementPage';
 
 const managerRoutes = [
   {
@@ -532,6 +533,18 @@ const managerRoutes = [
     },
   },
   {
+    name: 'LinkedOrderSettlementPage',
+    component: LinkedOrderSettlementPage,
+    options: {
+      headerShown: true,
+      headerBackVisible: true,
+      title: () => global.t?.t('orders', 'title', 'linkedOrderSettlement'),
+      showBottomToolBar: true,
+      showCompanyFilter: true,
+      companyFilterMode: 'icon',
+    },
+  },
+  {
     name: 'DevicesIndex',
     component: Devices,
     options: {
@@ -639,7 +652,8 @@ const managerRoutes = [
     path: 'paylist',
     component: PaylistPage,
     options: {
-      headerShown: true,
+      // Customer-facing anonymous route: never expose navigation into the manager.
+      headerShown: false,
       headerBackVisible: false,
       title: 'Minhas dívidas',
       showBottomToolBar: false,
