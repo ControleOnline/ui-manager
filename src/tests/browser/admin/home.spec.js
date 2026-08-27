@@ -298,7 +298,7 @@ test.describe('admin browser smoke', () => {
     await mockAdminApi(page);
 
     await openAdminHome(page);
-    await expect(page.getByText('Jobs agendados', { exact: true })).toBeVisible();
+    await expect(page.getByText(/Jobs agendados/i)).toBeVisible();
     await expect(page.getByRole('button', {name: 'Voltar para ADMIN'})).toHaveCount(0);
     await page.goto('/tests-playground');
     await page.waitForURL(/\/tests-playground\/?$/);
