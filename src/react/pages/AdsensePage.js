@@ -26,6 +26,7 @@ const normalizeDomain = value => {
 
 const statusLabel = status => {
   if (status === 'ok') return 'OK';
+  if (status === 'warning') return 'Atenção';
   if (status === 'checking') return 'Verificando';
   if (status === 'error') return 'Erro';
   return 'Não verificado';
@@ -34,6 +35,7 @@ const statusLabel = status => {
 const statusColor = (status, palette) => {
   if (status === 'ok') return palette.success || '#16A34A';
   if (status === 'error') return palette.error || '#DC2626';
+  if (status === 'warning') return palette.warning || '#D97706';
   if (status === 'checking') return palette.warning || '#D97706';
   return palette.textMuted || '#64748B';
 };
@@ -92,7 +94,13 @@ export default function AdsensePage() {
     setChecks(previous => ({ ...previous, [id]: { status: 'checking' } }));
     try {
       const result = await api.fetch(`people_domains/${id}/adsense-check`);
-      setChecks(previous => ({ ...previous, [id]: { status: 'ok', result } }));
+      setChecks(previous => ({
+        ...previous,
+        [id]: {
+          status: Array.isArray(result?.issues) && result.issues.length > 0 ? 'warning' : 'ok',
+          result,
+        },
+      }));
     } catch (requestError) {
       setChecks(previous => ({
         ...previous,
@@ -109,7 +117,7 @@ export default function AdsensePage() {
   }, [checkDomain, domains]);
 
   const checkedCount = Object.values(checks).filter(item => item.status === 'ok').length;
-  const issueCount = Object.values(checks).filter(item => item.status === 'error').length;
+  const issueCount = Object.values(checks).filter(item => ['error', 'warning'].includes(item.status)).length;
 
   if (app_type_base !== 'MKT') {
     return (
