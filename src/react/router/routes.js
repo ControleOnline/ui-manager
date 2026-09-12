@@ -63,8 +63,21 @@ import DisplayOrderConference from '@controleonline/ui-ppc/src/react/pages/displ
 import DisplayForm from '@controleonline/ui-ppc/src/react/pages/displays/DisplayForm';
 import QueueAddProducts from '@controleonline/ui-ppc/src/react/pages/queues/QueueAddProducts';
 import LinkedOrderSettlementPage from '@controleonline/ui-orders/src/react/pages/checkout/LinkedOrderSettlementPage';
+import AdsensePage from '../pages/AdsensePage';
 
 const managerRoutes = [
+  {
+    name: 'AdsensePage',
+    component: AdsensePage,
+    path: 'adsense',
+    options: {
+      headerShown: true,
+      headerBackVisible: false,
+      title: 'AdSense',
+      showBottomToolBar: false,
+      showCompanyFilter: false,
+    },
+  },
   {
     name: 'UsersPage',
     component: UsersPage,
