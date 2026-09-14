@@ -21,27 +21,77 @@ import createStyles from './CompanyFilter.styles';
 
 import { inlineStyle_275_20 } from './CompanyFilter.styles';
 
+const normalizeText = value => String(value || '').trim();
+
 /**
- * Company identity chip for the company selector.
- * Fallback order (app-community#805):
- * 1) people_media / direct icon|logo (resolvePeopleImageUrl)
- * 2) UserAvatar initials from alias/name
- * Never leave an empty slot when the company has a display name.
+ * companies/my returns icon/logo as FileService shape:
+ *   { id, domain, url: '/files/{id}/download', fileType, public }
+ * Not a plain string. Resolve to a download URL UserAvatar can auth-fetch.
+ * (Same auth constraint as app-community#796 Media preview.)
  */
+const resolveCompanyFileField = (field, company) => {
+  if (!field) {
+    return '';
+  }
+  if (typeof field === 'string') {
+    const direct = normalizeText(field);
+    if (!direct) {
+      return '';
+    }
+    return normalizeText(resolveFileImageUrl(direct, {company}) || direct);
+  }
+  if (typeof field === 'object') {
+    const fromHelper = normalizeText(resolveFileImageUrl(field, {company}));
+    if (fromHelper) {
+      return fromHelper;
+    }
+    const nestedUrl = normalizeText(field.url || field.uri || field.path);
+    if (nestedUrl) {
+      return normalizeText(resolveFileImageUrl(nestedUrl, {company}) || nestedUrl);
+    }
+  }
+  return '';
+};
+
+/**
+ * Fallback order (app-community#805 / linked #796):
+ * 1) companies/my icon object/url
+ * 2) companies/my logo object/url
+ * 3) peopleImage (media + direct fields; peopleType forced J)
+ * 4) UserAvatar initials (alias/name) — never empty chip
+ */
+const resolveCompanyIdentityImageUrl = company => {
+  if (!company || typeof company !== 'object') {
+    return '';
+  }
+  for (const key of ['icon', 'logo']) {
+    const url = resolveCompanyFileField(company[key], company);
+    if (url) {
+      return url;
+    }
+  }
+  return normalizeText(
+    resolvePeopleImageUrl(
+      {...company, peopleType: company.peopleType || 'J'},
+      resolveFileImageUrl,
+      {
+        usePeopleImage: true,
+        fileOptions: {company},
+      },
+    ),
+  );
+};
+
 const CompanyIdentityAvatar = ({
   company,
-  size = 18,
+  size = 28,
   backgroundColor,
   borderColor,
   textColor,
   style,
 }) => {
   const imageUrl = useMemo(
-    () =>
-      resolvePeopleImageUrl(company, resolveFileImageUrl, {
-        usePeopleImage: true,
-        fileOptions: {company},
-      }),
+    () => resolveCompanyIdentityImageUrl(company),
     [company],
   );
   const name = useMemo(() => resolvePeopleDisplayName(company), [company]);
@@ -54,7 +104,7 @@ const CompanyIdentityAvatar = ({
       size={size}
       backgroundColor={backgroundColor}
       borderColor={borderColor}
-      borderWidth={0}
+      borderWidth={1}
       textColor={textColor}
       useGravatar={false}
       style={style}
@@ -106,6 +156,20 @@ const CompanyFilter = ({ navigation, mode }) => {
     [currentCompany?.id, currentCompany?.theme?.colors, themeColors],
   );
 
+  // High-contrast chip on white list rows (theme buttonText often white).
+  const identityColors = useMemo(() => {
+    const bg =
+      brandColors.primary ||
+      brandColors.buttonBackground ||
+      themeColors.listItemIcon ||
+      '#2563EB';
+    return {
+      background: bg,
+      text: brandColors.white || '#FFFFFF',
+      border: themeColors.listItemBorder || '#E2E8F0',
+    };
+  }, [brandColors, themeColors.listItemBorder, themeColors.listItemIcon]);
+
   const palette = useMemo(
     () => ({
       pageBackground: themeColors.pageBackground,
@@ -135,7 +199,6 @@ const CompanyFilter = ({ navigation, mode }) => {
     if (Array.isArray(email)) {
       return String(email[0]?.value || email[0]?.email || '').trim();
     }
-
     return String(email?.value || email?.email || email || '').trim();
   }, [currentUser?.email]);
   const avatarImageUrl = useMemo(() => {
@@ -144,7 +207,6 @@ const CompanyFilter = ({ navigation, mode }) => {
 
   const openModal = useCallback(() => {
     setModalVisible(true);
-
     Animated.parallel([
       Animated.timing(fadeAnim, {
         toValue: 1,
@@ -186,7 +248,6 @@ const CompanyFilter = ({ navigation, mode }) => {
   const renderCompanyItem = useCallback(
     company => {
       const isSelected = selectedCompany?.id === company.id;
-
       return (
         <TouchableOpacity
           key={company.id}
@@ -200,17 +261,16 @@ const CompanyFilter = ({ navigation, mode }) => {
           <View style={styles.companyItemLeft}>
             <CompanyIdentityAvatar
               company={company}
-              size={18}
-              backgroundColor={palette.avatarBackground}
-              borderColor={palette.listItemBorder}
-              textColor={palette.avatarText}
+              size={28}
+              backgroundColor={identityColors.background}
+              borderColor={identityColors.border}
+              textColor={identityColors.text}
               style={styles.companyLogo}
             />
             <Text style={styles.companyItemName}>
               {company.alias || company.name}
             </Text>
           </View>
-
           {isSelected && (
             <Icon name="check-circle" size={20} color={palette.listItemIcon} />
           )}
@@ -219,16 +279,10 @@ const CompanyFilter = ({ navigation, mode }) => {
     },
     [
       handleSelectCompany,
-      palette.avatarBackground,
-      palette.avatarText,
-      palette.listItemBorder,
+      identityColors,
       palette.listItemIcon,
       selectedCompany,
-      styles.companyItem,
-      styles.companyItemLeft,
-      styles.companyItemName,
-      styles.companyItemSelected,
-      styles.companyLogo,
+      styles,
     ],
   );
 
@@ -244,13 +298,9 @@ const CompanyFilter = ({ navigation, mode }) => {
           activeOpacity={1}
           onPress={closeModal}>
           <Animated.View
-            style={[
-              styles.modalBackground,
-              {opacity: fadeAnim},
-            ]}
+            style={[styles.modalBackground, {opacity: fadeAnim}]}
           />
         </TouchableOpacity>
-
         <Animated.View
           testID="company-selector-modal"
           style={[
@@ -263,12 +313,10 @@ const CompanyFilter = ({ navigation, mode }) => {
           ]}>
           <View style={styles.modalHeader}>
             <Text style={styles.modalTitle}>Selecionar Empresa</Text>
-
             <TouchableOpacity onPress={closeModal}>
               <Icon name="x" size={22} color={palette.modalCloseIcon} />
             </TouchableOpacity>
           </View>
-
           <ScrollView
             testID="company-selector-list"
             showsVerticalScrollIndicator={false}>
@@ -282,10 +330,10 @@ const CompanyFilter = ({ navigation, mode }) => {
   const selectedCompanyAvatar = (
     <CompanyIdentityAvatar
       company={selectedCompany}
-      size={18}
-      backgroundColor={palette.avatarBackground}
-      borderColor={palette.headerIcon}
-      textColor={palette.avatarText}
+      size={22}
+      backgroundColor={identityColors.background}
+      borderColor={identityColors.border}
+      textColor={identityColors.text}
       style={mode === 'icon' ? styles.iconCompanyLogo : styles.companyLogo}
     />
   );
@@ -294,19 +342,15 @@ const CompanyFilter = ({ navigation, mode }) => {
     if (!canSwitchCompany && !headerCompanyLabel) {
       return null;
     }
-
     const triggerContent = (
       <>
         {selectedCompany ? selectedCompanyAvatar : null}
-
         <Text
           numberOfLines={1}
           ellipsizeMode="tail"
-          style={styles.iconCompanyName}
-        >
+          style={styles.iconCompanyName}>
           {headerCompanyLabel}
         </Text>
-
         {canSwitchCompany ? (
           <Icon
             name="chevron-down"
@@ -317,17 +361,13 @@ const CompanyFilter = ({ navigation, mode }) => {
         ) : null}
       </>
     );
-
     return (
       <>
         <View style={styles.iconHeaderWrap}>
           {canSwitchCompany ? (
             <TouchableOpacity
               onPress={openModal}
-              style={[
-                styles.iconButton,
-                styles.iconButtonExpanded,
-              ]}
+              style={[styles.iconButton, styles.iconButtonExpanded]}
               activeOpacity={0.8}
               testID="company-selector-trigger">
               {triggerContent}
@@ -338,13 +378,11 @@ const CompanyFilter = ({ navigation, mode }) => {
                 styles.iconButton,
                 styles.iconButtonStatic,
                 styles.iconButtonExpanded,
-              ]}
-            >
+              ]}>
               {triggerContent}
             </View>
           )}
         </View>
-
         {canSwitchCompany && renderCompanyModal()}
       </>
     );
@@ -356,7 +394,6 @@ const CompanyFilter = ({ navigation, mode }) => {
         <View style={styles.header}>
           <View>
             <Text style={styles.greeting}>Olá, {firstName}</Text>
-
             {canSwitchCompany ? (
               <TouchableOpacity
                 style={styles.companyRow}
@@ -364,13 +401,11 @@ const CompanyFilter = ({ navigation, mode }) => {
                 activeOpacity={0.8}
                 testID="company-selector-trigger">
                 {selectedCompany ? selectedCompanyAvatar : null}
-
                 <Text style={styles.companyName}>
                   {selectedCompany?.alias ||
                     selectedCompany?.name ||
                     'Selecionar empresa'}
                 </Text>
-
                 <Icon
                   name="chevron-down"
                   size={14}
@@ -378,18 +413,15 @@ const CompanyFilter = ({ navigation, mode }) => {
                   style={inlineStyle_275_20}
                 />
               </TouchableOpacity>
-            ) : (
-              (selectedCompany?.alias || selectedCompany?.name) ? (
-                <View style={styles.companyRow} testID="company-label-static">
-                  {selectedCompanyAvatar}
-                  <Text style={styles.companyName}>
-                    {selectedCompany?.alias || selectedCompany?.name}
-                  </Text>
-                </View>
-              ) : null
-            )}
+            ) : selectedCompany?.alias || selectedCompany?.name ? (
+              <View style={styles.companyRow} testID="company-label-static">
+                {selectedCompanyAvatar}
+                <Text style={styles.companyName}>
+                  {selectedCompany?.alias || selectedCompany?.name}
+                </Text>
+              </View>
+            ) : null}
           </View>
-
           <TouchableOpacity
             style={styles.avatarWrap}
             onPress={() => navigation?.navigate?.('ProfilePage')}>

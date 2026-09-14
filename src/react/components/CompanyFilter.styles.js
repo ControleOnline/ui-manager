@@ -45,9 +45,9 @@ const createStyles = (palette = {}) =>
   },
 
   iconCompanyLogo: {
-    width: 18,
-    height: 18,
-    borderRadius: 4,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
   },
 
   iconCompanyName: {
@@ -80,11 +80,11 @@ const createStyles = (palette = {}) =>
   },
 
   companyLogo: {
-    width: 18,
-    height: 18,
-    borderRadius: 4,
-    marginRight: 6,
-    marginTop: 2,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    marginRight: 10,
+    marginTop: 0,
   },
 
   companyName: {
