@@ -1,10 +1,9 @@
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
-import { View, Text, TouchableOpacity, Modal, ScrollView, Animated, Image } from 'react-native';
+import { View, Text, TouchableOpacity, Modal, ScrollView, Animated } from 'react-native';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/Feather';
 import { useStore } from '@store';
 import {
-  resolveDefaultFileUrl,
   resolveFileImageUrl,
 } from '@controleonline/ui-common/src/react/utils/fileUrl';
 import UserAvatar from '@controleonline/ui-common/src/react/components/UserAvatar';
@@ -12,11 +11,56 @@ import {
   getAvatarDisplayName,
   resolveUserAvatarUrl,
 } from '@controleonline/ui-common/src/react/utils/userAvatar';
+import {
+  resolvePeopleDisplayName,
+  resolvePeopleImageUrl,
+} from '@controleonline/ui-people/src/react/utils/peopleImage';
 import {resolveThemePalette} from '@controleonline/../../src/styles/branding';
 import {colors} from '@controleonline/../../src/styles/colors';
 import createStyles from './CompanyFilter.styles';
 
 import { inlineStyle_275_20 } from './CompanyFilter.styles';
+
+/**
+ * Company identity chip for the company selector.
+ * Fallback order (app-community#805):
+ * 1) people_media / direct icon|logo (resolvePeopleImageUrl)
+ * 2) UserAvatar initials from alias/name
+ * Never leave an empty slot when the company has a display name.
+ */
+const CompanyIdentityAvatar = ({
+  company,
+  size = 18,
+  backgroundColor,
+  borderColor,
+  textColor,
+  style,
+}) => {
+  const imageUrl = useMemo(
+    () =>
+      resolvePeopleImageUrl(company, resolveFileImageUrl, {
+        usePeopleImage: true,
+        fileOptions: {company},
+      }),
+    [company],
+  );
+  const name = useMemo(() => resolvePeopleDisplayName(company), [company]);
+
+  return (
+    <UserAvatar
+      imageUrl={imageUrl}
+      name={name}
+      email=""
+      size={size}
+      backgroundColor={backgroundColor}
+      borderColor={borderColor}
+      borderWidth={0}
+      textColor={textColor}
+      useGravatar={false}
+      style={style}
+    />
+  );
+};
 
 const CompanyFilter = ({ navigation, mode }) => {
   const insets = useSafeAreaInsets();
@@ -86,23 +130,6 @@ const CompanyFilter = ({ navigation, mode }) => {
   );
   const styles = useMemo(() => createStyles(palette), [palette]);
 
-  const resolveCompanyIconUrl = useCallback(
-    company => {
-      const iconSource = company?.icon || null;
-      if (!iconSource) {
-        return '';
-      }
-
-      return resolveDefaultFileUrl(iconSource, {company});
-    },
-    [],
-  );
-
-  const companyIconUrl = useMemo(
-    () => resolveCompanyIconUrl(selectedCompany),
-    [resolveCompanyIconUrl, selectedCompany],
-  );
-
   const avatarEmail = useMemo(() => {
     const email = currentUser?.email;
     if (Array.isArray(email)) {
@@ -159,7 +186,6 @@ const CompanyFilter = ({ navigation, mode }) => {
   const renderCompanyItem = useCallback(
     company => {
       const isSelected = selectedCompany?.id === company.id;
-      const companyIcon = resolveCompanyIconUrl(company);
 
       return (
         <TouchableOpacity
@@ -169,16 +195,18 @@ const CompanyFilter = ({ navigation, mode }) => {
             isSelected && styles.companyItemSelected,
           ]}
           onPress={() => handleSelectCompany(company)}
-          activeOpacity={0.8}>
+          activeOpacity={0.8}
+          testID={`company-selector-item-${company.id}`}>
           <View style={styles.companyItemLeft}>
-            {companyIcon ? (
-              <Image
-                source={{uri: companyIcon}}
-                style={styles.companyLogo}
-              />
-            ) : null}
-            <Text
-              style={styles.companyItemName}>
+            <CompanyIdentityAvatar
+              company={company}
+              size={18}
+              backgroundColor={palette.avatarBackground}
+              borderColor={palette.listItemBorder}
+              textColor={palette.avatarText}
+              style={styles.companyLogo}
+            />
+            <Text style={styles.companyItemName}>
               {company.alias || company.name}
             </Text>
           </View>
@@ -189,7 +217,19 @@ const CompanyFilter = ({ navigation, mode }) => {
         </TouchableOpacity>
       );
     },
-    [handleSelectCompany, palette.listItemIcon, resolveCompanyIconUrl, selectedCompany, styles.companyItem, styles.companyItemLeft, styles.companyItemName, styles.companyItemSelected, styles.companyLogo],
+    [
+      handleSelectCompany,
+      palette.avatarBackground,
+      palette.avatarText,
+      palette.listItemBorder,
+      palette.listItemIcon,
+      selectedCompany,
+      styles.companyItem,
+      styles.companyItemLeft,
+      styles.companyItemName,
+      styles.companyItemSelected,
+      styles.companyLogo,
+    ],
   );
 
   const renderCompanyModal = () => (
@@ -232,11 +272,22 @@ const CompanyFilter = ({ navigation, mode }) => {
           <ScrollView
             testID="company-selector-list"
             showsVerticalScrollIndicator={false}>
-            {companies.map(renderCompanyItem)}
+            {(Array.isArray(companies) ? companies : []).map(renderCompanyItem)}
           </ScrollView>
         </Animated.View>
       </View>
     </Modal>
+  );
+
+  const selectedCompanyAvatar = (
+    <CompanyIdentityAvatar
+      company={selectedCompany}
+      size={18}
+      backgroundColor={palette.avatarBackground}
+      borderColor={palette.headerIcon}
+      textColor={palette.avatarText}
+      style={mode === 'icon' ? styles.iconCompanyLogo : styles.companyLogo}
+    />
   );
 
   if (mode === 'icon') {
@@ -246,12 +297,7 @@ const CompanyFilter = ({ navigation, mode }) => {
 
     const triggerContent = (
       <>
-        {companyIconUrl ? (
-          <Image
-            source={{ uri: companyIconUrl }}
-            style={styles.iconCompanyLogo}
-          />
-        ) : null}
+        {selectedCompany ? selectedCompanyAvatar : null}
 
         <Text
           numberOfLines={1}
@@ -282,7 +328,8 @@ const CompanyFilter = ({ navigation, mode }) => {
                 styles.iconButton,
                 styles.iconButtonExpanded,
               ]}
-              activeOpacity={0.8}>
+              activeOpacity={0.8}
+              testID="company-selector-trigger">
               {triggerContent}
             </TouchableOpacity>
           ) : (
@@ -306,78 +353,59 @@ const CompanyFilter = ({ navigation, mode }) => {
   return (
     <>
       <View style={styles.container}>
-        {mode === 'icon' ? (
-          <TouchableOpacity
-            onPress={openModal}
-            style={styles.iconButton}
-            activeOpacity={0.8}>
-            <Icon name="briefcase" size={22} color={palette.headerIcon} />
-          </TouchableOpacity>
-        ) : (
-          <View style={styles.header}>
-            <View>
-              <Text style={styles.greeting}>Olá, {firstName}</Text>
+        <View style={styles.header}>
+          <View>
+            <Text style={styles.greeting}>Olá, {firstName}</Text>
 
-              {canSwitchCompany ? (
-                <TouchableOpacity
-                  style={styles.companyRow}
-                  onPress={openModal}
-                  activeOpacity={0.8}
-                  testID="company-selector-trigger">
-                  {companyIconUrl ? (
-                    <Image
-                      source={{ uri: companyIconUrl }}
-                      style={styles.companyLogo}
-                    />
-                  ) : null}
+            {canSwitchCompany ? (
+              <TouchableOpacity
+                style={styles.companyRow}
+                onPress={openModal}
+                activeOpacity={0.8}
+                testID="company-selector-trigger">
+                {selectedCompany ? selectedCompanyAvatar : null}
 
+                <Text style={styles.companyName}>
+                  {selectedCompany?.alias ||
+                    selectedCompany?.name ||
+                    'Selecionar empresa'}
+                </Text>
+
+                <Icon
+                  name="chevron-down"
+                  size={14}
+                  color={palette.headerIcon}
+                  style={inlineStyle_275_20}
+                />
+              </TouchableOpacity>
+            ) : (
+              (selectedCompany?.alias || selectedCompany?.name) ? (
+                <View style={styles.companyRow} testID="company-label-static">
+                  {selectedCompanyAvatar}
                   <Text style={styles.companyName}>
-                    {selectedCompany?.alias ||
-                      selectedCompany?.name ||
-                      'Selecionar empresa'}
+                    {selectedCompany?.alias || selectedCompany?.name}
                   </Text>
-
-                  <Icon
-                    name="chevron-down"
-                    size={14}
-                    color={palette.headerIcon}
-                    style={inlineStyle_275_20}
-                  />
-                </TouchableOpacity>
-              ) : (
-                (selectedCompany?.alias || selectedCompany?.name) ? (
-                  <View style={styles.companyRow} testID="company-label-static">
-                    {companyIconUrl ? (
-                      <Image
-                        source={{ uri: companyIconUrl }}
-                        style={styles.companyLogo}
-                      />
-                    ) : null}
-                    <Text style={styles.companyName}>
-                      {selectedCompany?.alias || selectedCompany?.name}
-                    </Text>
-                  </View>
-                ) : null
-              )}
-            </View>
-
-            <TouchableOpacity
-              style={styles.avatarWrap}
-              onPress={() => navigation?.navigate?.('ProfilePage')}>
-              <UserAvatar
-                imageUrl={avatarImageUrl}
-                email={avatarEmail}
-                name={currentUser?.name}
-                size={40}
-                backgroundColor={palette.avatarBackground}
-                borderColor={palette.avatarBorder}
-                borderWidth={1}
-                textColor={palette.avatarText}
-                style={styles.avatar}
-              />
-            </TouchableOpacity>
+                </View>
+              ) : null
+            )}
           </View>
-        )}
+
+          <TouchableOpacity
+            style={styles.avatarWrap}
+            onPress={() => navigation?.navigate?.('ProfilePage')}>
+            <UserAvatar
+              imageUrl={avatarImageUrl}
+              email={avatarEmail}
+              name={currentUser?.name}
+              size={40}
+              backgroundColor={palette.avatarBackground}
+              borderColor={palette.avatarBorder}
+              borderWidth={1}
+              textColor={palette.avatarText}
+              style={styles.avatar}
+            />
+          </TouchableOpacity>
+        </View>
       </View>
       {canSwitchCompany && renderCompanyModal()}
     </>
