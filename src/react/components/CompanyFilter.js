@@ -82,6 +82,21 @@ const resolveCompanyIdentityImageUrl = company => {
   );
 };
 
+const companyInitialsFromName = name => {
+  const words = normalizeText(name).split(' ').filter(Boolean);
+  if (words.length >= 2) {
+    return `${words[0][0]}${words[words.length - 1][0]}`.toUpperCase();
+  }
+  if (words.length === 1) {
+    return words[0][0].toUpperCase();
+  }
+  return '?';
+};
+
+/**
+ * Always render a chip: icon when URL resolves, otherwise explicit initials.
+ * Avoids empty slots when image fetch fails or name/email are sparse.
+ */
 const CompanyIdentityAvatar = ({
   company,
   size = 28,
@@ -94,12 +109,51 @@ const CompanyIdentityAvatar = ({
     () => resolveCompanyIdentityImageUrl(company),
     [company],
   );
-  const name = useMemo(() => resolvePeopleDisplayName(company), [company]);
+  const name = useMemo(() => {
+    const fromPeople = resolvePeopleDisplayName(company);
+    if (fromPeople) {
+      return fromPeople;
+    }
+    return normalizeText(company?.alias || company?.name || company?.id || '');
+  }, [company]);
+  const initials = useMemo(() => companyInitialsFromName(name), [name]);
+
+  // No usable image → pure initials chip (never leave the slot empty).
+  if (!imageUrl) {
+    return (
+      <View
+        style={[
+          {
+            width: size,
+            height: size,
+            borderRadius: Math.max(4, Math.round(size / 5)),
+            backgroundColor,
+            borderColor,
+            borderWidth: 1,
+            alignItems: 'center',
+            justifyContent: 'center',
+            overflow: 'hidden',
+          },
+          style,
+        ]}>
+        <Text
+          style={{
+            color: textColor,
+            fontSize: Math.max(Math.round(size * 0.38), 10),
+            fontWeight: '700',
+            letterSpacing: 0.3,
+            textAlign: 'center',
+          }}>
+          {initials}
+        </Text>
+      </View>
+    );
+  }
 
   return (
     <UserAvatar
       imageUrl={imageUrl}
-      name={name}
+      name={name || initials}
       email=""
       size={size}
       backgroundColor={backgroundColor}
@@ -157,15 +211,24 @@ const CompanyFilter = ({ navigation, mode }) => {
   );
 
   // High-contrast chip on white list rows (theme buttonText often white).
+  // Force a saturated bg so initials never disappear on white modal rows.
   const identityColors = useMemo(() => {
     const bg =
       brandColors.primary ||
       brandColors.buttonBackground ||
       themeColors.listItemIcon ||
       '#2563EB';
+    const bgNorm = String(bg || '').toLowerCase();
+    const isLight =
+      !bgNorm ||
+      bgNorm === '#fff' ||
+      bgNorm === '#ffffff' ||
+      bgNorm === 'white' ||
+      bgNorm === '#f8fafc' ||
+      bgNorm === '#f1f5f9';
     return {
-      background: bg,
-      text: brandColors.white || '#FFFFFF',
+      background: isLight ? '#2563EB' : bg,
+      text: '#FFFFFF',
       border: themeColors.listItemBorder || '#E2E8F0',
     };
   }, [brandColors, themeColors.listItemBorder, themeColors.listItemIcon]);
