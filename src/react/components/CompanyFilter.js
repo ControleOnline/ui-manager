@@ -2,6 +2,7 @@ import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { View, Text, TouchableOpacity, Modal, ScrollView, Animated } from 'react-native';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/Feather';
+import FAIcon from 'react-native-vector-icons/FontAwesome';
 import { useStore } from '@store';
 import {
   resolveFileImageUrl,
@@ -93,9 +94,20 @@ const companyInitialsFromName = name => {
   return '?';
 };
 
+const isCompanyEntity = company => {
+  const type = normalizeText(
+    company?.peopleType || company?.type || company?.personType || company?.people_type,
+  ).toUpperCase();
+  // companies/my items are always PJ; treat missing type as company.
+  if (!type) {
+    return true;
+  }
+  return type.startsWith('J');
+};
+
 /**
- * Always render a chip: icon when URL resolves, otherwise explicit initials.
- * Avoids empty slots when image fetch fails or name/email are sparse.
+ * Chip: associated icon/logo → PJ building default → PF initials.
+ * Aligns with PeopleAvatar (My Companies) fallback for companies.
  */
 const CompanyIdentityAvatar = ({
   company,
@@ -117,25 +129,38 @@ const CompanyIdentityAvatar = ({
     return normalizeText(company?.alias || company?.name || company?.id || '');
   }, [company]);
   const initials = useMemo(() => companyInitialsFromName(name), [name]);
+  const isCompany = useMemo(() => isCompanyEntity(company), [company]);
 
-  // No usable image → pure initials chip (never leave the slot empty).
+  const chipStyle = [
+    {
+      width: size,
+      height: size,
+      borderRadius: Math.max(4, Math.round(size / 5)),
+      backgroundColor,
+      borderColor,
+      borderWidth: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+      overflow: 'hidden',
+    },
+    style,
+  ];
+
+  // No usable image → PJ building icon (canonical company fallback) / PF initials
   if (!imageUrl) {
+    if (isCompany) {
+      return (
+        <View style={chipStyle}>
+          <FAIcon
+            name="building"
+            size={Math.max(Math.round(size * 0.42), 10)}
+            color={textColor}
+          />
+        </View>
+      );
+    }
     return (
-      <View
-        style={[
-          {
-            width: size,
-            height: size,
-            borderRadius: Math.max(4, Math.round(size / 5)),
-            backgroundColor,
-            borderColor,
-            borderWidth: 1,
-            alignItems: 'center',
-            justifyContent: 'center',
-            overflow: 'hidden',
-          },
-          style,
-        ]}>
+      <View style={chipStyle}>
         <Text
           style={{
             color: textColor,
