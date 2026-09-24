@@ -2,7 +2,6 @@ import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { View, Text, TouchableOpacity, Modal, ScrollView, Animated } from 'react-native';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/Feather';
-import FAIcon from 'react-native-vector-icons/FontAwesome';
 import { useStore } from '@store';
 import {
   resolveFileImageUrl,
@@ -19,6 +18,7 @@ import {
 import {resolveThemePalette} from '@controleonline/../../src/styles/branding';
 import {colors} from '@controleonline/../../src/styles/colors';
 import createStyles from './CompanyFilter.styles';
+import {companyInitialsFromName} from '../utils/companyInitials';
 
 import { inlineStyle_275_20 } from './CompanyFilter.styles';
 
@@ -83,31 +83,8 @@ const resolveCompanyIdentityImageUrl = company => {
   );
 };
 
-const companyInitialsFromName = name => {
-  const words = normalizeText(name).split(' ').filter(Boolean);
-  if (words.length >= 2) {
-    return `${words[0][0]}${words[words.length - 1][0]}`.toUpperCase();
-  }
-  if (words.length === 1) {
-    return words[0][0].toUpperCase();
-  }
-  return '?';
-};
-
-const isCompanyEntity = company => {
-  const type = normalizeText(
-    company?.peopleType || company?.type || company?.personType || company?.people_type,
-  ).toUpperCase();
-  // companies/my items are always PJ; treat missing type as company.
-  if (!type) {
-    return true;
-  }
-  return type.startsWith('J');
-};
-
 /**
- * Chip: associated icon/logo → PJ building default → PF initials.
- * Aligns with PeopleAvatar (My Companies) fallback for companies.
+ * Chip: associated icon/logo → company initials.
  */
 const CompanyIdentityAvatar = ({
   company,
@@ -129,7 +106,6 @@ const CompanyIdentityAvatar = ({
     return normalizeText(company?.alias || company?.name || company?.id || '');
   }, [company]);
   const initials = useMemo(() => companyInitialsFromName(name), [name]);
-  const isCompany = useMemo(() => isCompanyEntity(company), [company]);
 
   const chipStyle = [
     {
@@ -146,19 +122,8 @@ const CompanyIdentityAvatar = ({
     style,
   ];
 
-  // No usable image → PJ building icon (canonical company fallback) / PF initials
+  // No usable image → initials, so company identity remains visible in every selector state.
   if (!imageUrl) {
-    if (isCompany) {
-      return (
-        <View style={chipStyle}>
-          <FAIcon
-            name="building"
-            size={Math.max(Math.round(size * 0.42), 10)}
-            color={textColor}
-          />
-        </View>
-      );
-    }
     return (
       <View style={chipStyle}>
         <Text
