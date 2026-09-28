@@ -516,6 +516,7 @@ const managerRoutes = [
       headerShown: true,
       headerBackVisible: true,
       title: 'PDV',
+      showBottomCart: true,
       showBottomToolBar: true,
       showCompanyFilter: true,
       companyFilterMode: 'icon',
