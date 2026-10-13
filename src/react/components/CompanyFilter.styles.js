@@ -1,6 +1,7 @@
 import { StyleSheet } from 'react-native';
 
-const createStyles = (palette = {}) =>
+const createStyles = (palette = {}, appearance = 'legacy', home = {}, compact = false) => {
+  const styles =
   StyleSheet.create({
   container: {
     backgroundColor: palette.pageBackground,
@@ -45,9 +46,9 @@ const createStyles = (palette = {}) =>
   },
 
   iconCompanyLogo: {
-    width: 18,
-    height: 18,
-    borderRadius: 4,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
   },
 
   iconCompanyName: {
@@ -80,11 +81,11 @@ const createStyles = (palette = {}) =>
   },
 
   companyLogo: {
-    width: 18,
-    height: 18,
-    borderRadius: 4,
-    marginRight: 6,
-    marginTop: 2,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    marginRight: 10,
+    marginTop: 0,
   },
 
   companyName: {
@@ -169,6 +170,22 @@ const createStyles = (palette = {}) =>
     fontSize: 15,
   },
 });
+  if (appearance !== 'soft') return styles;
+  return {...styles,
+    container: {...styles.container, backgroundColor: home.cardBackground,
+      paddingHorizontal: 0, paddingTop: compact ? 12 : 18, paddingBottom: compact ? 12 : 18, flexGrow: 1, flexShrink: 0,
+      flexBasis: 'auto', minWidth: 0},
+    avatarWrap: {...styles.avatarWrap, width: 48, height: 48},
+    avatar: {...styles.avatar, width: 48, height: 48, borderRadius: 24},
+    greeting: {...styles.greeting, fontSize: 23, fontWeight: '600',
+      color: home.textPrimary, marginBottom: 6, letterSpacing: -0.5},
+    header: {...styles.header, gap: 12},
+    companyName: {...styles.companyName, color: home.textPrimary, fontSize: 13,
+      flexShrink: 1, minWidth: 0},
+    companyRow: {...styles.companyRow, minHeight: 30, flexShrink: 1},
+    companyLogo: {...styles.companyLogo, marginRight: 7},
+  };
+};
 
 export default createStyles;
 

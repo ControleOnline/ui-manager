@@ -33,10 +33,13 @@ import {
   View,
   ScrollView,
   ActivityIndicator,
+  useWindowDimensions,
 } from 'react-native';
 import { Text } from 'react-native-animatable';
 import { resolveThemePalette } from '@controleonline/../../src/styles/branding';
-import Icon from 'react-native-vector-icons/Feather';
+import {resolveHomepagePalette} from '@controleonline/../../src/styles/homepagePalette';
+import LegacyIcon from 'react-native-vector-icons/Feather';
+import HomeIcon from '@controleonline/../../src/components/HomeIcon';
 import { useStore } from '@store';
 import { api } from '@controleonline/ui-common/src/api';
 import { app_type_base } from '@appType';
@@ -64,7 +67,9 @@ export const resolveHomeColors = brandColors => {
   };
 };
 
-export default function HomePage({ navigation }) {
+export default function HomePage({ navigation, appearance = 'legacy' }) {
+  const Icon = appearance === 'soft' ? HomeIcon : LegacyIcon;
+  const {width} = useWindowDimensions();
   const isAdminApp = app_type_base === 'ADMIN';
 
   const themeStore = useStore('theme');
@@ -82,14 +87,14 @@ export default function HomePage({ navigation }) {
 
   const brandColors = useMemo(
     () =>
-      resolveThemePalette({
+      (appearance === 'soft' ? resolveHomepagePalette : resolveThemePalette)({
         ...themeColors,
         ...(currentCompany?.theme?.colors || {}),
       }),
-    [themeColors, currentCompany?.id],
+    [appearance, themeColors, currentCompany?.theme?.colors],
   );
   const homeColors = useMemo(() => resolveHomeColors(brandColors), [brandColors]);
-  const styles = useMemo(() => createStyles(homeColors), [homeColors]);
+  const styles = useMemo(() => createStyles(homeColors, width, appearance), [homeColors, width, appearance]);
 
   const [statValues, setStatValues] = useState([
     { key: 'orders', value: '...' },
@@ -168,6 +173,7 @@ export default function HomePage({ navigation }) {
       <View style={[styles.container, { backgroundColor: brandColors.background }]}>
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
           <AppMenuGrid
+            appearance={appearance}
             colorTokens={homeColors}
             menus={menus}
             navigation={navigation}
@@ -251,6 +257,7 @@ export default function HomePage({ navigation }) {
         )}
 
         <AppMenuGrid
+          appearance={appearance}
           colorTokens={homeColors}
           menus={menus}
           navigation={navigation}

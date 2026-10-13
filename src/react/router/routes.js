@@ -652,7 +652,8 @@ const managerRoutes = [
     path: 'paylist',
     component: PaylistPage,
     options: {
-      headerShown: true,
+      // Customer-facing anonymous route: never expose navigation into the manager.
+      headerShown: false,
       headerBackVisible: false,
       title: 'Minhas dívidas',
       showBottomToolBar: false,
