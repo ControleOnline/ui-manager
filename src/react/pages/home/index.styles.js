@@ -1,5 +1,6 @@
 import { Platform, StyleSheet } from 'react-native';
 import { colors } from '@controleonline/../../src/styles/colors';
+import softStyles from './soft.styles';
 
 const buildCardShadow = palette =>
   Platform.select({
@@ -13,9 +14,9 @@ const buildCardShadow = palette =>
     web: palette.cardShadow ? { boxShadow: `0 4px 12px ${palette.cardShadow}` } : {},
   });
 
-export const createStyles = (palette = colors) => {
+export const createStyles = (palette = colors, width = 1024, appearance = 'legacy') => {
   const cardShadow = buildCardShadow(palette);
-  return StyleSheet.create({
+  const styles = StyleSheet.create({
   container: { flex: 1 },
   scroll: { paddingHorizontal: 20, paddingTop: 16, paddingBottom: 0 },
   loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
@@ -196,6 +197,7 @@ export const createStyles = (palette = colors) => {
     lineHeight: 18,
   },
   });
+  return appearance === 'soft' ? {...styles, ...softStyles(palette, width)} : styles;
 };
 
 const styles = createStyles(colors);

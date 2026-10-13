@@ -1,8 +1,9 @@
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { View, Text, TouchableOpacity, Modal, ScrollView, Animated } from 'react-native';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
-import Icon from 'react-native-vector-icons/Feather';
+import LegacyIcon from 'react-native-vector-icons/Feather';
 import FAIcon from 'react-native-vector-icons/FontAwesome';
+import HomeIcon from '@controleonline/../../src/components/HomeIcon';
 import { useStore } from '@store';
 import {
   resolveFileImageUrl,
@@ -18,12 +19,13 @@ import {
 } from '@controleonline/ui-people/src/react/utils/peopleImage';
 import {resolveThemePalette} from '@controleonline/../../src/styles/branding';
 import {colors} from '@controleonline/../../src/styles/colors';
+import {resolveHomepagePalette} from '@controleonline/../../src/styles/homepagePalette';
 import createStyles from './CompanyFilter.styles';
-
+import resolveHomeAvatar from '@controleonline/../../src/components/homeAvatar';
+import HomeAvatar from '@controleonline/../../src/components/HomeAvatar';
+import {companyInitialsFromName} from '../utils/companyInitials';
 import { inlineStyle_275_20 } from './CompanyFilter.styles';
-
 const normalizeText = value => String(value || '').trim();
-
 /**
  * companies/my returns icon/logo as FileService shape:
  *   { id, domain, url: '/files/{id}/download', fileType, public }
@@ -53,7 +55,6 @@ const resolveCompanyFileField = (field, company) => {
   }
   return '';
 };
-
 /**
  * Fallback order (app-community#805 / linked #796):
  * 1) companies/my icon object/url
@@ -82,18 +83,9 @@ const resolveCompanyIdentityImageUrl = company => {
     ),
   );
 };
-
-const companyInitialsFromName = name => {
-  const words = normalizeText(name).split(' ').filter(Boolean);
-  if (words.length >= 2) {
-    return `${words[0][0]}${words[words.length - 1][0]}`.toUpperCase();
-  }
-  if (words.length === 1) {
-    return words[0][0].toUpperCase();
-  }
-  return '?';
-};
-
+/**
+ * Chip: associated icon/logo → company initials.
+ */
 const isCompanyEntity = company => {
   const type = normalizeText(
     company?.peopleType || company?.type || company?.personType || company?.people_type,
@@ -105,11 +97,8 @@ const isCompanyEntity = company => {
   return type.startsWith('J');
 };
 
-/**
- * Chip: associated icon/logo → PJ building default → PF initials.
- * Aligns with PeopleAvatar (My Companies) fallback for companies.
- */
 const CompanyIdentityAvatar = ({
+  home = false,
   company,
   size = 28,
   backgroundColor,
@@ -121,6 +110,7 @@ const CompanyIdentityAvatar = ({
     () => resolveCompanyIdentityImageUrl(company),
     [company],
   );
+  const Avatar = home ? HomeAvatar : UserAvatar;
   const name = useMemo(() => {
     const fromPeople = resolvePeopleDisplayName(company);
     if (fromPeople) {
@@ -130,7 +120,6 @@ const CompanyIdentityAvatar = ({
   }, [company]);
   const initials = useMemo(() => companyInitialsFromName(name), [name]);
   const isCompany = useMemo(() => isCompanyEntity(company), [company]);
-
   const chipStyle = [
     {
       width: size,
@@ -145,8 +134,7 @@ const CompanyIdentityAvatar = ({
     },
     style,
   ];
-
-  // No usable image → PJ building icon (canonical company fallback) / PF initials
+  // No usable image → initials, so company identity remains visible in every selector state.
   if (!imageUrl) {
     if (isCompany) {
       return (
@@ -174,9 +162,8 @@ const CompanyIdentityAvatar = ({
       </View>
     );
   }
-
   return (
-    <UserAvatar
+    <Avatar
       imageUrl={imageUrl}
       name={name || initials}
       email=""
@@ -190,18 +177,16 @@ const CompanyIdentityAvatar = ({
     />
   );
 };
-
-const CompanyFilter = ({ navigation, mode }) => {
+const CompanyFilter = ({ navigation, mode, appearance = 'legacy', compact = false }) => {
+  const Icon = appearance === 'soft' ? HomeIcon : LegacyIcon;
   const insets = useSafeAreaInsets();
   const peopleStore = useStore('people');
   const authStore = useStore('auth');
   const themeStore = useStore('theme');
-
   const peopleGetters = peopleStore.getters;
   const peopleActions = peopleStore.actions;
   const authGetters = authStore.getters;
   const themeGetters = themeStore.getters;
-
   const { currentCompany, companies } = peopleGetters;
   const { user: authUser } = authGetters;
   const { colors: themeColors } = themeGetters;
@@ -221,6 +206,8 @@ const CompanyFilter = ({ navigation, mode }) => {
     name: getAvatarDisplayName(authUser),
   };
   const firstName = currentUser?.name?.split(' ')[0] || 'Usuário';
+  const homeAvatar = appearance === 'soft' ? resolveHomeAvatar(authUser, currentCompany) : '';
+  const ProfileAvatar = appearance === 'soft' ? HomeAvatar : UserAvatar;
   const canSwitchCompany = Array.isArray(companies) && companies.length > 1;
   const headerCompanyLabel = selectedCompany?.alias ||
     selectedCompany?.name ||
@@ -280,7 +267,7 @@ const CompanyFilter = ({ navigation, mode }) => {
     }),
     [brandColors, themeColors],
   );
-  const styles = useMemo(() => createStyles(palette), [palette]);
+  const styles = useMemo(() => createStyles(palette, appearance, resolveHomepagePalette(themeColors), compact), [palette, appearance, themeColors, compact]);
 
   const avatarEmail = useMemo(() => {
     const email = currentUser?.email;
@@ -348,6 +335,7 @@ const CompanyFilter = ({ navigation, mode }) => {
           testID={`company-selector-item-${company.id}`}>
           <View style={styles.companyItemLeft}>
             <CompanyIdentityAvatar
+              home={appearance === 'soft'}
               company={company}
               size={28}
               backgroundColor={identityColors.background}
@@ -417,6 +405,7 @@ const CompanyFilter = ({ navigation, mode }) => {
 
   const selectedCompanyAvatar = (
     <CompanyIdentityAvatar
+      home={appearance === 'soft'}
       company={selectedCompany}
       size={22}
       backgroundColor={identityColors.background}
@@ -513,11 +502,11 @@ const CompanyFilter = ({ navigation, mode }) => {
           <TouchableOpacity
             style={styles.avatarWrap}
             onPress={() => navigation?.navigate?.('ProfilePage')}>
-            <UserAvatar
-              imageUrl={avatarImageUrl}
+            <ProfileAvatar
+              imageUrl={appearance === 'soft' ? homeAvatar || avatarImageUrl : avatarImageUrl}
               email={avatarEmail}
               name={currentUser?.name}
-              size={40}
+              size={appearance === 'soft' ? 48 : 40}
               backgroundColor={palette.avatarBackground}
               borderColor={palette.avatarBorder}
               borderWidth={1}
