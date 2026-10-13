@@ -2,6 +2,7 @@ import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { View, Text, TouchableOpacity, Modal, ScrollView, Animated } from 'react-native';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import LegacyIcon from 'react-native-vector-icons/Feather';
+import FAIcon from 'react-native-vector-icons/FontAwesome';
 import HomeIcon from '@controleonline/../../src/components/HomeIcon';
 import { useStore } from '@store';
 import {
@@ -85,6 +86,17 @@ const resolveCompanyIdentityImageUrl = company => {
 /**
  * Chip: associated icon/logo → company initials.
  */
+const isCompanyEntity = company => {
+  const type = normalizeText(
+    company?.peopleType || company?.type || company?.personType || company?.people_type,
+  ).toUpperCase();
+  // companies/my items are always PJ; treat missing type as company.
+  if (!type) {
+    return true;
+  }
+  return type.startsWith('J');
+};
+
 const CompanyIdentityAvatar = ({
   home = false,
   company,
@@ -107,6 +119,7 @@ const CompanyIdentityAvatar = ({
     return normalizeText(company?.alias || company?.name || company?.id || '');
   }, [company]);
   const initials = useMemo(() => companyInitialsFromName(name), [name]);
+  const isCompany = useMemo(() => isCompanyEntity(company), [company]);
   const chipStyle = [
     {
       width: size,
@@ -123,6 +136,17 @@ const CompanyIdentityAvatar = ({
   ];
   // No usable image → initials, so company identity remains visible in every selector state.
   if (!imageUrl) {
+    if (isCompany) {
+      return (
+        <View style={chipStyle}>
+          <FAIcon
+            name="building"
+            size={Math.max(Math.round(size * 0.42), 10)}
+            color={textColor}
+          />
+        </View>
+      );
+    }
     return (
       <View style={chipStyle}>
         <Text
