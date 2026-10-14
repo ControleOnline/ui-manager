@@ -87,13 +87,13 @@ export default function HomePage({ navigation, appearance = 'legacy' }) {
 
   const brandColors = useMemo(
     () =>
-      (appearance === 'soft' ? resolveHomepagePalette : resolveThemePalette)({
+      appearance === 'soft' ? resolveHomepagePalette(themeColors) : resolveThemePalette({
         ...themeColors,
         ...(currentCompany?.theme?.colors || {}),
       }),
     [appearance, themeColors, currentCompany?.theme?.colors],
   );
-  const homeColors = useMemo(() => resolveHomeColors(brandColors), [brandColors]);
+  const homeColors = useMemo(() => appearance === 'soft' ? brandColors : resolveHomeColors(brandColors), [appearance, brandColors]);
   const styles = useMemo(() => createStyles(homeColors, width, appearance), [homeColors, width, appearance]);
 
   const [statValues, setStatValues] = useState([
@@ -163,14 +163,14 @@ export default function HomePage({ navigation, appearance = 'legacy' }) {
   if (!currentCompany || !themeColors) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={brandColors.info} />
+        <ActivityIndicator size="large" color={appearance === 'soft' ? brandColors.loadingSpinner : brandColors.info} />
       </View>
     );
   }
 
   if (isAdminApp) {
     return (
-      <View style={[styles.container, { backgroundColor: brandColors.background }]}>
+      <View style={[styles.container, { backgroundColor: appearance === 'soft' ? brandColors.pageBackground : brandColors.background }]}>
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
           <AppMenuGrid
             appearance={appearance}
@@ -184,7 +184,7 @@ export default function HomePage({ navigation, appearance = 'legacy' }) {
   }
 
   return (
-    <View style={[styles.container, { backgroundColor: brandColors.background }]}>
+    <View style={[styles.container, { backgroundColor: appearance === 'soft' ? brandColors.pageBackground : brandColors.background }]}>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
 
         {/* Stats */}
@@ -205,7 +205,7 @@ export default function HomePage({ navigation, appearance = 'legacy' }) {
               {loadingStats ? (
                 <ActivityIndicator
                   size="small"
-                  color={homeColors.cardIconColor}
+                  color={appearance === 'soft' ? homeColors.loadingSpinner : homeColors.cardIconColor}
                   style={styles.statLoader}
                 />
               ) : (
