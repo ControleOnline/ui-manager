@@ -214,17 +214,19 @@ const CompanyFilter = ({ navigation, mode, appearance = 'legacy', compact = fals
     'Selecionar empresa';
 
   const brandColors = useMemo(
-    () =>
+    () => appearance === 'soft' ? themeColors :
       resolveThemePalette(
         {...themeColors, ...(currentCompany?.theme?.colors || {})},
         colors,
       ),
-    [currentCompany?.id, currentCompany?.theme?.colors, themeColors],
+    [appearance, currentCompany?.id, currentCompany?.theme?.colors, themeColors],
   );
 
   // High-contrast chip on white list rows (theme buttonText often white).
   // Force a saturated bg so initials never disappear on white modal rows.
   const identityColors = useMemo(() => {
+    if (appearance === 'soft') return {background: themeColors.iconBackground,
+      text: themeColors.iconColor, border: themeColors.iconColor};
     const bg =
       brandColors.primary ||
       brandColors.buttonBackground ||
@@ -243,7 +245,7 @@ const CompanyFilter = ({ navigation, mode, appearance = 'legacy', compact = fals
       text: '#FFFFFF',
       border: themeColors.listItemBorder || '#E2E8F0',
     };
-  }, [brandColors, themeColors.listItemBorder, themeColors.listItemIcon]);
+  }, [appearance, brandColors, themeColors]);
 
   const palette = useMemo(
     () => ({
@@ -507,10 +509,10 @@ const CompanyFilter = ({ navigation, mode, appearance = 'legacy', compact = fals
               email={avatarEmail}
               name={currentUser?.name}
               size={appearance === 'soft' ? 48 : 40}
-              backgroundColor={palette.avatarBackground}
-              borderColor={palette.avatarBorder}
+              backgroundColor={appearance === 'soft' ? themeColors.iconBackground : palette.avatarBackground}
+              borderColor={appearance === 'soft' ? themeColors.iconColor : palette.avatarBorder}
               borderWidth={1}
-              textColor={palette.avatarText}
+              textColor={appearance === 'soft' ? themeColors.iconText : palette.avatarText}
               style={styles.avatar}
             />
           </TouchableOpacity>

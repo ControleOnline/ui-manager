@@ -172,15 +172,15 @@ const createStyles = (palette = {}, appearance = 'legacy', home = {}, compact = 
 });
   if (appearance !== 'soft') return styles;
   return {...styles,
-    container: {...styles.container, backgroundColor: home.cardBackground,
+    container: {...styles.container, backgroundColor: home.headerBackground,
       paddingHorizontal: 0, paddingTop: compact ? 12 : 18, paddingBottom: compact ? 12 : 18, flexGrow: 1, flexShrink: 0,
       flexBasis: 'auto', minWidth: 0},
     avatarWrap: {...styles.avatarWrap, width: 48, height: 48},
     avatar: {...styles.avatar, width: 48, height: 48, borderRadius: 24},
     greeting: {...styles.greeting, fontSize: 23, fontWeight: '600',
-      color: home.textPrimary, marginBottom: 6, letterSpacing: -0.5},
+      color: home.headerText, marginBottom: 6, letterSpacing: -0.5},
     header: {...styles.header, gap: 12},
-    companyName: {...styles.companyName, color: home.textPrimary, fontSize: 13,
+    companyName: {...styles.companyName, color: home.headerText, fontSize: 13,
       flexShrink: 1, minWidth: 0},
     companyRow: {...styles.companyRow, minHeight: 30, flexShrink: 1},
     companyLogo: {...styles.companyLogo, marginRight: 7},
