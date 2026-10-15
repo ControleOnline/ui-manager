@@ -21,7 +21,7 @@ import {resolveThemePalette} from '@controleonline/../../src/styles/branding';
 import {colors} from '@controleonline/../../src/styles/colors';
 import {resolveHomepagePalette} from '@controleonline/../../src/styles/homepagePalette';
 import createStyles from './CompanyFilter.styles';
-import resolveHomeAvatar from '@controleonline/../../src/components/homeAvatar';
+import resolveHomeAvatar from '@controleonline/../../src/components/resolveHomeAvatarUrl';
 import HomeAvatar from '@controleonline/../../src/components/HomeAvatar';
 import {companyInitialsFromName} from '../utils/companyInitials';
 import { inlineStyle_275_20 } from './CompanyFilter.styles';
