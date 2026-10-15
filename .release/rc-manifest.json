@@ -1,0 +1,17 @@
+{
+  "version": "1.0.21",
+  "rc": 1,
+  "branch": "rc/1.0.21-rc.1",
+  "baseMaster": "4ccf18c436619b9e13c8cd68430ff72f7cd61444",
+  "tasks": [
+    1079
+  ],
+  "repositories": {
+    "ControleOnline/ui-manager": "8f8ef13dc9c6d16a6a187ed861f338f49c1b4f68"
+  },
+  "compositionNotes": [
+    "Base = conteudo do npm 1.0.20 (36ee8ed, task 1056). Unico delta: CompanyFilter importa components/resolveHomeAvatarUrl em vez de components/homeAvatar.",
+    "Inclui integration-source-gate.yml do master (governanca)."
+  ],
+  "frozen": true
+}
