@@ -1,6 +1,6 @@
 {
   "name": "@controleonline/ui-manager",
-  "version": "1.0.20",
+  "version": "1.0.22",
   "author": "Controle Online",
   "description": "Controle Online Manager Quasar UI Component",
   "license": "MIT",
@@ -16,16 +16,16 @@
     "last 1 version, not dead, ie >= 11"
   ],
   "dependencies": {
-    "@controleonline/ui-common": "*",
-    "@controleonline/ui-crm": "*",
-    "@controleonline/ui-default": "*",
-    "@controleonline/ui-financial": "*",
-    "@controleonline/ui-layout": "*",
-    "@controleonline/ui-logistic": "*",
-    "@controleonline/ui-orders": "*",
-    "@controleonline/ui-people": "*",
-    "@controleonline/ui-ppc": "*",
-    "@controleonline/ui-products": "*",
-    "@controleonline/ui-users": "*"
+    "@controleonline/ui-common": "1.2.103",
+    "@controleonline/ui-crm": "1.0.44",
+    "@controleonline/ui-default": "1.0.281",
+    "@controleonline/ui-financial": "1.1.43",
+    "@controleonline/ui-layout": "1.0.20",
+    "@controleonline/ui-logistic": "1.0.41",
+    "@controleonline/ui-orders": "1.3.48",
+    "@controleonline/ui-people": "1.0.102",
+    "@controleonline/ui-ppc": "1.0.56",
+    "@controleonline/ui-products": "1.0.40",
+    "@controleonline/ui-users": "1.0.50"
   }
 }
