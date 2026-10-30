@@ -86,7 +86,7 @@ jest.mock('@controleonline/ui-common/src/react/utils/runtimeMenu', () => ({
   userHasRole: () => true,
 }));
 
-jest.mock('@controleonline/../../src/styles/branding', () => ({
+jest.mock('@controleonline/ui-layout/src/styles/branding', () => ({
   resolveThemePalette: (themeColors, baseColors) => ({
     ...baseColors,
     ...themeColors,
@@ -102,7 +102,7 @@ jest.mock('@controleonline/../../src/styles/branding', () => ({
   withOpacity: (hexColor, opacity) => `${hexColor}:${opacity}`,
 }));
 
-jest.mock('@controleonline/../../src/styles/colors', () => ({
+jest.mock('@controleonline/ui-layout/src/styles/colors', () => ({
   colors: {
     background: '#F8FAFC',
     border: '#E2E8F0',
