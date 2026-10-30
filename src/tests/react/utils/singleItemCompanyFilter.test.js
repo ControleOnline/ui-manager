@@ -15,8 +15,8 @@ jest.mock('@controleonline/ui-common/src/react/components/UserAvatar',()=> 'Avat
 jest.mock('@controleonline/ui-common/src/react/utils/fileUrl',()=>({resolveFileImageUrl:()=>''}));
 jest.mock('@controleonline/ui-common/src/react/utils/userAvatar',()=>({getAvatarDisplayName:()=> 'Teste',resolveUserAvatarUrl:()=>''}));
 jest.mock('@controleonline/ui-people/src/react/utils/peopleImage',()=>({resolvePeopleDisplayName:p=>p.alias,resolvePeopleImageUrl:()=>''}));
-jest.mock('@controleonline/../../src/styles/branding',()=>({resolveThemePalette:v=>v}));
-jest.mock('@controleonline/../../src/styles/colors',()=>({colors:{}}));
+jest.mock('@controleonline/ui-layout/src/styles/branding',()=>({resolveThemePalette:v=>v}));
+jest.mock('@controleonline/ui-layout/src/styles/colors',()=>({colors:{}}));
 jest.mock('@controleonline/../../src/styles/homepagePalette',()=>({resolveHomepagePalette:v=>v}));
 jest.mock('../../../react/components/CompanyFilter.styles',()=>({__esModule:true,default:()=>({}),inlineStyle_275_20:{}}));
 let tree;beforeEach(()=>{global.IS_REACT_ACT_ENVIRONMENT=true;mockSelect.mockClear();mockCompanies=[mockA,mockB];});afterEach(()=>act(()=>tree?.unmount()));

@@ -13,8 +13,12 @@ import {
   getAvatarDisplayName,
   resolveUserAvatarUrl,
 } from '@controleonline/ui-common/src/react/utils/userAvatar';
-import {resolveThemePalette} from '@controleonline/../../src/styles/branding';
-import {colors} from '@controleonline/../../src/styles/colors';
+import {
+  resolvePeopleDisplayName,
+  resolvePeopleImageUrl,
+} from '@controleonline/ui-people/src/react/utils/peopleImage';
+import {resolveThemePalette} from '@controleonline/ui-layout/src/styles/branding';
+import {colors} from '@controleonline/ui-layout/src/styles/colors';
 import {resolveHomepagePalette} from '@controleonline/../../src/styles/homepagePalette';
 import createStyles from './CompanyFilter.styles';
 import resolveHomeAvatar from '@controleonline/../../src/components/resolveHomeAvatarUrl';

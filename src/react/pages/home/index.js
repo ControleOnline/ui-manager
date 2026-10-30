@@ -36,7 +36,7 @@ import {
   useWindowDimensions,
 } from 'react-native';
 import { Text } from 'react-native-animatable';
-import { resolveThemePalette } from '@controleonline/../../src/styles/branding';
+import { resolveThemePalette } from '@controleonline/ui-layout/src/styles/branding';
 import {resolveHomepagePalette} from '@controleonline/../../src/styles/homepagePalette';
 import LegacyIcon from 'react-native-vector-icons/Feather';
 import HomeIcon from '@controleonline/../../src/components/HomeIcon';
