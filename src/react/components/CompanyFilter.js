@@ -1,8 +1,8 @@
+import {isCompanySelectable} from '@controleonline/ui-people/src/react/utils/currentCompanySelection';
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { View, Text, TouchableOpacity, Modal, ScrollView, Animated } from 'react-native';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import LegacyIcon from 'react-native-vector-icons/Feather';
-import FAIcon from 'react-native-vector-icons/FontAwesome';
 import HomeIcon from '@controleonline/../../src/components/HomeIcon';
 import { useStore } from '@store';
 import {
@@ -23,161 +23,9 @@ import {resolveHomepagePalette} from '@controleonline/../../src/styles/homepageP
 import createStyles from './CompanyFilter.styles';
 import resolveHomeAvatar from '@controleonline/../../src/components/resolveHomeAvatarUrl';
 import HomeAvatar from '@controleonline/../../src/components/HomeAvatar';
-import {companyInitialsFromName} from '../utils/companyInitials';
+import CompanyIdentityAvatar from './CompanyIdentityAvatar';
 import { inlineStyle_275_20 } from './CompanyFilter.styles';
-const normalizeText = value => String(value || '').trim();
-/**
- * companies/my returns icon/logo as FileService shape:
- *   { id, domain, url: '/files/{id}/download', fileType, public }
- * Not a plain string. Resolve to a download URL UserAvatar can auth-fetch.
- * (Same auth constraint as app-community#796 Media preview.)
- */
-const resolveCompanyFileField = (field, company) => {
-  if (!field) {
-    return '';
-  }
-  if (typeof field === 'string') {
-    const direct = normalizeText(field);
-    if (!direct) {
-      return '';
-    }
-    return normalizeText(resolveFileImageUrl(direct, {company}) || direct);
-  }
-  if (typeof field === 'object') {
-    const fromHelper = normalizeText(resolveFileImageUrl(field, {company}));
-    if (fromHelper) {
-      return fromHelper;
-    }
-    const nestedUrl = normalizeText(field.url || field.uri || field.path);
-    if (nestedUrl) {
-      return normalizeText(resolveFileImageUrl(nestedUrl, {company}) || nestedUrl);
-    }
-  }
-  return '';
-};
-/**
- * Fallback order (app-community#805 / linked #796):
- * 1) companies/my icon object/url
- * 2) companies/my logo object/url
- * 3) peopleImage (media + direct fields; peopleType forced J)
- * 4) UserAvatar initials (alias/name) — never empty chip
- */
-const resolveCompanyIdentityImageUrl = company => {
-  if (!company || typeof company !== 'object') {
-    return '';
-  }
-  for (const key of ['icon', 'logo']) {
-    const url = resolveCompanyFileField(company[key], company);
-    if (url) {
-      return url;
-    }
-  }
-  return normalizeText(
-    resolvePeopleImageUrl(
-      {...company, peopleType: company.peopleType || 'J'},
-      resolveFileImageUrl,
-      {
-        usePeopleImage: true,
-        fileOptions: {company},
-      },
-    ),
-  );
-};
-/**
- * Chip: associated icon/logo → company initials.
- */
-const isCompanyEntity = company => {
-  const type = normalizeText(
-    company?.peopleType || company?.type || company?.personType || company?.people_type,
-  ).toUpperCase();
-  // companies/my items are always PJ; treat missing type as company.
-  if (!type) {
-    return true;
-  }
-  return type.startsWith('J');
-};
-
-const CompanyIdentityAvatar = ({
-  home = false,
-  company,
-  size = 28,
-  backgroundColor,
-  borderColor,
-  textColor,
-  style,
-}) => {
-  const imageUrl = useMemo(
-    () => resolveCompanyIdentityImageUrl(company),
-    [company],
-  );
-  const Avatar = home ? HomeAvatar : UserAvatar;
-  const name = useMemo(() => {
-    const fromPeople = resolvePeopleDisplayName(company);
-    if (fromPeople) {
-      return fromPeople;
-    }
-    return normalizeText(company?.alias || company?.name || company?.id || '');
-  }, [company]);
-  const initials = useMemo(() => companyInitialsFromName(name), [name]);
-  const isCompany = useMemo(() => isCompanyEntity(company), [company]);
-  const chipStyle = [
-    {
-      width: size,
-      height: size,
-      borderRadius: Math.max(4, Math.round(size / 5)),
-      backgroundColor,
-      borderColor,
-      borderWidth: 1,
-      alignItems: 'center',
-      justifyContent: 'center',
-      overflow: 'hidden',
-    },
-    style,
-  ];
-  // No usable image → initials, so company identity remains visible in every selector state.
-  if (!imageUrl) {
-    if (isCompany) {
-      return (
-        <View style={chipStyle}>
-          <FAIcon
-            name="building"
-            size={Math.max(Math.round(size * 0.42), 10)}
-            color={textColor}
-          />
-        </View>
-      );
-    }
-    return (
-      <View style={chipStyle}>
-        <Text
-          style={{
-            color: textColor,
-            fontSize: Math.max(Math.round(size * 0.38), 10),
-            fontWeight: '700',
-            letterSpacing: 0.3,
-            textAlign: 'center',
-          }}>
-          {initials}
-        </Text>
-      </View>
-    );
-  }
-  return (
-    <Avatar
-      imageUrl={imageUrl}
-      name={name || initials}
-      email=""
-      size={size}
-      backgroundColor={backgroundColor}
-      borderColor={borderColor}
-      borderWidth={1}
-      textColor={textColor}
-      useGravatar={false}
-      style={style}
-    />
-  );
-};
-const CompanyFilter = ({ navigation, mode, appearance = 'legacy', compact = false }) => {
+const CompanyFilter = ({ navigation, mode, appearance = 'legacy', compact = false, wrapLabel = false, onSelectCompany, disabled = false, align = 'end' }) => {
   const Icon = appearance === 'soft' ? HomeIcon : LegacyIcon;
   const insets = useSafeAreaInsets();
   const peopleStore = useStore('people');
@@ -315,11 +163,15 @@ const CompanyFilter = ({ navigation, mode, appearance = 'legacy', compact = fals
 
   const handleSelectCompany = useCallback(
     company => {
-      peopleActions.setCurrentCompany(company);
-      setSelectedCompany(company);
+      if (disabled || !isCompanySelectable(company)) return;
+      if (onSelectCompany) onSelectCompany(company);
+      else {
+        peopleActions.setCurrentCompany(company);
+        setSelectedCompany(company);
+      }
       closeModal();
     },
-    [peopleActions, closeModal],
+    [peopleActions, closeModal, onSelectCompany, disabled],
   );
 
   const renderCompanyItem = useCallback(
@@ -328,8 +180,11 @@ const CompanyFilter = ({ navigation, mode, appearance = 'legacy', compact = fals
       return (
         <TouchableOpacity
           key={company.id}
+          disabled={!isCompanySelectable(company)}
+          accessibilityState={{disabled: !isCompanySelectable(company)}}
           style={[
             styles.companyItem,
+            !isCompanySelectable(company) && {opacity: 0.45},
             isSelected && styles.companyItemSelected,
           ]}
           onPress={() => handleSelectCompany(company)}
@@ -425,7 +280,7 @@ const CompanyFilter = ({ navigation, mode, appearance = 'legacy', compact = fals
       <>
         {selectedCompany ? selectedCompanyAvatar : null}
         <Text
-          numberOfLines={1}
+          numberOfLines={wrapLabel ? undefined : 1}
           ellipsizeMode="tail"
           style={styles.iconCompanyName}>
           {headerCompanyLabel}
@@ -442,11 +297,12 @@ const CompanyFilter = ({ navigation, mode, appearance = 'legacy', compact = fals
     );
     return (
       <>
-        <View style={styles.iconHeaderWrap}>
+        <View style={[styles.iconHeaderWrap, align === 'start' && {justifyContent:'flex-start'}]}>
           {canSwitchCompany ? (
             <TouchableOpacity
+              disabled={disabled}
               onPress={openModal}
-              style={[styles.iconButton, styles.iconButtonExpanded]}
+              style={[styles.iconButton, styles.iconButtonExpanded, align === 'start' && {paddingHorizontal:0}, wrapLabel && {height: 'auto', minHeight: 36, paddingVertical: 8}]}
               activeOpacity={0.8}
               testID="company-selector-trigger">
               {triggerContent}
@@ -457,6 +313,8 @@ const CompanyFilter = ({ navigation, mode, appearance = 'legacy', compact = fals
                 styles.iconButton,
                 styles.iconButtonStatic,
                 styles.iconButtonExpanded,
+                align === 'start' && {paddingHorizontal:0},
+                wrapLabel && {height: 'auto', minHeight: 36, paddingVertical: 8},
               ]}>
               {triggerContent}
             </View>
@@ -471,12 +329,13 @@ const CompanyFilter = ({ navigation, mode, appearance = 'legacy', compact = fals
     <>
       <View style={styles.container}>
         <View style={styles.header}>
-          <View>
+          <View style={wrapLabel ? {flex: 1, minWidth: 0} : undefined}>
             <Text style={styles.greeting}>Olá, {firstName}</Text>
             {canSwitchCompany ? (
               <TouchableOpacity
                 style={styles.companyRow}
-                onPress={openModal}
+                disabled={disabled}
+              onPress={openModal}
                 activeOpacity={0.8}
                 testID="company-selector-trigger">
                 {selectedCompany ? selectedCompanyAvatar : null}
