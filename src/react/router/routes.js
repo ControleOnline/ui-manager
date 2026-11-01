@@ -49,6 +49,7 @@ import MenuCostsSuppliersPage from '@controleonline/ui-products/src/react/pages/
 import MenuCostsPurchasesPage from '@controleonline/ui-products/src/react/pages/MenuCostsPurchasesPage';
 import MenuAccessConfigPage from '@controleonline/ui-config/src/react/pages/MenuAccessConfigPage';
 import CronJobsPage from '@controleonline/ui-config/src/react/pages/CronJobsPage';
+import AiProvidersConfigPage from '@controleonline/ui-config/src/react/pages/AiProvidersConfigPage';
 import TenanciesPage from '@controleonline/ui-config/src/react/pages/TenanciesPage';
 import PeopleDomainsPage from '@controleonline/ui-people/src/react/pages/PeopleDomainsPage';
 import UsersPage from '@controleonline/ui-users/src/react/pages/UsersPage';
@@ -192,6 +193,18 @@ const managerRoutes = [
       headerShown: true,
       headerBackVisible: true,
       title: 'Jobs agendados',
+      showCompanyFilter: true,
+      companyFilterMode: 'icon',
+    },
+  },
+  {
+    name: 'AiProvidersConfigPage',
+    component: AiProvidersConfigPage,
+    path: 'ai-providers',
+    options: {
+      headerShown: true,
+      headerBackVisible: true,
+      title: 'Providers de IA',
       showCompanyFilter: true,
       companyFilterMode: 'icon',
     },
