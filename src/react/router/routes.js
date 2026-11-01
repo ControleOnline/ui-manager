@@ -50,6 +50,7 @@ import MenuCostsPurchasesPage from '@controleonline/ui-products/src/react/pages/
 import MenuAccessConfigPage from '@controleonline/ui-config/src/react/pages/MenuAccessConfigPage';
 import CronJobsPage from '@controleonline/ui-config/src/react/pages/CronJobsPage';
 import AiProvidersConfigPage from '@controleonline/ui-config/src/react/pages/AiProvidersConfigPage';
+import McpChatPage from '@controleonline/ui-config/src/react/pages/McpChatPage';
 import TenanciesPage from '@controleonline/ui-config/src/react/pages/TenanciesPage';
 import PeopleDomainsPage from '@controleonline/ui-people/src/react/pages/PeopleDomainsPage';
 import UsersPage from '@controleonline/ui-users/src/react/pages/UsersPage';
@@ -205,6 +206,18 @@ const managerRoutes = [
       headerShown: true,
       headerBackVisible: true,
       title: 'Providers de IA',
+      showCompanyFilter: true,
+      companyFilterMode: 'icon',
+    },
+  },
+  {
+    name: 'McpChatPage',
+    component: McpChatPage,
+    path: 'mcp',
+    options: {
+      headerShown: true,
+      headerBackVisible: true,
+      title: 'Chat MCP',
       showCompanyFilter: true,
       companyFilterMode: 'icon',
     },
