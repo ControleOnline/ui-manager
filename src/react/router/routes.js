@@ -38,6 +38,7 @@ import ConnectionsPage from '@controleonline/ui-common/src/react/pages/Connectio
 import FinancialHubPage from '@controleonline/ui-financial/src/react/pages/FinancialHubPage';
 import MarketplaceIntegrationPage from '@controleonline/ui-common/src/react/pages/MarketplaceIntegrationPage';
 import IntegrationConfigPage from '@controleonline/ui-common/src/react/pages/IntegrationConfigPage';
+import AiProviderConfigPage from '@controleonline/ui-common/src/react/pages/AiProviderConfigPage';
 import IntegrationsPage from '@controleonline/ui-common/src/react/pages/Integrations';
 import ManagerCategoriesPage from '@controleonline/ui-products/src/react/pages/ManagerCategoriesPage';
 import MenuCostsPage from '@controleonline/ui-products/src/react/pages/MenuCostsPage';
@@ -428,6 +429,17 @@ const managerRoutes = [
       headerShown: true,
       headerBackVisible: true,
       title: 'Etiquetas',
+      showCompanyFilter: true,
+      companyFilterMode: 'icon',
+    },
+  },
+  {
+    name: 'AiProviderConfigPage',
+    component: AiProviderConfigPage,
+    options: {
+      headerShown: true,
+      headerBackVisible: true,
+      title: 'IA',
       showCompanyFilter: true,
       companyFilterMode: 'icon',
     },
