@@ -1,13 +1,13 @@
 {
-  "version": "1.0.22",
+  "version": "1.0.24",
   "rc": 1,
-  "branch": "rc/1.0.22-rc.1",
-  "baseMaster": "3a0c787fd5a6347120f7586099731e4506430d0b",
+  "branch": "rc/1.0.24-rc.1",
+  "baseMaster": "32facb7f79c70c3f0fa78d831f74a4ae463c5838",
   "tasks": [
     1312
   ],
   "frozen": true,
   "repositories": {
-    "ControleOnline/ui-manager": "198fdbc488ce9d79e10dfa3661228dc36e4037d8"
+    "ControleOnline/ui-manager": "ea5fad26390509ce98cae5eb258a8eca2771fc74"
   }
 }
