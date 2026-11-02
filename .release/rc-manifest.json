@@ -1,17 +1,13 @@
 {
-  "version": "1.0.21",
+  "version": "1.0.22",
   "rc": 1,
-  "branch": "rc/1.0.21-rc.1",
-  "baseMaster": "4ccf18c436619b9e13c8cd68430ff72f7cd61444",
+  "branch": "rc/1.0.22-rc.1",
+  "baseMaster": "3a0c787fd5a6347120f7586099731e4506430d0b",
   "tasks": [
-    1079
+    1312
   ],
+  "frozen": true,
   "repositories": {
-    "ControleOnline/ui-manager": "8f8ef13dc9c6d16a6a187ed861f338f49c1b4f68"
-  },
-  "compositionNotes": [
-    "Base = conteudo do npm 1.0.20 (36ee8ed, task 1056). Unico delta: CompanyFilter importa components/resolveHomeAvatarUrl em vez de components/homeAvatar.",
-    "Inclui integration-source-gate.yml do master (governanca)."
-  ],
-  "frozen": true
+    "ControleOnline/ui-manager": "198fdbc488ce9d79e10dfa3661228dc36e4037d8"
+  }
 }
