@@ -158,4 +158,5 @@ const CompanyIdentityAvatar = ({
     />
   );
 };
+export {resolveCompanyIdentityImageUrl};
 export default CompanyIdentityAvatar;
