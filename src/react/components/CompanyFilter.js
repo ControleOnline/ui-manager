@@ -1,6 +1,8 @@
 import {isCompanySelectable} from '@controleonline/ui-people/src/react/utils/currentCompanySelection';
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
-import { View, Text, TouchableOpacity, Modal, ScrollView, Animated } from 'react-native';
+import { View, Text, TouchableOpacity, Modal, ScrollView, Animated,
+  Image,
+} from 'react-native';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import LegacyIcon from 'react-native-vector-icons/Feather';
 import HomeIcon from '@controleonline/../../src/components/HomeIcon';
@@ -23,7 +25,9 @@ import {resolveHomepagePalette} from '@controleonline/../../src/styles/homepageP
 import createStyles from './CompanyFilter.styles';
 import resolveHomeAvatar from '@controleonline/../../src/components/resolveHomeAvatarUrl';
 import HomeAvatar from '@controleonline/../../src/components/HomeAvatar';
-import CompanyIdentityAvatar from './CompanyIdentityAvatar';
+import CompanyIdentityAvatar, {
+  resolveCompanyIdentityImageUrl,
+} from './CompanyIdentityAvatar';
 import { inlineStyle_275_20 } from './CompanyFilter.styles';
 const CompanyFilter = ({ navigation, mode, appearance = 'legacy', compact = false, wrapLabel = false, onSelectCompany, disabled = false, align = 'end' }) => {
   const Icon = appearance === 'soft' ? HomeIcon : LegacyIcon;
@@ -272,7 +276,55 @@ const CompanyFilter = ({ navigation, mode, appearance = 'legacy', compact = fals
     />
   );
 
+  if (mode === 'logo') {
+    const logoLabel =
+      selectedCompany?.alias || selectedCompany?.name || headerCompanyLabel || '';
+    const logoSource = selectedCompany
+      ? resolveCompanyIdentityImageUrl(selectedCompany)
+      : '';
+    const logoTrigger = (
+      <View style={styles.logoTrigger} testID="company-selector-logo-trigger">
+        {logoSource ? (
+          <Image
+            source={{uri: logoSource}}
+            style={styles.logoTriggerImage}
+            resizeMode="contain"
+            accessibilityLabel={logoLabel || 'Empresa'}
+          />
+        ) : selectedCompany ? (
+          selectedCompanyAvatar
+        ) : null}
+        {!!logoLabel && (
+          <Text
+            numberOfLines={1}
+            ellipsizeMode="tail"
+            style={styles.logoTriggerName}>
+            {logoLabel}
+          </Text>
+        )}
+      </View>
+    );
+    return (
+      <>
+        {canSwitchCompany ? (
+          <TouchableOpacity
+            onPress={openModal}
+            activeOpacity={0.85}
+            accessibilityRole="button"
+            accessibilityLabel={logoLabel || 'Selecionar empresa'}
+            testID="company-selector-trigger">
+            {logoTrigger}
+          </TouchableOpacity>
+        ) : (
+          logoTrigger
+        )}
+        {canSwitchCompany && renderCompanyModal()}
+      </>
+    );
+  }
+
   if (mode === 'icon') {
+
     if (!canSwitchCompany && !headerCompanyLabel) {
       return null;
     }
