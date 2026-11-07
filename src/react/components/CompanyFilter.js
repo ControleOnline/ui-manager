@@ -279,9 +279,12 @@ const CompanyFilter = ({ navigation, mode, appearance = 'legacy', compact = fals
   if (mode === 'logo') {
     const logoLabel =
       selectedCompany?.alias || selectedCompany?.name || headerCompanyLabel || '';
-    const logoSource = selectedCompany
-      ? resolveCompanyIdentityImageUrl(selectedCompany)
-      : '';
+    // Prefer full brand logo; fall back to icon/identity avatar.
+    const brandUrl =
+      (selectedCompany && resolveCompanyFileField(selectedCompany.logo, selectedCompany)) ||
+      (selectedCompany && resolveCompanyFileField(selectedCompany.icon, selectedCompany)) ||
+      '';
+    const logoSource = brandUrl || (selectedCompany ? resolveCompanyIdentityImageUrl(selectedCompany) : '');
     const logoTrigger = (
       <View style={styles.logoTrigger} testID="company-selector-logo-trigger">
         {logoSource ? (
@@ -296,7 +299,7 @@ const CompanyFilter = ({ navigation, mode, appearance = 'legacy', compact = fals
         ) : null}
         {!!logoLabel && (
           <Text
-            numberOfLines={1}
+            numberOfLines={2}
             ellipsizeMode="tail"
             style={styles.logoTriggerName}>
             {logoLabel}
