@@ -1,5 +1,5 @@
 import { Platform, StyleSheet } from 'react-native';
-import { colors } from '@controleonline/../../src/styles/colors';
+import { colors } from '@controleonline/ui-layout/src/styles/colors';
 import softStyles from './soft.styles';
 
 const buildCardShadow = palette =>

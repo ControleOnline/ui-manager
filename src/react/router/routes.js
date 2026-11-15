@@ -445,6 +445,19 @@ const managerRoutes = [
     },
   },
   {
+    // Generic config screen used by the integrations catalog (Receita Federal, Sem Parar,
+    // Google Login, Cielo, New Relic, Spotify): providerKey comes in the route params.
+    name: 'IntegrationConfigPage',
+    component: IntegrationConfigPage,
+    options: {
+      headerShown: true,
+      headerBackVisible: true,
+      title: 'Integração',
+      showCompanyFilter: true,
+      companyFilterMode: 'icon',
+    },
+  },
+  {
     name: 'MarketplaceIntegrationPage',
     component: MarketplaceIntegrationPage,
     options: {
