@@ -279,24 +279,24 @@ const CompanyFilter = ({ navigation, mode, appearance = 'legacy', compact = fals
   if (mode === 'logo') {
     const logoLabel =
       selectedCompany?.alias || selectedCompany?.name || headerCompanyLabel || '';
-    const logoSource = selectedCompany
-      ? resolveCompanyIdentityImageUrl(selectedCompany)
+    // Header brand: only company.logo is allowed (no icon/avatar fallback).
+    const brandUrl = selectedCompany
+      ? resolveCompanyFileField(selectedCompany.logo, selectedCompany)
       : '';
+    const logoSource = brandUrl ? {uri: brandUrl} : null;
     const logoTrigger = (
       <View style={styles.logoTrigger} testID="company-selector-logo-trigger">
         {logoSource ? (
           <Image
-            source={{uri: logoSource}}
+            source={logoSource}
             style={styles.logoTriggerImage}
             resizeMode="contain"
             accessibilityLabel={logoLabel || 'Empresa'}
           />
-        ) : selectedCompany ? (
-          selectedCompanyAvatar
         ) : null}
         {!!logoLabel && (
           <Text
-            numberOfLines={1}
+            numberOfLines={2}
             ellipsizeMode="tail"
             style={styles.logoTriggerName}>
             {logoLabel}
