@@ -758,7 +758,7 @@ const managerRoutes = [
   {
     name: 'MenuCostsParametersPage',
     component: MenuCostsParametersPage,
-    path: 'menu-costs-page/parametros',
+    path: 'menu-costs-page/parameters',
     options: {
       headerShown: true,
       headerBackVisible: true,
@@ -773,7 +773,7 @@ const managerRoutes = [
   {
     name: 'MenuCostsIngredientsPage',
     component: MenuCostsIngredientsPage,
-    path: 'menu-costs-page/ingredientes',
+    path: 'menu-costs-page/ingredients',
     options: {
       headerShown: true,
       headerBackVisible: true,
@@ -788,7 +788,7 @@ const managerRoutes = [
   {
     name: 'MenuCostsPackagingPage',
     component: MenuCostsPackagingPage,
-    path: 'menu-costs-page/embalagens',
+    path: 'menu-costs-page/packaging',
     options: {
       headerShown: true,
       headerBackVisible: true,
@@ -803,7 +803,7 @@ const managerRoutes = [
   {
     name: 'MenuCostsResalePage',
     component: MenuCostsResalePage,
-    path: 'menu-costs-page/revenda',
+    path: 'menu-costs-page/resale',
     options: {
       headerShown: true,
       headerBackVisible: true,
@@ -818,7 +818,7 @@ const managerRoutes = [
   {
     name: 'MenuCostsSuppliersPage',
     component: MenuCostsSuppliersPage,
-    path: 'menu-costs-page/fornecedores',
+    path: 'menu-costs-page/suppliers',
     options: {
       headerShown: true,
       headerBackVisible: true,
@@ -833,7 +833,7 @@ const managerRoutes = [
   {
     name: 'MenuCostsPurchasesPage',
     component: MenuCostsPurchasesPage,
-    path: 'menu-costs-page/compras-e-evidencias',
+    path: 'menu-costs-page/purchases-and-evidence',
     options: {
       headerShown: true,
       headerBackVisible: true,
