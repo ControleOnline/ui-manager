@@ -1,17 +1,13 @@
 {
-  "version": "1.0.27",
+  "version": "1.0.29",
   "rc": 1,
-  "branch": "rc/1.0.27-rc.1",
-  "baseMaster": "e0be43fe2caaa51be44e78bef222800d3641fa3e",
+  "branch": "rc/1.0.29-rc.1",
+  "baseMaster": "0ebde42e96d767647cf12b7eca3aae8a2e76b658",
   "tasks": [
-    40
+    43
   ],
   "frozen": true,
   "repositories": {
-    "ControleOnline/ui-manager": "1d7f26a58b03c47faca0c66686a92107fe23e1ec"
-  },
-  "validation": {
-    "preserved": "Published v1.0.26 (tasks #1340, #1221, #1164, built from dev) merged so production keeps them; master adds AiProviderConfigPage (#1312).",
-    "fix": "IntegrationConfigPage route (#40)."
+    "ControleOnline/ui-manager": "2db8fb94ee4afce1ce44539800b8029b85e150a0"
   }
 }
