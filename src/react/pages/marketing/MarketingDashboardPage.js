@@ -15,6 +15,7 @@ import KpiRow from './components/KpiRow';
 import CampaignsTable from './components/CampaignsTable';
 import Ga4TrafficTable from './components/Ga4TrafficTable';
 import AdsenseTable from './components/AdsenseTable';
+import GscTable from './components/GscTable';
 
 const DEFAULT_RANGE = () => {
   const end = new Date();
@@ -36,6 +37,7 @@ export default function MarketingDashboardPage() {
     adsReport: null,
     adsCampaigns: [],
     adsense: null,
+    gsc: null,
   });
 
   const companyId = store?.state?.people?.mainCompany?.id;
@@ -48,11 +50,12 @@ export default function MarketingDashboardPage() {
     setState(s => ({...s, loading: true, error: null}));
     try {
       const params = {people: '/people/' + companyId, ...range};
-      const [ga4, adsReport, adsCampaignsResp, adsense] = await Promise.all([
+      const [ga4, adsReport, adsCampaignsResp, adsense, gsc] = await Promise.all([
         safeFetch(`/marketing/ga4/report`, params),
         safeFetch(`/marketing/ads/report`, params),
         safeFetch(`/marketing/ads/campaigns`, {people: '/people/' + companyId}),
         safeFetch(`/marketing/adsense/report`, params),
+        safeFetch(`/marketing/search-console/report`, {...params, dimensions: 'query'}),
       ]);
       setState({
         loading: false,
@@ -61,9 +64,10 @@ export default function MarketingDashboardPage() {
         adsReport,
         adsCampaigns: Array.isArray(adsCampaignsResp?.campaigns) ? adsCampaignsResp.campaigns : [],
         adsense,
+        gsc,
       });
     } catch (err) {
-      setState({loading: false, error: String(err?.message || err), ga4: null, adsReport: null, adsCampaigns: [], adsense: null});
+      setState({loading: false, error: String(err?.message || err), ga4: null, adsReport: null, adsCampaigns: [], adsense: null, gsc: null});
     }
   }, [companyId, range]);
 
@@ -111,6 +115,11 @@ export default function MarketingDashboardPage() {
         {global.t?.t('marketing', 'dashboard', 'adsenseEarnings', 'Receita AdSense')}
       </Text>
       <AdsenseTable rows={state.adsense?.rows || []} headers={state.adsense?.headers || {}} palette={palette} />
+
+      <Text style={styles.sectionTitle}>
+        {global.t?.t('marketing', 'dashboard', 'gscQueries', 'Buscas orgânicas (Search Console)')}
+      </Text>
+      <GscTable rows={state.gsc?.rows || []} palette={palette} />
     </ScrollView>
   );
 }
