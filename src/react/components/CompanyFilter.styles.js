@@ -64,10 +64,11 @@ const createStyles = (palette = {}, appearance = 'legacy', home = {}, compact = 
   },
 
   logoTrigger: {
+    flexDirection: 'column',
     alignItems: 'center',
     justifyContent: 'center',
     minWidth: 120,
-    maxWidth: 220,
+    maxWidth: 260,
     paddingVertical: 2,
     paddingHorizontal: 8,
   },
@@ -78,11 +79,11 @@ const createStyles = (palette = {}, appearance = 'legacy', home = {}, compact = 
   logoTriggerName: {
     color: palette.headerText,
     fontSize: 11,
-    fontWeight: '500',
+    lineHeight: 14,
+    fontWeight: '600',
     marginTop: 2,
-    opacity: 0.72,
     textAlign: 'center',
-    maxWidth: 200,
+    maxWidth: 240,
   },
 
   header: {
